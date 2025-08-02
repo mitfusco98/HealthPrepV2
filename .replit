@@ -7,3 +7,15 @@ packages = ["openssl", "postgresql"]
 [deployment]
 deploymentTarget = "autoscale"
 run = ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
+
+[workflows]
+runButton = "Flask Dev Server"
+
+[[workflows.workflow]]
+name = "Flask Dev Server"
+author = 42133482
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py"

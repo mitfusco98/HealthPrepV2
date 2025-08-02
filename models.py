@@ -1,190 +1,178 @@
-from datetime import datetime, timedelta
+from datetime import datetime, date
+from typing import List, Optional
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import Column, Integer, String, Text, DateTime, Date, Boolean, Float, ForeignKey, JSON
+from sqlalchemy.orm import relationship, declarative_base
 from app import db
-import json
 
 class User(UserMixin, db.Model):
-    """User model for authentication and authorization"""
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(64), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(256))
-    is_admin = db.Column(db.Boolean, default=False)
-    is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    last_login = db.Column(db.DateTime)
-    
+    __tablename__ = 'users'
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String(80), unique=True, nullable=False)
+    email = Column(String(120), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    is_admin = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_login = Column(DateTime)
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
-    
+
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
-    
-    def __repr__(self):
-        return f'<User {self.username}>'
 
 class Patient(db.Model):
-    """Patient demographic and clinical information"""
-    id = db.Column(db.Integer, primary_key=True)
-    mrn = db.Column(db.String(20), unique=True, nullable=False)
-    first_name = db.Column(db.String(50), nullable=False)
-    last_name = db.Column(db.String(50), nullable=False)
-    date_of_birth = db.Column(db.Date, nullable=False)
-    gender = db.Column(db.String(10), nullable=False)
-    phone = db.Column(db.String(20))
-    email = db.Column(db.String(120))
-    address = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+    __tablename__ = 'patients'
+
+    id = Column(Integer, primary_key=True)
+    mrn = Column(String(50), unique=True, nullable=False)
+    first_name = Column(String(100), nullable=False)
+    last_name = Column(String(100), nullable=False)
+    date_of_birth = Column(Date)
+    gender = Column(String(10))
+    phone = Column(String(20))
+    email = Column(String(120))
+    address = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
     # Relationships
-    screenings = db.relationship('Screening', backref='patient', lazy='dynamic')
-    documents = db.relationship('MedicalDocument', backref='patient', lazy='dynamic')
-    appointments = db.relationship('Appointment', backref='patient', lazy='dynamic')
-    conditions = db.relationship('Condition', backref='patient', lazy='dynamic')
-    
+    conditions = relationship('Condition', back_populates='patient', lazy='dynamic')
+    documents = relationship('MedicalDocument', back_populates='patient', lazy='dynamic')
+    screenings = relationship('Screening', back_populates='patient', lazy='dynamic')
+
     @property
     def full_name(self):
         return f"{self.first_name} {self.last_name}"
-    
+
     @property
     def age(self):
-        today = datetime.utcnow().date()
-        return today.year - self.date_of_birth.year - ((today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day))
-    
-    def __repr__(self):
-        return f'<Patient {self.mrn}: {self.full_name}>'
+        if self.date_of_birth:
+            today = date.today()
+            return today.year - self.date_of_birth.year - ((today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day))
+        return None
 
 class ScreeningType(db.Model):
-    """Screening type definitions with eligibility criteria"""
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text)
-    keywords = db.Column(db.Text)  # JSON array of keywords
-    gender_criteria = db.Column(db.String(20))  # 'M', 'F', 'Both'
-    min_age = db.Column(db.Integer)
-    max_age = db.Column(db.Integer)
-    frequency_number = db.Column(db.Integer, default=1)
-    frequency_unit = db.Column(db.String(10), default='years')  # 'years', 'months', 'days'
-    trigger_conditions = db.Column(db.Text)  # JSON array of condition names
-    is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+    __tablename__ = 'screening_types'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    keywords = Column(Text)  # JSON string of keywords
+    frequency_number = Column(Integer, default=1)
+    frequency_unit = Column(String(20), default='years')
+    min_age = Column(Integer)
+    max_age = Column(Integer)
+    gender_criteria = Column(String(10))  # 'Male', 'Female', 'Both'
+    trigger_conditions = Column(Text)  # JSON string of conditions
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
     # Relationships
-    screenings = db.relationship('Screening', backref='screening_type', lazy='dynamic')
-    
+    screenings = relationship('Screening', back_populates='screening_type')
+
     @property
     def keywords_list(self):
         if self.keywords:
             try:
+                import json
                 return json.loads(self.keywords)
-            except json.JSONDecodeError:
-                return []
+            except:
+                return self.keywords.split(',') if self.keywords else []
         return []
-    
-    @keywords_list.setter
-    def keywords_list(self, value):
-        self.keywords = json.dumps(value) if value else None
-    
+
     @property
     def trigger_conditions_list(self):
         if self.trigger_conditions:
             try:
+                import json
                 return json.loads(self.trigger_conditions)
-            except json.JSONDecodeError:
-                return []
+            except:
+                return self.trigger_conditions.split(',') if self.trigger_conditions else []
         return []
-    
-    @trigger_conditions_list.setter
-    def trigger_conditions_list(self, value):
-        self.trigger_conditions = json.dumps(value) if value else None
-    
-    def __repr__(self):
-        return f'<ScreeningType {self.name}>'
 
 class Screening(db.Model):
-    """Individual screening instances for patients"""
-    id = db.Column(db.Integer, primary_key=True)
-    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
-    screening_type_id = db.Column(db.Integer, db.ForeignKey('screening_type.id'), nullable=False)
-    status = db.Column(db.String(20), default='Due')  # 'Complete', 'Due', 'Due Soon'
-    last_completed_date = db.Column(db.Date)
-    next_due_date = db.Column(db.Date)
-    matched_documents = db.Column(db.Text)  # JSON array of document IDs
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+    __tablename__ = 'screenings'
+
+    id = Column(Integer, primary_key=True)
+    patient_id = Column(Integer, ForeignKey('patients.id'), nullable=False)
+    screening_type_id = Column(Integer, ForeignKey('screening_types.id'), nullable=False)
+    status = Column(String(20), default='Due')  # 'Due', 'Complete', 'Due Soon'
+    last_completed_date = Column(Date)
+    next_due_date = Column(Date)
+    matched_documents = Column(Text)  # JSON string of document IDs
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    patient = relationship('Patient', back_populates='screenings')
+    screening_type = relationship('ScreeningType', back_populates='screenings')
+
     @property
     def matched_documents_list(self):
         if self.matched_documents:
             try:
+                import json
                 return json.loads(self.matched_documents)
-            except json.JSONDecodeError:
+            except:
                 return []
         return []
-    
+
     @matched_documents_list.setter
     def matched_documents_list(self, value):
+        import json
         self.matched_documents = json.dumps(value) if value else None
-    
-    def __repr__(self):
-        return f'<Screening {self.patient.mrn}: {self.screening_type.name}>'
 
 class MedicalDocument(db.Model):
-    """Medical documents with OCR processing and categorization"""
-    id = db.Column(db.Integer, primary_key=True)
-    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
-    filename = db.Column(db.String(255), nullable=False)
-    document_type = db.Column(db.String(50))  # 'lab', 'imaging', 'consult', 'hospital'
-    document_date = db.Column(db.Date)
-    upload_date = db.Column(db.DateTime, default=datetime.utcnow)
-    file_path = db.Column(db.String(500))
-    
-    # OCR fields
-    ocr_text = db.Column(db.Text)
-    ocr_confidence = db.Column(db.Float, default=0.0)
-    ocr_processed = db.Column(db.Boolean, default=False)
-    ocr_processed_at = db.Column(db.DateTime)
-    
-    # PHI filtering
-    original_text = db.Column(db.Text)  # Before PHI filtering
-    phi_filtered = db.Column(db.Boolean, default=False)
-    phi_patterns_found = db.Column(db.Text)  # JSON array of found patterns
-    
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    @property
-    def phi_patterns_list(self):
-        if self.phi_patterns_found:
-            try:
-                return json.loads(self.phi_patterns_found)
-            except json.JSONDecodeError:
-                return []
-        return []
-    
-    @phi_patterns_list.setter
-    def phi_patterns_list(self, value):
-        self.phi_patterns_found = json.dumps(value) if value else None
-    
-    def __repr__(self):
-        return f'<MedicalDocument {self.filename}>'
+    __tablename__ = 'medical_documents'
+
+    id = Column(Integer, primary_key=True)
+    patient_id = Column(Integer, ForeignKey('patients.id'), nullable=False)
+    filename = Column(String(255), nullable=False)
+    document_type = Column(String(50))  # 'lab', 'consult', 'imaging', etc.
+    document_date = Column(Date)
+    content = Column(Text)  # OCR extracted text
+    confidence = Column(Float, default=0.0)
+    needs_review = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    patient = relationship('Patient', back_populates='documents')
 
 class Condition(db.Model):
-    """Patient medical conditions"""
-    id = db.Column(db.Integer, primary_key=True)
-    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
-    condition_name = db.Column(db.String(200), nullable=False)
-    icd10_code = db.Column(db.String(10))
-    onset_date = db.Column(db.Date)
-    status = db.Column(db.String(20), default='active')  # 'active', 'resolved', 'inactive'
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    def __repr__(self):
-        return f'<Condition {self.condition_name}>'
+    __tablename__ = 'conditions'
+
+    id = Column(Integer, primary_key=True)
+    patient_id = Column(Integer, ForeignKey('patients.id'), nullable=False)
+    condition_name = Column(String(200), nullable=False)
+    icd_code = Column(String(20))
+    diagnosis_date = Column(Date)
+    status = Column(String(20), default='active')  # 'active', 'resolved', 'inactive'
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    patient = relationship('Patient', back_populates='conditions')
+
+class AuditLog(db.Model):
+    __tablename__ = 'audit_logs'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    action = Column(String(100), nullable=False)
+    entity_type = Column(String(50))
+    entity_id = Column(Integer)
+    details = Column(Text)  # JSON string
+    ip_address = Column(String(45))
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    user = relationship('User')
 
 class Appointment(db.Model):
     """Patient appointments"""

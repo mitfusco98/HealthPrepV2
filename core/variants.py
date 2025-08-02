@@ -208,3 +208,172 @@ class VariantHandler:
         keywords = self._get_variant_detection_keywords(variant_key)
         matches = sum(1 for kw in keywords if kw in screening_name)
         return matches / len(keywords) if keywords else 0.0
+"""
+Screening variant handling
+Manages different screening variants based on patient conditions
+"""
+
+import logging
+from typing import List, Dict, Any, Optional
+from datetime import datetime, timedelta, date
+from dateutil.relativedelta import relativedelta
+
+logger = logging.getLogger(__name__)
+
+class VariantHandler:
+    """Handles screening variant logic and frequency modifications"""
+    
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+    
+    def get_variant_frequency(self, base_frequency_number: int, base_frequency_unit: str,
+                            variant_type: str, trigger_condition: str = None) -> Dict[str, Any]:
+        """
+        Get modified frequency for a screening variant
+        """
+        if variant_type == 'base':
+            return {
+                'frequency_number': base_frequency_number,
+                'frequency_unit': base_frequency_unit
+            }
+        
+        if variant_type == 'trigger' and trigger_condition:
+            return self._get_trigger_frequency(trigger_condition, base_frequency_number, base_frequency_unit)
+        
+        # Default to base frequency
+        return {
+            'frequency_number': base_frequency_number,
+            'frequency_unit': base_frequency_unit
+        }
+    
+    def _get_trigger_frequency(self, trigger_condition: str, base_frequency_number: int, 
+                              base_frequency_unit: str) -> Dict[str, Any]:
+        """Get frequency modification for trigger conditions"""
+        
+        trigger_lower = trigger_condition.lower()
+        
+        # Diabetes modifications
+        if 'diabetes' in trigger_lower:
+            if base_frequency_unit == 'years':
+                return {'frequency_number': 6, 'frequency_unit': 'months'}
+            elif base_frequency_unit == 'months' and base_frequency_number > 6:
+                return {'frequency_number': 6, 'frequency_unit': 'months'}
+        
+        # Hypertension modifications
+        if 'hypertension' in trigger_lower or 'high blood pressure' in trigger_lower:
+            if base_frequency_unit == 'years':
+                return {'frequency_number': 6, 'frequency_unit': 'months'}
+            elif base_frequency_unit == 'months' and base_frequency_number > 3:
+                return {'frequency_number': 3, 'frequency_unit': 'months'}
+        
+        # Hyperlipidemia modifications
+        if 'hyperlipidemia' in trigger_lower or 'cholesterol' in trigger_lower:
+            if base_frequency_unit == 'years':
+                return {'frequency_number': 6, 'frequency_unit': 'months'}
+        
+        # Default to base frequency if no specific modification
+        return {
+            'frequency_number': base_frequency_number,
+            'frequency_unit': base_frequency_unit
+        }
+    
+    def apply_variant_rules(self, screening_type, patient_conditions: List[str]) -> List[Dict[str, Any]]:
+        """
+        Apply variant rules to determine all applicable screening variants
+        """
+        variants = []
+        
+        # Always include base variant
+        base_variant = {
+            'type': 'base',
+            'frequency_number': screening_type.frequency_number,
+            'frequency_unit': screening_type.frequency_unit,
+            'trigger_condition': None,
+            'priority': 0
+        }
+        variants.append(base_variant)
+        
+        # Check for trigger condition variants
+        if screening_type.trigger_conditions_list:
+            for trigger_condition in screening_type.trigger_conditions_list:
+                if self._has_matching_condition(patient_conditions, trigger_condition):
+                    frequency_mod = self._get_trigger_frequency(
+                        trigger_condition, 
+                        screening_type.frequency_number,
+                        screening_type.frequency_unit
+                    )
+                    
+                    trigger_variant = {
+                        'type': 'trigger',
+                        'frequency_number': frequency_mod['frequency_number'],
+                        'frequency_unit': frequency_mod['frequency_unit'],
+                        'trigger_condition': trigger_condition,
+                        'priority': 1  # Higher priority than base
+                    }
+                    variants.append(trigger_variant)
+        
+        # Sort by priority (higher priority first)
+        variants.sort(key=lambda x: x['priority'], reverse=True)
+        
+        return variants
+    
+    def _has_matching_condition(self, patient_conditions: List[str], trigger_condition: str) -> bool:
+        """Check if patient has matching condition for trigger"""
+        trigger_lower = trigger_condition.lower()
+        
+        for condition in patient_conditions:
+            condition_lower = condition.lower()
+            
+            # Direct match
+            if trigger_lower in condition_lower or condition_lower in trigger_lower:
+                return True
+            
+            # Condition-specific matching
+            if self._condition_matches(condition_lower, trigger_lower):
+                return True
+        
+        return False
+    
+    def _condition_matches(self, patient_condition: str, trigger_condition: str) -> bool:
+        """Enhanced condition matching with medical terminology"""
+        
+        # Diabetes variations
+        if 'diabetes' in trigger_condition:
+            diabetes_terms = ['diabetes', 'diabetic', 'dm', 'diabetes mellitus', 'type 1', 'type 2']
+            return any(term in patient_condition for term in diabetes_terms)
+        
+        # Hypertension variations
+        if 'hypertension' in trigger_condition:
+            htn_terms = ['hypertension', 'high blood pressure', 'htn', 'elevated bp', 'bp']
+            return any(term in patient_condition for term in htn_terms)
+        
+        # Hyperlipidemia variations
+        if 'hyperlipidemia' in trigger_condition or 'cholesterol' in trigger_condition:
+            cholesterol_terms = ['hyperlipidemia', 'high cholesterol', 'dyslipidemia', 'elevated cholesterol', 'lipid']
+            return any(term in patient_condition for term in cholesterol_terms)
+        
+        return False
+    
+    def get_most_urgent_variant(self, variants: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Get the most urgent variant (shortest frequency interval)
+        """
+        if not variants:
+            return None
+        
+        def frequency_to_days(freq_num: int, freq_unit: str) -> int:
+            """Convert frequency to days for comparison"""
+            if freq_unit.lower().startswith('day'):
+                return freq_num
+            elif freq_unit.lower().startswith('week'):
+                return freq_num * 7
+            elif freq_unit.lower().startswith('month'):
+                return freq_num * 30
+            elif freq_unit.lower().startswith('year'):
+                return freq_num * 365
+            return freq_num * 365
+        
+        # Sort by frequency in days (shortest first)
+        sorted_variants = sorted(variants, key=lambda v: frequency_to_days(v['frequency_number'], v['frequency_unit']))
+        
+        return sorted_variants[0]
