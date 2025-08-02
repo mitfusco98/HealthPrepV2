@@ -1,0 +1,384 @@
+<div class="tab-pane fade {{ 'show active' if current_tab == 'types' else '' }}">
+    <!-- Screening Types Management Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4>
+                <i class="fas fa-cog me-2 text-info"></i>
+                Screening Types Management
+            </h4>
+            <p class="text-muted mb-0">
+                Configure screening protocols, eligibility criteria, and keywords
+            </p>
+        </div>
+        
+        <div class="action-buttons d-flex">
+            <button type="button" 
+                    class="btn btn-success" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#addScreeningTypeModal">
+                <i class="fas fa-plus me-2"></i>
+                Add Screening Type
+            </button>
+        </div>
+    </div>
+    
+    <!-- Screening Types Table -->
+    {% if screening_types %}
+        <div class="table-responsive">
+            <table class="table table-hover screening-table">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Name & Description</th>
+                        <th>Eligibility</th>
+                        <th>Frequency</th>
+                        <th>Keywords</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for screening_type in screening_types %}
+                        <tr class="screening-row {{ 'opacity-50' if not screening_type.is_active else '' }}">
+                            <td>
+                                <div>
+                                    <strong class="d-block">{{ screening_type.name }}</strong>
+                                    {% if screening_type.description %}
+                                        <small class="text-muted">{{ screening_type.description }}</small>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="small">
+                                    {% if screening_type.eligibility_criteria %}
+                                        {% set criteria = screening_type.eligibility_criteria %}
+                                        {% if criteria.get('gender') %}
+                                            <span class="badge bg-info me-1">{{ criteria.gender.title() }}</span>
+                                        {% endif %}
+                                        {% if criteria.get('min_age') or criteria.get('max_age') %}
+                                            <span class="badge bg-warning text-dark">
+                                                Age: {{ criteria.get('min_age', '0') }}-{{ criteria.get('max_age', '∞') }}
+                                            </span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">No restrictions</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-primary">
+                                    Every {{ screening_type.frequency_number }} {{ screening_type.frequency_unit }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="keywords-badges-container" id="keywords-display-{{ screening_type.id }}">
+                                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <form method="POST" action="{{ url_for('ui.screening_types_route') }}" style="display: inline;">
+                                    <input type="hidden" name="action" value="toggle_status">
+                                    <input type="hidden" name="screening_type_id" value="{{ screening_type.id }}">
+                                    <button type="submit" 
+                                            class="btn btn-sm {{ 'btn-success' if screening_type.is_active else 'btn-outline-secondary' }}"
+                                            data-bs-toggle="tooltip" 
+                                            title="{{ 'Deactivate' if screening_type.is_active else 'Activate' }}">
+                                        {% if screening_type.is_active %}
+                                            <i class="fas fa-toggle-on"></i>
+                                            Active
+                                        {% else %}
+                                            <i class="fas fa-toggle-off"></i>
+                                            Inactive
+                                        {% endif %}
+                                    </button>
+                                </form>
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-primary"
+                                            onclick="editScreeningType({{ screening_type.id }})"
+                                            data-bs-toggle="tooltip" 
+                                            title="Edit screening type">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-danger"
+                                            onclick="deleteScreeningType({{ screening_type.id }}, '{{ screening_type.name }}')"
+                                            data-bs-toggle="tooltip" 
+                                            title="Delete screening type">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-cog fa-3x text-muted mb-3"></i>
+            <h5>No screening types configured</h5>
+            <p class="text-muted">
+                Create your first screening type to begin managing patient screenings.
+            </p>
+            <button type="button" 
+                    class="btn btn-primary" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#addScreeningTypeModal">
+                <i class="fas fa-plus me-2"></i>
+                Add Screening Type
+            </button>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Add Screening Type Modal -->
+<div class="modal fade" id="addScreeningTypeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus me-2"></i>
+                    Add Screening Type
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            
+            <form method="POST" action="{{ url_for('ui.screening_types_route') }}">
+                <input type="hidden" name="action" value="create">
+                
+                <div class="modal-body">
+                    <div class="row">
+                        <!-- Basic Information -->
+                        <div class="col-12 mb-3">
+                            <h6 class="text-primary">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Basic Information
+                            </h6>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="add_name" class="form-label">Screening Name *</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="add_name" 
+                                   name="name" 
+                                   required 
+                                   placeholder="e.g., Mammogram">
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="add_description" class="form-label">Description</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="add_description" 
+                                   name="description" 
+                                   placeholder="Brief description of the screening">
+                        </div>
+                        
+                        <!-- Keywords -->
+                        <div class="col-12 mb-3">
+                            <label for="add_keywords" class="form-label">
+                                Keywords *
+                                <i class="fas fa-question-circle" 
+                                   data-bs-toggle="tooltip" 
+                                   title="Keywords used to match documents (comma-separated)"></i>
+                            </label>
+                            <textarea class="form-control" 
+                                      id="add_keywords" 
+                                      name="keywords" 
+                                      rows="2" 
+                                      required 
+                                      placeholder="mammogram, mammography, breast imaging, breast xray"></textarea>
+                            <div class="form-text">Separate keywords with commas</div>
+                        </div>
+                        
+                        <!-- Eligibility Criteria -->
+                        <div class="col-12 mb-3">
+                            <h6 class="text-primary">
+                                <i class="fas fa-users me-2"></i>
+                                Eligibility Criteria
+                            </h6>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label for="add_gender" class="form-label">Gender</label>
+                            <select class="form-select" id="add_gender" name="gender">
+                                <option value="any">Any</option>
+                                <option value="female">Female</option>
+                                <option value="male">Male</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label for="add_min_age" class="form-label">Minimum Age</label>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="add_min_age" 
+                                   name="min_age" 
+                                   min="0" 
+                                   max="120" 
+                                   placeholder="e.g., 40">
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label for="add_max_age" class="form-label">Maximum Age</label>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="add_max_age" 
+                                   name="max_age" 
+                                   min="0" 
+                                   max="120" 
+                                   placeholder="e.g., 75">
+                        </div>
+                        
+                        <!-- Frequency -->
+                        <div class="col-12 mb-3">
+                            <h6 class="text-primary">
+                                <i class="fas fa-clock me-2"></i>
+                                Frequency
+                            </h6>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="add_frequency_number" class="form-label">Every *</label>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="add_frequency_number" 
+                                   name="frequency_number" 
+                                   min="1" 
+                                   value="1" 
+                                   required>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="add_frequency_unit" class="form-label">Unit *</label>
+                            <select class="form-select" id="add_frequency_unit" name="frequency_unit" required>
+                                <option value="years">Years</option>
+                                <option value="months">Months</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Trigger Conditions -->
+                        <div class="col-12 mb-3">
+                            <label for="add_trigger_conditions" class="form-label">
+                                Trigger Conditions
+                                <i class="fas fa-question-circle" 
+                                   data-bs-toggle="tooltip" 
+                                   title="Conditions that trigger different screening protocols"></i>
+                            </label>
+                            <textarea class="form-control" 
+                                      id="add_trigger_conditions" 
+                                      name="trigger_conditions" 
+                                      rows="2" 
+                                      placeholder="diabetes, prediabetes, family history"></textarea>
+                            <div class="form-text">Separate conditions with commas (optional)</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-2"></i>
+                        Create Screening Type
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Screening Type Modal -->
+<div class="modal fade" id="editScreeningTypeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit me-2"></i>
+                    Edit Screening Type
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            
+            <form method="POST" action="{{ url_for('ui.screening_types_route') }}">
+                <input type="hidden" name="action" value="update">
+                <input type="hidden" name="screening_type_id" id="edit_screening_type_id">
+                
+                <div class="modal-body">
+                    <!-- Form fields will be populated by JavaScript -->
+                    <div id="editFormContent">
+                        <!-- Content will be loaded here -->
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>
+                        Update Screening Type
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Edit screening type function
+function editScreeningType(screeningTypeId) {
+    // This would typically fetch the screening type data via AJAX
+    // For now, we'll show the modal with a loading state
+    const modal = new bootstrap.Modal(document.getElementById('editScreeningTypeModal'));
+    
+    // Set the screening type ID
+    document.getElementById('edit_screening_type_id').value = screeningTypeId;
+    
+    // Show loading content
+    document.getElementById('editFormContent').innerHTML = `
+        <div class="text-center p-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading screening type data...</p>
+        </div>
+    `;
+    
+    modal.show();
+    
+    // Note: In a full implementation, you would fetch the data via AJAX here
+    // and populate the form fields
+}
+
+// Delete screening type function
+function deleteScreeningType(screeningTypeId, screeningTypeName) {
+    if (confirm(`Are you sure you want to delete the screening type "${screeningTypeName}"?\n\nThis action cannot be undone.`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ url_for("ui.screening_types_route") }}';
+        
+        const actionInput = document.createElement('input');
+        actionInput.type = 'hidden';
+        actionInput.name = 'action';
+        actionInput.value = 'delete';
+        
+        const idInput = document.createElement('input');
+        idInput.type = 'hidden';
+        idInput.name = 'screening_type_id';
+        idInput.value = screeningTypeId;
+        
+        form.appendChild(actionInput);
+        form.appendChild(idInput);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>

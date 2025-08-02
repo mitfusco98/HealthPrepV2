@@ -1,0 +1,683 @@
+{% extends 'base_demo.html' %}
+
+{% block title %}HealthPrep - Checklist Settings{% endblock %}
+
+{% block extra_css %}
+<style>
+.settings-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.settings-card {
+    background-color: var(--bs-dark);
+    border: 1px solid var(--bs-gray-600);
+    border-radius: 0.5rem;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.settings-section {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--bs-gray-700);
+}
+
+.settings-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.section-title {
+    color: var(--bs-info);
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+}
+
+.section-icon {
+    margin-right: 0.5rem;
+}
+
+.setting-item {
+    margin-bottom: 1.5rem;
+}
+
+.setting-label {
+    font-weight: 500;
+    color: var(--bs-light);
+    margin-bottom: 0.5rem;
+}
+
+.setting-description {
+    font-size: 0.9rem;
+    color: var(--bs-gray-400);
+    margin-bottom: 0.75rem;
+}
+
+.input-group-text {
+    background-color: var(--bs-gray-700);
+    border-color: var(--bs-gray-600);
+    color: var(--bs-gray-300);
+}
+
+.form-control {
+    background-color: var(--bs-gray-800);
+    border-color: var(--bs-gray-600);
+    color: var(--bs-light);
+}
+
+.form-control:focus {
+    background-color: var(--bs-gray-700);
+    border-color: var(--bs-info);
+    box-shadow: 0 0 0 0.2rem rgba(13, 202, 240, 0.25);
+    color: var(--bs-light);
+}
+
+.form-select {
+    background-color: var(--bs-gray-800);
+    border-color: var(--bs-gray-600);
+    color: var(--bs-light);
+}
+
+.form-select:focus {
+    background-color: var(--bs-gray-700);
+    border-color: var(--bs-info);
+    box-shadow: 0 0 0 0.2rem rgba(13, 202, 240, 0.25);
+    color: var(--bs-light);
+}
+
+.preset-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+}
+
+.preset-btn {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+}
+
+.current-settings-display {
+    background-color: var(--bs-gray-800);
+    border: 1px solid var(--bs-gray-600);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.settings-preview {
+    background-color: var(--bs-gray-800);
+    border: 1px solid var(--bs-gray-600);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.preview-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--bs-gray-700);
+}
+
+.preview-item:last-child {
+    border-bottom: none;
+}
+
+.preview-label {
+    color: var(--bs-gray-300);
+    font-weight: 500;
+}
+
+.preview-value {
+    color: var(--bs-info);
+    font-weight: 600;
+}
+
+.impact-warning {
+    background-color: rgba(255, 193, 7, 0.1);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.save-section {
+    background-color: var(--bs-gray-800);
+    border: 1px solid var(--bs-gray-600);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.form-range {
+    background-color: var(--bs-gray-700);
+}
+
+.form-range::-webkit-slider-thumb {
+    background-color: var(--bs-info);
+}
+
+.form-range::-moz-range-thumb {
+    background-color: var(--bs-info);
+    border: none;
+}
+
+.range-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--bs-gray-400);
+    margin-top: 0.25rem;
+}
+
+.validation-feedback {
+    display: none;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.validation-feedback.show {
+    display: block;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="settings-container">
+    <!-- Page Header -->
+    <div class="text-center mb-4">
+        <h2 class="mb-1">
+            <i class="fas fa-clipboard-list me-2 text-info"></i>
+            Checklist Settings
+        </h2>
+        <p class="text-muted mb-0">Configure data cutoff periods for prep sheet generation</p>
+    </div>
+
+    <!-- Current Settings Display -->
+    <div class="current-settings-display">
+        <h6 class="text-warning mb-3">
+            <i class="fas fa-info-circle me-2"></i>
+            Current Settings Summary
+        </h6>
+        <div class="row">
+            <div class="col-md-3 text-center">
+                <div class="h5 text-info">{{ settings.lab_cutoff_months }} months</div>
+                <div class="text-muted">Lab Results</div>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="h5 text-info">{{ settings.imaging_cutoff_months }} months</div>
+                <div class="text-muted">Imaging Studies</div>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="h5 text-info">{{ settings.consult_cutoff_months }} months</div>
+                <div class="text-muted">Consultations</div>
+            </div>
+            <div class="col-md-3 text-center">
+                <div class="h5 text-info">{{ settings.hospital_cutoff_months }} months</div>
+                <div class="text-muted">Hospital Stays</div>
+            </div>
+        </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('ui.checklist_settings') }}" id="settings-form">
+        <div class="settings-card">
+            <!-- Lab Results Settings -->
+            <div class="settings-section">
+                <div class="section-title">
+                    <i class="fas fa-vial section-icon"></i>
+                    Laboratory Results
+                </div>
+                
+                <div class="setting-item">
+                    <label for="lab_cutoff_months" class="setting-label">
+                        Data Cutoff Period
+                    </label>
+                    <div class="setting-description">
+                        Include lab results from the last X months in prep sheets. Older results will be excluded to focus on recent clinical data.
+                    </div>
+                    <div class="input-group">
+                        <input type="range" class="form-range" id="lab_cutoff_months" name="lab_cutoff_months" 
+                               min="1" max="60" value="{{ settings.lab_cutoff_months }}" 
+                               oninput="updateRangeValue('lab_cutoff_months')">
+                    </div>
+                    <div class="range-labels">
+                        <span>1 month</span>
+                        <span id="lab_cutoff_months_value" class="text-info fw-bold">{{ settings.lab_cutoff_months }} months</span>
+                        <span>5 years</span>
+                    </div>
+                    <div class="preset-buttons">
+                        <button type="button" class="btn btn-outline-info preset-btn" onclick="setPreset('lab_cutoff_months', 3)">3 months</button>
+                        <button type="button" class="btn btn-outline-info preset-btn" onclick="setPreset('lab_cutoff_months', 6)">6 months</button>
+                        <button type="button" class="btn btn-outline-info preset-btn" onclick="setPreset('lab_cutoff_months', 12)">1 year</button>
+                        <button type="button" class="btn btn-outline-info preset-btn" onclick="setPreset('lab_cutoff_months', 24)">2 years</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Imaging Studies Settings -->
+            <div class="settings-section">
+                <div class="section-title">
+                    <i class="fas fa-x-ray section-icon"></i>
+                    Imaging Studies
+                </div>
+                
+                <div class="setting-item">
+                    <label for="imaging_cutoff_months" class="setting-label">
+                        Data Cutoff Period
+                    </label>
+                    <div class="setting-description">
+                        Include imaging studies (X-rays, CT scans, MRIs, etc.) from the last X months. Imaging often remains relevant for longer periods.
+                    </div>
+                    <div class="input-group">
+                        <input type="range" class="form-range" id="imaging_cutoff_months" name="imaging_cutoff_months" 
+                               min="1" max="60" value="{{ settings.imaging_cutoff_months }}" 
+                               oninput="updateRangeValue('imaging_cutoff_months')">
+                    </div>
+                    <div class="range-labels">
+                        <span>1 month</span>
+                        <span id="imaging_cutoff_months_value" class="text-info fw-bold">{{ settings.imaging_cutoff_months }} months</span>
+                        <span>5 years</span>
+                    </div>
+                    <div class="preset-buttons">
+                        <button type="button" class="btn btn-outline-info preset-btn" onclick="setPreset('imaging_cutoff_months', 6)">6 months</button>
+                        <button type="button" class="btn btn-outline-info preset-btn" onclick="setPreset('imaging_cutoff_months', 12)">1 year</button>
+                        <button type="button" class="btn btn-outline-info preset-btn" onclick="setPreset('imaging_cutoff_months', 24)">2 years</button>
+                        <button type="button" class="btn btn-outline-info preset-btn" onclick="setPreset('imaging_cutoff_months', 36)">3 years</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Consultations Settings -->
+            <div class="settings-section">
+                <div class="section-title">
+                    <i class="fas fa-user-md section-icon"></i>
+                    Specialist Consultations
+                </div>
+                
+                <div class="setting-item">
+                    <label for="consult_cutoff_months" class="setting-label">
+                        Data Cutoff Period
+                    </label>
+                    <div class="setting-description">
+                        Include specialist consultation reports from the last X months. Recent consultations are most relevant for current care planning.
+                    </div>
+                    <div class="input-group">
+                        <input type="range" class="form-range" id="consult_cutoff_months" name="consult_cutoff_months" 
+                               min="1" max="60" value="{{ settings.consult_cutoff_months }}" 
+                               oninput="updateRangeValue('consult_cutoff_months')">
+                    </div>
+                    <div class="range-labels">
+                        <span>1 month</span>
+                        <span id="consult_cutoff_months_value" class="text-info fw-bold">{{ settings.consult_cutoff_months }} months</span>
+                        <span>5 years</span>
+                    </div>
+                    <div class="preset-buttons">
+                        <button type="button" class="btn btn-outline-info preset-btn" onclick="setPreset('consult_cutoff_months', 6)">6 months</button>
+                        <button type="button" class="btn btn-outline-info preset-btn" onclick="setPreset('consult_cutoff_months', 12)">1 year</button>
+                        <button type="button" class="btn btn-outline-info preset-btn" onclick="setPreset('consult_cutoff_months', 18)">18 months</button>
+                        <button type="button" class="btn btn-outline-info preset-btn" onclick="setPreset('consult_cutoff_months', 24)">2 years</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hospital Stays Settings -->
+            <div class="settings-section">
+                <div class="section-title">
+                    <i class="fas fa-hospital section-icon"></i>
+                    Hospital Stays
+                </div>
+                
+                <div class="setting-item">
+                    <label for="hospital_cutoff_months" class="setting-label">
+                        Data Cutoff Period
+                    </label>
+                    <div class="setting-description">
+                        Include hospital admission and discharge records from the last X months. Recent hospitalizations are critical for understanding current health status.
+                    </div>
+                    <div class="input-group">
+                        <input type="range" class="form-range" id="hospital_cutoff_months" name="hospital_cutoff_months" 
+                               min="1" max="60" value="{{ settings.hospital_cutoff_months }}" 
+                               oninput="updateRangeValue('hospital_cutoff_months')">
+                    </div>
+                    <div class="range-labels">
+                        <span>1 month</span>
+                        <span id="hospital_cutoff_months_value" class="text-info fw-bold">{{ settings.hospital_cutoff_months }} months</span>
+                        <span>5 years</span>
+                    </div>
+                    <div class="preset-buttons">
+                        <button type="button" class="btn btn-outline-info preset-btn" onclick="setPreset('hospital_cutoff_months', 6)">6 months</button>
+                        <button type="button" class="btn btn-outline-info preset-btn" onclick="setPreset('hospital_cutoff_months', 12)">1 year</button>
+                        <button type="button" class="btn btn-outline-info preset-btn" onclick="setPreset('hospital_cutoff_months', 24)">2 years</button>
+                        <button type="button" class="btn btn-outline-info preset-btn" onclick="setPreset('hospital_cutoff_months', 36)">3 years</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Preview -->
+            <div class="settings-preview">
+                <h6 class="text-warning mb-3">
+                    <i class="fas fa-eye me-2"></i>
+                    Preview Impact
+                </h6>
+                <div id="preview-content">
+                    <!-- Preview will be updated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Impact Warning -->
+            <div class="impact-warning">
+                <h6 class="text-warning mb-2">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Important Notes
+                </h6>
+                <ul class="mb-0">
+                    <li>Changes will affect all future prep sheet generations</li>
+                    <li>Existing prep sheets will not be modified</li>
+                    <li>Shorter cutoff periods reduce prep sheet size but may exclude relevant historical data</li>
+                    <li>Longer cutoff periods provide more comprehensive data but may include outdated information</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Save Section -->
+        <div class="save-section">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <button type="button" class="btn btn-outline-secondary" onclick="resetToDefaults()">
+                        <i class="fas fa-undo me-1"></i>
+                        Reset to Defaults
+                    </button>
+                    <button type="button" class="btn btn-outline-info ms-2" onclick="previewChanges()">
+                        <i class="fas fa-eye me-1"></i>
+                        Preview Changes
+                    </button>
+                </div>
+                <div>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-1"></i>
+                        Save Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateRangeValue(fieldName) {
+    const range = document.getElementById(fieldName);
+    const valueDisplay = document.getElementById(fieldName + '_value');
+    const value = parseInt(range.value);
+    
+    let displayText;
+    if (value === 1) {
+        displayText = '1 month';
+    } else if (value < 12) {
+        displayText = `${value} months`;
+    } else if (value === 12) {
+        displayText = '1 year';
+    } else if (value % 12 === 0) {
+        displayText = `${value / 12} years`;
+    } else {
+        const years = Math.floor(value / 12);
+        const months = value % 12;
+        displayText = `${years} year${years > 1 ? 's' : ''} ${months} month${months > 1 ? 's' : ''}`;
+    }
+    
+    valueDisplay.textContent = displayText;
+    updatePreview();
+}
+
+function setPreset(fieldName, value) {
+    const range = document.getElementById(fieldName);
+    range.value = value;
+    updateRangeValue(fieldName);
+    
+    // Add visual feedback
+    const button = event.target;
+    const originalClass = button.className;
+    button.className = button.className.replace('btn-outline-info', 'btn-info');
+    
+    setTimeout(() => {
+        button.className = originalClass;
+    }, 300);
+}
+
+function updatePreview() {
+    const previewContent = document.getElementById('preview-content');
+    
+    const labMonths = parseInt(document.getElementById('lab_cutoff_months').value);
+    const imagingMonths = parseInt(document.getElementById('imaging_cutoff_months').value);
+    const consultMonths = parseInt(document.getElementById('consult_cutoff_months').value);
+    const hospitalMonths = parseInt(document.getElementById('hospital_cutoff_months').value);
+    
+    // Calculate estimated data reduction/inclusion
+    const today = new Date();
+    const estimates = {
+        lab: Math.min(100, Math.round(labMonths * 8.33)), // Rough estimate
+        imaging: Math.min(100, Math.round(imagingMonths * 4.17)),
+        consult: Math.min(100, Math.round(consultMonths * 6.25)),
+        hospital: Math.min(100, Math.round(hospitalMonths * 2.08))
+    };
+    
+    previewContent.innerHTML = `
+        <div class="row">
+            <div class="col-md-3">
+                <div class="preview-item">
+                    <span class="preview-label">Labs</span>
+                    <span class="preview-value">${estimates.lab}% included</span>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="preview-item">
+                    <span class="preview-label">Imaging</span>
+                    <span class="preview-value">${estimates.imaging}% included</span>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="preview-item">
+                    <span class="preview-label">Consults</span>
+                    <span class="preview-value">${estimates.consult}% included</span>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="preview-item">
+                    <span class="preview-label">Hospital</span>
+                    <span class="preview-value">${estimates.hospital}% included</span>
+                </div>
+            </div>
+        </div>
+        <div class="mt-2 text-center">
+            <small class="text-muted">*Estimates based on typical healthcare data patterns</small>
+        </div>
+    `;
+}
+
+function resetToDefaults() {
+    if (confirm('Reset all settings to default values? This will set Lab: 12 months, Imaging: 24 months, Consults: 12 months, Hospital: 12 months.')) {
+        document.getElementById('lab_cutoff_months').value = 12;
+        document.getElementById('imaging_cutoff_months').value = 24;
+        document.getElementById('consult_cutoff_months').value = 12;
+        document.getElementById('hospital_cutoff_months').value = 12;
+        
+        updateRangeValue('lab_cutoff_months');
+        updateRangeValue('imaging_cutoff_months');
+        updateRangeValue('consult_cutoff_months');
+        updateRangeValue('hospital_cutoff_months');
+        
+        window.showToast('Settings reset to defaults', 'info');
+    }
+}
+
+function previewChanges() {
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content bg-dark">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-eye me-2 text-info"></i>
+                        Settings Preview
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        These settings will affect how much historical data is included in prep sheets:
+                    </div>
+                    
+                    <table class="table table-dark table-striped">
+                        <thead>
+                            <tr>
+                                <th>Data Type</th>
+                                <th>Current Setting</th>
+                                <th>New Setting</th>
+                                <th>Change</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><i class="fas fa-vial me-2 text-info"></i>Laboratory Results</td>
+                                <td>{{ settings.lab_cutoff_months }} months</td>
+                                <td><span id="preview-lab">${document.getElementById('lab_cutoff_months').value} months</span></td>
+                                <td><span id="change-lab" class="badge"></span></td>
+                            </tr>
+                            <tr>
+                                <td><i class="fas fa-x-ray me-2 text-info"></i>Imaging Studies</td>
+                                <td>{{ settings.imaging_cutoff_months }} months</td>
+                                <td><span id="preview-imaging">${document.getElementById('imaging_cutoff_months').value} months</span></td>
+                                <td><span id="change-imaging" class="badge"></span></td>
+                            </tr>
+                            <tr>
+                                <td><i class="fas fa-user-md me-2 text-info"></i>Consultations</td>
+                                <td>{{ settings.consult_cutoff_months }} months</td>
+                                <td><span id="preview-consult">${document.getElementById('consult_cutoff_months').value} months</span></td>
+                                <td><span id="change-consult" class="badge"></span></td>
+                            </tr>
+                            <tr>
+                                <td><i class="fas fa-hospital me-2 text-info"></i>Hospital Stays</td>
+                                <td>{{ settings.hospital_cutoff_months }} months</td>
+                                <td><span id="preview-hospital">${document.getElementById('hospital_cutoff_months').value} months</span></td>
+                                <td><span id="change-hospital" class="badge"></span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Remember:</strong> Changes will only affect newly generated prep sheets. Existing prep sheets will remain unchanged.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-success" onclick="document.getElementById('settings-form').submit()">
+                        <i class="fas fa-save me-1"></i>
+                        Save These Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+    
+    // Calculate and show changes
+    const changes = {
+        lab: parseInt(document.getElementById('lab_cutoff_months').value) - {{ settings.lab_cutoff_months }},
+        imaging: parseInt(document.getElementById('imaging_cutoff_months').value) - {{ settings.imaging_cutoff_months }},
+        consult: parseInt(document.getElementById('consult_cutoff_months').value) - {{ settings.consult_cutoff_months }},
+        hospital: parseInt(document.getElementById('hospital_cutoff_months').value) - {{ settings.hospital_cutoff_months }}
+    };
+    
+    Object.keys(changes).forEach(key => {
+        const changeElement = document.getElementById(`change-${key}`);
+        const change = changes[key];
+        
+        if (change === 0) {
+            changeElement.textContent = 'No change';
+            changeElement.className = 'badge bg-secondary';
+        } else if (change > 0) {
+            changeElement.textContent = `+${change} months`;
+            changeElement.className = 'badge bg-success';
+        } else {
+            changeElement.textContent = `${change} months`;
+            changeElement.className = 'badge bg-warning';
+        }
+    });
+    
+    // Clean up modal after it's hidden
+    modal.addEventListener('hidden.bs.modal', () => {
+        document.body.removeChild(modal);
+    });
+}
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize all range displays
+    updateRangeValue('lab_cutoff_months');
+    updateRangeValue('imaging_cutoff_months');
+    updateRangeValue('consult_cutoff_months');
+    updateRangeValue('hospital_cutoff_months');
+    
+    // Initial preview update
+    updatePreview();
+    
+    // Add form validation
+    document.getElementById('settings-form').addEventListener('submit', function(e) {
+        const ranges = ['lab_cutoff_months', 'imaging_cutoff_months', 'consult_cutoff_months', 'hospital_cutoff_months'];
+        let valid = true;
+        
+        ranges.forEach(range => {
+            const input = document.getElementById(range);
+            const value = parseInt(input.value);
+            
+            if (value < 1 || value > 60) {
+                valid = false;
+                input.classList.add('is-invalid');
+            } else {
+                input.classList.remove('is-invalid');
+            }
+        });
+        
+        if (!valid) {
+            e.preventDefault();
+            window.showToast('Please ensure all values are between 1 and 60 months', 'error');
+        }
+    });
+    
+    // Add keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Ctrl+S to save
+        if (e.ctrlKey && e.key === 's') {
+            e.preventDefault();
+            document.getElementById('settings-form').submit();
+        }
+        
+        // Ctrl+R to reset
+        if (e.ctrlKey && e.key === 'r') {
+            e.preventDefault();
+            resetToDefaults();
+        }
+        
+        // Ctrl+P to preview
+        if (e.ctrlKey && e.key === 'p') {
+            e.preventDefault();
+            previewChanges();
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,523 @@
+{% extends 'base.html' %}
+
+{% block title %}HealthPrep - Admin Logs{% endblock %}
+
+{% block extra_css %}
+<style>
+.log-filters {
+    background-color: var(--bs-gray-800);
+    border: 1px solid var(--bs-gray-600);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.log-table {
+    font-size: 0.9rem;
+}
+
+.log-table th {
+    background-color: var(--bs-dark);
+    border-color: var(--bs-gray-700);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.log-row {
+    border-bottom: 1px solid var(--bs-gray-700);
+}
+
+.log-row:hover {
+    background-color: rgba(13, 202, 240, 0.1);
+}
+
+.action-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+.action-system { background-color: #6c757d; }
+.action-user { background-color: #0dcaf0; }
+.action-admin { background-color: #fd7e14; }
+.action-error { background-color: #dc3545; }
+.action-success { background-color: #28a745; }
+
+.log-details {
+    max-width: 300px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+.log-details:hover {
+    white-space: normal;
+    overflow: visible;
+    background-color: var(--bs-gray-800);
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    position: relative;
+    z-index: 1000;
+}
+
+.pagination-info {
+    font-size: 0.875rem;
+    color: var(--bs-gray-400);
+}
+
+.export-controls {
+    background-color: var(--bs-gray-800);
+    border: 1px solid var(--bs-gray-600);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    background-color: var(--bs-gray-800);
+    border: 1px solid var(--bs-gray-600);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--bs-info);
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: var(--bs-gray-400);
+}
+
+.loading-state {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.search-highlight {
+    background-color: rgba(255, 193, 7, 0.3);
+    padding: 0.1rem 0.2rem;
+    border-radius: 0.2rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- Page Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-1">
+                    <i class="fas fa-file-alt me-2 text-info"></i>
+                    Admin Activity Logs
+                </h2>
+                <p class="text-muted mb-0">System activity monitoring and audit trail</p>
+            </div>
+            <div>
+                <button class="btn btn-outline-success btn-sm me-2" onclick="exportLogs('json')">
+                    <i class="fas fa-download me-1"></i>
+                    Export JSON
+                </button>
+                <button class="btn btn-outline-success btn-sm" onclick="exportLogs('csv')">
+                    <i class="fas fa-download me-1"></i>
+                    Export CSV
+                </button>
+            </div>
+        </div>
+
+        <!-- Statistics Overview -->
+        {% if statistics and statistics.success %}
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ statistics.total_logs }}</div>
+                <div class="stat-label">Total Logs ({{ statistics.period_days }} days)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ statistics.avg_logs_per_day|round(1) }}</div>
+                <div class="stat-label">Average per Day</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ statistics.action_breakdown|length }}</div>
+                <div class="stat-label">Unique Actions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ statistics.user_breakdown|length }}</div>
+                <div class="stat-label">Active Users</div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Filter Controls -->
+        <div class="log-filters">
+            <form method="GET" action="{{ url_for('admin.logs') }}" id="filter-form">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label for="start_date" class="form-label">Start Date</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" 
+                               value="{{ filters.start_date or '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="end_date" class="form-label">End Date</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" 
+                               value="{{ filters.end_date or '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="event_type" class="form-label">Event Type</label>
+                        <select class="form-select" id="event_type" name="event_type">
+                            <option value="">All Events</option>
+                            {% for event_type in event_types %}
+                                <option value="{{ event_type }}" 
+                                        {% if filters.event_type == event_type %}selected{% endif %}>
+                                    {{ event_type }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="user_id" class="form-label">User</label>
+                        <select class="form-select" id="user_id" name="user_id">
+                            <option value="">All Users</option>
+                            {% for user in all_users %}
+                                <option value="{{ user.id }}" 
+                                        {% if filters.user_id == user.id|string %}selected{% endif %}>
+                                    {{ user.username }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <label for="ip_address" class="form-label">IP Address</label>
+                        <select class="form-select" id="ip_address" name="ip_address">
+                            <option value="">All IP Addresses</option>
+                            {% for ip in ip_addresses %}
+                                <option value="{{ ip }}" 
+                                        {% if filters.ip_address == ip %}selected{% endif %}>
+                                    {{ ip }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary me-2" id="apply-filters">
+                            <i class="fas fa-filter me-1"></i>
+                            Apply Filters
+                        </button>
+                        <a href="{{ url_for('admin.logs') }}" class="btn btn-outline-secondary me-2">
+                            <i class="fas fa-times me-1"></i>
+                            Clear
+                        </a>
+                        <button type="button" class="btn btn-outline-info" onclick="setQuickFilter('today')">
+                            <i class="fas fa-calendar-day me-1"></i>
+                            Today
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Logs Table -->
+        {% if logs %}
+            <div class="table-responsive">
+                <table class="table table-dark table-striped table-hover log-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 150px;">Timestamp</th>
+                            <th style="width: 150px;">Action</th>
+                            <th style="width: 100px;">User</th>
+                            <th style="width: 120px;">IP Address</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                            <tr class="log-row">
+                                <td>
+                                    <small class="text-muted">{{ log.formatted_timestamp }}</small>
+                                </td>
+                                <td>
+                                    {% set action_class = 'action-system' %}
+                                    {% if 'USER' in log.action %}
+                                        {% set action_class = 'action-user' %}
+                                    {% elif 'ADMIN' in log.action %}
+                                        {% set action_class = 'action-admin' %}
+                                    {% elif 'ERROR' in log.action %}
+                                        {% set action_class = 'action-error' %}
+                                    {% elif 'SUCCESS' in log.action %}
+                                        {% set action_class = 'action-success' %}
+                                    {% endif %}
+                                    
+                                    <span class="badge action-badge {{ action_class }}">
+                                        {{ log.action }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="text-info">{{ log.username }}</span>
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ log.ip_address or 'N/A' }}</small>
+                                </td>
+                                <td>
+                                    {% if log.details %}
+                                        <div class="log-details" title="{{ log.details }}">
+                                            {{ log.details }}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">No details</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if pagination.pages > 1 %}
+                <nav aria-label="Log pagination">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="pagination-info">
+                            Showing {{ ((pagination.page - 1) * pagination.per_page) + 1 }} - 
+                            {{ pagination.page * pagination.per_page if pagination.page * pagination.per_page < pagination.total else pagination.total }} 
+                            of {{ pagination.total }} logs
+                        </div>
+                        
+                        <ul class="pagination pagination-dark mb-0">
+                            {% if pagination.has_prev %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('admin.logs', page=pagination.page-1, **filters) }}">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                            
+                            {% for page_num in range(1, pagination.pages + 1) %}
+                                {% if page_num == pagination.page %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ page_num }}</span>
+                                    </li>
+                                {% elif page_num <= 3 or page_num > pagination.pages - 3 or (page_num >= pagination.page - 1 and page_num <= pagination.page + 1) %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ url_for('admin.logs', page=page_num, **filters) }}">
+                                            {{ page_num }}
+                                        </a>
+                                    </li>
+                                {% elif page_num == 4 or page_num == pagination.pages - 3 %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if pagination.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('admin.logs', page=pagination.page+1, **filters) }}">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </nav>
+            {% endif %}
+        {% else %}
+            <!-- Empty State -->
+            <div class="text-center py-5">
+                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                <h4 class="text-muted">No Logs Found</h4>
+                {% if filters.start_date or filters.end_date or filters.event_type or filters.user_id %}
+                    <p class="text-muted">No logs match your current filters.</p>
+                    <a href="{{ url_for('admin.logs') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-times me-1"></i>
+                        Clear Filters
+                    </a>
+                {% else %}
+                    <p class="text-muted">No admin activity has been logged yet.</p>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="position-fixed top-0 start-0 w-100 h-100 d-none" id="loading-overlay" 
+     style="background-color: rgba(0,0,0,0.7); z-index: 9999;">
+    <div class="d-flex justify-content-center align-items-center h-100">
+        <div class="text-center text-white">
+            <div class="spinner-border text-info mb-3" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Processing request...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function setQuickFilter(period) {
+    const today = new Date();
+    const startDate = document.getElementById('start_date');
+    const endDate = document.getElementById('end_date');
+    
+    endDate.value = today.toISOString().split('T')[0];
+    
+    if (period === 'today') {
+        startDate.value = today.toISOString().split('T')[0];
+    } else if (period === 'week') {
+        const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+        startDate.value = lastWeek.toISOString().split('T')[0];
+    } else if (period === 'month') {
+        const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+        startDate.value = lastMonth.toISOString().split('T')[0];
+    }
+    
+    document.getElementById('filter-form').submit();
+}
+
+function exportLogs(format) {
+    const loadingOverlay = document.getElementById('loading-overlay');
+    loadingOverlay.classList.remove('d-none');
+    
+    // Build URL with current filters
+    const params = new URLSearchParams();
+    
+    {% for key, value in filters.items() %}
+        {% if value %}
+            params.append('{{ key }}', '{{ value }}');
+        {% endif %}
+    {% endfor %}
+    
+    params.append('format', format);
+    
+    const exportUrl = '{{ url_for("admin.export_logs") }}?' + params.toString();
+    
+    // Create temporary link for download
+    const link = document.createElement('a');
+    link.href = exportUrl;
+    link.download = `admin_logs_${new Date().toISOString().split('T')[0]}.${format}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Hide loading overlay after a delay
+    setTimeout(() => {
+        loadingOverlay.classList.add('d-none');
+        window.showToast(`Logs exported as ${format.toUpperCase()}`, 'success');
+    }, 2000);
+}
+
+// Auto-refresh logs every 30 seconds if on first page
+let autoRefreshInterval;
+
+function startAutoRefresh() {
+    const currentPage = {{ pagination.page if pagination else 1 }};
+    if (currentPage === 1) {
+        autoRefreshInterval = setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                // Refresh silently
+                fetch(window.location.href)
+                    .then(response => response.text())
+                    .then(html => {
+                        const parser = new DOMParser();
+                        const newDoc = parser.parseFromString(html, 'text/html');
+                        const newTableBody = newDoc.querySelector('.log-table tbody');
+                        const currentTableBody = document.querySelector('.log-table tbody');
+                        
+                        if (newTableBody && currentTableBody) {
+                            currentTableBody.innerHTML = newTableBody.innerHTML;
+                        }
+                    })
+                    .catch(error => console.log('Auto-refresh failed:', error));
+            }
+        }, 30000); // 30 seconds
+    }
+}
+
+function stopAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    startAutoRefresh();
+    
+    // Show loading state when applying filters
+    document.getElementById('apply-filters').addEventListener('click', function() {
+        document.querySelector('.log-filters').classList.add('loading-state');
+    });
+    
+    // Enhanced log details tooltip functionality
+    document.querySelectorAll('.log-details').forEach(element => {
+        element.addEventListener('click', function() {
+            const details = this.getAttribute('title');
+            if (details && details.length > 50) {
+                // Show modal for long details
+                const modal = document.createElement('div');
+                modal.className = 'modal fade';
+                modal.innerHTML = `
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content bg-dark">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Log Details</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <pre class="text-white">${details}</pre>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                
+                const bsModal = new bootstrap.Modal(modal);
+                bsModal.show();
+                
+                // Remove modal after it's hidden
+                modal.addEventListener('hidden.bs.modal', () => {
+                    document.body.removeChild(modal);
+                });
+            }
+        });
+    });
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Ctrl+E for export
+        if (e.ctrlKey && e.key === 'e') {
+            e.preventDefault();
+            exportLogs('json');
+        }
+        
+        // Ctrl+F for filter focus
+        if (e.ctrlKey && e.key === 'f') {
+            e.preventDefault();
+            document.getElementById('start_date').focus();
+        }
+        
+        // Ctrl+R for refresh
+        if (e.ctrlKey && e.key === 'r') {
+            e.preventDefault();
+            window.location.reload();
+        }
+    });
+});
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', stopAutoRefresh);
+</script>
+{% endblock %}

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>{% block title %}HealthPrep - Patient Visit Preparation{% endblock %}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link href="{{ url_for('static', filename='css/custom.css', v=cache_timestamp|default('')) }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/medical_terminology_ui.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/loading-states.css') }}" rel="stylesheet">
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+        <div class="container">
+            <!-- Brand -->
+            <a class="navbar-brand fw-bold" href="{{ url_for('screening.screening_list') }}">
+                <i class="fas fa-heartbeat me-2"></i>HealthPrep
+            </a>
+            
+            <!-- Mobile toggle -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <!-- Navigation items -->
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {{ 'active' if request.endpoint and 'screening' in request.endpoint else '' }}" 
+                           href="{{ url_for('screening.screening_list') }}">
+                            <i class="fas fa-list-check me-1"></i>Screenings
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ 'active' if request.endpoint and 'prep_sheet' in request.endpoint else '' }}" 
+                           href="{{ url_for('prep_sheet.batch_prep_sheets') }}">
+                            <i class="fas fa-file-medical me-1"></i>Prep Sheets
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-cog me-1"></i>Settings
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('screening.checklist_settings') }}">
+                                    <i class="fas fa-sliders-h me-2"></i>Checklist Settings
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('prep_sheet.prep_sheet_settings') }}">
+                                    <i class="fas fa-file-alt me-2"></i>Prep Sheet Settings
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+                
+                <!-- User menu -->
+                <ul class="navbar-nav">
+                    {% if current_user.is_authenticated %}
+                        <!-- Session timeout warning -->
+                        <li class="nav-item me-3">
+                            <span class="nav-link text-muted" id="session-timer">
+                                <i class="fas fa-clock me-1"></i>
+                                <span id="time-remaining">--:--</span>
+                            </span>
+                        </li>
+                        
+                        <!-- User dropdown -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-user-circle me-1"></i>{{ current_user.username }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <h6 class="dropdown-header">
+                                        <i class="fas fa-id-card me-2"></i>{{ current_user.username }}
+                                        {% if current_user.is_admin %}
+                                            <span class="badge bg-warning text-dark ms-2">Admin</span>
+                                        {% endif %}
+                                    </h6>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item" href="{{ url_for('auth.profile') }}">
+                                        <i class="fas fa-user me-2"></i>Profile
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{{ url_for('auth.change_password') }}">
+                                        <i class="fas fa-key me-2"></i>Change Password
+                                    </a>
+                                </li>
+                                {% if current_user.is_admin %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item text-warning" href="{{ url_for('admin.dashboard') }}">
+                                            <i class="fas fa-tools me-2"></i>Admin Dashboard
+                                        </a>
+                                    </li>
+                                {% endif %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">
+                                        <i class="fas fa-sign-out-alt me-2"></i>Logout
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash messages -->
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        {% if category == 'error' %}
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                        {% elif category == 'success' %}
+                            <i class="fas fa-check-circle me-2"></i>
+                        {% elif category == 'warning' %}
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                        {% elif category == 'info' %}
+                            <i class="fas fa-info-circle me-2"></i>
+                        {% endif %}
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Main content -->
+    <main class="container-fluid">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-light mt-5 py-4">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="fw-bold">
+                        <i class="fas fa-heartbeat me-2"></i>HealthPrep v2.0
+                    </h6>
+                    <p class="text-muted mb-0">
+                        HIPAA-compliant healthcare preparation system
+                    </p>
+                </div>
+                <div class="col-md-6 text-end">
+                    <p class="text-muted mb-0">
+                        <i class="fas fa-shield-alt me-1"></i>Secure • 
+                        <i class="fas fa-lock me-1"></i>Encrypted • 
+                        <i class="fas fa-user-shield me-1"></i>HIPAA Compliant
+                    </p>
+                    <small class="text-muted">
+                        Last updated: {{ moment().format('YYYY-MM-DD HH:mm') if moment else 'Unknown' }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="loading-overlay d-none">
+        <div class="loading-content">
+            <div class="spinner-border text-primary mb-3" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <div class="loading-text">Processing...</div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/medical_terminology.js') }}"></script>
+    
+    <!-- Session management -->
+    <script>
+        // Session timeout management
+        const SESSION_TIMEOUT_MINUTES = 480; // 8 hours
+        const WARNING_MINUTES = 5;
+        
+        let sessionStartTime = new Date();
+        let warningShown = false;
+        
+        function updateSessionTimer() {
+            const now = new Date();
+            const elapsedMinutes = (now - sessionStartTime) / (1000 * 60);
+            const remainingMinutes = SESSION_TIMEOUT_MINUTES - elapsedMinutes;
+            
+            if (remainingMinutes <= 0) {
+                window.location.href = "{{ url_for('auth.session_timeout') }}";
+                return;
+            }
+            
+            // Show warning
+            if (remainingMinutes <= WARNING_MINUTES && !warningShown) {
+                warningShown = true;
+                if (confirm(`Your session will expire in ${Math.floor(remainingMinutes)} minutes. Click OK to continue working.`)) {
+                    // Reset session timer
+                    sessionStartTime = new Date();
+                    warningShown = false;
+                }
+            }
+            
+            // Update timer display
+            const hours = Math.floor(remainingMinutes / 60);
+            const mins = Math.floor(remainingMinutes % 60);
+            const timerElement = document.getElementById('time-remaining');
+            if (timerElement) {
+                timerElement.textContent = `${hours}:${mins.toString().padStart(2, '0')}`;
+            }
+        }
+        
+        // Update timer every minute
+        setInterval(updateSessionTimer, 60000);
+        updateSessionTimer(); // Initial call
+        
+        // Reset session timer on user activity
+        document.addEventListener('click', () => {
+            sessionStartTime = new Date();
+            warningShown = false;
+        });
+        
+        // Global loading overlay functions
+        window.showLoading = function(text = 'Processing...') {
+            const overlay = document.getElementById('loading-overlay');
+            const loadingText = overlay.querySelector('.loading-text');
+            if (loadingText) loadingText.textContent = text;
+            overlay.classList.remove('d-none');
+        };
+        
+        window.hideLoading = function() {
+            const overlay = document.getElementById('loading-overlay');
+            overlay.classList.add('d-none');
+        };
+        
+        // Auto-hide alerts after 5 seconds
+        setTimeout(() => {
+            const alerts = document.querySelectorAll('.alert:not(.alert-danger)');
+            alerts.forEach(alert => {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 5000);
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

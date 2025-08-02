@@ -1,0 +1,638 @@
+{% extends 'base.html' %}
+
+{% block title %}HealthPrep - OCR Monitor{% endblock %}
+
+{% block extra_css %}
+<style>
+.ocr-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, var(--bs-dark) 0%, var(--bs-gray-800) 100%);
+    border: 1px solid var(--bs-gray-600);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    text-align: center;
+    transition: transform 0.2s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    color: var(--bs-gray-400);
+    font-size: 0.875rem;
+}
+
+.confidence-chart {
+    background-color: var(--bs-gray-800);
+    border: 1px solid var(--bs-gray-600);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.confidence-bar {
+    background-color: var(--bs-gray-700);
+    border-radius: 0.25rem;
+    height: 20px;
+    margin: 0.5rem 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.confidence-fill {
+    height: 100%;
+    border-radius: 0.25rem;
+    transition: width 0.5s ease;
+}
+
+.confidence-high-fill { background-color: #28a745; }
+.confidence-medium-fill { background-color: #ffc107; }
+.confidence-low-fill { background-color: #dc3545; }
+
+.confidence-label {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+}
+
+.confidence-percentage {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: white;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+}
+
+.document-table {
+    font-size: 0.9rem;
+}
+
+.document-table th {
+    background-color: var(--bs-dark);
+    border-color: var(--bs-gray-700);
+}
+
+.confidence-indicator {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+}
+
+.confidence-indicator.high { background-color: #28a745; }
+.confidence-indicator.medium { background-color: #ffc107; }
+.confidence-indicator.low { background-color: #dc3545; }
+.confidence-indicator.unknown { background-color: #6c757d; }
+
+.processing-queue {
+    background-color: var(--bs-gray-800);
+    border: 1px solid var(--bs-gray-600);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.queue-status {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.status-indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    margin-right: 0.75rem;
+}
+
+.status-healthy { background-color: #28a745; }
+.status-warning { background-color: #ffc107; }
+.status-error { background-color: #dc3545; }
+
+.progress-ring {
+    width: 60px;
+    height: 60px;
+    transform: rotate(-90deg);
+}
+
+.progress-ring-circle {
+    fill: transparent;
+    stroke-width: 4;
+    stroke-dasharray: 188.4;
+    stroke-dashoffset: 188.4;
+    transition: stroke-dashoffset 0.5s ease;
+}
+
+.quality-report {
+    background-color: var(--bs-gray-800);
+    border: 1px solid var(--bs-gray-600);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.recommendation-item {
+    background-color: var(--bs-dark);
+    border-left: 3px solid var(--bs-warning);
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: 0 0.25rem 0.25rem 0;
+}
+
+.filter-tabs {
+    margin-bottom: 1rem;
+}
+
+.filter-tabs .nav-link {
+    background-color: var(--bs-gray-800);
+    border-color: var(--bs-gray-600);
+    color: var(--bs-gray-300);
+}
+
+.filter-tabs .nav-link.active {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-primary);
+    color: white;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- Page Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-1">
+                    <i class="fas fa-eye me-2 text-primary"></i>
+                    OCR Processing Monitor
+                </h2>
+                <p class="text-muted mb-0">Document processing status and quality metrics</p>
+            </div>
+            <div>
+                <button class="btn btn-outline-primary btn-sm" onclick="refreshData()">
+                    <i class="fas fa-sync-alt me-1"></i>
+                    Refresh Data
+                </button>
+            </div>
+        </div>
+
+        <!-- Processing Queue Status -->
+        <div class="processing-queue">
+            <div class="queue-status">
+                {% if data.queue_status.queue_healthy %}
+                    <div class="status-indicator status-healthy"></div>
+                    <h5 class="mb-0 text-success">Processing Queue Healthy</h5>
+                {% elif data.queue_status.pending_documents > 50 %}
+                    <div class="status-indicator status-warning"></div>
+                    <h5 class="mb-0 text-warning">High Queue Volume</h5>
+                {% else %}
+                    <div class="status-indicator status-error"></div>
+                    <h5 class="mb-0 text-danger">Queue Needs Attention</h5>
+                {% endif %}
+            </div>
+            
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <div class="h4 text-info">{{ data.queue_status.pending_documents|default(0) }}</div>
+                        <div class="text-muted">Pending Documents</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <div class="h4 text-success">{{ data.queue_status.processed_today|default(0) }}</div>
+                        <div class="text-muted">Processed Today</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <div class="h4 text-danger">{{ data.queue_status.recent_failures|default(0) }}</div>
+                        <div class="text-muted">Recent Failures</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <div class="h4 text-primary">
+                            {{ ((data.queue_status.processed_today|default(0) / (data.queue_status.processed_today|default(0) + data.queue_status.recent_failures|default(1))) * 100)|round(1) }}%
+                        </div>
+                        <div class="text-muted">Success Rate</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- OCR Statistics -->
+        {% if data.statistics %}
+        <div class="ocr-stats-grid">
+            <div class="stat-card">
+                <div class="stat-value text-info">{{ data.statistics.total_documents|default(0) }}</div>
+                <div class="stat-label">Total Documents ({{ data.statistics.period_days|default(7) }} days)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value text-success">{{ (data.statistics.avg_confidence * 100)|round(1) }}%</div>
+                <div class="stat-label">Average Confidence</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value text-warning">{{ data.statistics.processing_rate|default(0) }}</div>
+                <div class="stat-label">Documents/Day</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value text-primary">{{ (data.statistics.avg_text_length|default(0))|round(0) }}</div>
+                <div class="stat-label">Avg Text Length</div>
+            </div>
+        </div>
+
+        <!-- Confidence Distribution -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card bg-dark border-secondary">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-bar me-2 text-success"></i>
+                            Confidence Distribution
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="confidence-chart">
+                            <div style="width: 100%;">
+                                <!-- High Confidence -->
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="text-success">High (≥80%)</span>
+                                    <span class="text-success">{{ data.statistics.confidence_distribution.high|default(0) }} docs</span>
+                                </div>
+                                <div class="confidence-bar">
+                                    <div class="confidence-fill confidence-high-fill" 
+                                         style="width: {{ (data.statistics.confidence_distribution.high|default(0) / data.statistics.total_documents * 100) if data.statistics.total_documents > 0 else 0 }}%"></div>
+                                    <div class="confidence-percentage">
+                                        {{ ((data.statistics.confidence_distribution.high|default(0) / data.statistics.total_documents * 100) if data.statistics.total_documents > 0 else 0)|round(1) }}%
+                                    </div>
+                                </div>
+
+                                <!-- Medium Confidence -->
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="text-warning">Medium (50-79%)</span>
+                                    <span class="text-warning">{{ data.statistics.confidence_distribution.medium|default(0) }} docs</span>
+                                </div>
+                                <div class="confidence-bar">
+                                    <div class="confidence-fill confidence-medium-fill" 
+                                         style="width: {{ (data.statistics.confidence_distribution.medium|default(0) / data.statistics.total_documents * 100) if data.statistics.total_documents > 0 else 0 }}%"></div>
+                                    <div class="confidence-percentage">
+                                        {{ ((data.statistics.confidence_distribution.medium|default(0) / data.statistics.total_documents * 100) if data.statistics.total_documents > 0 else 0)|round(1) }}%
+                                    </div>
+                                </div>
+
+                                <!-- Low Confidence -->
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="text-danger">Low (<50%)</span>
+                                    <span class="text-danger">{{ data.statistics.confidence_distribution.low|default(0) }} docs</span>
+                                </div>
+                                <div class="confidence-bar">
+                                    <div class="confidence-fill confidence-low-fill" 
+                                         style="width: {{ (data.statistics.confidence_distribution.low|default(0) / data.statistics.total_documents * 100) if data.statistics.total_documents > 0 else 0 }}%"></div>
+                                    <div class="confidence-percentage">
+                                        {{ ((data.statistics.confidence_distribution.low|default(0) / data.statistics.total_documents * 100) if data.statistics.total_documents > 0 else 0)|round(1) }}%
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Document Types Breakdown -->
+            <div class="col-md-6">
+                <div class="card bg-dark border-secondary">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-file-alt me-2 text-info"></i>
+                            Documents by Type
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% if data.statistics.documents_by_type %}
+                            {% for doc_type, count in data.statistics.documents_by_type.items() %}
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="text-capitalize">{{ doc_type }}</span>
+                                    <span class="badge bg-info">{{ count }}</span>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center text-muted">
+                                <i class="fas fa-folder-open fa-2x mb-2"></i>
+                                <p>No document type data available</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Quality Report -->
+        {% if data.quality_report %}
+        <div class="quality-report">
+            <h5 class="mb-3">
+                <i class="fas fa-clipboard-check me-2 text-warning"></i>
+                Quality Assessment: 
+                <span class="badge bg-{{ 'success' if data.quality_report.quality_assessment == 'Good' else 'warning' if data.quality_report.quality_assessment == 'Fair' else 'danger' }}">
+                    {{ data.quality_report.quality_assessment }}
+                </span>
+            </h5>
+            
+            {% if data.quality_report.recommendations %}
+                <h6 class="text-warning mb-3">Recommendations:</h6>
+                {% for recommendation in data.quality_report.recommendations %}
+                    <div class="recommendation-item">
+                        <i class="fas fa-lightbulb me-2 text-warning"></i>
+                        {{ recommendation }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Low Confidence Documents -->
+        {% if data.low_confidence_documents %}
+        <div class="card bg-dark border-secondary">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-exclamation-triangle me-2 text-warning"></i>
+                    Low Confidence Documents
+                    <span class="badge bg-warning text-dark ms-2">{{ data.low_confidence_documents|length }}</span>
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- Filter Tabs -->
+                <ul class="nav nav-tabs filter-tabs" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#all-docs" 
+                                type="button" role="tab">
+                            All ({{ data.low_confidence_documents|length }})
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#needs-review" 
+                                type="button" role="tab">
+                            Needs Review ({{ data.low_confidence_documents|selectattr('needs_review')|list|length }})
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Tab Content -->
+                <div class="tab-content mt-3">
+                    <div class="tab-pane fade show active" id="all-docs" role="tabpanel">
+                        <div class="table-responsive">
+                            <table class="table table-dark table-striped document-table">
+                                <thead>
+                                    <tr>
+                                        <th>Document</th>
+                                        <th>Patient</th>
+                                        <th>Confidence</th>
+                                        <th>Upload Date</th>
+                                        <th>Text Length</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for doc in data.low_confidence_documents %}
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    {% if doc.confidence >= 0.5 %}
+                                                        <div class="confidence-indicator medium"></div>
+                                                    {% elif doc.confidence >= 0.3 %}
+                                                        <div class="confidence-indicator low"></div>
+                                                    {% else %}
+                                                        <div class="confidence-indicator unknown"></div>
+                                                    {% endif %}
+                                                    {{ doc.filename }}
+                                                </div>
+                                            </td>
+                                            <td>{{ doc.patient_name }}</td>
+                                            <td>
+                                                <span class="badge bg-{{ 'warning' if doc.confidence >= 0.3 else 'danger' }}">
+                                                    {{ (doc.confidence * 100)|round(1) }}%
+                                                </span>
+                                            </td>
+                                            <td>{{ doc.upload_date.strftime('%m/%d/%Y') if doc.upload_date else 'N/A' }}</td>
+                                            <td>{{ doc.text_length }} chars</td>
+                                            <td>
+                                                {% if doc.needs_review %}
+                                                    <span class="badge bg-danger">Needs Review</span>
+                                                {% else %}
+                                                    <span class="badge bg-success">Processed</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-pane fade" id="needs-review" role="tabpanel">
+                        <div class="table-responsive">
+                            <table class="table table-dark table-striped document-table">
+                                <thead>
+                                    <tr>
+                                        <th>Document</th>
+                                        <th>Patient</th>
+                                        <th>Confidence</th>
+                                        <th>Upload Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for doc in data.low_confidence_documents %}
+                                        {% if doc.needs_review %}
+                                            <tr>
+                                                <td>{{ doc.filename }}</td>
+                                                <td>{{ doc.patient_name }}</td>
+                                                <td>
+                                                    <span class="badge bg-danger">
+                                                        {{ (doc.confidence * 100)|round(1) }}%
+                                                    </span>
+                                                </td>
+                                                <td>{{ doc.upload_date.strftime('%m/%d/%Y') if doc.upload_date else 'N/A' }}</td>
+                                                <td>
+                                                    <button class="btn btn-outline-warning btn-sm" 
+                                                            onclick="reviewDocument({{ doc.id }})">
+                                                        <i class="fas fa-eye me-1"></i>
+                                                        Review
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <!-- No Low Confidence Documents -->
+        <div class="card bg-dark border-success">
+            <div class="card-body text-center">
+                <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                <h4 class="text-success">All Documents Meet Quality Standards</h4>
+                <p class="text-muted">No documents require manual review at this time.</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function refreshData() {
+    // Show loading state
+    const refreshBtn = document.querySelector('[onclick="refreshData()"]');
+    const originalText = refreshBtn.innerHTML;
+    refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Refreshing...';
+    refreshBtn.disabled = true;
+    
+    // Reload the page after a brief delay
+    setTimeout(() => {
+        window.location.reload();
+    }, 1000);
+}
+
+function reviewDocument(documentId) {
+    // Open document review modal or redirect to review page
+    window.showToast(`Opening document ${documentId} for review`, 'info');
+    
+    // In a real implementation, this would open a document viewer
+    // For now, we'll just show a placeholder
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content bg-dark">
+                <div class="modal-header">
+                    <h5 class="modal-title">Document Review - ID: ${documentId}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Document review interface would be implemented here.
+                        This would include OCR text display, confidence metrics, and manual correction options.
+                    </div>
+                    <div class="text-center">
+                        <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">Document content and OCR analysis would appear here</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-success" onclick="approveDocument(${documentId})">
+                        <i class="fas fa-check me-1"></i>
+                        Approve
+                    </button>
+                    <button type="button" class="btn btn-warning" onclick="flagForReprocessing(${documentId})">
+                        <i class="fas fa-redo me-1"></i>
+                        Reprocess
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
+    
+    // Clean up modal after it's hidden
+    modal.addEventListener('hidden.bs.modal', () => {
+        document.body.removeChild(modal);
+    });
+}
+
+function approveDocument(documentId) {
+    window.showToast(`Document ${documentId} approved`, 'success');
+    bootstrap.Modal.getInstance(document.querySelector('.modal')).hide();
+}
+
+function flagForReprocessing(documentId) {
+    window.showToast(`Document ${documentId} flagged for reprocessing`, 'warning');
+    bootstrap.Modal.getInstance(document.querySelector('.modal')).hide();
+}
+
+// Auto-refresh data every 2 minutes
+setInterval(() => {
+    if (document.visibilityState === 'visible') {
+        // Silently refresh statistics
+        fetch(window.location.href)
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const newDoc = parser.parseFromString(html, 'text/html');
+                
+                // Update statistics cards
+                const newStats = newDoc.querySelectorAll('.stat-value');
+                const currentStats = document.querySelectorAll('.stat-value');
+                
+                newStats.forEach((stat, index) => {
+                    if (currentStats[index]) {
+                        currentStats[index].textContent = stat.textContent;
+                    }
+                });
+                
+                // Update queue status
+                const newQueueStatus = newDoc.querySelector('.processing-queue .row');
+                const currentQueueStatus = document.querySelector('.processing-queue .row');
+                
+                if (newQueueStatus && currentQueueStatus) {
+                    currentQueueStatus.innerHTML = newQueueStatus.innerHTML;
+                }
+            })
+            .catch(error => console.log('Auto-refresh failed:', error));
+    }
+}, 120000); // 2 minutes
+
+// Initialize tooltips for confidence indicators
+document.addEventListener('DOMContentLoaded', function() {
+    const tooltipElements = document.querySelectorAll('.confidence-indicator');
+    tooltipElements.forEach(element => {
+        const confidence = element.classList.contains('high') ? 'High Confidence (≥80%)' :
+                          element.classList.contains('medium') ? 'Medium Confidence (50-79%)' :
+                          element.classList.contains('low') ? 'Low Confidence (<50%)' :
+                          'Unknown Confidence';
+        
+        element.setAttribute('title', confidence);
+        element.setAttribute('data-bs-toggle', 'tooltip');
+        new bootstrap.Tooltip(element);
+    });
+});
+</script>
+{% endblock %}

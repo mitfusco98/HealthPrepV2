@@ -1,0 +1,531 @@
+{% extends 'base_demo.html' %}
+
+{% block title %}HealthPrep - Add Screening Type{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-section {
+    background-color: var(--bs-dark);
+    border: 1px solid var(--bs-gray-700);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.form-section h5 {
+    color: var(--bs-info);
+    border-bottom: 2px solid var(--bs-info);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.keyword-input-group {
+    position: relative;
+}
+
+.keyword-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: var(--bs-gray-800);
+    border: 1px solid var(--bs-gray-600);
+    border-top: none;
+    border-radius: 0 0 0.375rem 0.375rem;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+}
+
+.keyword-suggestion {
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--bs-gray-700);
+}
+
+.keyword-suggestion:hover {
+    background-color: var(--bs-gray-700);
+}
+
+.keyword-suggestion:last-child {
+    border-bottom: none;
+}
+
+.keyword-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.keyword-tag {
+    background-color: var(--bs-info);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    position: relative;
+}
+
+.keyword-tag .remove-keyword {
+    margin-left: 0.5rem;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.keyword-tag .remove-keyword:hover {
+    color: var(--bs-danger);
+}
+
+.frequency-preview {
+    background-color: var(--bs-gray-800);
+    border: 1px solid var(--bs-gray-600);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.age-range-inputs {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.help-text {
+    font-size: 0.875rem;
+    color: var(--bs-gray-400);
+    margin-top: 0.25rem;
+}
+
+.required-field {
+    color: var(--bs-danger);
+}
+
+.btn-preview {
+    background-color: var(--bs-warning);
+    border-color: var(--bs-warning);
+    color: var(--bs-dark);
+}
+
+.btn-preview:hover {
+    background-color: #e0a800;
+    border-color: #d39e00;
+    color: var(--bs-dark);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <!-- Page Header -->
+        <div class="mb-4">
+            <h2 class="mb-1">
+                <i class="fas fa-plus-circle me-2 text-success"></i>
+                Add Screening Type
+            </h2>
+            <p class="text-muted mb-0">Configure a new screening type for patient monitoring</p>
+        </div>
+
+        <!-- Main Form -->
+        <form method="POST" action="{{ url_for('ui.add_screening_type') }}" id="screening-form">
+            <!-- Basic Information -->
+            <div class="form-section">
+                <h5>
+                    <i class="fas fa-info-circle me-2"></i>
+                    Basic Information
+                </h5>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="name" class="form-label">
+                            Screening Name <span class="required-field">*</span>
+                        </label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                        <div class="help-text">e.g., "Annual Mammogram", "Colonoscopy Screening"</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="gender_eligibility" class="form-label">Gender Eligibility</label>
+                        <select class="form-select" id="gender_eligibility" name="gender_eligibility">
+                            <option value="Both">Both</option>
+                            <option value="F">Female Only</option>
+                            <option value="M">Male Only</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                    <div class="help-text">Optional description of the screening purpose and procedure</div>
+                </div>
+            </div>
+
+            <!-- Keywords Section -->
+            <div class="form-section">
+                <h5>
+                    <i class="fas fa-tags me-2"></i>
+                    Document Keywords
+                </h5>
+                
+                <div class="keyword-input-group">
+                    <label for="keywords-input" class="form-label">
+                        Keywords <span class="required-field">*</span>
+                    </label>
+                    <input type="text" class="form-control" id="keywords-input" 
+                           placeholder="Type keywords and press Enter or comma to add...">
+                    <div class="keyword-suggestions" id="keyword-suggestions"></div>
+                    <div class="help-text">Keywords to match in document filenames and content</div>
+                </div>
+                
+                <div class="keyword-tags" id="keyword-tags"></div>
+                
+                <!-- Hidden input for form submission -->
+                <input type="hidden" id="keywords" name="keywords">
+            </div>
+
+            <!-- Eligibility Criteria -->
+            <div class="form-section">
+                <h5>
+                    <i class="fas fa-user-check me-2"></i>
+                    Eligibility Criteria
+                </h5>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="form-label">Age Range</label>
+                        <div class="age-range-inputs">
+                            <input type="number" class="form-control" id="min_age" name="min_age" 
+                                   placeholder="Min age" min="0" max="150">
+                            <span class="text-muted">to</span>
+                            <input type="number" class="form-control" id="max_age" name="max_age" 
+                                   placeholder="Max age" min="0" max="150">
+                        </div>
+                        <div class="help-text">Leave blank for no age restrictions</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="trigger-conditions-input" class="form-label">Trigger Conditions</label>
+                        <input type="text" class="form-control" id="trigger-conditions-input" 
+                               placeholder="Type conditions and press Enter...">
+                        <div class="help-text">Medical conditions that trigger this screening</div>
+                        <div class="keyword-tags" id="condition-tags"></div>
+                        <input type="hidden" id="trigger_conditions" name="trigger_conditions">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Frequency Settings -->
+            <div class="form-section">
+                <h5>
+                    <i class="fas fa-calendar-alt me-2"></i>
+                    Frequency Settings
+                </h5>
+                
+                <div class="row">
+                    <div class="col-md-4">
+                        <label for="frequency_number" class="form-label">
+                            Frequency <span class="required-field">*</span>
+                        </label>
+                        <input type="number" class="form-control" id="frequency_number" name="frequency_number" 
+                               min="1" max="50" value="12" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="frequency_unit" class="form-label">Unit</label>
+                        <select class="form-select" id="frequency_unit" name="frequency_unit">
+                            <option value="months">Months</option>
+                            <option value="years">Years</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="button" class="btn btn-preview mt-4" id="preview-frequency">
+                            <i class="fas fa-eye me-1"></i>
+                            Preview Schedule
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="frequency-preview" id="frequency-preview" style="display: none;">
+                    <h6 class="text-warning">
+                        <i class="fas fa-calendar me-2"></i>
+                        Frequency Preview
+                    </h6>
+                    <div id="frequency-preview-content"></div>
+                </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="d-flex justify-content-between">
+                <a href="{{ url_for('ui.screening_list') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>
+                    Back to Screening List
+                </a>
+                
+                <div>
+                    <button type="button" class="btn btn-outline-info me-2" id="validate-form">
+                        <i class="fas fa-check-circle me-1"></i>
+                        Validate
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-1"></i>
+                        Save Screening Type
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Medical terminology suggestions
+    const medicalTerms = [
+        'mammogram', 'mammography', 'breast screening',
+        'colonoscopy', 'colon screening', 'colorectal screening',
+        'pap smear', 'pap test', 'cervical screening', 'cytology',
+        'bone density', 'dxa', 'dexa', 'osteoporosis screening',
+        'blood pressure', 'bp check', 'hypertension screening',
+        'lipid panel', 'cholesterol', 'lipids', 'lipid profile',
+        'a1c', 'hba1c', 'hemoglobin a1c', 'diabetes screening',
+        'eye exam', 'ophthalmology', 'vision screening',
+        'skin exam', 'dermatology', 'mole check'
+    ];
+
+    const conditionTerms = [
+        'diabetes', 'diabetes mellitus', 'type 1 diabetes', 'type 2 diabetes',
+        'hypertension', 'high blood pressure',
+        'obesity', 'overweight',
+        'osteoporosis', 'osteopenia',
+        'hyperlipidemia', 'high cholesterol'
+    ];
+
+    // Keyword management
+    let keywords = [];
+    let triggerConditions = [];
+
+    const keywordsInput = document.getElementById('keywords-input');
+    const keywordTags = document.getElementById('keyword-tags');
+    const keywordsHidden = document.getElementById('keywords');
+    const keywordSuggestions = document.getElementById('keyword-suggestions');
+
+    const conditionsInput = document.getElementById('trigger-conditions-input');
+    const conditionTags = document.getElementById('condition-tags');
+    const conditionsHidden = document.getElementById('trigger_conditions');
+
+    // Keywords functionality
+    function addKeyword(keyword) {
+        if (keyword && !keywords.includes(keyword)) {
+            keywords.push(keyword);
+            updateKeywordTags();
+            updateKeywordsHidden();
+        }
+    }
+
+    function removeKeyword(keyword) {
+        keywords = keywords.filter(k => k !== keyword);
+        updateKeywordTags();
+        updateKeywordsHidden();
+    }
+
+    function updateKeywordTags() {
+        keywordTags.innerHTML = '';
+        keywords.forEach(keyword => {
+            const tag = document.createElement('div');
+            tag.className = 'keyword-tag';
+            tag.innerHTML = `
+                ${keyword}
+                <span class="remove-keyword" onclick="removeKeyword('${keyword}')">&times;</span>
+            `;
+            keywordTags.appendChild(tag);
+        });
+    }
+
+    function updateKeywordsHidden() {
+        keywordsHidden.value = keywords.join(',');
+    }
+
+    // Trigger conditions functionality
+    function addCondition(condition) {
+        if (condition && !triggerConditions.includes(condition)) {
+            triggerConditions.push(condition);
+            updateConditionTags();
+            updateConditionsHidden();
+        }
+    }
+
+    function removeCondition(condition) {
+        triggerConditions = triggerConditions.filter(c => c !== condition);
+        updateConditionTags();
+        updateConditionsHidden();
+    }
+
+    function updateConditionTags() {
+        conditionTags.innerHTML = '';
+        triggerConditions.forEach(condition => {
+            const tag = document.createElement('div');
+            tag.className = 'keyword-tag';
+            tag.innerHTML = `
+                ${condition}
+                <span class="remove-keyword" onclick="removeCondition('${condition}')">&times;</span>
+            `;
+            conditionTags.appendChild(tag);
+        });
+    }
+
+    function updateConditionsHidden() {
+        conditionsHidden.value = triggerConditions.join(',');
+    }
+
+    // Make functions global for onclick handlers
+    window.removeKeyword = removeKeyword;
+    window.removeCondition = removeCondition;
+
+    // Keyword input handling
+    keywordsInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            const keyword = this.value.trim();
+            if (keyword) {
+                addKeyword(keyword);
+                this.value = '';
+                keywordSuggestions.style.display = 'none';
+            }
+        }
+    });
+
+    keywordsInput.addEventListener('input', function() {
+        const value = this.value.toLowerCase();
+        if (value.length > 1) {
+            const suggestions = medicalTerms.filter(term => 
+                term.includes(value) && !keywords.includes(term)
+            );
+            
+            if (suggestions.length > 0) {
+                keywordSuggestions.innerHTML = '';
+                suggestions.slice(0, 5).forEach(suggestion => {
+                    const div = document.createElement('div');
+                    div.className = 'keyword-suggestion';
+                    div.textContent = suggestion;
+                    div.addEventListener('click', () => {
+                        addKeyword(suggestion);
+                        keywordsInput.value = '';
+                        keywordSuggestions.style.display = 'none';
+                    });
+                    keywordSuggestions.appendChild(div);
+                });
+                keywordSuggestions.style.display = 'block';
+            } else {
+                keywordSuggestions.style.display = 'none';
+            }
+        } else {
+            keywordSuggestions.style.display = 'none';
+        }
+    });
+
+    // Conditions input handling
+    conditionsInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            const condition = this.value.trim();
+            if (condition) {
+                addCondition(condition);
+                this.value = '';
+            }
+        }
+    });
+
+    // Frequency preview
+    document.getElementById('preview-frequency').addEventListener('click', function() {
+        const frequencyNumber = document.getElementById('frequency_number').value;
+        const frequencyUnit = document.getElementById('frequency_unit').value;
+        
+        if (frequencyNumber) {
+            const preview = document.getElementById('frequency-preview');
+            const content = document.getElementById('frequency-preview-content');
+            
+            const today = new Date();
+            const nextDue = new Date();
+            
+            if (frequencyUnit === 'years') {
+                nextDue.setFullYear(today.getFullYear() + parseInt(frequencyNumber));
+            } else {
+                nextDue.setMonth(today.getMonth() + parseInt(frequencyNumber));
+            }
+            
+            content.innerHTML = `
+                <p><strong>Frequency:</strong> Every ${frequencyNumber} ${frequencyUnit}</p>
+                <p><strong>If completed today (${today.toLocaleDateString()}):</strong></p>
+                <p><strong>Next due date:</strong> ${nextDue.toLocaleDateString()}</p>
+                <p class="text-muted">Patients will be marked as "Due Soon" 30 days before the due date for annual screenings, or 1 week before for more frequent screenings.</p>
+            `;
+            
+            preview.style.display = 'block';
+        }
+    });
+
+    // Form validation
+    document.getElementById('validate-form').addEventListener('click', function() {
+        const errors = [];
+        
+        const name = document.getElementById('name').value.trim();
+        if (!name) {
+            errors.push('Screening name is required');
+        }
+        
+        if (keywords.length === 0) {
+            errors.push('At least one keyword is required');
+        }
+        
+        const frequencyNumber = document.getElementById('frequency_number').value;
+        if (!frequencyNumber || frequencyNumber < 1) {
+            errors.push('Valid frequency number is required');
+        }
+        
+        const minAge = document.getElementById('min_age').value;
+        const maxAge = document.getElementById('max_age').value;
+        if (minAge && maxAge && parseInt(minAge) > parseInt(maxAge)) {
+            errors.push('Minimum age cannot be greater than maximum age');
+        }
+        
+        if (errors.length === 0) {
+            window.showToast('Validation passed! Form is ready to submit.', 'success');
+        } else {
+            window.showToast('Validation errors: ' + errors.join(', '), 'danger');
+        }
+    });
+
+    // Form submission validation
+    document.getElementById('screening-form').addEventListener('submit', function(e) {
+        if (keywords.length === 0) {
+            e.preventDefault();
+            window.showToast('Please add at least one keyword', 'danger');
+            keywordsInput.focus();
+        }
+    });
+
+    // Age range validation
+    document.getElementById('min_age').addEventListener('change', function() {
+        const maxAge = document.getElementById('max_age');
+        if (this.value) {
+            maxAge.min = this.value;
+        }
+    });
+
+    document.getElementById('max_age').addEventListener('change', function() {
+        const minAge = document.getElementById('min_age');
+        if (this.value) {
+            minAge.max = this.value;
+        }
+    });
+
+    // Hide suggestions when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!keywordsInput.contains(e.target) && !keywordSuggestions.contains(e.target)) {
+            keywordSuggestions.style.display = 'none';
+        }
+    });
+});
+</script>
+{% endblock %}

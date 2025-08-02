@@ -1,0 +1,802 @@
+{% extends 'base_user.html' %}
+
+{% block title %}HealthPrep - Screening Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Confidence-based color coding for document links */
+    .confidence-high {
+        color: #155724 !important;
+        background-color: #d4edda !important;
+        border: 1px solid #c3e6cb !important;
+    }
+    
+    .confidence-medium {
+        color: #856404 !important;
+        background-color: #fff3cd !important;
+        border: 1px solid #ffeaa7 !important;
+    }
+    
+    .confidence-low {
+        color: #721c24 !important;
+        background-color: #f8d7da !important;
+        border: 1px solid #f5c6cb !important;
+    }
+    
+    .confidence-high:hover, .confidence-medium:hover, .confidence-low:hover {
+        opacity: 0.8;
+        transform: scale(1.02);
+        transition: all 0.2s ease;
+    }
+    
+    /* Document confidence legend */
+    .confidence-legend {
+        font-size: 0.85em;
+        margin-bottom: 10px;
+    }
+    
+    .confidence-legend .badge {
+        margin-right: 8px;
+    }
+    
+    /* Tab content styling */
+    .tab-content {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 0 0 8px 8px;
+        border: 1px solid #495057;
+        border-top: none;
+    }
+    
+    /* Status badges */
+    .status-due { background-color: #dc3545 !important; }
+    .status-due-soon { background-color: #fd7e14 !important; }
+    .status-complete { background-color: #198754 !important; }
+    
+    /* Screening type cards */
+    .screening-type-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        border: 1px solid #495057;
+    }
+    
+    .screening-type-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Keywords display */
+    .keywords-badges-container {
+        line-height: 1.5;
+    }
+    
+    .keywords-badges-container .badge {
+        font-size: 0.75rem;
+        margin-bottom: 2px;
+        margin-right: 4px;
+    }
+    
+    /* Filter controls */
+    .filter-controls {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        border: 1px solid #495057;
+    }
+    
+    /* Table enhancements */
+    .table-hover tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .screening-actions {
+        white-space: nowrap;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h2 class="mb-1">
+                <i class="fas fa-list-check text-primary me-2"></i>
+                Screening Management
+            </h2>
+            <p class="text-muted mb-0">
+                Manage patient screenings, screening types, and checklist settings
+            </p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-success" onclick="refreshAllScreenings()">
+                    <i class="fas fa-sync-alt me-1"></i>Refresh All
+                </button>
+                <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#bulkOperationsModal">
+                    <i class="fas fa-tasks me-1"></i>Bulk Operations
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Tabs -->
+    <ul class="nav nav-tabs" id="screeningTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="list-tab" data-bs-toggle="tab" data-bs-target="#list-pane" type="button" role="tab">
+                <i class="fas fa-list me-2"></i>Screening List
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="types-tab" data-bs-toggle="tab" data-bs-target="#types-pane" type="button" role="tab">
+                <i class="fas fa-cogs me-2"></i>Screening Types
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settings-pane" type="button" role="tab">
+                <i class="fas fa-sliders-h me-2"></i>Settings
+            </button>
+        </li>
+    </ul>
+    
+    <div class="tab-content p-4" id="screeningTabContent">
+        <!-- Screening List Tab -->
+        <div class="tab-pane fade show active" id="list-pane" role="tabpanel">
+            <!-- Filter Controls -->
+            <div class="filter-controls p-3 mb-4">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label for="patientFilter" class="form-label">Filter by Patient</label>
+                        <select class="form-select" id="patientFilter">
+                            <option value="">All Patients</option>
+                            {% for patient in patients %}
+                                <option value="{{ patient.id }}">{{ patient.full_name }} ({{ patient.mrn }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="statusFilter" class="form-label">Filter by Status</label>
+                        <select class="form-select" id="statusFilter">
+                            <option value="">All Statuses</option>
+                            <option value="Due">Due</option>
+                            <option value="Due Soon">Due Soon</option>
+                            <option value="Complete">Complete</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="typeFilter" class="form-label">Filter by Type</label>
+                        <select class="form-select" id="typeFilter">
+                            <option value="">All Types</option>
+                            {% for screening_type in screening_types %}
+                                <option value="{{ screening_type.id }}">{{ screening_type.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-outline-primary w-100" onclick="applyFilters()">
+                            <i class="fas fa-filter me-1"></i>Apply
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Confidence Legend -->
+            <div class="confidence-legend mb-3">
+                <span class="badge confidence-high me-2">High Confidence (85%+)</span>
+                <span class="badge confidence-medium me-2">Medium Confidence (70-84%)</span>
+                <span class="badge confidence-low me-2">Low Confidence (<70%)</span>
+                <small class="text-muted ms-3">Document confidence levels based on OCR processing</small>
+            </div>
+            
+            <!-- Screening List Table -->
+            <div class="table-responsive">
+                <table class="table table-hover table-striped" id="screeningTable">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Patient</th>
+                            <th>Screening Type</th>
+                            <th>Status</th>
+                            <th>Last Completed</th>
+                            <th>Next Due</th>
+                            <th>Frequency</th>
+                            <th>Matched Documents</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="screeningTableBody">
+                        {% for screening in recent_screenings %}
+                            <tr data-patient-id="{{ screening.patient_id }}" 
+                                data-status="{{ screening.status }}" 
+                                data-type-id="{{ screening.screening_type_id }}">
+                                <td>
+                                    <strong>{{ screening.patient.full_name }}</strong><br>
+                                    <small class="text-muted">{{ screening.patient.mrn }}</small>
+                                </td>
+                                <td>
+                                    <span class="fw-bold">{{ screening.screening_type.name }}</span>
+                                    {% if screening.screening_type.description %}
+                                        <br><small class="text-muted">{{ screening.screening_type.description[:50] }}...</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge status-{{ screening.status.lower().replace(' ', '-') if screening.status else 'unknown' }}">
+                                        {{ screening.status or 'Unknown' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if screening.last_completed %}
+                                        {{ screening.last_completed.strftime('%Y-%m-%d') }}
+                                    {% else %}
+                                        <span class="text-muted">Never</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if screening.next_due %}
+                                        {{ screening.next_due.strftime('%Y-%m-%d') }}
+                                    {% else %}
+                                        <span class="text-muted">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% set years = screening.screening_type.frequency_years %}
+                                    {% set months = screening.screening_type.frequency_months %}
+                                    {% if years and months %}
+                                        {{ years }}y {{ months }}m
+                                    {% elif years %}
+                                        {{ years }} year{{ 's' if years != 1 else '' }}
+                                    {% elif months %}
+                                        {{ months }} month{{ 's' if months != 1 else '' }}
+                                    {% else %}
+                                        As needed
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="matched-documents">
+                                        {% if screening.matched_documents %}
+                                            {% set doc_ids = screening.matched_documents | from_json %}
+                                            <span class="badge bg-info">{{ doc_ids | length }} documents</span>
+                                        {% else %}
+                                            <span class="text-muted">No matches</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td class="screening-actions">
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{{ url_for('screening.patient_screenings', patient_id=screening.patient_id) }}" 
+                                           class="btn btn-outline-primary btn-sm" title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{{ url_for('prep_sheet.generate_prep_sheet', patient_id=screening.patient_id) }}" 
+                                           class="btn btn-outline-success btn-sm" title="Generate Prep Sheet">
+                                            <i class="fas fa-file-medical"></i>
+                                        </a>
+                                        <button type="button" 
+                                                class="btn btn-outline-warning btn-sm" 
+                                                onclick="refreshPatientScreenings({{ screening.patient_id }})"
+                                                title="Refresh">
+                                            <i class="fas fa-sync-alt"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            {% if not recent_screenings %}
+                <div class="text-center py-5">
+                    <i class="fas fa-list-check text-muted" style="font-size: 3rem;"></i>
+                    <h4 class="text-muted mt-3">No Screenings Found</h4>
+                    <p class="text-muted">
+                        No patient screenings are currently configured. 
+                        Add screening types and patients to get started.
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Screening Types Tab -->
+        <div class="tab-pane fade" id="types-pane" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4>
+                    <i class="fas fa-cogs text-primary me-2"></i>
+                    Screening Types Management
+                </h4>
+                <div class="btn-group" role="group">
+                    <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-success">
+                        <i class="fas fa-plus me-1"></i>Add New Type
+                    </a>
+                    <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#importPresetModal">
+                        <i class="fas fa-download me-1"></i>Import Preset
+                    </button>
+                    <a href="{{ url_for('screening.export_screenings') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-upload me-1"></i>Export Current
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Screening Types Grid -->
+            <div class="row g-4">
+                {% for screening_type in screening_types %}
+                    <div class="col-lg-6 col-xl-4">
+                        <div class="card screening-type-card h-100">
+                            <div class="card-header d-flex justify-content-between align-items-start">
+                                <h6 class="card-title mb-0 fw-bold">{{ screening_type.name }}</h6>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" 
+                                           type="checkbox" 
+                                           id="active{{ screening_type.id }}"
+                                           {{ 'checked' if screening_type.is_active else '' }}
+                                           onchange="toggleScreeningType({{ screening_type.id }}, this.checked)">
+                                    <label class="form-check-label" for="active{{ screening_type.id }}">
+                                        {{ 'Active' if screening_type.is_active else 'Inactive' }}
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                {% if screening_type.description %}
+                                    <p class="card-text text-muted small">{{ screening_type.description }}</p>
+                                {% endif %}
+                                
+                                <!-- Eligibility Criteria -->
+                                <div class="mb-3">
+                                    <h6 class="text-primary mb-2">
+                                        <i class="fas fa-users me-1"></i>Eligibility
+                                    </h6>
+                                    <div class="row">
+                                        {% if screening_type.gender_requirement %}
+                                            <div class="col-6">
+                                                <small class="text-muted">Gender:</small><br>
+                                                <span class="badge bg-secondary">
+                                                    {{ 'Female' if screening_type.gender_requirement == 'F' else 'Male' }}
+                                                </span>
+                                            </div>
+                                        {% endif %}
+                                        <div class="col-6">
+                                            <small class="text-muted">Age:</small><br>
+                                            <span class="badge bg-secondary">
+                                                {% if screening_type.min_age and screening_type.max_age %}
+                                                    {{ screening_type.min_age }}-{{ screening_type.max_age }}
+                                                {% elif screening_type.min_age %}
+                                                    {{ screening_type.min_age }}+
+                                                {% elif screening_type.max_age %}
+                                                    ≤{{ screening_type.max_age }}
+                                                {% else %}
+                                                    Any
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Keywords -->
+                                <div class="mb-3">
+                                    <h6 class="text-primary mb-2">
+                                        <i class="fas fa-tags me-1"></i>Keywords
+                                    </h6>
+                                    <div class="keywords-badges-container" id="keywords-display-{{ screening_type.id }}">
+                                        <small class="text-muted">Loading keywords...</small>
+                                    </div>
+                                </div>
+                                
+                                <!-- Frequency -->
+                                <div class="mb-3">
+                                    <h6 class="text-primary mb-2">
+                                        <i class="fas fa-clock me-1"></i>Frequency
+                                    </h6>
+                                    <span class="badge bg-info">
+                                        {% set years = screening_type.frequency_years %}
+                                        {% set months = screening_type.frequency_months %}
+                                        {% if years and months %}
+                                            Every {{ years }}y {{ months }}m
+                                        {% elif years %}
+                                            Every {{ years }} year{{ 's' if years != 1 else '' }}
+                                        {% elif months %}
+                                            Every {{ months }} month{{ 's' if months != 1 else '' }}
+                                        {% else %}
+                                            As needed
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <div class="btn-group w-100" role="group">
+                                    <a href="{{ url_for('screening.edit_screening_type', type_id=screening_type.id) }}" 
+                                       class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-edit me-1"></i>Edit
+                                    </a>
+                                    <button type="button" 
+                                            class="btn btn-outline-danger btn-sm"
+                                            onclick="deleteScreeningType({{ screening_type.id }}, '{{ screening_type.name }}')">
+                                        <i class="fas fa-trash me-1"></i>Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            
+            {% if not screening_types %}
+                <div class="text-center py-5">
+                    <i class="fas fa-cogs text-muted" style="font-size: 3rem;"></i>
+                    <h4 class="text-muted mt-3">No Screening Types</h4>
+                    <p class="text-muted">
+                        No screening types are configured. Add screening types or import a preset to get started.
+                    </p>
+                    <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>Add First Screening Type
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Settings Tab -->
+        <div class="tab-pane fade" id="settings-pane" role="tabpanel">
+            <div class="row">
+                <div class="col-lg-8">
+                    <h4 class="mb-4">
+                        <i class="fas fa-sliders-h text-primary me-2"></i>
+                        Checklist & Prep Sheet Settings
+                    </h4>
+                    
+                    <form method="POST" action="{{ url_for('screening.update_checklist_settings') }}">
+                        <!-- Data Cutoff Settings -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-calendar-alt me-2"></i>
+                                    Data Cutoff Periods
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted mb-3">
+                                    Configure how far back to look for medical data when generating prep sheets.
+                                </p>
+                                
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label for="lab_cutoff_months" class="form-label">
+                                            <i class="fas fa-vial me-1"></i>Lab Results (months)
+                                        </label>
+                                        <input type="number" 
+                                               class="form-control" 
+                                               id="lab_cutoff_months" 
+                                               name="lab_cutoff_months" 
+                                               value="12" 
+                                               min="1" 
+                                               max="120"
+                                               required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="imaging_cutoff_months" class="form-label">
+                                            <i class="fas fa-x-ray me-1"></i>Imaging Studies (months)
+                                        </label>
+                                        <input type="number" 
+                                               class="form-control" 
+                                               id="imaging_cutoff_months" 
+                                               name="imaging_cutoff_months" 
+                                               value="24" 
+                                               min="1" 
+                                               max="120"
+                                               required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="consult_cutoff_months" class="form-label">
+                                            <i class="fas fa-user-md me-1"></i>Consults (months)
+                                        </label>
+                                        <input type="number" 
+                                               class="form-control" 
+                                               id="consult_cutoff_months" 
+                                               name="consult_cutoff_months" 
+                                               value="12" 
+                                               min="1" 
+                                               max="120"
+                                               required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="hospital_cutoff_months" class="form-label">
+                                            <i class="fas fa-hospital me-1"></i>Hospital Stays (months)
+                                        </label>
+                                        <input type="number" 
+                                               class="form-control" 
+                                               id="hospital_cutoff_months" 
+                                               name="hospital_cutoff_months" 
+                                               value="12" 
+                                               min="1" 
+                                               max="120"
+                                               required>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Submit Button -->
+                        <div class="d-flex justify-content-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>Save Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Settings Summary -->
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Current Settings Summary
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-6">Active Screening Types:</dt>
+                                <dd class="col-sm-6">{{ screening_types | selectattr('is_active') | list | length }}</dd>
+                                
+                                <dt class="col-sm-6">Total Patients:</dt>
+                                <dd class="col-sm-6">{{ patients | length }}</dd>
+                                
+                                <dt class="col-sm-6">Recent Screenings:</dt>
+                                <dd class="col-sm-6">{{ recent_screenings | length }}</dd>
+                                
+                                <dt class="col-sm-6">Last Updated:</dt>
+                                <dd class="col-sm-6">
+                                    <small class="text-muted">{{ moment().format('YYYY-MM-DD HH:mm') if moment else 'Unknown' }}</small>
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import Preset Modal -->
+<div class="modal fade" id="importPresetModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-download me-2"></i>Import Screening Preset
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('screening.import_preset') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="preset_name" class="form-label">Select Preset</label>
+                        <select class="form-select" id="preset_name" name="preset_name" required>
+                            <option value="">Choose a preset...</option>
+                            <option value="primary_care">Primary Care Practice</option>
+                            <option value="cardiology">Cardiology Specialty</option>
+                            <option value="endocrinology">Endocrinology Specialty</option>
+                            <option value="gynecology">Gynecology/Women's Health</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="overwrite_existing" name="overwrite_existing">
+                        <label class="form-check-label" for="overwrite_existing">
+                            Overwrite existing screening types with same names
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-download me-1"></i>Import Preset
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Operations Modal -->
+<div class="modal fade" id="bulkOperationsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-tasks me-2"></i>Bulk Operations
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="list-group">
+                    <button type="button" class="list-group-item list-group-item-action" onclick="refreshAllScreenings()">
+                        <i class="fas fa-sync-alt me-2 text-primary"></i>
+                        <strong>Refresh All Screenings</strong>
+                        <p class="mb-0 text-muted small">Re-evaluate all patient screenings based on current criteria</p>
+                    </button>
+                    
+                    <button type="button" class="list-group-item list-group-item-action" onclick="generateBatchPrepSheets()">
+                        <i class="fas fa-file-medical me-2 text-success"></i>
+                        <strong>Generate Batch Prep Sheets</strong>
+                        <p class="mb-0 text-muted small">Create prep sheets for multiple patients at once</p>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Include screening modals JavaScript -->
+<script src="{{ url_for('static', filename='js/screening_modals.js') }}"></script>
+
+<!-- Include performance optimization JavaScript -->
+<script src="{{ url_for('static', filename='js/screening_performance.js') }}"></script>
+
+<script>
+    // Load keywords and display as badges
+    function loadKeywordsAsBadges() {
+        const keywordContainers = document.querySelectorAll('.keywords-badges-container');
+        console.log(`loadKeywordsAsBadges: Found ${keywordContainers.length} keyword containers to load`);
+        
+        keywordContainers.forEach(container => {
+            const screeningTypeId = container.id.replace('keywords-display-', '');
+            console.log(`loadKeywordsAsBadges: Loading keywords for screening ${screeningTypeId}`);
+            
+            fetch(`/screening/api/screening-keywords/${screeningTypeId}`)
+                .then(response => {
+                    console.log(`loadKeywordsAsBadges: API response status for screening ${screeningTypeId}: ${response.status}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log(`Received keywords data for screening ${screeningTypeId}:`, data);
+                    if (data.success && data.keywords && Array.isArray(data.keywords) && data.keywords.length > 0) {
+                        // Display keywords as badges
+                        const keywordsHtml = data.keywords.map(keyword => 
+                            `<span class="badge bg-primary me-1 mb-1">${keyword}</span>`
+                        ).join('');
+                        container.innerHTML = keywordsHtml;
+                        console.log(`Successfully updated keywords display for screening ${screeningTypeId} with ${data.keywords.length} keywords`);
+                    } else {
+                        // Show no keywords message
+                        container.innerHTML = '<small class="text-muted">No keywords defined</small>';
+                        console.log(`No keywords found for screening ${screeningTypeId}`);
+                    }
+                })
+                .catch(error => {
+                    console.error(`Error loading keywords for screening ${screeningTypeId}:`, error);
+                    container.innerHTML = '<small class="text-danger">Error loading keywords</small>';
+                });
+        });
+    }
+
+    // Initialize keyword display when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM Content Loaded - checking for keyword containers...');
+        
+        // Check if keyword containers exist
+        const hasKeywordContainers = document.querySelectorAll('.keywords-badges-container').length > 0;
+        if (hasKeywordContainers) {
+            console.log('Loading keywords for display...');
+            // Load keywords immediately
+            loadKeywordsAsBadges();
+            
+            // Also load after a delay to ensure DOM is fully ready
+            setTimeout(() => {
+                loadKeywordsAsBadges();
+            }, 1000);
+        } else {
+            console.log('No keyword containers found - skipping keyword loading');
+        }
+    });
+
+    // Filter functions
+    function applyFilters() {
+        const patientFilter = document.getElementById('patientFilter').value;
+        const statusFilter = document.getElementById('statusFilter').value;
+        const typeFilter = document.getElementById('typeFilter').value;
+        
+        const rows = document.querySelectorAll('#screeningTableBody tr');
+        
+        rows.forEach(row => {
+            const patientId = row.dataset.patientId;
+            const status = row.dataset.status;
+            const typeId = row.dataset.typeId;
+            
+            let show = true;
+            
+            if (patientFilter && patientId !== patientFilter) show = false;
+            if (statusFilter && status !== statusFilter) show = false;
+            if (typeFilter && typeId !== typeFilter) show = false;
+            
+            row.style.display = show ? '' : 'none';
+        });
+    }
+
+    // Screening operations
+    function refreshAllScreenings() {
+        if (confirm('Refresh all patient screenings? This may take several minutes for large datasets.')) {
+            showLoading('Refreshing all screenings...');
+            
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = "{{ url_for('screening.bulk_refresh_screenings') }}";
+            
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrf_token';
+            csrfInput.value = csrfToken;
+            form.appendChild(csrfInput);
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+
+    function refreshPatientScreenings(patientId) {
+        showLoading('Refreshing patient screenings...');
+        
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `{{ url_for('screening.refresh_patient_screenings', patient_id='PATIENT_ID') }}`.replace('PATIENT_ID', patientId);
+        
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrf_token';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    function toggleScreeningType(typeId, isActive) {
+        // This would typically make an AJAX call to update the screening type status
+        console.log(`Toggle screening type ${typeId} to ${isActive}`);
+        
+        // For now, just show a loading state
+        const switchElement = document.getElementById(`active${typeId}`);
+        const label = switchElement.nextElementSibling;
+        
+        const originalText = label.textContent;
+        label.textContent = 'Updating...';
+        switchElement.disabled = true;
+        
+        // Simulate API call
+        setTimeout(() => {
+            label.textContent = isActive ? 'Active' : 'Inactive';
+            switchElement.disabled = false;
+        }, 1000);
+    }
+
+    function deleteScreeningType(typeId, typeName) {
+        if (confirm(`Are you sure you want to delete the screening type "${typeName}"? This action cannot be undone.`)) {
+            showLoading('Deleting screening type...');
+            
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `{{ url_for('screening.delete_screening_type', type_id='TYPE_ID') }}`.replace('TYPE_ID', typeId);
+            
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrf_token';
+            csrfInput.value = csrfToken;
+            form.appendChild(csrfInput);
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+
+    function generateBatchPrepSheets() {
+        window.location.href = "{{ url_for('prep_sheet.batch_prep_sheets') }}";
+    }
+
+    // Tab switching event to reload keywords when types tab is shown
+    document.getElementById('types-tab').addEventListener('shown.bs.tab', function() {
+        setTimeout(loadKeywordsAsBadges, 100);
+    });
+</script>
+{% endblock %}

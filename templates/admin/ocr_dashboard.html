@@ -1,0 +1,418 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}HealthPrep Admin - OCR Dashboard{% endblock %}
+
+{% block content %}
+<!-- OCR Dashboard Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>
+            <i class="fas fa-eye me-2 text-primary"></i>
+            OCR Processing Monitor
+        </h2>
+        <p class="text-muted mb-0">
+            Monitor document processing, quality metrics, and system performance
+        </p>
+    </div>
+    
+    <div class="d-flex gap-2">
+        <button type="button" 
+                class="btn btn-outline-light" 
+                onclick="refreshDashboard()"
+                data-bs-toggle="tooltip" 
+                title="Refresh OCR data">
+            <i class="fas fa-sync-alt me-2"></i>
+            Refresh
+        </button>
+    </div>
+</div>
+
+<!-- OCR Statistics Row -->
+{% if stats %}
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card metric-card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-file-medical fa-2x mb-3"></i>
+                <div class="metric-value">{{ stats.total_documents }}</div>
+                <h6 class="mb-0">Total Documents</h6>
+                <small class="opacity-75">Last 7 days</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card metric-card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-check-circle fa-2x mb-3"></i>
+                <div class="metric-value">{{ stats.processed_documents }}</div>
+                <h6 class="mb-0">Processed</h6>
+                <small class="opacity-75">OCR completed</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card metric-card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-clock fa-2x mb-3"></i>
+                <div class="metric-value">{{ stats.pending_documents }}</div>
+                <h6 class="mb-0">Pending</h6>
+                <small class="opacity-75">In processing queue</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card metric-card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-percentage fa-2x mb-3"></i>
+                <div class="metric-value">{{ stats.avg_confidence|round(1) }}%</div>
+                <h6 class="mb-0">Avg Confidence</h6>
+                <small class="opacity-75">Processing quality</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Quality Distribution and Processing Queue -->
+<div class="row mb-4">
+    <!-- Confidence Distribution -->
+    <div class="col-lg-6 mb-3">
+        <div class="card admin-card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    Quality Distribution
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if stats %}
+                    <div class="row text-center mb-4">
+                        <div class="col-4">
+                            <div class="border rounded p-3 bg-success bg-opacity-10">
+                                <h4 class="text-success">{{ stats.high_confidence_count }}</h4>
+                                <p class="mb-0 small">High Quality</p>
+                                <small class="text-muted">≥80% confidence</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="border rounded p-3 bg-warning bg-opacity-10">
+                                <h4 class="text-warning">{{ stats.medium_confidence_count }}</h4>
+                                <p class="mb-0 small">Medium Quality</p>
+                                <small class="text-muted">60-79% confidence</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="border rounded p-3 bg-danger bg-opacity-10">
+                                <h4 class="text-danger">{{ stats.low_confidence_count }}</h4>
+                                <p class="mb-0 small">Low Quality</p>
+                                <small class="text-muted">&lt;60% confidence</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <canvas id="confidenceChart" width="400" height="200"></canvas>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No processing data available</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Processing Queue -->
+    <div class="col-lg-6 mb-3">
+        <div class="card admin-card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    Processing Queue
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if processing_queue %}
+                    <div class="list-group list-group-flush" style="max-height: 300px; overflow-y: auto;">
+                        {% for doc in processing_queue %}
+                            <div class="list-group-item px-0 py-2">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <div class="fw-bold">{{ doc.filename[:30] }}{{ '...' if doc.filename|length > 30 else '' }}</div>
+                                        <small class="text-muted">
+                                            Uploaded: {{ doc.uploaded_at.strftime('%m/%d %H:%M') if doc.uploaded_at else 'Unknown' }}
+                                        </small>
+                                    </div>
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="fas fa-hourglass-half me-1"></i>
+                                        Pending
+                                    </span>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    
+                    {% if processing_queue|length == 20 %}
+                        <div class="text-center mt-2">
+                            <small class="text-muted">Showing first 20 items</small>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                        <h6 class="text-success">Queue Empty</h6>
+                        <p class="text-muted mb-0">All documents have been processed</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Low Confidence Documents -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card admin-card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-exclamation-triangle me-2 text-warning"></i>
+                    Low Confidence Documents
+                </h5>
+                <small class="text-muted">Documents that may require manual review</small>
+            </div>
+            <div class="card-body">
+                {% if low_confidence_docs %}
+                    <div class="table-responsive">
+                        <table class="table table-hover admin-table">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Document</th>
+                                    <th>Patient</th>
+                                    <th>Confidence</th>
+                                    <th>Upload Date</th>
+                                    <th>Document Type</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for doc in low_confidence_docs %}
+                                    <tr>
+                                        <td>
+                                            <div class="fw-bold">{{ doc.filename }}</div>
+                                            {% if doc.ocr_text %}
+                                                <small class="text-muted">{{ doc.ocr_text[:50] }}...</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if doc.patient %}
+                                                <div>{{ doc.patient.first_name }} {{ doc.patient.last_name }}</div>
+                                                <small class="text-muted">MRN: {{ doc.patient.mrn }}</small>
+                                            {% else %}
+                                                <span class="text-muted">Unknown</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% set confidence_class = 'bg-danger' if doc.ocr_confidence < 40 else 'bg-warning text-dark' %}
+                                            <span class="badge {{ confidence_class }}">
+                                                {{ doc.ocr_confidence|round(1) if doc.ocr_confidence else 0 }}%
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {{ doc.uploaded_at.strftime('%m/%d/%Y %H:%M') if doc.uploaded_at else 'Unknown' }}
+                                        </td>
+                                        <td>
+                                            {% if doc.document_type %}
+                                                <span class="badge bg-info">{{ doc.document_type.replace('_', ' ').title() }}</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Unknown</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if doc.ocr_processed %}
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-check me-1"></i>
+                                                    Processed
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="fas fa-clock me-1"></i>
+                                                    Pending
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {% if low_confidence_docs|length == 20 %}
+                        <div class="text-center mt-3">
+                            <small class="text-muted">Showing first 20 documents with low confidence</small>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-thumbs-up fa-3x text-success mb-3"></i>
+                        <h6 class="text-success">Excellent Quality</h6>
+                        <p class="text-muted mb-0">No low confidence documents found</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Processing Trends -->
+{% if trends and trends.daily_stats %}
+<div class="row">
+    <div class="col-12">
+        <div class="card admin-card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-line me-2"></i>
+                    Processing Trends
+                </h5>
+                <small class="text-muted">30-day processing history and quality trends</small>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-4 text-center">
+                        <h6>Trend Analysis</h6>
+                        {% if trends.trends %}
+                            {% set trend = trends.trends.confidence_trend %}
+                            {% if trend == 'improving' %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-arrow-up me-1"></i>
+                                    Improving
+                                </span>
+                            {% elif trend == 'declining' %}
+                                <span class="badge bg-warning text-dark">
+                                    <i class="fas fa-arrow-down me-1"></i>
+                                    Declining
+                                </span>
+                            {% else %}
+                                <span class="badge bg-info">
+                                    <i class="fas fa-minus me-1"></i>
+                                    Stable
+                                </span>
+                            {% endif %}
+                        {% else %}
+                            <span class="badge bg-secondary">N/A</span>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <h6>Recent Average</h6>
+                        <span class="badge bg-primary">
+                            {{ trends.trends.recent_avg_confidence|round(1) if trends.trends else 'N/A' }}%
+                        </span>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <h6>Previous Average</h6>
+                        <span class="badge bg-secondary">
+                            {{ trends.trends.previous_avg_confidence|round(1) if trends.trends else 'N/A' }}%
+                        </span>
+                    </div>
+                </div>
+                
+                <canvas id="trendsChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    {% if stats %}
+    // Confidence Distribution Chart
+    const confidenceData = {
+        labels: ['High Quality (≥80%)', 'Medium Quality (60-79%)', 'Low Quality (<60%)'],
+        datasets: [{
+            data: [{{ stats.high_confidence_count }}, {{ stats.medium_confidence_count }}, {{ stats.low_confidence_count }}],
+            backgroundColor: [
+                '#28a745', // High (green)
+                '#ffc107', // Medium (yellow)
+                '#dc3545'  // Low (red)
+            ],
+            borderWidth: 2,
+            borderColor: '#fff'
+        }]
+    };
+    
+    createChart('confidenceChart', 'doughnut', confidenceData, {
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    padding: 15,
+                    usePointStyle: true
+                }
+            }
+        }
+    });
+    {% endif %}
+    
+    {% if trends and trends.daily_stats %}
+    // Processing Trends Chart
+    const trendsData = {
+        labels: [{% for day in trends.daily_stats %}'{{ day.date }}'{{ ',' if not loop.last }}{% endfor %}],
+        datasets: [{
+            label: 'Documents Processed',
+            data: [{% for day in trends.daily_stats %}{{ day.processed_documents }}{{ ',' if not loop.last }}{% endfor %}],
+            borderColor: '#007bff',
+            backgroundColor: 'rgba(0, 123, 255, 0.1)',
+            tension: 0.4,
+            fill: true
+        }, {
+            label: 'Average Confidence',
+            data: [{% for day in trends.daily_stats %}{{ day.avg_confidence }}{{ ',' if not loop.last }}{% endfor %}],
+            borderColor: '#28a745',
+            backgroundColor: 'rgba(40, 167, 69, 0.1)',
+            tension: 0.4,
+            fill: false,
+            yAxisID: 'y1'
+        }]
+    };
+    
+    createChart('trendsChart', 'line', trendsData, {
+        scales: {
+            y: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: 'Documents Processed'
+                }
+            },
+            y1: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                min: 0,
+                max: 100,
+                title: {
+                    display: true,
+                    text: 'Confidence (%)'
+                },
+                grid: {
+                    drawOnChartArea: false,
+                }
+            }
+        },
+        plugins: {
+            legend: {
+                position: 'top'
+            }
+        }
+    });
+    {% endif %}
+});
+</script>
+{% endblock %}

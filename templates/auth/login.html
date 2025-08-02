@@ -1,0 +1,296 @@
+{% extends 'base_user.html' %}
+
+{% block title %}HealthPrep - Login{% endblock %}
+
+{% block extra_css %}
+<style>
+    .login-container {
+        min-height: calc(100vh - 200px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .login-card {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    
+    .login-header {
+        background: linear-gradient(135deg, #0d6efd 0%, #0056b3 100%);
+        border-radius: 15px 15px 0 0;
+    }
+    
+    .form-floating > .form-control:focus ~ label {
+        color: #0d6efd;
+    }
+    
+    .medical-icon {
+        font-size: 3rem;
+        color: #ffffff;
+        margin-bottom: 1rem;
+    }
+    
+    .demo-credentials {
+        background: rgba(0, 123, 255, 0.1);
+        border: 1px solid rgba(0, 123, 255, 0.2);
+        border-radius: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Remove navbar for login page -->
+<style>
+    nav.navbar { display: none; }
+    main.container-fluid { margin-top: 0; }
+    footer { margin-top: 0; }
+</style>
+
+<div class="login-container">
+    <div class="col-md-6 col-lg-4">
+        <div class="card login-card">
+            <!-- Header -->
+            <div class="card-header login-header text-center py-4">
+                <div class="medical-icon">
+                    <i class="fas fa-heartbeat"></i>
+                </div>
+                <h3 class="text-white mb-0 fw-bold">HealthPrep</h3>
+                <p class="text-white-50 mb-0">HIPAA-Compliant Healthcare System</p>
+            </div>
+            
+            <!-- Login Form -->
+            <div class="card-body p-4">
+                <h4 class="text-center mb-4">
+                    <i class="fas fa-sign-in-alt me-2 text-primary"></i>
+                    Sign In
+                </h4>
+                
+                <form method="POST" action="{{ url_for('auth.login') }}">
+                    <!-- Username/Email -->
+                    <div class="form-floating mb-3">
+                        <input type="text" 
+                               class="form-control" 
+                               id="username" 
+                               name="username" 
+                               placeholder="Username or Email"
+                               required
+                               autocomplete="username">
+                        <label for="username">
+                            <i class="fas fa-user me-2"></i>Username or Email
+                        </label>
+                    </div>
+                    
+                    <!-- Password -->
+                    <div class="form-floating mb-3">
+                        <input type="password" 
+                               class="form-control" 
+                               id="password" 
+                               name="password" 
+                               placeholder="Password"
+                               required
+                               autocomplete="current-password">
+                        <label for="password">
+                            <i class="fas fa-lock me-2"></i>Password
+                        </label>
+                    </div>
+                    
+                    <!-- Remember Me -->
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" 
+                               type="checkbox" 
+                               id="remember_me" 
+                               name="remember_me">
+                        <label class="form-check-label" for="remember_me">
+                            Remember me for 30 days
+                        </label>
+                    </div>
+                    
+                    <!-- Submit Button -->
+                    <button type="submit" class="btn btn-primary w-100 py-2 mb-3">
+                        <i class="fas fa-sign-in-alt me-2"></i>
+                        Sign In
+                    </button>
+                </form>
+                
+                <!-- FHIR Login Option -->
+                <div class="text-center mb-3">
+                    <div class="d-flex align-items-center mb-3">
+                        <hr class="flex-grow-1">
+                        <span class="px-3 text-muted">or</span>
+                        <hr class="flex-grow-1">
+                    </div>
+                    
+                    <a href="{{ url_for('auth.fhir_authorize') }}" 
+                       class="btn btn-outline-info w-100">
+                        <i class="fas fa-hospital me-2"></i>
+                        Sign in with SMART on FHIR
+                    </a>
+                </div>
+                
+                <!-- Demo Credentials -->
+                <div class="demo-credentials p-3 mt-4">
+                    <h6 class="text-primary mb-2">
+                        <i class="fas fa-info-circle me-2"></i>Demo Credentials
+                    </h6>
+                    <div class="row">
+                        <div class="col-6">
+                            <small class="text-muted d-block">Administrator:</small>
+                            <code class="small">admin / admin123</code>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">Standard User:</small>
+                            <code class="small">demo / demo123</code>
+                        </div>
+                    </div>
+                    <small class="text-muted d-block mt-2">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        Change default passwords in production
+                    </small>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div class="card-footer text-center bg-transparent border-0 pb-4">
+                <div class="row">
+                    <div class="col">
+                        <small class="text-muted">
+                            <i class="fas fa-shield-alt me-1"></i>Secure
+                        </small>
+                    </div>
+                    <div class="col">
+                        <small class="text-muted">
+                            <i class="fas fa-lock me-1"></i>Encrypted
+                        </small>
+                    </div>
+                    <div class="col">
+                        <small class="text-muted">
+                            <i class="fas fa-user-shield me-1"></i>HIPAA
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Additional Options -->
+        <div class="text-center mt-3">
+            <small class="text-muted">
+                Need an account? Contact your system administrator.
+            </small>
+        </div>
+    </div>
+</div>
+
+<!-- Background animation -->
+<div class="position-fixed top-0 start-0 w-100 h-100" style="z-index: -1; overflow: hidden;">
+    <div class="medical-bg-animation">
+        <i class="fas fa-heartbeat"></i>
+        <i class="fas fa-user-md"></i>
+        <i class="fas fa-stethoscope"></i>
+        <i class="fas fa-pills"></i>
+        <i class="fas fa-hospital"></i>
+        <i class="fas fa-ambulance"></i>
+    </div>
+</div>
+
+<style>
+    .medical-bg-animation {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        opacity: 0.05;
+    }
+    
+    .medical-bg-animation i {
+        position: absolute;
+        font-size: 2rem;
+        animation: float 6s ease-in-out infinite;
+    }
+    
+    .medical-bg-animation i:nth-child(1) { top: 10%; left: 10%; animation-delay: -0.5s; }
+    .medical-bg-animation i:nth-child(2) { top: 20%; right: 10%; animation-delay: -1s; }
+    .medical-bg-animation i:nth-child(3) { top: 40%; left: 5%; animation-delay: -2s; }
+    .medical-bg-animation i:nth-child(4) { bottom: 30%; right: 15%; animation-delay: -1.5s; }
+    .medical-bg-animation i:nth-child(5) { bottom: 10%; left: 20%; animation-delay: -3s; }
+    .medical-bg-animation i:nth-child(6) { top: 60%; right: 5%; animation-delay: -2.5s; }
+    
+    @keyframes float {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        50% { transform: translateY(-20px) rotate(5deg); }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-focus username field
+    document.addEventListener('DOMContentLoaded', function() {
+        const usernameField = document.getElementById('username');
+        if (usernameField) {
+            usernameField.focus();
+        }
+    });
+    
+    // Quick fill demo credentials
+    function fillDemoCredentials(username, password) {
+        document.getElementById('username').value = username;
+        document.getElementById('password').value = password;
+    }
+    
+    // Add click handlers for demo credentials
+    document.addEventListener('DOMContentLoaded', function() {
+        const demoCodes = document.querySelectorAll('.demo-credentials code');
+        demoCodes.forEach(code => {
+            code.style.cursor = 'pointer';
+            code.addEventListener('click', function() {
+                const credentials = this.textContent.split(' / ');
+                if (credentials.length === 2) {
+                    fillDemoCredentials(credentials[0], credentials[1]);
+                }
+            });
+        });
+    });
+    
+    // Form validation
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        
+        if (!username || !password) {
+            e.preventDefault();
+            alert('Please enter both username and password.');
+            return false;
+        }
+        
+        // Show loading
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Signing in...';
+        submitBtn.disabled = true;
+        
+        // Re-enable button after 5 seconds (in case of error)
+        setTimeout(() => {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }, 5000);
+    });
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Ctrl+Alt+A for admin credentials
+        if (e.ctrlKey && e.altKey && e.key === 'a') {
+            fillDemoCredentials('admin', 'admin123');
+            e.preventDefault();
+        }
+        
+        // Ctrl+Alt+D for demo credentials
+        if (e.ctrlKey && e.altKey && e.key === 'd') {
+            fillDemoCredentials('demo', 'demo123');
+            e.preventDefault();
+        }
+    });
+</script>
+{% endblock %}

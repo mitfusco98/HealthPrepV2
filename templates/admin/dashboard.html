@@ -1,0 +1,442 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}HealthPrep Admin - Dashboard{% endblock %}
+
+{% block content %}
+<!-- Dashboard Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>
+            <i class="fas fa-tachometer-alt me-2 text-info"></i>
+            System Dashboard
+        </h2>
+        <p class="text-muted mb-0">
+            Real-time analytics, ROI metrics, and system monitoring
+        </p>
+    </div>
+    
+    <div class="d-flex gap-2">
+        <button type="button" 
+                class="btn btn-outline-light" 
+                onclick="refreshDashboard()"
+                data-bs-toggle="tooltip" 
+                title="Refresh dashboard data">
+            <i class="fas fa-sync-alt me-2"></i>
+            Refresh
+        </button>
+        
+        <button type="button" 
+                class="btn btn-outline-light" 
+                onclick="exportData('json')"
+                data-bs-toggle="tooltip" 
+                title="Export dashboard data">
+            <i class="fas fa-download me-2"></i>
+            Export
+        </button>
+    </div>
+</div>
+
+<!-- ROI Metrics Row -->
+{% if roi_metrics %}
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card metric-card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-clock fa-2x mb-3"></i>
+                <div class="metric-value">{{ roi_metrics.hours_saved }}</div>
+                <h6 class="mb-0">Hours Saved</h6>
+                <small class="opacity-75">Last 30 days</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card metric-card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-robot fa-2x mb-3"></i>
+                <div class="metric-value">{{ roi_metrics.tasks_automated }}</div>
+                <h6 class="mb-0">Tasks Automated</h6>
+                <small class="opacity-75">Total automated processes</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card metric-card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-check-circle fa-2x mb-3"></i>
+                <div class="metric-value">{{ roi_metrics.gaps_closed }}</div>
+                <h6 class="mb-0">Gaps Closed</h6>
+                <small class="opacity-75">Screening completions</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 mb-3">
+        <div class="card metric-card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-percentage fa-2x mb-3"></i>
+                <div class="metric-value">{{ roi_metrics.screening_compliance_rate }}%</div>
+                <h6 class="mb-0">Compliance Rate</h6>
+                <small class="opacity-75">Overall screening compliance</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Cost Savings Card -->
+{% if cost_savings %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card admin-card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-dollar-sign me-2 text-success"></i>
+                    Cost Savings Analysis
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 text-center">
+                        <h4 class="text-success">${{ cost_savings.total_monthly_savings }}</h4>
+                        <p class="mb-0">Monthly Savings</p>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <h4 class="text-success">${{ cost_savings.projected_annual_savings }}</h4>
+                        <p class="mb-0">Projected Annual</p>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <h4 class="text-info">{{ cost_savings.hourly_breakdown.medical_assistant.hours }}</h4>
+                        <p class="mb-0">MA Hours Saved</p>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <h4 class="text-info">{{ cost_savings.hourly_breakdown.nurse.hours }}</h4>
+                        <p class="mb-0">Nurse Hours Saved</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Analytics Row -->
+<div class="row mb-4">
+    <!-- Screening Analytics -->
+    <div class="col-lg-6 mb-3">
+        <div class="card admin-card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>
+                    Screening Status Distribution
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if screening_analytics and screening_analytics.status_distribution %}
+                    <canvas id="screeningStatusChart" width="400" height="300"></canvas>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-chart-pie fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No screening data available</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Document Processing -->
+    <div class="col-lg-6 mb-3">
+        <div class="card admin-card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-file-medical me-2"></i>
+                    Document Processing
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if document_analytics %}
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <h4 class="text-primary">{{ document_analytics.total_processed }}</h4>
+                            <p class="mb-0 small">Total Processed</p>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-success">{{ document_analytics.ocr_processing_rate }}%</h4>
+                            <p class="mb-0 small">OCR Success Rate</p>
+                        </div>
+                    </div>
+                    
+                    {% if document_analytics.confidence_distribution %}
+                        <canvas id="ocrConfidenceChart" width="400" height="200" class="mt-3"></canvas>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-file-medical fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No document data available</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Status and Logs Row -->
+<div class="row mb-4">
+    <!-- OCR System Status -->
+    <div class="col-lg-4 mb-3">
+        <div class="card admin-card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-eye me-2"></i>
+                    OCR System Status
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if ocr_stats %}
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>Processed Documents</span>
+                            <span class="badge bg-primary">{{ ocr_stats.processed_documents }}</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>Pending Queue</span>
+                            <span class="badge bg-warning text-dark">{{ ocr_stats.pending_documents }}</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>Avg Confidence</span>
+                            <span class="badge bg-success">{{ ocr_stats.avg_confidence|round(1) }}%</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>Processing Errors</span>
+                            <span class="badge bg-danger">{{ ocr_stats.processing_errors }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <a href="{{ url_for('admin.ocr_dashboard') }}" class="btn btn-outline-light btn-sm w-100">
+                            <i class="fas fa-external-link-alt me-2"></i>
+                            View OCR Dashboard
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-eye fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">OCR system data unavailable</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Patient Analytics -->
+    <div class="col-lg-4 mb-3">
+        <div class="card admin-card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-users me-2"></i>
+                    Patient Analytics
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if patient_analytics %}
+                    <div class="text-center mb-3">
+                        <h3 class="text-primary">{{ patient_analytics.total_patients }}</h3>
+                        <p class="mb-0">Total Patients</p>
+                    </div>
+                    
+                    <div class="text-center mb-3">
+                        <h4 class="text-success">{{ patient_analytics.active_patients }}</h4>
+                        <p class="mb-0 small">Active This Month</p>
+                    </div>
+                    
+                    {% if patient_analytics.compliance_distribution %}
+                        <div class="row text-center small">
+                            <div class="col-4">
+                                <span class="badge bg-success w-100">{{ patient_analytics.compliance_distribution.high }}</span>
+                                <p class="mb-0 mt-1">High</p>
+                            </div>
+                            <div class="col-4">
+                                <span class="badge bg-warning text-dark w-100">{{ patient_analytics.compliance_distribution.medium }}</span>
+                                <p class="mb-0 mt-1">Medium</p>
+                            </div>
+                            <div class="col-4">
+                                <span class="badge bg-danger w-100">{{ patient_analytics.compliance_distribution.low }}</span>
+                                <p class="mb-0 mt-1">Low</p>
+                            </div>
+                        </div>
+                        <p class="small text-muted text-center mt-2">Compliance Distribution</p>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">Patient data unavailable</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Activity -->
+    <div class="col-lg-4 mb-3">
+        <div class="card admin-card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-history me-2"></i>
+                    Recent Activity
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if recent_logs %}
+                    <div class="list-group list-group-flush" style="max-height: 300px; overflow-y: auto;">
+                        {% for log in recent_logs[:10] %}
+                            <div class="list-group-item px-0 py-2">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <span class="badge bg-secondary me-2">{{ log.user }}</span>
+                                        <small class="text-muted">{{ log.action }}</small>
+                                    </div>
+                                    <small class="text-muted">{{ log.timestamp }}</small>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mt-3">
+                        <a href="{{ url_for('admin.logs') }}" class="btn btn-outline-light btn-sm w-100">
+                            <i class="fas fa-external-link-alt me-2"></i>
+                            View All Logs
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No recent activity</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Health -->
+<div class="row">
+    <div class="col-12">
+        <div class="card admin-card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-heartbeat me-2"></i>
+                    System Health & Compliance
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 text-center">
+                        <i class="fas fa-shield-alt fa-2x text-success mb-2"></i>
+                        <h6>HIPAA Compliance</h6>
+                        <span class="badge bg-success">Active</span>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <i class="fas fa-lock fa-2x text-primary mb-2"></i>
+                        <h6>Encryption</h6>
+                        <span class="badge bg-primary">AES-256</span>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <i class="fas fa-eye-slash fa-2x text-warning mb-2"></i>
+                        <h6>PHI Filtering</h6>
+                        <span class="badge bg-warning text-dark">Enabled</span>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <i class="fas fa-clipboard-check fa-2x text-info mb-2"></i>
+                        <h6>Audit Logging</h6>
+                        <span class="badge bg-info">Recording</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Chart initialization
+document.addEventListener('DOMContentLoaded', function() {
+    {% if screening_analytics and screening_analytics.status_distribution %}
+    // Screening Status Pie Chart
+    const statusData = {
+        labels: [{% for item in screening_analytics.status_distribution %}'{{ item.status }}'{{ ',' if not loop.last }}{% endfor %}],
+        datasets: [{
+            data: [{% for item in screening_analytics.status_distribution %}{{ item.count }}{{ ',' if not loop.last }}{% endfor %}],
+            backgroundColor: [
+                '#dc3545', // Due (red)
+                '#ffc107', // Due Soon (yellow)
+                '#28a745'  // Complete (green)
+            ],
+            borderWidth: 2,
+            borderColor: '#fff'
+        }]
+    };
+    
+    createChart('screeningStatusChart', 'pie', statusData, {
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    padding: 20,
+                    usePointStyle: true
+                }
+            }
+        }
+    });
+    {% endif %}
+    
+    {% if document_analytics and document_analytics.confidence_distribution %}
+    // OCR Confidence Bar Chart
+    const confidenceData = {
+        labels: [{% for item in document_analytics.confidence_distribution %}'{{ item.level.title() }}'{{ ',' if not loop.last }}{% endfor %}],
+        datasets: [{
+            label: 'Documents',
+            data: [{% for item in document_analytics.confidence_distribution %}{{ item.count }}{{ ',' if not loop.last }}{% endfor %}],
+            backgroundColor: [
+                '#28a745', // High confidence (green)
+                '#ffc107', // Medium confidence (yellow)
+                '#dc3545'  // Low confidence (red)
+            ],
+            borderWidth: 1,
+            borderColor: '#fff'
+        }]
+    };
+    
+    createChart('ocrConfidenceChart', 'bar', confidenceData, {
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    stepSize: 1
+                }
+            }
+        },
+        plugins: {
+            legend: {
+                display: false
+            }
+        }
+    });
+    {% endif %}
+});
+
+// Auto-refresh dashboard every 5 minutes
+setInterval(function() {
+    const lastRefresh = localStorage.getItem('dashboardLastRefresh');
+    const now = Date.now();
+    
+    if (!lastRefresh || (now - parseInt(lastRefresh)) > 300000) { // 5 minutes
+        refreshDashboard();
+    }
+}, 300000);
+
+// Mark last refresh
+localStorage.setItem('dashboardLastRefresh', Date.now());
+</script>
+{% endblock %}

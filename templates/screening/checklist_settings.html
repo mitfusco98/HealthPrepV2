@@ -1,0 +1,361 @@
+<div class="tab-pane fade {{ 'show active' if current_tab == 'checklist' else '' }}">
+    <!-- Checklist Settings Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4>
+                <i class="fas fa-sliders-h me-2 text-warning"></i>
+                Prep Sheet Settings
+            </h4>
+            <p class="text-muted mb-0">
+                Configure data cutoffs and display preferences for preparation sheets
+            </p>
+        </div>
+    </div>
+    
+    <!-- Settings Form -->
+    <form method="POST" action="{{ url_for('ui.checklist_settings_route') }}">
+        <div class="row">
+            <!-- Data Cutoffs Section -->
+            <div class="col-lg-8">
+                <div class="card admin-card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-calendar-alt me-2"></i>
+                            Data Cutoff Settings
+                        </h5>
+                        <small class="text-muted">
+                            Configure how far back to look for medical data in prep sheets
+                        </small>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="labs_cutoff_months" class="form-label">
+                                    <i class="fas fa-vial me-1 text-danger"></i>
+                                    Laboratory Results
+                                </label>
+                                <div class="input-group">
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="labs_cutoff_months" 
+                                           name="labs_cutoff_months" 
+                                           value="{{ settings.labs_cutoff_months if settings else 12 }}" 
+                                           min="1" 
+                                           max="60" 
+                                           required>
+                                    <span class="input-group-text">months</span>
+                                </div>
+                                <div class="form-text">
+                                    Show lab results from the last {{ settings.labs_cutoff_months if settings else 12 }} months
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="imaging_cutoff_months" class="form-label">
+                                    <i class="fas fa-x-ray me-1 text-info"></i>
+                                    Imaging Studies
+                                </label>
+                                <div class="input-group">
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="imaging_cutoff_months" 
+                                           name="imaging_cutoff_months" 
+                                           value="{{ settings.imaging_cutoff_months if settings else 24 }}" 
+                                           min="1" 
+                                           max="60" 
+                                           required>
+                                    <span class="input-group-text">months</span>
+                                </div>
+                                <div class="form-text">
+                                    Show imaging studies from the last {{ settings.imaging_cutoff_months if settings else 24 }} months
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="consults_cutoff_months" class="form-label">
+                                    <i class="fas fa-user-md me-1 text-success"></i>
+                                    Specialist Consults
+                                </label>
+                                <div class="input-group">
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="consults_cutoff_months" 
+                                           name="consults_cutoff_months" 
+                                           value="{{ settings.consults_cutoff_months if settings else 12 }}" 
+                                           min="1" 
+                                           max="60" 
+                                           required>
+                                    <span class="input-group-text">months</span>
+                                </div>
+                                <div class="form-text">
+                                    Show consults from the last {{ settings.consults_cutoff_months if settings else 12 }} months
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="hospital_cutoff_months" class="form-label">
+                                    <i class="fas fa-hospital me-1 text-warning"></i>
+                                    Hospital Stays
+                                </label>
+                                <div class="input-group">
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="hospital_cutoff_months" 
+                                           name="hospital_cutoff_months" 
+                                           value="{{ settings.hospital_cutoff_months if settings else 12 }}" 
+                                           min="1" 
+                                           max="60" 
+                                           required>
+                                    <span class="input-group-text">months</span>
+                                </div>
+                                <div class="form-text">
+                                    Show hospital stays from the last {{ settings.hospital_cutoff_months if settings else 12 }} months
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- OCR and PHI Settings -->
+                <div class="card admin-card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-shield-alt me-2"></i>
+                            OCR & Privacy Settings
+                        </h5>
+                        <small class="text-muted">
+                            Configure OCR confidence and PHI filtering preferences
+                        </small>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="ocr_confidence_threshold" class="form-label">
+                                    <i class="fas fa-eye me-1 text-primary"></i>
+                                    OCR Confidence Threshold
+                                </label>
+                                <div class="input-group">
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="ocr_confidence_threshold" 
+                                           name="ocr_confidence_threshold" 
+                                           value="{{ settings.ocr_confidence_threshold if settings else 70.0 }}" 
+                                           min="0" 
+                                           max="100" 
+                                           step="0.1" 
+                                           required>
+                                    <span class="input-group-text">%</span>
+                                </div>
+                                <div class="form-text">
+                                    Only include documents with OCR confidence above this threshold
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">
+                                    <i class="fas fa-user-shield me-1 text-danger"></i>
+                                    PHI Filtering
+                                </label>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" 
+                                           type="checkbox" 
+                                           id="phi_filtering_enabled" 
+                                           name="phi_filtering_enabled" 
+                                           {{ 'checked' if settings and settings.phi_filtering_enabled else 'checked' }}>
+                                    <label class="form-check-label" for="phi_filtering_enabled">
+                                        Enable automatic PHI filtering for all documents
+                                    </label>
+                                </div>
+                                <div class="form-text">
+                                    Automatically redact protected health information from documents
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Settings Summary -->
+            <div class="col-lg-4">
+                <div class="card admin-card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Current Settings Summary
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group list-group-flush">
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-vial text-danger me-2"></i>
+                                    Labs
+                                </div>
+                                <span class="badge bg-danger">{{ settings.labs_cutoff_months if settings else 12 }}m</span>
+                            </div>
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-x-ray text-info me-2"></i>
+                                    Imaging
+                                </div>
+                                <span class="badge bg-info">{{ settings.imaging_cutoff_months if settings else 24 }}m</span>
+                            </div>
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-user-md text-success me-2"></i>
+                                    Consults
+                                </div>
+                                <span class="badge bg-success">{{ settings.consults_cutoff_months if settings else 12 }}m</span>
+                            </div>
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-hospital text-warning me-2"></i>
+                                    Hospital
+                                </div>
+                                <span class="badge bg-warning text-dark">{{ settings.hospital_cutoff_months if settings else 12 }}m</span>
+                            </div>
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-eye text-primary me-2"></i>
+                                    OCR Threshold
+                                </div>
+                                <span class="badge bg-primary">{{ settings.ocr_confidence_threshold if settings else 70.0 }}%</span>
+                            </div>
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-shield-alt text-secondary me-2"></i>
+                                    PHI Filtering
+                                </div>
+                                <span class="badge {{ 'bg-success' if settings and settings.phi_filtering_enabled else 'bg-success' }}">
+                                    {{ 'On' if settings and settings.phi_filtering_enabled else 'On' }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div class="card admin-card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-bolt me-2"></i>
+                            Quick Actions
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button type="button" 
+                                    class="btn btn-outline-primary btn-sm" 
+                                    onclick="resetToDefaults()">
+                                <i class="fas fa-undo me-2"></i>
+                                Reset to Defaults
+                            </button>
+                            
+                            <button type="button" 
+                                    class="btn btn-outline-info btn-sm" 
+                                    onclick="previewChanges()">
+                                <i class="fas fa-eye me-2"></i>
+                                Preview Changes
+                            </button>
+                            
+                            <a href="{{ url_for('admin.phi_settings') }}" 
+                               class="btn btn-outline-warning btn-sm">
+                                <i class="fas fa-cog me-2"></i>
+                                Advanced PHI Settings
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Save Button -->
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" 
+                            class="btn btn-secondary" 
+                            onclick="window.location.reload()">
+                        <i class="fas fa-times me-2"></i>
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-2"></i>
+                        Save Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+// Reset to default values
+function resetToDefaults() {
+    if (confirm('Reset all settings to their default values?')) {
+        document.getElementById('labs_cutoff_months').value = 12;
+        document.getElementById('imaging_cutoff_months').value = 24;
+        document.getElementById('consults_cutoff_months').value = 12;
+        document.getElementById('hospital_cutoff_months').value = 12;
+        document.getElementById('ocr_confidence_threshold').value = 70.0;
+        document.getElementById('phi_filtering_enabled').checked = true;
+        
+        // Update summary
+        updateSettingsSummary();
+    }
+}
+
+// Preview changes
+function previewChanges() {
+    const settings = {
+        labs: document.getElementById('labs_cutoff_months').value,
+        imaging: document.getElementById('imaging_cutoff_months').value,
+        consults: document.getElementById('consults_cutoff_months').value,
+        hospital: document.getElementById('hospital_cutoff_months').value,
+        ocr_threshold: document.getElementById('ocr_confidence_threshold').value,
+        phi_enabled: document.getElementById('phi_filtering_enabled').checked
+    };
+    
+    const message = `Preview of new settings:\n\n` +
+                   `• Labs: Last ${settings.labs} months\n` +
+                   `• Imaging: Last ${settings.imaging} months\n` +
+                   `• Consults: Last ${settings.consults} months\n` +
+                   `• Hospital: Last ${settings.hospital} months\n` +
+                   `• OCR Threshold: ${settings.ocr_threshold}%\n` +
+                   `• PHI Filtering: ${settings.phi_enabled ? 'Enabled' : 'Disabled'}`;
+    
+    alert(message);
+}
+
+// Update settings summary when values change
+function updateSettingsSummary() {
+    // This would update the summary cards in real-time
+    // Implementation would depend on specific requirements
+}
+
+// Initialize form behavior
+document.addEventListener('DOMContentLoaded', function() {
+    // Add change listeners to update summary
+    const inputs = document.querySelectorAll('input[type="number"], input[type="checkbox"]');
+    inputs.forEach(input => {
+        input.addEventListener('change', updateSettingsSummary);
+    });
+    
+    // Form validation
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        const ocrThreshold = parseFloat(document.getElementById('ocr_confidence_threshold').value);
+        
+        if (ocrThreshold < 0 || ocrThreshold > 100) {
+            e.preventDefault();
+            alert('OCR confidence threshold must be between 0 and 100');
+            return false;
+        }
+        
+        // Show loading state
+        const submitBtn = this.querySelector('button[type="submit"]');
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+        submitBtn.disabled = true;
+    });
+});
+</script>

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Cache control -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>{% block title %}HealthPrep - Patient Visit Preparation{% endblock %}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="{{ url_for('static', filename='css/custom.css', v=cache_timestamp|default('')) }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/medical_terminology_ui.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/loading-states.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+        <div class="container">
+            <!-- Universal Navigation Controls -->
+            <div class="universal-nav-controls">
+                <button type="button" class="btn btn-outline-light btn-sm" id="universal-back-btn" title="Go Back">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <button type="button" class="btn btn-outline-light btn-sm" id="universal-forward-btn" title="Go Forward">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+
+            <!-- Brand -->
+            <a class="navbar-brand ms-3" href="{{ url_for('ui.screening_list') }}">
+                <i class="fas fa-heartbeat me-2"></i>
+                HealthPrep
+            </a>
+
+            <!-- Navbar toggle -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <!-- Navbar links -->
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('ui.screening_list') }}">
+                            <i class="fas fa-list-check me-1"></i>
+                            Screening List
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('ui.patient_list') }}">
+                            <i class="fas fa-users me-1"></i>
+                            Patients
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-cog me-1"></i>
+                            Settings
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('ui.checklist_settings') }}">
+                                <i class="fas fa-clipboard-list me-2"></i>Checklist Settings
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('ui.add_screening_type') }}">
+                                <i class="fas fa-plus me-2"></i>Add Screening Type
+                            </a></li>
+                        </ul>
+                    </li>
+                </ul>
+
+                <!-- User menu -->
+                <ul class="navbar-nav">
+                    {% if current_user.is_authenticated %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-user-circle me-1"></i>
+                                {{ current_user.username }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                {% if current_user.is_admin %}
+                                    <li><a class="dropdown-item" href="{{ url_for('admin.dashboard') }}">
+                                        <i class="fas fa-tachometer-alt me-2"></i>Admin Dashboard
+                                    </a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                {% endif %}
+                                <li><a class="dropdown-item" href="{{ url_for('ui.logout') }}">
+                                    <i class="fas fa-sign-out-alt me-2"></i>Logout
+                                </a></li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('ui.login') }}">
+                                <i class="fas fa-sign-in-alt me-1"></i>
+                                Login
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main content -->
+    <main class="container-fluid">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-light py-4 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="mb-2">
+                        <i class="fas fa-heartbeat me-2"></i>
+                        HealthPrep v2.0
+                    </h6>
+                    <p class="mb-0 text-muted">HIPAA-compliant patient preparation system</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p class="mb-0 text-muted">
+                        <i class="fas fa-shield-alt me-1"></i>
+                        FHIR-integrated | OCR-enabled | PHI-filtered
+                    </p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script src="{{ url_for('static', filename='js/medical_terminology.js') }}"></script>
+    
+    <script>
+        // Universal navigation functionality
+        document.getElementById('universal-back-btn').addEventListener('click', function() {
+            if (window.history.length > 1) {
+                window.history.back();
+            }
+        });
+
+        document.getElementById('universal-forward-btn').addEventListener('click', function() {
+            window.history.forward();
+        });
+
+        // Add loading states for navigation
+        document.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', function(e) {
+                if (this.href && !this.href.includes('#') && !this.hasAttribute('download')) {
+                    const spinner = document.createElement('i');
+                    spinner.className = 'fas fa-spinner fa-spin ms-2';
+                    this.appendChild(spinner);
+                }
+            });
+        });
+
+        // Toast notification system
+        window.showToast = function(message, type = 'info') {
+            const toastContainer = document.querySelector('.toast-container') || (() => {
+                const container = document.createElement('div');
+                container.className = 'toast-container position-fixed top-0 end-0 p-3';
+                document.body.appendChild(container);
+                return container;
+            })();
+
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-bg-${type} border-0`;
+            toast.setAttribute('role', 'alert');
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+
+            toastContainer.appendChild(toast);
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+
+            // Remove toast after it's hidden
+            toast.addEventListener('hidden.bs.toast', () => {
+                toast.remove();
+            });
+        };
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
+
