@@ -1,33 +1,40 @@
-from app import db
+from datetime import datetime
+from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
-from datetime import datetime, date
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, Float, Date, ForeignKey
-from sqlalchemy.orm import relationship
+from app import db
 
 class User(UserMixin, db.Model):
-    id = Column(Integer, primary_key=True)
-    username = Column(String(64), unique=True, nullable=False)
-    email = Column(String(120), unique=True, nullable=False)
-    password_hash = Column(String(256))
-    is_admin = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    def __repr__(self):
-        return f'<User {self.username}>'
-
-class Patient(db.Model):
-    id = Column(Integer, primary_key=True)
-    first_name = Column(String(100), nullable=False)
-    last_name = Column(String(100), nullable=False)
-    date_of_birth = Column(Date, nullable=False)
-    gender = Column(String(10), nullable=False)  # M, F, Other
-    mrn = Column(String(50), unique=True, nullable=False)  # Medical Record Number
-    created_at = Column(DateTime, default=datetime.utcnow)
+    """User model for authentication and access control"""
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login = db.Column(db.DateTime)
     
     # Relationships
-    screenings = relationship("Screening", back_populates="patient")
-    documents = relationship("MedicalDocument", back_populates="patient")
-    prep_sheets = relationship("PrepSheet", back_populates="patient")
+    screenings = db.relationship('Screening', backref='user', lazy=True)
+    admin_logs = db.relationship('AdminLog', backref='user', lazy=True)
+
+class Patient(db.Model):
+    """Patient information model"""
+    id = db.Column(db.Integer, primary_key=True)
+    mrn = db.Column(db.String(50), unique=True, nullable=False)
+    first_name = db.Column(db.String(100), nullable=False)
+    last_name = db.Column(db.String(100), nullable=False)
+    date_of_birth = db.Column(db.Date, nullable=False)
+    gender = db.Column(db.String(20), nullable=False)
+    phone = db.Column(db.String(20))
+    email = db.Column(db.String(120))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    screenings = db.relationship('Screening', backref='patient', lazy=True)
+    documents = db.relationship('MedicalDocument', backref='patient', lazy=True)
+    conditions = db.relationship('PatientCondition', backref='patient', lazy=True)
     
     @property
     def full_name(self):
@@ -35,92 +42,102 @@ class Patient(db.Model):
     
     @property
     def age(self):
+        from datetime import date
         today = date.today()
         return today.year - self.date_of_birth.year - ((today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day))
 
 class ScreeningType(db.Model):
-    id = Column(Integer, primary_key=True)
-    name = Column(String(200), nullable=False)
-    description = Column(Text)
-    keywords = Column(Text)  # JSON string of keywords for matching
-    gender_filter = Column(String(10))  # M, F, or None for all
-    min_age = Column(Integer)
-    max_age = Column(Integer)
-    frequency_value = Column(Integer)  # Numeric frequency
-    frequency_unit = Column(String(20))  # years, months, days
-    trigger_conditions = Column(Text)  # JSON string of medical conditions
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    """Screening type configuration"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    keywords = db.Column(db.Text)  # JSON string of keywords
+    frequency_months = db.Column(db.Integer, default=12)
+    frequency_unit = db.Column(db.String(20), default='months')
+    min_age = db.Column(db.Integer)
+    max_age = db.Column(db.Integer)
+    gender_restrictions = db.Column(db.String(20))  # 'male', 'female', or None
+    trigger_conditions = db.Column(db.Text)  # JSON string of condition codes
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    screenings = relationship("Screening", back_populates="screening_type")
+    screenings = db.relationship('Screening', backref='screening_type', lazy=True)
 
 class Screening(db.Model):
-    id = Column(Integer, primary_key=True)
-    patient_id = Column(Integer, ForeignKey('patient.id'), nullable=False)
-    screening_type_id = Column(Integer, ForeignKey('screening_type.id'), nullable=False)
-    status = Column(String(20), default='Due')  # Due, Due Soon, Complete
-    last_completed_date = Column(Date)
-    next_due_date = Column(Date)
-    matched_documents = Column(Text)  # JSON string of document IDs
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationships
-    patient = relationship("Patient", back_populates="screenings")
-    screening_type = relationship("ScreeningType", back_populates="screenings")
+    """Individual screening record"""
+    id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
+    screening_type_id = db.Column(db.Integer, db.ForeignKey('screening_type.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    status = db.Column(db.String(20), default='Due')  # Due, Due Soon, Complete
+    last_completed_date = db.Column(db.Date)
+    next_due_date = db.Column(db.Date)
+    matched_documents = db.Column(db.Text)  # JSON string of document IDs
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class MedicalDocument(db.Model):
-    id = Column(Integer, primary_key=True)
-    patient_id = Column(Integer, ForeignKey('patient.id'), nullable=False)
-    filename = Column(String(255), nullable=False)
-    document_type = Column(String(50))  # lab, imaging, consult, hospital
-    upload_date = Column(DateTime, default=datetime.utcnow)
-    file_path = Column(String(500))
-    ocr_text = Column(Text)
-    ocr_confidence = Column(Float)
-    phi_filtered = Column(Boolean, default=False)
-    
-    # Relationships
-    patient = relationship("Patient", back_populates="documents")
+    """Medical document storage and metadata"""
+    id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    document_type = db.Column(db.String(50))  # lab, imaging, consult, hospital
+    file_path = db.Column(db.String(500))
+    ocr_text = db.Column(db.Text)
+    ocr_confidence = db.Column(db.Float)
+    ocr_processed = db.Column(db.Boolean, default=False)
+    phi_filtered = db.Column(db.Boolean, default=False)
+    upload_date = db.Column(db.DateTime, default=datetime.utcnow)
+    document_date = db.Column(db.Date)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-class PrepSheet(db.Model):
-    id = Column(Integer, primary_key=True)
-    patient_id = Column(Integer, ForeignKey('patient.id'), nullable=False)
-    generated_date = Column(DateTime, default=datetime.utcnow)
-    prep_data = Column(Text)  # JSON string of prep sheet content
-    cutoff_months = Column(Integer, default=12)  # Data cutoff period
-    
-    # Relationships
-    patient = relationship("Patient", back_populates="prep_sheets")
+class PatientCondition(db.Model):
+    """Patient medical conditions"""
+    id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
+    condition_code = db.Column(db.String(50))  # ICD-10 or SNOMED codes
+    condition_name = db.Column(db.String(200), nullable=False)
+    diagnosis_date = db.Column(db.Date)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class AdminLog(db.Model):
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('user.id'))
-    action = Column(String(200), nullable=False)
-    details = Column(Text)
-    ip_address = Column(String(45))
-    timestamp = Column(DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    user = relationship("User")
+    """Admin activity logging"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    action = db.Column(db.String(100), nullable=False)
+    resource_type = db.Column(db.String(50))
+    resource_id = db.Column(db.Integer)
+    details = db.Column(db.Text)
+    ip_address = db.Column(db.String(45))
+    user_agent = db.Column(db.String(500))
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+class ChecklistSettings(db.Model):
+    """Prep sheet checklist configuration"""
+    id = db.Column(db.Integer, primary_key=True)
+    labs_cutoff_months = db.Column(db.Integer, default=12)
+    imaging_cutoff_months = db.Column(db.Integer, default=24)
+    consults_cutoff_months = db.Column(db.Integer, default=12)
+    hospital_cutoff_months = db.Column(db.Integer, default=12)
+    show_confidence_indicators = db.Column(db.Boolean, default=True)
+    phi_filtering_enabled = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class PHIFilterSettings(db.Model):
-    id = Column(Integer, primary_key=True)
-    filter_enabled = Column(Boolean, default=True)
-    filter_ssn = Column(Boolean, default=True)
-    filter_phone = Column(Boolean, default=True)
-    filter_mrn = Column(Boolean, default=True)
-    filter_insurance = Column(Boolean, default=True)
-    filter_addresses = Column(Boolean, default=True)
-    filter_names = Column(Boolean, default=True)
-    filter_dates = Column(Boolean, default=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-class PrepSheetSettings(db.Model):
-    id = Column(Integer, primary_key=True)
-    lab_cutoff_months = Column(Integer, default=12)
-    imaging_cutoff_months = Column(Integer, default=12)
-    consult_cutoff_months = Column(Integer, default=12)
-    hospital_cutoff_months = Column(Integer, default=12)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    """PHI filtering configuration"""
+    id = db.Column(db.Integer, primary_key=True)
+    filter_ssn = db.Column(db.Boolean, default=True)
+    filter_phone = db.Column(db.Boolean, default=True)
+    filter_mrn = db.Column(db.Boolean, default=True)
+    filter_addresses = db.Column(db.Boolean, default=True)
+    filter_names = db.Column(db.Boolean, default=True)
+    filter_dates = db.Column(db.Boolean, default=True)
+    preserve_medical_values = db.Column(db.Boolean, default=True)
+    confidence_threshold = db.Column(db.Float, default=0.8)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

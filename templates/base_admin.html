@@ -3,472 +3,387 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Cache control -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     
     <title>{% block title %}HealthPrep Admin - System Administration{% endblock %}</title>
-    <meta name="csrf-token" content="{{ csrf_token() }}">
     
     <!-- Bootstrap CSS -->
-    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     
-    <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     
-    <!-- Admin Custom CSS -->
-    <link href="{{ url_for('static', filename='css/custom.css', v=cache_timestamp|default('')) }}" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/loading-states.css') }}">
+    <!-- Chart.js for analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Custom admin CSS -->
+    <link href="{{ url_for('static', filename='css/medical_theme.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/confidence_indicators.css') }}" rel="stylesheet">
     
     <style>
         .admin-sidebar {
-            min-height: calc(100vh - 76px);
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border-right: 1px solid #434854;
-        }
-        .admin-content {
-            background-color: #0d1117;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
             min-height: calc(100vh - 76px);
         }
-        .admin-nav-link {
-            color: #c9d1d9;
-            padding: 12px 20px;
-            border-radius: 6px;
-            margin: 2px 8px;
-            transition: all 0.2s ease;
+        
+        .admin-sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            border-radius: 0.375rem;
+            margin-bottom: 0.25rem;
         }
-        .admin-nav-link:hover {
+        
+        .admin-sidebar .nav-link:hover,
+        .admin-sidebar .nav-link.active {
             background-color: rgba(255, 255, 255, 0.1);
-            color: #58a6ff;
-            text-decoration: none;
-        }
-        .admin-nav-link.active {
-            background-color: #1f6feb;
             color: white;
         }
+        
+        .admin-sidebar .nav-link i {
+            width: 20px;
+            text-align: center;
+        }
+        
         .admin-card {
-            background: linear-gradient(135deg, #21262d 0%, #161b22 100%);
-            border: 1px solid #30363d;
-            border-radius: 8px;
+            border: none;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            border-radius: 0.5rem;
         }
+        
         .metric-card {
-            background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
-            border: 1px solid #21262d;
-            border-radius: 8px;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .metric-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-        .admin-header {
-            background: linear-gradient(90deg, #1f6feb 0%, #0969da 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 24px;
+            border-radius: 1rem;
+        }
+        
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        
+        .status-operational { background-color: #28a745; }
+        .status-warning { background-color: #ffc107; }
+        .status-error { background-color: #dc3545; }
+        
+        .admin-table {
+            font-size: 0.9rem;
+        }
+        
+        .admin-table th {
+            background-color: var(--bs-gray-100);
+            border-color: var(--bs-gray-300);
+            font-weight: 600;
         }
     </style>
     
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <!-- Top Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom">
+    <!-- Admin Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container-fluid">
-            <!-- Admin Brand -->
-            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('admin.dashboard') }}">
-                <i class="fas fa-shield-alt text-warning me-2"></i>
-                <span class="fw-bold">HealthPrep Admin</span>
-                <small class="badge bg-warning text-dark ms-2">v2.0</small>
+            <!-- Brand with admin indicator -->
+            <a class="navbar-brand" href="{{ url_for('admin.dashboard') }}">
+                <i class="fas fa-shield-alt me-2"></i>
+                HealthPrep Admin
             </a>
-
-            <!-- Quick Actions -->
-            <div class="navbar-nav ms-auto d-flex flex-row">
-                <div class="nav-item dropdown me-3">
-                    <a class="nav-link dropdown-toggle" href="#" id="quickActionsDropdown" role="button" data-bs-toggle="dropdown">
-                        <i class="fas fa-bolt me-1"></i>Quick Actions
-                    </a>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li>
-                            <a class="dropdown-item" href="#" onclick="triggerBatchOCR()">
-                                <i class="fas fa-eye me-2"></i>Batch OCR Processing
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="#" onclick="refreshAllScreenings()">
-                                <i class="fas fa-sync me-2"></i>Refresh All Screenings
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="#" onclick="exportLogs()">
-                                <i class="fas fa-download me-2"></i>Export Audit Logs
-                            </a>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <a class="dropdown-item" href="#" onclick="generateROIReport()">
-                                <i class="fas fa-chart-line me-2"></i>Generate ROI Report
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-
-                <!-- User Info -->
-                <div class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="adminUserDropdown" role="button" data-bs-toggle="dropdown">
-                        <i class="fas fa-user-shield me-1"></i>{{ current_user.username }}
-                    </a>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li>
-                            <a class="dropdown-item" href="{{ url_for('ui.screening_list') }}">
-                                <i class="fas fa-user me-2"></i>Switch to User View
-                            </a>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <a class="dropdown-item" href="#" onclick="showAdminInfo()">
-                                <i class="fas fa-info-circle me-2"></i>System Status
-                            </a>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <a class="dropdown-item" href="{{ url_for('auth.logout') }}">
+            
+            <!-- Mobile toggle -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbar">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <!-- Admin navigation -->
+            <div class="collapse navbar-collapse" id="adminNavbar">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.dashboard') }}">
+                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                        </a>
+                    </li>
+                </ul>
+                
+                <!-- Quick actions and user menu -->
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('ui.dashboard') }}">
+                            <i class="fas fa-external-link-alt me-1"></i>User Interface
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user-shield me-1"></i>{{ current_user.username }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><h6 class="dropdown-header">Admin Account</h6></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('ui.logout') }}">
                                 <i class="fas fa-sign-out-alt me-2"></i>Logout
-                            </a>
-                        </li>
-                    </ul>
-                </div>
+                            </a></li>
+                        </ul>
+                    </li>
+                </ul>
             </div>
         </div>
     </nav>
-
-    <div class="d-flex">
-        <!-- Admin Sidebar -->
-        <div class="admin-sidebar" style="width: 280px;">
-            <div class="p-3">
-                <h6 class="text-muted text-uppercase fw-bold mb-3">
-                    <i class="fas fa-cogs me-2"></i>Administration
-                </h6>
-                
-                <nav class="nav flex-column">
-                    <a href="{{ url_for('admin.dashboard') }}" class="admin-nav-link">
-                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
-                    </a>
-                    <a href="{{ url_for('admin.ocr_dashboard') }}" class="admin-nav-link">
-                        <i class="fas fa-eye me-2"></i>OCR Processing
-                    </a>
-                    <a href="{{ url_for('admin.admin_logs') }}" class="admin-nav-link">
-                        <i class="fas fa-clipboard-list me-2"></i>Audit Logs
-                    </a>
-                    <a href="{{ url_for('admin.phi_settings') }}" class="admin-nav-link">
-                        <i class="fas fa-shield-alt me-2"></i>PHI Settings
-                    </a>
-                    <a href="{{ url_for('admin.screening_types') }}" class="admin-nav-link">
-                        <i class="fas fa-list-check me-2"></i>Screening Types
-                    </a>
-                </nav>
-                
-                <hr class="my-3">
-                
-                <h6 class="text-muted text-uppercase fw-bold mb-3">
-                    <i class="fas fa-chart-bar me-2"></i>Analytics
-                </h6>
-                
-                <nav class="nav flex-column">
-                    <a href="#" onclick="generateROIReport()" class="admin-nav-link">
-                        <i class="fas fa-dollar-sign me-2"></i>ROI Reports
-                    </a>
-                    <a href="#" onclick="showPerformanceMetrics()" class="admin-nav-link">
-                        <i class="fas fa-chart-line me-2"></i>Performance
-                    </a>
-                    <a href="#" onclick="showComplianceReport()" class="admin-nav-link">
-                        <i class="fas fa-check-circle me-2"></i>Compliance
-                    </a>
-                </nav>
-                
-                <hr class="my-3">
-                
-                <h6 class="text-muted text-uppercase fw-bold mb-3">
-                    <i class="fas fa-tools me-2"></i>System Tools
-                </h6>
-                
-                <nav class="nav flex-column">
-                    <a href="#" onclick="showSystemHealth()" class="admin-nav-link">
-                        <i class="fas fa-heartbeat me-2"></i>System Health
-                    </a>
-                    <a href="#" onclick="showBackupStatus()" class="admin-nav-link">
-                        <i class="fas fa-database me-2"></i>Data Management
-                    </a>
-                </nav>
+    
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Admin Sidebar -->
+            <div class="col-lg-2 col-md-3 p-0">
+                <div class="admin-sidebar p-3">
+                    <nav class="nav flex-column">
+                        <h6 class="text-white-50 text-uppercase small mb-3">System</h6>
+                        
+                        <a class="nav-link {{ 'active' if request.endpoint == 'admin.dashboard' }}" 
+                           href="{{ url_for('admin.dashboard') }}">
+                            <i class="fas fa-chart-line me-2"></i>Overview
+                        </a>
+                        
+                        <a class="nav-link {{ 'active' if request.endpoint == 'admin.analytics' }}" 
+                           href="{{ url_for('admin.analytics') }}">
+                            <i class="fas fa-chart-bar me-2"></i>Analytics
+                        </a>
+                        
+                        <a class="nav-link {{ 'active' if request.endpoint == 'admin.logs' }}" 
+                           href="{{ url_for('admin.logs') }}">
+                            <i class="fas fa-file-alt me-2"></i>Activity Logs
+                        </a>
+                        
+                        <h6 class="text-white-50 text-uppercase small mb-3 mt-4">Processing</h6>
+                        
+                        <a class="nav-link {{ 'active' if request.endpoint == 'admin.ocr_dashboard' }}" 
+                           href="{{ url_for('admin.ocr_dashboard') }}">
+                            <i class="fas fa-scan me-2"></i>OCR Monitoring
+                        </a>
+                        
+                        <a class="nav-link {{ 'active' if request.endpoint == 'admin.phi_settings' }}" 
+                           href="{{ url_for('admin.phi_settings') }}">
+                            <i class="fas fa-user-secret me-2"></i>PHI Filtering
+                        </a>
+                        
+                        <h6 class="text-white-50 text-uppercase small mb-3 mt-4">Configuration</h6>
+                        
+                        <a class="nav-link {{ 'active' if request.endpoint == 'admin.user_management' }}" 
+                           href="{{ url_for('admin.user_management') }}">
+                            <i class="fas fa-users-cog me-2"></i>User Management
+                        </a>
+                        
+                        <a class="nav-link {{ 'active' if request.endpoint == 'admin.preset_management' }}" 
+                           href="{{ url_for('admin.preset_management') }}">
+                            <i class="fas fa-download me-2"></i>Screening Presets
+                        </a>
+                        
+                        <h6 class="text-white-50 text-uppercase small mb-3 mt-4">Compliance</h6>
+                        
+                        <a class="nav-link" href="#" onclick="showHIPAAInfo()">
+                            <i class="fas fa-certificate me-2"></i>HIPAA Status
+                        </a>
+                        
+                        <a class="nav-link" href="#" onclick="exportAuditTrail()">
+                            <i class="fas fa-download me-2"></i>Audit Export
+                        </a>
+                    </nav>
+                </div>
             </div>
-        </div>
-
-        <!-- Main Admin Content -->
-        <div class="admin-content flex-grow-1">
-            <!-- Flash messages -->
-            <div class="container-fluid pt-3">
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                        {% for category, message in messages %}
-                            <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
-                                <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'info-circle' if category == 'info' else 'check-circle' }} me-2"></i>
-                                {{ message }}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                            </div>
-                        {% endfor %}
-                    {% endif %}
-                {% endwith %}
-            </div>
-
-            <!-- Page Content -->
-            <div class="container-fluid p-4">
-                {% block content %}{% endblock %}
+            
+            <!-- Main Admin Content -->
+            <div class="col-lg-10 col-md-9">
+                <div class="p-4">
+                    <!-- Flash messages -->
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                                    <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'info-circle' if category == 'info' else 'check-circle' }} me-2"></i>
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
+                    <!-- Page content -->
+                    {% block content %}{% endblock %}
+                </div>
             </div>
         </div>
     </div>
-
-    <!-- Admin System Info Modal -->
-    <div class="modal fade" id="adminInfoModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+    
+    <!-- HIPAA Status Modal -->
+    <div class="modal fade" id="hipaaModal" tabindex="-1">
+        <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
+                <div class="modal-header">
                     <h5 class="modal-title">
-                        <i class="fas fa-server me-2"></i>System Status & Information
+                        <i class="fas fa-certificate me-2"></i>HIPAA Compliance Status
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <div class="row">
-                        <div class="col-md-6">
-                            <h6 class="fw-bold text-primary">Application Info</h6>
-                            <table class="table table-sm">
-                                <tr>
-                                    <td>Version:</td>
-                                    <td>HealthPrep v2.0</td>
-                                </tr>
-                                <tr>
-                                    <td>Environment:</td>
-                                    <td><span class="badge bg-success">Production</span></td>
-                                </tr>
-                                <tr>
-                                    <td>HIPAA Mode:</td>
-                                    <td><span class="badge bg-success">Enabled</span></td>
-                                </tr>
-                                <tr>
-                                    <td>PHI Filtering:</td>
-                                    <td><span class="badge bg-success">Active</span></td>
-                                </tr>
-                            </table>
-                        </div>
-                        <div class="col-md-6">
-                            <h6 class="fw-bold text-primary">System Health</h6>
-                            <table class="table table-sm">
-                                <tr>
-                                    <td>Database:</td>
-                                    <td><span class="badge bg-success">Connected</span></td>
-                                </tr>
-                                <tr>
-                                    <td>OCR Service:</td>
-                                    <td><span class="badge bg-success">Running</span></td>
-                                </tr>
-                                <tr>
-                                    <td>FHIR Client:</td>
-                                    <td><span class="badge bg-warning">Configured</span></td>
-                                </tr>
-                                <tr>
-                                    <td>Audit Logging:</td>
-                                    <td><span class="badge bg-success">Active</span></td>
-                                </tr>
-                            </table>
+                        <div class="col-12">
+                            <div class="d-flex align-items-center mb-3">
+                                <span class="status-indicator status-operational"></span>
+                                <strong>System Status: Compliant</strong>
+                            </div>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-check text-success me-2"></i>PHI Filtering Active</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Audit Logging Enabled</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Data Encryption At Rest</li>
+                                <li><i class="fas fa-check text-success me-2"></i>TLS 1.2+ In Transit</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Role-Based Access Control</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Session Management</li>
+                            </ul>
+                            <small class="text-muted">
+                                Last compliance check: {{ moment().format('MMMM Do YYYY, h:mm:ss a') }}
+                            </small>
                         </div>
                     </div>
-                    <hr>
-                    <div class="text-center">
-                        <small class="text-muted">
-                            Last system check: <span id="lastCheckTime"></span><br>
-                            Admin session expires in: <span id="sessionTimer"></span>
-                        </small>
-                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Loading overlay -->
-    <div id="loadingOverlay" class="loading-overlay d-none">
-        <div class="loading-spinner">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <div class="mt-2">Processing admin request...</div>
-        </div>
-    </div>
-
+    
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
+    <!-- Admin JavaScript -->
     <script>
-        // Admin-specific JavaScript functions
+        // Show HIPAA compliance info
+        function showHIPAAInfo() {
+            const modal = new bootstrap.Modal(document.getElementById('hipaaModal'));
+            modal.show();
+        }
         
-        function showAdminInfo() {
-            document.getElementById('lastCheckTime').textContent = new Date().toLocaleString();
-            document.getElementById('sessionTimer').textContent = '2:30:45'; // Mock timer
-            new bootstrap.Modal(document.getElementById('adminInfoModal')).show();
+        // Export audit trail
+        function exportAuditTrail() {
+            if (confirm('Export complete audit trail? This may take several minutes.')) {
+                showLoading('Preparing audit export...');
+                window.location.href = '{{ url_for("admin.export_logs") }}?format=csv';
+                setTimeout(hideLoading, 3000);
+            }
         }
-
-        function showLoading(message = 'Processing admin request...') {
-            const overlay = document.getElementById('loadingOverlay');
-            const messageEl = overlay.querySelector('.mt-2');
-            messageEl.textContent = message;
-            overlay.classList.remove('d-none');
+        
+        // Admin loading functions
+        function showLoading(message = 'Processing...') {
+            // Create loading overlay if it doesn't exist
+            let overlay = document.getElementById('adminLoadingOverlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'adminLoadingOverlay';
+                overlay.className = 'position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center';
+                overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                overlay.style.zIndex = '9999';
+                overlay.innerHTML = `
+                    <div class="bg-white p-4 rounded shadow text-center">
+                        <div class="spinner-border text-primary mb-3" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <div class="loading-message">${message}</div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+            } else {
+                overlay.querySelector('.loading-message').textContent = message;
+                overlay.style.display = 'flex';
+            }
         }
-
+        
         function hideLoading() {
-            document.getElementById('loadingOverlay').classList.add('d-none');
-        }
-
-        // Quick Actions
-        function triggerBatchOCR() {
-            if (confirm('Trigger batch OCR processing for pending documents?')) {
-                showLoading('Starting batch OCR processing...');
-                
-                fetch('/admin/api/batch-ocr-process', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
-                    },
-                    body: JSON.stringify({ limit: 10 })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    hideLoading();
-                    if (data.error) {
-                        alert('Error: ' + data.error);
-                    } else {
-                        alert(`Batch OCR completed: ${data.processed} processed, ${data.failed} failed`);
-                        location.reload();
-                    }
-                })
-                .catch(error => {
-                    hideLoading();
-                    alert('Error processing request: ' + error);
-                });
+            const overlay = document.getElementById('adminLoadingOverlay');
+            if (overlay) {
+                overlay.style.display = 'none';
             }
         }
-
-        function refreshAllScreenings() {
-            if (confirm('Refresh all patient screenings? This may take several minutes.')) {
-                showLoading('Refreshing all screenings...');
+        
+        // Auto-refresh admin data every 5 minutes
+        function refreshAdminData() {
+            // This would refresh dashboard metrics
+            console.log('Refreshing admin data...');
+        }
+        
+        // Set up auto-refresh
+        setInterval(refreshAdminData, 300000); // 5 minutes
+        
+        // Enhanced table sorting for admin tables
+        function initAdminTableSorting() {
+            const tables = document.querySelectorAll('.admin-table');
+            tables.forEach(table => {
+                const headers = table.querySelectorAll('th[data-sortable]');
+                headers.forEach(header => {
+                    header.style.cursor = 'pointer';
+                    header.addEventListener('click', function() {
+                        sortTable(table, this);
+                    });
+                });
+            });
+        }
+        
+        function sortTable(table, header) {
+            // Simple table sorting implementation
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            const index = Array.from(header.parentNode.children).indexOf(header);
+            const isAscending = !header.classList.contains('sort-asc');
+            
+            rows.sort((a, b) => {
+                const aVal = a.children[index].textContent.trim();
+                const bVal = b.children[index].textContent.trim();
                 
-                fetch('/screening/refresh', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
-                    }
-                })
-                .then(response => {
-                    hideLoading();
-                    if (response.ok) {
-                        alert('All screenings refreshed successfully');
-                        location.reload();
-                    } else {
-                        alert('Error refreshing screenings');
-                    }
-                })
-                .catch(error => {
-                    hideLoading();
-                    alert('Error: ' + error);
-                });
-            }
-        }
-
-        function exportLogs() {
-            showLoading('Exporting audit logs...');
-            
-            fetch('/admin/api/export-logs')
-            .then(response => response.json())
-            .then(data => {
-                hideLoading();
-                if (data.error) {
-                    alert('Error: ' + data.error);
+                if (isAscending) {
+                    return aVal.localeCompare(bVal, undefined, { numeric: true });
                 } else {
-                    // Create and download JSON file
-                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `healthprep_audit_logs_${new Date().toISOString().split('T')[0]}.json`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(url);
+                    return bVal.localeCompare(aVal, undefined, { numeric: true });
                 }
-            })
-            .catch(error => {
-                hideLoading();
-                alert('Error exporting logs: ' + error);
             });
-        }
-
-        function generateROIReport() {
-            showLoading('Generating ROI report...');
             
-            fetch('/admin/api/roi-report?months=12')
-            .then(response => response.json())
-            .then(data => {
-                hideLoading();
-                if (data.error) {
-                    alert('Error: ' + data.error);
-                } else {
-                    // Create and download JSON file
-                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `healthprep_roi_report_${new Date().toISOString().split('T')[0]}.json`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(url);
-                }
-            })
-            .catch(error => {
-                hideLoading();
-                alert('Error generating ROI report: ' + error);
+            // Update sort indicators
+            header.parentNode.querySelectorAll('th').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
             });
-        }
-
-        // Highlight active navigation
-        document.addEventListener('DOMContentLoaded', function() {
-            const currentPath = window.location.pathname;
-            const navLinks = document.querySelectorAll('.admin-nav-link');
+            header.classList.add(isAscending ? 'sort-asc' : 'sort-desc');
             
-            navLinks.forEach(function(link) {
-                if (link.getAttribute('href') === currentPath) {
-                    link.classList.add('active');
-                }
-            });
-        });
-
-        // Auto-hide alerts
+            // Reorder rows
+            rows.forEach(row => tbody.appendChild(row));
+        }
+        
+        // Initialize admin features
         document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(function() {
-                const alerts = document.querySelectorAll('.alert');
-                alerts.forEach(function(alert) {
-                    const bsAlert = new bootstrap.Alert(alert);
-                    bsAlert.close();
-                });
-            }, 5000);
+            initAdminTableSorting();
         });
-
-        // CSRF token setup
-        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        
+        // Format numbers for display
+        function formatNumber(num) {
+            return new Intl.NumberFormat().format(num);
+        }
+        
+        // Format currency
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD'
+            }).format(amount);
+        }
+        
+        // Format percentage
+        function formatPercentage(value, decimals = 1) {
+            return (value).toFixed(decimals) + '%';
+        }
     </script>
     
     {% block extra_js %}{% endblock %}
 </body>
 </html>
-

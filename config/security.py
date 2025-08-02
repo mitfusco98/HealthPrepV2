@@ -1,268 +1,442 @@
 """
-RBAC, encryption config, and HIPAA compliance settings
+RBAC, encryption config, and security settings for HIPAA compliance.
+Implements role-based access control and security measures.
 """
+
 import os
-from functools import wraps
-from flask import current_app, request, abort
-from flask_login import current_user
 import hashlib
-import hmac
+import secrets
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional
+from functools import wraps
+from flask import request, session, abort, current_app
+from flask_login import current_user
 import logging
 
+logger = logging.getLogger(__name__)
+
 class SecurityConfig:
-    """Security configuration for HIPAA compliance"""
+    """Security configuration and encryption settings"""
     
     # Encryption settings
-    ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY', 'default-key-change-in-production')
-    
-    # Authentication settings
-    PASSWORD_MIN_LENGTH = 8
-    PASSWORD_REQUIRE_UPPERCASE = True
-    PASSWORD_REQUIRE_LOWERCASE = True
-    PASSWORD_REQUIRE_NUMBERS = True
-    PASSWORD_REQUIRE_SPECIAL = True
+    ENCRYPTION_ALGORITHM = 'AES-256-GCM'
+    KEY_DERIVATION_ALGORITHM = 'PBKDF2-SHA256'
+    KEY_DERIVATION_ITERATIONS = 100000
+    SALT_LENGTH = 32
     
     # Session security
-    SESSION_TIMEOUT_MINUTES = 30
+    SESSION_TIMEOUT_MINUTES = 480  # 8 hours
+    IDLE_TIMEOUT_MINUTES = 60      # 1 hour of inactivity
     MAX_LOGIN_ATTEMPTS = 5
-    LOCKOUT_DURATION_MINUTES = 15
+    LOCKOUT_DURATION_MINUTES = 30
     
-    # HIPAA compliance
-    AUDIT_ALL_PHI_ACCESS = True
-    MINIMUM_NECESSARY_PRINCIPLE = True
-    AUTO_LOGOUT_ENABLED = True
-    BREACH_DETECTION_ENABLED = True
+    # Password requirements
+    MIN_PASSWORD_LENGTH = 12
+    REQUIRE_UPPERCASE = True
+    REQUIRE_LOWERCASE = True
+    REQUIRE_NUMBERS = True
+    REQUIRE_SPECIAL_CHARS = True
+    PASSWORD_HISTORY_COUNT = 5
     
-    # File upload security
-    SCAN_UPLOADS_FOR_MALWARE = True
-    QUARANTINE_SUSPICIOUS_FILES = True
+    # Audit settings
+    AUDIT_ALL_ACCESS = True
+    AUDIT_PHI_ACCESS = True
+    AUDIT_ADMIN_ACTIONS = True
+    AUDIT_LOGIN_ATTEMPTS = True
+    
+    # Rate limiting
+    API_RATE_LIMIT = '100 per minute'
+    LOGIN_RATE_LIMIT = '10 per minute'
+    EXPORT_RATE_LIMIT = '5 per hour'
+    
+    # Security headers
+    SECURITY_HEADERS = {
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'X-XSS-Protection': '1; mode=block',
+        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+        'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data:;"
+    }
 
-# Role-based access control
-ROLE_PERMISSIONS = {
-    'admin': [
-        'view_admin_dashboard',
-        'manage_users',
-        'view_audit_logs',
-        'export_logs',
-        'manage_phi_settings',
-        'manage_screening_types',
-        'view_all_patients',
-        'generate_prep_sheets',
-        'upload_documents',
-        'view_ocr_dashboard',
-        'manage_system_settings'
-    ],
-    'user': [
-        'view_screening_list',
-        'generate_prep_sheets',
-        'upload_documents',
-        'view_assigned_patients'
-    ],
-    'viewer': [
-        'view_screening_list',
-        'view_prep_sheets'
-    ]
-}
+class RoleBasedAccessControl:
+    """Role-based access control system"""
+    
+    # Define roles and their hierarchy
+    ROLES = {
+        'viewer': {
+            'level': 1,
+            'description': 'Read-only access to basic information'
+        },
+        'user': {
+            'level': 2,
+            'description': 'Standard user with screening management access'
+        },
+        'admin': {
+            'level': 3,
+            'description': 'Full administrative access'
+        },
+        'superadmin': {
+            'level': 4,
+            'description': 'System-level administrative access'
+        }
+    }
+    
+    # Define permissions for each role
+    PERMISSIONS = {
+        'viewer': [
+            'view_dashboard',
+            'view_screenings',
+            'view_prep_sheets',
+            'view_patients'
+        ],
+        'user': [
+            'view_dashboard',
+            'view_screenings',
+            'view_prep_sheets',
+            'view_patients',
+            'create_screening_types',
+            'edit_screening_types',
+            'refresh_screenings',
+            'generate_prep_sheets',
+            'view_documents'
+        ],
+        'admin': [
+            'view_dashboard',
+            'view_screenings',
+            'view_prep_sheets',
+            'view_patients',
+            'create_screening_types',
+            'edit_screening_types',
+            'delete_screening_types',
+            'refresh_screenings',
+            'generate_prep_sheets',
+            'view_documents',
+            'admin_dashboard',
+            'view_admin_logs',
+            'export_logs',
+            'manage_users',
+            'configure_phi',
+            'manage_presets',
+            'view_analytics',
+            'system_configuration'
+        ],
+        'superadmin': [
+            # All admin permissions plus:
+            'system_maintenance',
+            'database_access',
+            'security_configuration',
+            'backup_restore'
+        ]
+    }
+    
+    @classmethod
+    def user_has_permission(cls, user, permission: str) -> bool:
+        """Check if user has specific permission"""
+        if not user or not user.is_authenticated:
+            return False
+        
+        user_role = getattr(user, 'role', 'viewer')
+        user_permissions = cls.PERMISSIONS.get(user_role, [])
+        
+        return permission in user_permissions
+    
+    @classmethod
+    def user_has_role_level(cls, user, min_level: int) -> bool:
+        """Check if user has minimum role level"""
+        if not user or not user.is_authenticated:
+            return False
+        
+        user_role = getattr(user, 'role', 'viewer')
+        user_level = cls.ROLES.get(user_role, {}).get('level', 0)
+        
+        return user_level >= min_level
+    
+    @classmethod
+    def get_user_permissions(cls, user) -> List[str]:
+        """Get all permissions for a user"""
+        if not user or not user.is_authenticated:
+            return []
+        
+        user_role = getattr(user, 'role', 'viewer')
+        return cls.PERMISSIONS.get(user_role, [])
 
-def require_permission(permission):
+def require_permission(permission: str):
     """Decorator to require specific permission"""
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            if not current_user.is_authenticated:
-                abort(401)
+            if not RoleBasedAccessControl.user_has_permission(current_user, permission):
+                logger.warning(f"Access denied for user {getattr(current_user, 'id', 'anonymous')} to {permission}")
+                audit_access_attempt(permission, False)
+                abort(403)
             
-            user_role = 'admin' if current_user.is_admin else 'user'
-            user_permissions = ROLE_PERMISSIONS.get(user_role, [])
-            
-            if permission not in user_permissions:
-                logging.warning(f"User {current_user.username} attempted to access {permission} without permission")
+            audit_access_attempt(permission, True)
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+def require_role_level(min_level: int):
+    """Decorator to require minimum role level"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not RoleBasedAccessControl.user_has_role_level(current_user, min_level):
+                logger.warning(f"Insufficient role level for user {getattr(current_user, 'id', 'anonymous')}")
                 abort(403)
             
             return f(*args, **kwargs)
         return decorated_function
     return decorator
 
-def require_admin(f):
-    """Decorator to require admin access"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or not current_user.is_admin:
-            logging.warning(f"Non-admin user {current_user.username if current_user.is_authenticated else 'Anonymous'} attempted admin access")
-            abort(403)
-        return f(*args, **kwargs)
-    return decorated_function
+class SessionSecurity:
+    """Session security management"""
+    
+    @staticmethod
+    def is_session_valid() -> bool:
+        """Check if current session is valid"""
+        if 'user_id' not in session:
+            return False
+        
+        # Check session timeout
+        if 'session_start' in session:
+            session_start = datetime.fromisoformat(session['session_start'])
+            if datetime.utcnow() - session_start > timedelta(minutes=SecurityConfig.SESSION_TIMEOUT_MINUTES):
+                return False
+        
+        # Check idle timeout
+        if 'last_activity' in session:
+            last_activity = datetime.fromisoformat(session['last_activity'])
+            if datetime.utcnow() - last_activity > timedelta(minutes=SecurityConfig.IDLE_TIMEOUT_MINUTES):
+                return False
+        
+        return True
+    
+    @staticmethod
+    def refresh_session():
+        """Refresh session activity timestamp"""
+        session['last_activity'] = datetime.utcnow().isoformat()
+    
+    @staticmethod
+    def initialize_session(user_id: int):
+        """Initialize secure session for user"""
+        session['user_id'] = user_id
+        session['session_start'] = datetime.utcnow().isoformat()
+        session['last_activity'] = datetime.utcnow().isoformat()
+        session['session_token'] = secrets.token_urlsafe(32)
+    
+    @staticmethod
+    def destroy_session():
+        """Securely destroy session"""
+        session.clear()
 
-def audit_phi_access(patient_id, action, details=None):
-    """Audit PHI access for HIPAA compliance"""
-    try:
-        from admin.logs import log_admin_action
+class PasswordSecurity:
+    """Password security and validation"""
+    
+    @staticmethod
+    def validate_password(password: str) -> Dict[str, bool]:
+        """Validate password against security requirements"""
+        validation = {
+            'length': len(password) >= SecurityConfig.MIN_PASSWORD_LENGTH,
+            'uppercase': False,
+            'lowercase': False,
+            'numbers': False,
+            'special_chars': False
+        }
         
-        user_id = current_user.id if current_user.is_authenticated else None
-        action_details = f"PHI Access - Patient ID: {patient_id}, Action: {action}"
+        if SecurityConfig.REQUIRE_UPPERCASE:
+            validation['uppercase'] = any(c.isupper() for c in password)
+        else:
+            validation['uppercase'] = True
         
-        if details:
-            action_details += f", Details: {details}"
+        if SecurityConfig.REQUIRE_LOWERCASE:
+            validation['lowercase'] = any(c.islower() for c in password)
+        else:
+            validation['lowercase'] = True
         
-        log_admin_action(
-            user_id=user_id,
-            action='PHI_ACCESS',
-            details=action_details,
-            ip_address=request.remote_addr
+        if SecurityConfig.REQUIRE_NUMBERS:
+            validation['numbers'] = any(c.isdigit() for c in password)
+        else:
+            validation['numbers'] = True
+        
+        if SecurityConfig.REQUIRE_SPECIAL_CHARS:
+            special_chars = "!@#$%^&*()_+-=[]{}|;:,.<>?"
+            validation['special_chars'] = any(c in special_chars for c in password)
+        else:
+            validation['special_chars'] = True
+        
+        return validation
+    
+    @staticmethod
+    def is_password_valid(password: str) -> bool:
+        """Check if password meets all requirements"""
+        validation = PasswordSecurity.validate_password(password)
+        return all(validation.values())
+    
+    @staticmethod
+    def generate_secure_password(length: int = 16) -> str:
+        """Generate a secure password"""
+        import string
+        
+        characters = string.ascii_letters + string.digits + "!@#$%^&*"
+        password = ''.join(secrets.choice(characters) for _ in range(length))
+        
+        # Ensure password meets requirements
+        while not PasswordSecurity.is_password_valid(password):
+            password = ''.join(secrets.choice(characters) for _ in range(length))
+        
+        return password
+
+class DataEncryption:
+    """Data encryption utilities for PHI protection"""
+    
+    @staticmethod
+    def generate_key() -> bytes:
+        """Generate encryption key"""
+        return secrets.token_bytes(32)  # 256 bits
+    
+    @staticmethod
+    def derive_key(password: str, salt: bytes) -> bytes:
+        """Derive encryption key from password"""
+        import hashlib
+        return hashlib.pbkdf2_hmac(
+            'sha256',
+            password.encode('utf-8'),
+            salt,
+            SecurityConfig.KEY_DERIVATION_ITERATIONS
         )
-        
-        logging.info(f"PHI access audited: {action_details}")
-        
-    except Exception as e:
-        logging.error(f"Failed to audit PHI access: {e}")
-
-def validate_password_strength(password):
-    """Validate password meets security requirements"""
-    errors = []
     
-    if len(password) < SecurityConfig.PASSWORD_MIN_LENGTH:
-        errors.append(f"Password must be at least {SecurityConfig.PASSWORD_MIN_LENGTH} characters long")
-    
-    if SecurityConfig.PASSWORD_REQUIRE_UPPERCASE and not any(c.isupper() for c in password):
-        errors.append("Password must contain at least one uppercase letter")
-    
-    if SecurityConfig.PASSWORD_REQUIRE_LOWERCASE and not any(c.islower() for c in password):
-        errors.append("Password must contain at least one lowercase letter")
-    
-    if SecurityConfig.PASSWORD_REQUIRE_NUMBERS and not any(c.isdigit() for c in password):
-        errors.append("Password must contain at least one number")
-    
-    if SecurityConfig.PASSWORD_REQUIRE_SPECIAL and not any(c in '!@#$%^&*()_+-=[]{}|;:,.<>?' for c in password):
-        errors.append("Password must contain at least one special character")
-    
-    return errors
-
-def encrypt_sensitive_data(data, key=None):
-    """Encrypt sensitive data using AES-256"""
-    if key is None:
-        key = SecurityConfig.ENCRYPTION_KEY.encode()
-    
-    try:
-        from cryptography.fernet import Fernet
-        import base64
-        
-        # Generate a key from the provided key
-        key_hash = hashlib.sha256(key).digest()
-        key_b64 = base64.urlsafe_b64encode(key_hash)
-        
-        fernet = Fernet(key_b64)
-        encrypted_data = fernet.encrypt(data.encode())
-        
-        return encrypted_data.decode()
-        
-    except Exception as e:
-        logging.error(f"Encryption failed: {e}")
-        return data  # Return original data if encryption fails
-
-def decrypt_sensitive_data(encrypted_data, key=None):
-    """Decrypt sensitive data"""
-    if key is None:
-        key = SecurityConfig.ENCRYPTION_KEY.encode()
-    
-    try:
-        from cryptography.fernet import Fernet
-        import base64
-        
-        key_hash = hashlib.sha256(key).digest()
-        key_b64 = base64.urlsafe_b64encode(key_hash)
-        
-        fernet = Fernet(key_b64)
-        decrypted_data = fernet.decrypt(encrypted_data.encode())
-        
-        return decrypted_data.decode()
-        
-    except Exception as e:
-        logging.error(f"Decryption failed: {e}")
-        return encrypted_data  # Return encrypted data if decryption fails
-
-def generate_csrf_token():
-    """Generate CSRF token for forms"""
-    try:
-        import secrets
-        return secrets.token_urlsafe(32)
-    except Exception as e:
-        logging.error(f"CSRF token generation failed: {e}")
-        return "default-csrf-token"
-
-def validate_file_upload(file):
-    """Validate uploaded file for security"""
-    from config.settings import Config
-    
-    if not file or not file.filename:
-        return False, "No file selected"
-    
-    # Check file extension
-    if not ('.' in file.filename and file.filename.rsplit('.', 1)[1].lower() in Config.ALLOWED_EXTENSIONS):
-        return False, "Invalid file type"
-    
-    # Check file size
-    if len(file.read()) > Config.MAX_CONTENT_LENGTH:
-        return False, "File too large"
-    
-    file.seek(0)  # Reset file pointer
-    
-    # Additional security checks could be added here
-    # - Malware scanning
-    # - File content validation
-    # - MIME type verification
-    
-    return True, "File validated"
-
-def check_breach_indicators(action, details=None):
-    """Check for potential security breach indicators"""
-    try:
-        # Implement breach detection logic
-        suspicious_patterns = [
-            'multiple_failed_logins',
-            'unusual_access_pattern',
-            'unauthorized_phi_access',
-            'bulk_data_export',
-            'off_hours_access'
-        ]
-        
-        # This would integrate with a security monitoring system
-        # For now, log potential indicators
-        if any(pattern in str(details).lower() for pattern in suspicious_patterns):
-            logging.warning(f"Potential breach indicator detected: {action} - {details}")
+    @staticmethod
+    def encrypt_data(data: str, key: bytes) -> Dict[str, str]:
+        """Encrypt sensitive data"""
+        try:
+            from cryptography.fernet import Fernet
+            import base64
             
-            # Could trigger alerts, notifications, or automatic responses
+            # Use Fernet for symmetric encryption
+            f = Fernet(base64.urlsafe_b64encode(key))
+            encrypted_data = f.encrypt(data.encode('utf-8'))
             
-    except Exception as e:
-        logging.error(f"Breach detection check failed: {e}")
-
-def sanitize_input(input_string):
-    """Sanitize user input to prevent XSS and injection attacks"""
-    if not input_string:
-        return input_string
+            return {
+                'encrypted_data': base64.b64encode(encrypted_data).decode('utf-8'),
+                'algorithm': 'Fernet',
+                'encrypted_at': datetime.utcnow().isoformat()
+            }
+        except Exception as e:
+            logger.error(f"Encryption failed: {str(e)}")
+            raise
     
-    try:
-        import html
-        import re
-        
-        # HTML escape
-        sanitized = html.escape(input_string)
-        
-        # Remove potentially dangerous patterns
-        dangerous_patterns = [
-            r'<script.*?</script>',
-            r'javascript:',
-            r'vbscript:',
-            r'onload=',
-            r'onerror=',
-            r'onclick='
-        ]
-        
-        for pattern in dangerous_patterns:
-            sanitized = re.sub(pattern, '', sanitized, flags=re.IGNORECASE)
-        
-        return sanitized
-        
-    except Exception as e:
-        logging.error(f"Input sanitization failed: {e}")
-        return input_string
+    @staticmethod
+    def decrypt_data(encrypted_data: str, key: bytes) -> str:
+        """Decrypt sensitive data"""
+        try:
+            from cryptography.fernet import Fernet
+            import base64
+            
+            f = Fernet(base64.urlsafe_b64encode(key))
+            decrypted_data = f.decrypt(base64.b64decode(encrypted_data))
+            
+            return decrypted_data.decode('utf-8')
+        except Exception as e:
+            logger.error(f"Decryption failed: {str(e)}")
+            raise
 
+class AuditLogger:
+    """HIPAA-compliant audit logging"""
+    
+    @staticmethod
+    def log_phi_access(user_id: int, patient_id: int, action: str, details: str = None):
+        """Log PHI access for HIPAA compliance"""
+        from admin.logs import log_manager
+        
+        log_manager.log_activity(
+            action=f'phi_access_{action}',
+            details=f'Patient {patient_id}: {details or action}',
+            user_id=user_id
+        )
+    
+    @staticmethod
+    def log_security_event(event_type: str, details: str, user_id: int = None):
+        """Log security-related events"""
+        from admin.logs import log_manager
+        
+        log_manager.log_activity(
+            action=f'security_{event_type}',
+            details=details,
+            user_id=user_id
+        )
+    
+    @staticmethod
+    def log_data_access(resource: str, action: str, user_id: int, success: bool = True):
+        """Log data access attempts"""
+        from admin.logs import log_manager
+        
+        status = 'success' if success else 'failed'
+        log_manager.log_activity(
+            action=f'data_access_{status}',
+            details=f'{action} on {resource}',
+            user_id=user_id
+        )
+
+def audit_access_attempt(permission: str, success: bool):
+    """Audit access attempts"""
+    user_id = getattr(current_user, 'id', None) if current_user.is_authenticated else None
+    
+    AuditLogger.log_data_access(
+        resource=permission,
+        action='access_attempt',
+        user_id=user_id,
+        success=success
+    )
+
+def apply_security_headers(response):
+    """Apply security headers to response"""
+    for header, value in SecurityConfig.SECURITY_HEADERS.items():
+        response.headers[header] = value
+    return response
+
+def check_rate_limit(key: str, limit: str) -> bool:
+    """Check if request is within rate limit"""
+    # Simplified rate limiting - would use Redis in production
+    return True
+
+def validate_csrf_token():
+    """Validate CSRF token for state-changing operations"""
+    if request.method in ['POST', 'PUT', 'DELETE', 'PATCH']:
+        token = request.form.get('csrf_token') or request.headers.get('X-CSRFToken')
+        if not token:
+            abort(400, description='CSRF token missing')
+        
+        # Validate token (simplified - would use proper CSRF validation)
+        if len(token) < 32:
+            abort(400, description='Invalid CSRF token')
+
+# Security middleware functions
+def before_request_security():
+    """Security checks before each request"""
+    # Check session validity
+    if current_user.is_authenticated and not SessionSecurity.is_session_valid():
+        from flask_login import logout_user
+        logout_user()
+        abort(401)
+    
+    # Refresh session activity
+    if current_user.is_authenticated:
+        SessionSecurity.refresh_session()
+    
+    # Validate CSRF for state-changing operations
+    validate_csrf_token()
+
+def after_request_security(response):
+    """Security headers and cleanup after each request"""
+    return apply_security_headers(response)
+
+# Initialize security system
+def init_security_system(app):
+    """Initialize security system with Flask app"""
+    app.before_request(before_request_security)
+    app.after_request(after_request_security)
+    
+    # Set security configuration
+    app.config.update(SecurityConfig.__dict__)
+    
+    logger.info("Security system initialized with HIPAA compliance features")

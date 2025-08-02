@@ -1,214 +1,329 @@
 """
-Converts FHIR bundles to internal data model
+FHIR data parser - Converts FHIR bundles to internal data models
 """
 import json
 import logging
 from datetime import datetime, date
-from models import MedicalDocument, Patient
-from app import db
+from typing import Dict, List, Any, Optional
+from dateutil.parser import parse as parse_date
+
+logger = logging.getLogger(__name__)
 
 class FHIRParser:
+    """Parses FHIR resources into internal data structures"""
     
-    def process_patient_data(self, patient_id, fhir_data):
-        """Process FHIR data and create internal records"""
+    def __init__(self):
+        self.gender_mapping = {
+            'male': 'Male',
+            'female': 'Female',
+            'other': 'Other',
+            'unknown': 'Unknown'
+        }
+    
+    def parse_patient(self, fhir_patient: Dict[str, Any]) -> Dict[str, Any]:
+        """Parse FHIR Patient resource to internal format"""
         try:
-            patient = Patient.query.get(patient_id)
-            if not patient:
-                logging.error(f"Patient {patient_id} not found")
-                return False
+            # Extract name
+            names = fhir_patient.get('name', [])
+            first_name = ''
+            last_name = ''
             
-            # Process observations
-            if fhir_data.get('observations'):
-                self._process_observations(patient, fhir_data['observations'])
+            if names:
+                name = names[0]  # Use first name entry
+                given = name.get('given', [])
+                family = name.get('family', '')
+                
+                first_name = ' '.join(given) if given else ''
+                last_name = family
             
-            # Process diagnostic reports
-            if fhir_data.get('reports'):
-                self._process_diagnostic_reports(patient, fhir_data['reports'])
+            # Extract birth date
+            birth_date_str = fhir_patient.get('birthDate')
+            birth_date = None
+            if birth_date_str:
+                try:
+                    birth_date = parse_date(birth_date_str).date()
+                except:
+                    logger.warning(f"Could not parse birth date: {birth_date_str}")
             
-            # Process conditions
-            if fhir_data.get('conditions'):
-                self._process_conditions(patient, fhir_data['conditions'])
+            # Extract gender
+            fhir_gender = fhir_patient.get('gender', 'unknown')
+            gender = self.gender_mapping.get(fhir_gender.lower(), 'Unknown')
             
-            db.session.commit()
-            return True
+            # Extract contact information
+            telecoms = fhir_patient.get('telecom', [])
+            phone = ''
+            email = ''
+            
+            for telecom in telecoms:
+                system = telecom.get('system', '')
+                value = telecom.get('value', '')
+                
+                if system == 'phone' and not phone:
+                    phone = value
+                elif system == 'email' and not email:
+                    email = value
+            
+            # Extract identifiers (MRN)
+            identifiers = fhir_patient.get('identifier', [])
+            mrn = ''
+            
+            for identifier in identifiers:
+                system = identifier.get('system', '')
+                if 'mrn' in system.lower() or 'medical-record' in system.lower():
+                    mrn = identifier.get('value', '')
+                    break
+            
+            if not mrn and identifiers:
+                # Fallback to first identifier
+                mrn = identifiers[0].get('value', '')
+            
+            return {
+                'fhir_id': fhir_patient.get('id'),
+                'mrn': mrn,
+                'first_name': first_name,
+                'last_name': last_name,
+                'date_of_birth': birth_date,
+                'gender': gender,
+                'phone': phone,
+                'email': email
+            }
             
         except Exception as e:
-            logging.error(f"Error processing FHIR data: {e}")
-            db.session.rollback()
-            return False
+            logger.error(f"Error parsing FHIR patient: {str(e)}")
+            return {}
     
-    def _process_observations(self, patient, observations_bundle):
-        """Process FHIR observations and create document records"""
-        if not observations_bundle.get('entry'):
-            return
-        
-        for entry in observations_bundle['entry']:
-            observation = entry.get('resource', {})
-            
-            if observation.get('resourceType') != 'Observation':
-                continue
-            
-            try:
-                # Extract observation data
-                code_text = self._extract_code_text(observation.get('code', {}))
-                value_text = self._extract_value_text(observation.get('value', {}))
-                effective_date = self._parse_fhir_date(observation.get('effectiveDateTime'))
-                
-                # Create document record
-                doc_content = f"Observation: {code_text}\nValue: {value_text}\nDate: {effective_date}"
-                
-                document = MedicalDocument(
-                    patient_id=patient.id,
-                    filename=f"lab_observation_{observation.get('id', 'unknown')}.txt",
-                    document_type='lab',
-                    ocr_text=doc_content,
-                    ocr_confidence=1.0,  # FHIR data is structured, so high confidence
-                    phi_filtered=False  # Will be filtered by PHI filter if needed
-                )
-                
-                db.session.add(document)
-                
-            except Exception as e:
-                logging.error(f"Error processing observation: {e}")
-                continue
-    
-    def _process_diagnostic_reports(self, patient, reports_bundle):
-        """Process FHIR diagnostic reports"""
-        if not reports_bundle.get('entry'):
-            return
-        
-        for entry in reports_bundle['entry']:
-            report = entry.get('resource', {})
-            
-            if report.get('resourceType') != 'DiagnosticReport':
-                continue
-            
-            try:
-                # Extract report data
-                category = self._extract_code_text(report.get('category', [{}])[0] if report.get('category') else {})
-                code_text = self._extract_code_text(report.get('code', {}))
-                conclusion = report.get('conclusion', '')
-                effective_date = self._parse_fhir_date(report.get('effectiveDateTime'))
-                
-                # Determine document type based on category
-                doc_type = self._map_report_category(category)
-                
-                # Create document content
-                doc_content = f"Diagnostic Report: {code_text}\nCategory: {category}\nConclusion: {conclusion}\nDate: {effective_date}"
-                
-                document = MedicalDocument(
-                    patient_id=patient.id,
-                    filename=f"{doc_type}_report_{report.get('id', 'unknown')}.txt",
-                    document_type=doc_type,
-                    ocr_text=doc_content,
-                    ocr_confidence=1.0,
-                    phi_filtered=False
-                )
-                
-                db.session.add(document)
-                
-            except Exception as e:
-                logging.error(f"Error processing diagnostic report: {e}")
-                continue
-    
-    def _process_conditions(self, patient, conditions_bundle):
-        """Process FHIR conditions"""
-        if not conditions_bundle.get('entry'):
-            return
-        
-        # For now, we'll store conditions as documents for screening matching
-        # In a full implementation, these would be stored in a separate conditions table
-        
-        for entry in conditions_bundle['entry']:
-            condition = entry.get('resource', {})
-            
-            if condition.get('resourceType') != 'Condition':
-                continue
-            
-            try:
-                code_text = self._extract_code_text(condition.get('code', {}))
-                onset_date = self._parse_fhir_date(condition.get('onsetDateTime'))
-                clinical_status = condition.get('clinicalStatus', {}).get('coding', [{}])[0].get('code', '')
-                
-                doc_content = f"Condition: {code_text}\nStatus: {clinical_status}\nOnset: {onset_date}"
-                
-                document = MedicalDocument(
-                    patient_id=patient.id,
-                    filename=f"condition_{condition.get('id', 'unknown')}.txt",
-                    document_type='condition',
-                    ocr_text=doc_content,
-                    ocr_confidence=1.0,
-                    phi_filtered=False
-                )
-                
-                db.session.add(document)
-                
-            except Exception as e:
-                logging.error(f"Error processing condition: {e}")
-                continue
-    
-    def _extract_code_text(self, code_data):
-        """Extract human-readable text from FHIR code data"""
-        if not code_data:
-            return ""
-        
-        # Try display text first
-        if code_data.get('text'):
-            return code_data['text']
-        
-        # Try coding display
-        if code_data.get('coding'):
-            for coding in code_data['coding']:
-                if coding.get('display'):
-                    return coding['display']
-                elif coding.get('code'):
-                    return coding['code']
-        
-        return ""
-    
-    def _extract_value_text(self, value_data):
-        """Extract human-readable value from FHIR value data"""
-        if not value_data:
-            return ""
-        
-        # Handle different value types
-        if isinstance(value_data, dict):
-            if 'valueQuantity' in value_data:
-                qty = value_data['valueQuantity']
-                return f"{qty.get('value', '')} {qty.get('unit', '')}"
-            elif 'valueString' in value_data:
-                return value_data['valueString']
-            elif 'valueCodeableConcept' in value_data:
-                return self._extract_code_text(value_data['valueCodeableConcept'])
-        
-        return str(value_data)
-    
-    def _parse_fhir_date(self, date_string):
-        """Parse FHIR date string to Python date"""
-        if not date_string:
-            return ""
-        
+    def parse_document_reference(self, fhir_doc: Dict[str, Any]) -> Dict[str, Any]:
+        """Parse FHIR DocumentReference to internal format"""
         try:
-            # Handle different FHIR date formats
-            if 'T' in date_string:
-                dt = datetime.fromisoformat(date_string.replace('Z', '+00:00'))
-                return dt.strftime('%Y-%m-%d %H:%M')
-            else:
-                dt = datetime.strptime(date_string, '%Y-%m-%d')
-                return dt.strftime('%Y-%m-%d')
+            # Extract basic info
+            doc_id = fhir_doc.get('id')
+            
+            # Extract document type
+            type_coding = fhir_doc.get('type', {}).get('coding', [])
+            document_type = ''
+            if type_coding:
+                document_type = type_coding[0].get('display', type_coding[0].get('code', ''))
+            
+            # Extract date
+            doc_date = None
+            date_str = fhir_doc.get('date')
+            if date_str:
+                try:
+                    doc_date = parse_date(date_str).date()
+                except:
+                    logger.warning(f"Could not parse document date: {date_str}")
+            
+            # Extract content info
+            content = fhir_doc.get('content', [])
+            filename = ''
+            content_type = ''
+            
+            if content:
+                attachment = content[0].get('attachment', {})
+                filename = attachment.get('title', attachment.get('url', ''))
+                content_type = attachment.get('contentType', '')
+            
+            # Extract description
+            description = fhir_doc.get('description', '')
+            
+            # Determine document category
+            category = self._categorize_document(document_type, filename, description)
+            
+            return {
+                'fhir_id': doc_id,
+                'filename': filename or f"Document_{doc_id}",
+                'document_type': category,
+                'document_date': doc_date,
+                'content_type': content_type,
+                'description': description,
+                'raw_fhir': json.dumps(fhir_doc)
+            }
+            
         except Exception as e:
-            logging.error(f"Error parsing FHIR date {date_string}: {e}")
-            return date_string
+            logger.error(f"Error parsing FHIR document reference: {str(e)}")
+            return {}
     
-    def _map_report_category(self, category):
-        """Map FHIR diagnostic report category to internal document type"""
-        category_lower = category.lower()
+    def parse_diagnostic_report(self, fhir_report: Dict[str, Any]) -> Dict[str, Any]:
+        """Parse FHIR DiagnosticReport to internal format"""
+        try:
+            report_id = fhir_report.get('id')
+            
+            # Extract category
+            categories = fhir_report.get('category', [])
+            category = ''
+            if categories:
+                coding = categories[0].get('coding', [])
+                if coding:
+                    category = coding[0].get('display', coding[0].get('code', ''))
+            
+            # Extract code/type
+            code_info = fhir_report.get('code', {})
+            code_text = ''
+            if code_info:
+                coding = code_info.get('coding', [])
+                if coding:
+                    code_text = coding[0].get('display', coding[0].get('code', ''))
+                else:
+                    code_text = code_info.get('text', '')
+            
+            # Extract date
+            report_date = None
+            date_str = fhir_report.get('effectiveDateTime') or fhir_report.get('effectivePeriod', {}).get('start')
+            if date_str:
+                try:
+                    report_date = parse_date(date_str).date()
+                except:
+                    logger.warning(f"Could not parse report date: {date_str}")
+            
+            # Extract conclusion
+            conclusion = fhir_report.get('conclusion', '')
+            
+            # Extract status
+            status = fhir_report.get('status', '')
+            
+            return {
+                'fhir_id': report_id,
+                'category': category,
+                'code_text': code_text,
+                'report_date': report_date,
+                'conclusion': conclusion,
+                'status': status,
+                'raw_fhir': json.dumps(fhir_report)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error parsing FHIR diagnostic report: {str(e)}")
+            return {}
+    
+    def parse_condition(self, fhir_condition: Dict[str, Any]) -> Dict[str, Any]:
+        """Parse FHIR Condition to internal format"""
+        try:
+            condition_id = fhir_condition.get('id')
+            
+            # Extract condition code and display
+            code_info = fhir_condition.get('code', {})
+            condition_code = ''
+            condition_name = ''
+            
+            if code_info:
+                coding = code_info.get('coding', [])
+                if coding:
+                    condition_code = coding[0].get('code', '')
+                    condition_name = coding[0].get('display', '')
+                
+                if not condition_name:
+                    condition_name = code_info.get('text', '')
+            
+            # Extract onset date
+            onset_date = None
+            onset_datetime = fhir_condition.get('onsetDateTime')
+            if onset_datetime:
+                try:
+                    onset_date = parse_date(onset_datetime).date()
+                except:
+                    logger.warning(f"Could not parse onset date: {onset_datetime}")
+            
+            # Extract clinical status
+            clinical_status = fhir_condition.get('clinicalStatus', {})
+            is_active = True
+            if clinical_status:
+                coding = clinical_status.get('coding', [])
+                if coding:
+                    status_code = coding[0].get('code', '').lower()
+                    is_active = status_code in ['active', 'relapse', 'remission']
+            
+            return {
+                'fhir_id': condition_id,
+                'condition_code': condition_code,
+                'condition_name': condition_name,
+                'diagnosis_date': onset_date,
+                'is_active': is_active
+            }
+            
+        except Exception as e:
+            logger.error(f"Error parsing FHIR condition: {str(e)}")
+            return {}
+    
+    def parse_observation(self, fhir_observation: Dict[str, Any]) -> Dict[str, Any]:
+        """Parse FHIR Observation to internal format"""
+        try:
+            obs_id = fhir_observation.get('id')
+            
+            # Extract code
+            code_info = fhir_observation.get('code', {})
+            code_text = ''
+            if code_info:
+                coding = code_info.get('coding', [])
+                if coding:
+                    code_text = coding[0].get('display', coding[0].get('code', ''))
+                else:
+                    code_text = code_info.get('text', '')
+            
+            # Extract value
+            value_text = ''
+            value_quantity = fhir_observation.get('valueQuantity')
+            value_string = fhir_observation.get('valueString')
+            
+            if value_quantity:
+                value_text = f"{value_quantity.get('value', '')} {value_quantity.get('unit', '')}"
+            elif value_string:
+                value_text = value_string
+            
+            # Extract date
+            obs_date = None
+            date_str = fhir_observation.get('effectiveDateTime')
+            if date_str:
+                try:
+                    obs_date = parse_date(date_str).date()
+                except:
+                    logger.warning(f"Could not parse observation date: {date_str}")
+            
+            # Extract category
+            categories = fhir_observation.get('category', [])
+            category = ''
+            if categories:
+                coding = categories[0].get('coding', [])
+                if coding:
+                    category = coding[0].get('display', coding[0].get('code', ''))
+            
+            return {
+                'fhir_id': obs_id,
+                'code_text': code_text,
+                'value_text': value_text,
+                'observation_date': obs_date,
+                'category': category,
+                'raw_fhir': json.dumps(fhir_observation)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error parsing FHIR observation: {str(e)}")
+            return {}
+    
+    def _categorize_document(self, doc_type: str, filename: str, description: str) -> str:
+        """Categorize document based on type, filename, and description"""
+        combined_text = f"{doc_type} {filename} {description}".lower()
         
-        if 'lab' in category_lower or 'chemistry' in category_lower:
+        # Lab-related keywords
+        lab_keywords = ['lab', 'laboratory', 'blood', 'urine', 'chemistry', 'cbc', 'lipid', 'glucose']
+        if any(keyword in combined_text for keyword in lab_keywords):
             return 'lab'
-        elif 'imaging' in category_lower or 'radiology' in category_lower:
+        
+        # Imaging-related keywords
+        imaging_keywords = ['imaging', 'radiology', 'xray', 'x-ray', 'ct', 'mri', 'ultrasound', 'mammogram']
+        if any(keyword in combined_text for keyword in imaging_keywords):
             return 'imaging'
-        elif 'pathology' in category_lower:
-            return 'pathology'
-        else:
-            return 'general'
+        
+        # Consult-related keywords
+        consult_keywords = ['consult', 'consultation', 'referral', 'specialist', 'cardiology', 'neurology']
+        if any(keyword in combined_text for keyword in consult_keywords):
+            return 'consult'
+        
+        # Hospital-related keywords
+        hospital_keywords = ['admission', 'discharge', 'hospital', 'inpatient', 'emergency']
+        if any(keyword in combined_text for keyword in hospital_keywords):
+            return 'hospital'
+        
+        return 'other'
+
+# Global parser instance
+fhir_parser = FHIRParser()

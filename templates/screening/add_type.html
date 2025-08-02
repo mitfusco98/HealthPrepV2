@@ -1,0 +1,631 @@
+{% extends "base_user.html" %}
+
+{% block title %}Add Screening Type - HealthPrep{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-section {
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border-left: 4px solid #007bff;
+}
+
+.form-section h5 {
+    color: #495057;
+    margin-bottom: 1rem;
+}
+
+.keyword-tag {
+    display: inline-block;
+    background-color: #e9ecef;
+    color: #495057;
+    padding: 0.25rem 0.75rem;
+    margin: 0.125rem;
+    border-radius: 1rem;
+    font-size: 0.875rem;
+    border: 1px solid #ced4da;
+    position: relative;
+    padding-right: 2rem;
+}
+
+.keyword-tag .remove-keyword {
+    position: absolute;
+    right: 0.5rem;
+    cursor: pointer;
+    color: #6c757d;
+}
+
+.keyword-tag .remove-keyword:hover {
+    color: #dc3545;
+}
+
+.keyword-input-container {
+    position: relative;
+}
+
+.keyword-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ced4da;
+    border-top: none;
+    border-radius: 0 0 0.375rem 0.375rem;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+}
+
+.keyword-suggestion {
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    border-bottom: 1px solid #f8f9fa;
+}
+
+.keyword-suggestion:hover {
+    background-color: #f8f9fa;
+}
+
+.form-help {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+.eligibility-preview {
+    background-color: #e3f2fd;
+    border: 1px solid #90caf9;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.frequency-preview {
+    background-color: #f3e5f5;
+    border: 1px solid #ce93d8;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.medical-terminology-helper {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.validation-feedback {
+    display: block;
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.is-valid {
+    border-color: #28a745;
+}
+
+.is-invalid {
+    border-color: #dc3545;
+}
+
+.spinner-container {
+    display: none;
+    text-align: center;
+    padding: 1rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>
+                <i class="fas fa-plus-circle me-2 text-primary"></i>
+                Add New Screening Type
+            </h2>
+            <a href="{{ url_for('ui.screening_types') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Types
+            </a>
+        </div>
+
+        <!-- Medical Terminology Helper -->
+        <div class="medical-terminology-helper">
+            <h6><i class="fas fa-lightbulb me-2"></i>Medical Terminology Helper</h6>
+            <p class="mb-0">Use standardized medical terms for better document matching. Common terms include: mammogram, colonoscopy, dexa, pap smear, a1c, lipid panel, cbc, cmp.</p>
+        </div>
+
+        <form method="POST" action="{{ url_for('ui.add_screening_type') }}" id="addScreeningForm" novalidate>
+            <!-- Basic Information -->
+            <div class="form-section">
+                <h5><i class="fas fa-info-circle me-2"></i>Basic Information</h5>
+                
+                <div class="mb-3">
+                    <label for="name" class="form-label required">Screening Type Name</label>
+                    <input type="text" class="form-control" id="name" name="name" required 
+                           placeholder="e.g., Mammogram, Colonoscopy, A1C Test">
+                    <div class="form-help">Use clear, standardized medical terminology</div>
+                    <div class="invalid-feedback">Please provide a screening type name.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea class="form-control" id="description" name="description" rows="3" 
+                              placeholder="Brief description of the screening procedure and its purpose..."></textarea>
+                    <div class="form-help">Optional: Provide context for clinical staff</div>
+                </div>
+            </div>
+
+            <!-- Keywords and Matching -->
+            <div class="form-section">
+                <h5><i class="fas fa-tags me-2"></i>Keywords and Document Matching</h5>
+                
+                <div class="mb-3">
+                    <label for="keywordInput" class="form-label">Keywords</label>
+                    <div class="keyword-input-container">
+                        <input type="text" class="form-control" id="keywordInput" 
+                               placeholder="Type a keyword and press Enter (e.g., mammogram, breast imaging)">
+                        <div class="keyword-suggestions" id="keywordSuggestions"></div>
+                    </div>
+                    <div class="form-help">
+                        Keywords help match this screening to relevant documents. 
+                        Include medical terms, abbreviations, and common variations.
+                    </div>
+                    
+                    <!-- Keywords Display -->
+                    <div id="keywordsDisplay" class="mt-2">
+                        <!-- Keywords will be displayed here as tags -->
+                    </div>
+                    
+                    <!-- Hidden input to store keywords -->
+                    <input type="hidden" id="keywords" name="keywords">
+                </div>
+
+                <!-- Quick Keyword Suggestions -->
+                <div class="mb-3">
+                    <label class="form-label">Quick Add Common Terms:</label>
+                    <div id="quickKeywords" class="mt-2">
+                        <!-- Quick keyword buttons will be generated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Frequency Settings -->
+            <div class="form-section">
+                <h5><i class="fas fa-clock me-2"></i>Frequency and Scheduling</h5>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="frequency_value" class="form-label required">Frequency Value</label>
+                        <input type="number" class="form-control" id="frequency_value" name="frequency_value" 
+                               min="1" max="50" value="1" required>
+                        <div class="invalid-feedback">Please provide a valid frequency value.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="frequency_unit" class="form-label required">Frequency Unit</label>
+                        <select class="form-select" id="frequency_unit" name="frequency_unit" required>
+                            <option value="years" selected>Years</option>
+                            <option value="months">Months</option>
+                            <option value="weeks">Weeks</option>
+                            <option value="days">Days</option>
+                        </select>
+                        <div class="invalid-feedback">Please select a frequency unit.</div>
+                    </div>
+                </div>
+                
+                <div class="frequency-preview">
+                    <strong>Preview:</strong> <span id="frequencyPreview">Every 1 year(s)</span>
+                </div>
+            </div>
+
+            <!-- Eligibility Criteria -->
+            <div class="form-section">
+                <h5><i class="fas fa-users me-2"></i>Eligibility Criteria</h5>
+                
+                <div class="row">
+                    <div class="col-md-4">
+                        <label for="min_age" class="form-label">Minimum Age</label>
+                        <input type="number" class="form-control" id="min_age" name="min_age" 
+                               min="0" max="120" placeholder="e.g., 21">
+                        <div class="form-help">Leave blank for no minimum</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="max_age" class="form-label">Maximum Age</label>
+                        <input type="number" class="form-control" id="max_age" name="max_age" 
+                               min="0" max="120" placeholder="e.g., 75">
+                        <div class="form-help">Leave blank for no maximum</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="gender" class="form-label">Gender Requirement</label>
+                        <select class="form-select" id="gender" name="gender">
+                            <option value="any" selected>Any Gender</option>
+                            <option value="female">Female Only</option>
+                            <option value="male">Male Only</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="eligibility-preview">
+                    <strong>Eligibility:</strong> <span id="eligibilityPreview">Any patient</span>
+                </div>
+            </div>
+
+            <!-- Trigger Conditions -->
+            <div class="form-section">
+                <h5><i class="fas fa-exclamation-triangle me-2"></i>Trigger Conditions</h5>
+                
+                <div class="mb-3">
+                    <label for="triggerInput" class="form-label">Medical Conditions</label>
+                    <input type="text" class="form-control" id="triggerInput" 
+                           placeholder="Type condition and press Enter (e.g., diabetes, hypertension)">
+                    <div class="form-help">
+                        Optional: Conditions that make this screening more urgent or change frequency
+                    </div>
+                    
+                    <!-- Trigger Conditions Display -->
+                    <div id="triggersDisplay" class="mt-2">
+                        <!-- Trigger conditions will be displayed here -->
+                    </div>
+                    
+                    <!-- Hidden input to store trigger conditions -->
+                    <input type="hidden" id="trigger_conditions" name="trigger_conditions">
+                </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="d-flex justify-content-between align-items-center mt-4">
+                <div>
+                    <button type="button" class="btn btn-outline-info" onclick="previewScreeningType()">
+                        <i class="fas fa-eye me-2"></i>Preview
+                    </button>
+                </div>
+                <div>
+                    <a href="{{ url_for('ui.screening_types') }}" class="btn btn-secondary me-2">
+                        <i class="fas fa-times me-2"></i>Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <i class="fas fa-save me-2"></i>Create Screening Type
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <!-- Loading Spinner -->
+        <div class="spinner-container" id="loadingSpinner">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Creating screening type...</span>
+            </div>
+            <p class="mt-2">Creating screening type...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-eye me-2"></i>Screening Type Preview
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="previewContent">
+                <!-- Preview content will be generated here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="document.getElementById('addScreeningForm').submit()">
+                    <i class="fas fa-save me-2"></i>Create Screening Type
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/medical_terminology.js') }}"></script>
+
+<script>
+let keywords = [];
+let triggerConditions = [];
+
+// Medical keyword suggestions
+const medicalSuggestions = {
+    'mammogram': ['mammography', 'breast imaging', 'breast screening', 'mammo', 'bilateral mammogram'],
+    'colonoscopy': ['colon scope', 'colonoscope', 'colon screening', 'colo scope', 'colorectal screening'],
+    'dexa': ['dxa', 'bone density', 'bone scan', 'osteoporosis screening', 'bone mineral density'],
+    'pap': ['pap smear', 'cervical screening', 'pap test', 'cervical cytology', 'cervical cancer screening'],
+    'a1c': ['hemoglobin a1c', 'hba1c', 'glycated hemoglobin', 'diabetic screening', 'diabetes monitoring'],
+    'lipid': ['lipid panel', 'cholesterol', 'lipid profile', 'cholesterol panel', 'lipid screening'],
+    'cbc': ['complete blood count', 'blood count', 'full blood count', 'blood work'],
+    'cmp': ['comprehensive metabolic panel', 'basic metabolic panel', 'bmp', 'chemistry panel']
+};
+
+// Initialize form
+document.addEventListener('DOMContentLoaded', function() {
+    updateFrequencyPreview();
+    updateEligibilityPreview();
+    generateQuickKeywords();
+    
+    // Form validation
+    setupFormValidation();
+});
+
+// Keyword management
+document.getElementById('keywordInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        addKeyword(this.value.trim());
+        this.value = '';
+        hideSuggestions();
+    }
+});
+
+document.getElementById('keywordInput').addEventListener('input', function() {
+    showSuggestions(this.value);
+});
+
+function addKeyword(keyword) {
+    if (keyword && !keywords.includes(keyword.toLowerCase())) {
+        keywords.push(keyword.toLowerCase());
+        updateKeywordsDisplay();
+        updateKeywordsInput();
+    }
+}
+
+function removeKeyword(keyword) {
+    keywords = keywords.filter(k => k !== keyword);
+    updateKeywordsDisplay();
+    updateKeywordsInput();
+}
+
+function updateKeywordsDisplay() {
+    const display = document.getElementById('keywordsDisplay');
+    display.innerHTML = keywords.map(keyword => 
+        `<span class="keyword-tag">
+            ${keyword}
+            <span class="remove-keyword" onclick="removeKeyword('${keyword}')">&times;</span>
+        </span>`
+    ).join('');
+}
+
+function updateKeywordsInput() {
+    document.getElementById('keywords').value = keywords.join(',');
+}
+
+function showSuggestions(input) {
+    const suggestions = document.getElementById('keywordSuggestions');
+    if (!input) {
+        suggestions.style.display = 'none';
+        return;
+    }
+    
+    const matches = [];
+    for (const [base, variants] of Object.entries(medicalSuggestions)) {
+        if (base.includes(input.toLowerCase())) {
+            matches.push(base);
+            matches.push(...variants.filter(v => v.includes(input.toLowerCase())));
+        }
+    }
+    
+    if (matches.length > 0) {
+        suggestions.innerHTML = matches.slice(0, 5).map(match => 
+            `<div class="keyword-suggestion" onclick="selectSuggestion('${match}')">${match}</div>`
+        ).join('');
+        suggestions.style.display = 'block';
+    } else {
+        suggestions.style.display = 'none';
+    }
+}
+
+function selectSuggestion(suggestion) {
+    addKeyword(suggestion);
+    document.getElementById('keywordInput').value = '';
+    hideSuggestions();
+}
+
+function hideSuggestions() {
+    document.getElementById('keywordSuggestions').style.display = 'none';
+}
+
+// Generate quick keyword buttons
+function generateQuickKeywords() {
+    const container = document.getElementById('quickKeywords');
+    const commonTerms = Object.keys(medicalSuggestions);
+    
+    container.innerHTML = commonTerms.map(term => 
+        `<button type="button" class="btn btn-outline-primary btn-sm me-2 mb-2" onclick="addKeyword('${term}')">
+            ${term}
+        </button>`
+    ).join('');
+}
+
+// Trigger conditions management
+document.getElementById('triggerInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        addTriggerCondition(this.value.trim());
+        this.value = '';
+    }
+});
+
+function addTriggerCondition(condition) {
+    if (condition && !triggerConditions.includes(condition.toLowerCase())) {
+        triggerConditions.push(condition.toLowerCase());
+        updateTriggersDisplay();
+        updateTriggersInput();
+    }
+}
+
+function removeTriggerCondition(condition) {
+    triggerConditions = triggerConditions.filter(c => c !== condition);
+    updateTriggersDisplay();
+    updateTriggersInput();
+}
+
+function updateTriggersDisplay() {
+    const display = document.getElementById('triggersDisplay');
+    display.innerHTML = triggerConditions.map(condition => 
+        `<span class="keyword-tag">
+            ${condition}
+            <span class="remove-keyword" onclick="removeTriggerCondition('${condition}')">&times;</span>
+        </span>`
+    ).join('');
+}
+
+function updateTriggersInput() {
+    document.getElementById('trigger_conditions').value = triggerConditions.join(',');
+}
+
+// Update frequency preview
+function updateFrequencyPreview() {
+    const value = document.getElementById('frequency_value').value || 1;
+    const unit = document.getElementById('frequency_unit').value || 'years';
+    document.getElementById('frequencyPreview').textContent = `Every ${value} ${unit}`;
+}
+
+// Update eligibility preview
+function updateEligibilityPreview() {
+    const minAge = document.getElementById('min_age').value;
+    const maxAge = document.getElementById('max_age').value;
+    const gender = document.getElementById('gender').value;
+    
+    let preview = '';
+    
+    if (gender !== 'any') {
+        preview += gender === 'female' ? 'Female' : 'Male';
+    }
+    
+    if (minAge || maxAge) {
+        if (preview) preview += ' patients';
+        if (minAge && maxAge) {
+            preview += ` ages ${minAge}-${maxAge}`;
+        } else if (minAge) {
+            preview += ` ages ${minAge}+`;
+        } else if (maxAge) {
+            preview += ` up to age ${maxAge}`;
+        }
+    } else if (!preview) {
+        preview = 'Any patient';
+    } else {
+        preview += ' patients of any age';
+    }
+    
+    document.getElementById('eligibilityPreview').textContent = preview;
+}
+
+// Event listeners for previews
+document.getElementById('frequency_value').addEventListener('input', updateFrequencyPreview);
+document.getElementById('frequency_unit').addEventListener('change', updateFrequencyPreview);
+document.getElementById('min_age').addEventListener('input', updateEligibilityPreview);
+document.getElementById('max_age').addEventListener('input', updateEligibilityPreview);
+document.getElementById('gender').addEventListener('change', updateEligibilityPreview);
+
+// Form validation
+function setupFormValidation() {
+    const form = document.getElementById('addScreeningForm');
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (validateForm()) {
+            showLoading();
+            form.submit();
+        }
+    });
+}
+
+function validateForm() {
+    let isValid = true;
+    
+    // Validate name
+    const name = document.getElementById('name');
+    if (!name.value.trim()) {
+        name.classList.add('is-invalid');
+        isValid = false;
+    } else {
+        name.classList.remove('is-invalid');
+        name.classList.add('is-valid');
+    }
+    
+    // Validate frequency
+    const freqValue = document.getElementById('frequency_value');
+    if (!freqValue.value || freqValue.value < 1) {
+        freqValue.classList.add('is-invalid');
+        isValid = false;
+    } else {
+        freqValue.classList.remove('is-invalid');
+        freqValue.classList.add('is-valid');
+    }
+    
+    return isValid;
+}
+
+// Show loading state
+function showLoading() {
+    document.getElementById('addScreeningForm').style.display = 'none';
+    document.getElementById('loadingSpinner').style.display = 'block';
+}
+
+// Preview screening type
+function previewScreeningType() {
+    const name = document.getElementById('name').value;
+    const description = document.getElementById('description').value;
+    const freqValue = document.getElementById('frequency_value').value;
+    const freqUnit = document.getElementById('frequency_unit').value;
+    
+    const previewContent = `
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">${name || 'Unnamed Screening Type'}</h5>
+            </div>
+            <div class="card-body">
+                ${description ? `<p class="card-text">${description}</p>` : ''}
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Frequency</h6>
+                        <p>Every ${freqValue || 1} ${freqUnit || 'years'}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Keywords</h6>
+                        <p>${keywords.length > 0 ? keywords.join(', ') : 'No keywords defined'}</p>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Eligibility</h6>
+                        <p>${document.getElementById('eligibilityPreview').textContent}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Trigger Conditions</h6>
+                        <p>${triggerConditions.length > 0 ? triggerConditions.join(', ') : 'None'}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('previewContent').innerHTML = previewContent;
+    const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+    modal.show();
+}
+
+// Click outside to hide suggestions
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.keyword-input-container')) {
+        hideSuggestions();
+    }
+});
+</script>
+{% endblock %}

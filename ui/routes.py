@@ -1,132 +1,127 @@
 """
-Flask routes for user interface
+Flask routing for user interface.
+Defines URL patterns and connects them to view functions.
 """
 
-from flask import Blueprint
+from flask import Blueprint, render_template
 from flask_login import login_required
-from .views import UIViews
+from ui.views import UserViews
 
-# Create blueprint
+# Create blueprint for UI routes
 ui_bp = Blueprint('ui', __name__)
 
 # Initialize views
-ui_views = UIViews()
+views = UserViews()
 
-# Screening routes
+@ui_bp.route('/')
+@ui_bp.route('/dashboard')
+@login_required
+def dashboard():
+    """Main dashboard"""
+    return views.dashboard()
+
 @ui_bp.route('/screening')
 @ui_bp.route('/screening/list')
 @login_required
 def screening_list():
-    """Main screening list view with tabs"""
-    return ui_views.screening_list()
+    """Screening list view"""
+    return views.screening_list()
 
-@ui_bp.route('/screening/refresh', methods=['POST'])
+@ui_bp.route('/screening/types')
+@login_required
+def screening_types():
+    """Screening types management"""
+    return views.screening_types()
+
+@ui_bp.route('/screening/types/add', methods=['GET', 'POST'])
+@login_required
+def add_screening_type():
+    """Add new screening type"""
+    return views.add_screening_type()
+
+@ui_bp.route('/screening/types/<int:screening_type_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_screening_type(screening_type_id):
+    """Edit screening type"""
+    return views.edit_screening_type(screening_type_id)
+
+@ui_bp.route('/screening/types/<int:screening_type_id>/delete', methods=['POST'])
+@login_required
+def delete_screening_type(screening_type_id):
+    """Delete screening type"""
+    return views.delete_screening_type(screening_type_id)
+
+@ui_bp.route('/screening/refresh', methods=['GET', 'POST'])
 @login_required
 def refresh_screenings():
-    """Refresh all screenings"""
-    return ui_views.refresh_screenings()
+    """Refresh screening engine"""
+    return views.refresh_screenings()
 
-@ui_bp.route('/screening/refresh/<int:screening_type_id>', methods=['POST'])
+@ui_bp.route('/patients')
 @login_required
-def refresh_screening_type(screening_type_id):
-    """Refresh specific screening type"""
-    return ui_views.refresh_screening_type(screening_type_id)
+def patient_list():
+    """Patient list"""
+    return views.patient_list()
 
-@ui_bp.route('/checklist/settings', methods=['POST'])
-@login_required
-def update_checklist_settings():
-    """Update checklist settings"""
-    return ui_views.update_checklist_settings()
-
-# Patient routes
-@ui_bp.route('/patient/<int:patient_id>')
+@ui_bp.route('/patients/<int:patient_id>')
 @login_required
 def patient_detail(patient_id):
-    """Patient detail view"""
-    return ui_views.patient_detail(patient_id)
+    """Patient detail with prep sheet"""
+    return views.patient_detail(patient_id)
 
-@ui_bp.route('/patient/<int:patient_id>/prep-sheet')
+@ui_bp.route('/patients/<int:patient_id>/prep-sheet')
 @login_required
-def prep_sheet_view(patient_id):
-    """Standalone prep sheet view"""
-    return ui_views.prep_sheet_view(patient_id)
+def prep_sheet(patient_id):
+    """Standalone prep sheet"""
+    return views.prep_sheet(patient_id)
 
-@ui_bp.route('/prep-sheets/batch', methods=['POST'])
+@ui_bp.route('/documents/<int:document_id>')
 @login_required
-def batch_prep_sheets():
-    """Generate batch prep sheets"""
-    return ui_views.batch_prep_sheets()
+def document_view(document_id):
+    """View document content"""
+    return views.document_view(document_id)
 
-# Document routes
-@ui_bp.route('/document/<int:document_id>')
-@login_required
-def document_viewer(document_id):
-    """Document viewer"""
-    return ui_views.document_viewer(document_id)
-
-# API routes
-@ui_bp.route('/api/patients/search')
-@login_required
-def search_patients():
-    """Search patients API"""
-    return ui_views.search_patients()
-
+# API endpoints
 @ui_bp.route('/api/screening-keywords/<int:screening_type_id>')
 @login_required
-def screening_keywords_api(screening_type_id):
-    """Get screening type keywords API"""
-    return ui_views.screening_keywords_api(screening_type_id)
+def api_screening_keywords(screening_type_id):
+    """Get keywords for screening type"""
+    return views.api_screening_keywords(screening_type_id)
 
 # Auth routes
-auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
-
-@auth_bp.route('/login', methods=['GET', 'POST'])
+@ui_bp.route('/login', methods=['GET', 'POST'])
 def login():
     """Login page"""
-    from flask import render_template, request, redirect, url_for, flash
-    from flask_login import login_user, current_user
+    from flask import request, redirect, url_for, flash
+    from flask_login import login_user
     from werkzeug.security import check_password_hash
     from models import User
-    
-    if current_user.is_authenticated:
-        return redirect(url_for('index'))
     
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
         
         if not username or not password:
-            flash('Username and password are required', 'error')
+            flash('Please enter both username and password', 'error')
             return render_template('auth/login.html')
         
         user = User.query.filter_by(username=username).first()
         
         if user and user.check_password(password):
             login_user(user)
-            flash(f'Welcome back, {user.username}!', 'success')
-            
-            # Redirect to appropriate dashboard
-            if user.is_admin:
-                return redirect(url_for('admin.dashboard'))
-            else:
-                return redirect(url_for('ui.screening_list'))
+            next_page = request.args.get('next')
+            return redirect(next_page if next_page else url_for('ui.dashboard'))
         else:
             flash('Invalid username or password', 'error')
     
     return render_template('auth/login.html')
 
-@auth_bp.route('/logout')
+@ui_bp.route('/logout')
 @login_required
 def logout():
-    """Logout user"""
-    from flask import redirect, url_for, flash
-    from flask_login import logout_user, current_user
+    """Logout"""
+    from flask import redirect, url_for
+    from flask_login import logout_user
     
-    username = current_user.username
     logout_user()
-    flash(f'Goodbye, {username}!', 'info')
-    return redirect(url_for('auth.login'))
-
-# Register auth blueprint with main app
-ui_bp.register_blueprint(auth_bp)
-
+    return redirect(url_for('ui.login'))

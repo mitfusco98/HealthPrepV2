@@ -1,104 +1,111 @@
-{% extends 'base_user.html' %}
+{% extends "base_user.html" %}
 
-{% block title %}HealthPrep - Login{% endblock %}
+{% block title %}Login - HealthPrep{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-6 col-lg-4">
-        <div class="card">
-            <div class="card-body">
-                <div class="text-center mb-4">
-                    <i class="fas fa-heartbeat fa-3x text-primary mb-3"></i>
-                    <h3 class="card-title">HealthPrep Login</h3>
-                    <p class="text-muted">HIPAA-compliant healthcare preparation system</p>
-                </div>
-
-                <form method="POST" novalidate>
-                    {{ form.hidden_tag() }}
-                    
+        <div class="card shadow-lg border-0">
+            <div class="card-header bg-primary text-white text-center py-4">
+                <h4 class="mb-0">
+                    <i class="fas fa-heartbeat me-2"></i>
+                    HealthPrep Login
+                </h4>
+                <small class="text-light">HIPAA-Compliant Access</small>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST" action="{{ url_for('ui.login') }}">
                     <div class="mb-3">
                         <label for="username" class="form-label">
                             <i class="fas fa-user me-1"></i>Username
                         </label>
-                        {{ form.username(class="form-control", placeholder="Enter your username") }}
-                        {% if form.username.errors %}
-                            <div class="text-danger small mt-1">
-                                {% for error in form.username.errors %}
-                                    <div>{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
+                        <input type="text" 
+                               class="form-control form-control-lg" 
+                               id="username" 
+                               name="username" 
+                               required 
+                               autocomplete="username"
+                               placeholder="Enter your username">
                     </div>
-
-                    <div class="mb-3">
+                    
+                    <div class="mb-4">
                         <label for="password" class="form-label">
                             <i class="fas fa-lock me-1"></i>Password
                         </label>
-                        {{ form.password(class="form-control", placeholder="Enter your password") }}
-                        {% if form.password.errors %}
-                            <div class="text-danger small mt-1">
-                                {% for error in form.password.errors %}
-                                    <div>{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
+                        <input type="password" 
+                               class="form-control form-control-lg" 
+                               id="password" 
+                               name="password" 
+                               required 
+                               autocomplete="current-password"
+                               placeholder="Enter your password">
                     </div>
-
+                    
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary btn-lg">
-                            <i class="fas fa-sign-in-alt me-2"></i>Login
+                            <i class="fas fa-sign-in-alt me-2"></i>
+                            Login
                         </button>
                     </div>
                 </form>
-
-                <hr class="my-4">
                 
-                <div class="text-center">
+                <!-- Security notice -->
+                <div class="mt-4 p-3 bg-light rounded">
                     <small class="text-muted">
-                        <i class="fas fa-shield-alt me-1"></i>Secure HIPAA-compliant access
+                        <i class="fas fa-shield-alt me-1"></i>
+                        <strong>Security Notice:</strong>
+                        This system contains protected health information (PHI). 
+                        Unauthorized access is prohibited and may be subject to 
+                        criminal and civil penalties under HIPAA.
+                    </small>
+                </div>
+                
+                <!-- System status indicator -->
+                <div class="mt-3 text-center">
+                    <small class="text-success">
+                        <i class="fas fa-check-circle me-1"></i>
+                        System Status: Operational
                     </small>
                 </div>
             </div>
         </div>
-
-        <!-- Demo Credentials Info -->
-        <div class="card mt-3">
-            <div class="card-body">
-                <h6 class="card-title text-center">
-                    <i class="fas fa-info-circle me-1"></i>Demo Access
-                </h6>
-                <div class="text-center">
-                    <p class="mb-2"><strong>Administrator:</strong></p>
-                    <code>admin / admin123</code>
-                </div>
-            </div>
+        
+        <!-- Additional security information -->
+        <div class="mt-4 text-center">
+            <small class="text-muted">
+                Having trouble logging in? Contact your system administrator.
+            </small>
         </div>
     </div>
 </div>
 
-<!-- Security Features -->
-<div class="row mt-5">
-    <div class="col-12">
-        <div class="row text-center">
-            <div class="col-md-3">
-                <i class="fas fa-shield-alt fa-2x text-success mb-2"></i>
-                <h6>HIPAA Compliant</h6>
-                <small class="text-muted">Full healthcare data protection</small>
+<!-- Password requirements modal (for future use) -->
+<div class="modal fade" id="passwordRequirementsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-key me-2"></i>Password Requirements
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="col-md-3">
-                <i class="fas fa-lock fa-2x text-primary mb-2"></i>
-                <h6>AES-256 Encryption</h6>
-                <small class="text-muted">Data encrypted at rest and in transit</small>
+            <div class="modal-body">
+                <p>For security compliance, passwords must contain:</p>
+                <ul>
+                    <li>At least 12 characters</li>
+                    <li>At least one uppercase letter</li>
+                    <li>At least one lowercase letter</li>
+                    <li>At least one number</li>
+                    <li>At least one special character (!@#$%^&*)</li>
+                </ul>
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Note:</strong> Passwords are encrypted using industry-standard 
+                    AES-256 encryption and stored securely.
+                </div>
             </div>
-            <div class="col-md-3">
-                <i class="fas fa-user-shield fa-2x text-warning mb-2"></i>
-                <h6>Role-Based Access</h6>
-                <small class="text-muted">Granular permission controls</small>
-            </div>
-            <div class="col-md-3">
-                <i class="fas fa-history fa-2x text-info mb-2"></i>
-                <h6>Complete Audit Trail</h6>
-                <small class="text-muted">All access logged and monitored</small>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -107,59 +114,45 @@
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Focus on username field
-    const usernameField = document.getElementById('username');
-    if (usernameField) {
-        usernameField.focus();
-    }
+    // Focus on username field when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('username').focus();
+    });
     
-    // Handle form submission with loading state
-    const form = document.querySelector('form');
-    const submitBtn = form.querySelector('button[type="submit"]');
-    const originalBtnText = submitBtn.innerHTML;
-    
-    form.addEventListener('submit', function() {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Logging in...';
+    // Show loading on form submit
+    document.querySelector('form').addEventListener('submit', function() {
+        const button = this.querySelector('button[type="submit"]');
+        const originalText = button.innerHTML;
         
-        // Re-enable button after 5 seconds as fallback
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Signing In...';
+        
+        // Re-enable button if form submission fails
         setTimeout(function() {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalBtnText;
+            button.disabled = false;
+            button.innerHTML = originalText;
         }, 5000);
     });
     
-    // Show caps lock warning
-    const passwordField = document.getElementById('password');
-    if (passwordField) {
-        passwordField.addEventListener('keydown', function(e) {
-            if (e.getModifierState && e.getModifierState('CapsLock')) {
-                showCapsLockWarning();
-            } else {
-                hideCapsLockWarning();
-            }
-        });
+    // Handle Enter key in password field
+    document.getElementById('password').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            this.form.submit();
+        }
+    });
+    
+    // Show password requirements (for future enhancement)
+    function showPasswordRequirements() {
+        const modal = new bootstrap.Modal(document.getElementById('passwordRequirementsModal'));
+        modal.show();
     }
     
-    function showCapsLockWarning() {
-        let warning = document.getElementById('caps-lock-warning');
-        if (!warning) {
-            warning = document.createElement('div');
-            warning.id = 'caps-lock-warning';
-            warning.className = 'alert alert-warning alert-sm mt-2';
-            warning.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Caps Lock is on';
-            passwordField.parentNode.appendChild(warning);
+    // Add click handler for help text (if added)
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('password-help')) {
+            e.preventDefault();
+            showPasswordRequirements();
         }
-    }
-    
-    function hideCapsLockWarning() {
-        const warning = document.getElementById('caps-lock-warning');
-        if (warning) {
-            warning.remove();
-        }
-    }
-});
+    });
 </script>
 {% endblock %}
-

@@ -1,170 +1,158 @@
 """
-Internal representations of EMR data
+Internal representations of EMR data structures
 """
-from dataclasses import dataclass
-from datetime import datetime, date
+from dataclasses import dataclass, field
+from datetime import date, datetime
 from typing import List, Optional, Dict, Any
 
 @dataclass
-class EMRPatient:
-    """Internal representation of patient data from EMR"""
-    fhir_id: str
-    local_id: Optional[int]
-    first_name: str
-    last_name: str
-    date_of_birth: date
-    gender: str
-    mrn: str
-    phone: Optional[str] = None
-    email: Optional[str] = None
-    address: Optional[Dict[str, str]] = None
+class PatientInfo:
+    """Internal patient representation"""
+    fhir_id: Optional[str] = None
+    mrn: str = ""
+    first_name: str = ""
+    last_name: str = ""
+    date_of_birth: Optional[date] = None
+    gender: str = ""
+    phone: str = ""
+    email: str = ""
+    created_at: Optional[datetime] = None
     
     @property
-    def full_name(self):
-        return f"{self.first_name} {self.last_name}"
+    def full_name(self) -> str:
+        return f"{self.first_name} {self.last_name}".strip()
     
     @property
-    def age(self):
+    def age(self) -> Optional[int]:
+        if not self.date_of_birth:
+            return None
         today = date.today()
         return today.year - self.date_of_birth.year - ((today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day))
 
 @dataclass
-class EMRObservation:
-    """Internal representation of laboratory/vital observations"""
-    id: str
-    patient_id: str
-    code: str
-    display: str
-    value: str
-    unit: Optional[str]
-    reference_range: Optional[str]
-    status: str
-    effective_date: datetime
-    category: str
-    
-    def to_document_text(self):
-        """Convert observation to searchable document text"""
-        text = f"Lab Test: {self.display}\n"
-        text += f"Value: {self.value}"
-        if self.unit:
-            text += f" {self.unit}"
-        text += "\n"
-        if self.reference_range:
-            text += f"Reference Range: {self.reference_range}\n"
-        text += f"Date: {self.effective_date.strftime('%Y-%m-%d')}\n"
-        text += f"Status: {self.status}"
-        return text
-
-@dataclass 
-class EMRDiagnosticReport:
-    """Internal representation of diagnostic reports"""
-    id: str
-    patient_id: str
-    code: str
-    display: str
-    category: str
-    status: str
-    effective_date: datetime
-    conclusion: Optional[str]
-    presentation_text: Optional[str]
-    
-    def to_document_text(self):
-        """Convert diagnostic report to searchable document text"""
-        text = f"Diagnostic Report: {self.display}\n"
-        text += f"Category: {self.category}\n"
-        text += f"Date: {self.effective_date.strftime('%Y-%m-%d')}\n"
-        text += f"Status: {self.status}\n"
-        if self.conclusion:
-            text += f"Conclusion: {self.conclusion}\n"
-        if self.presentation_text:
-            text += f"Details: {self.presentation_text}"
-        return text
+class DocumentInfo:
+    """Internal document representation"""
+    fhir_id: Optional[str] = None
+    filename: str = ""
+    document_type: str = ""
+    document_date: Optional[date] = None
+    content_type: str = ""
+    description: str = ""
+    file_path: str = ""
+    ocr_text: str = ""
+    ocr_confidence: float = 0.0
+    phi_filtered: bool = False
+    raw_fhir: str = ""
 
 @dataclass
-class EMRCondition:
-    """Internal representation of patient conditions"""
-    id: str
-    patient_id: str
-    code: str
-    display: str
-    clinical_status: str
-    verification_status: str
-    onset_date: Optional[date]
-    recorded_date: datetime
-    
-    def to_document_text(self):
-        """Convert condition to searchable document text"""
-        text = f"Medical Condition: {self.display}\n"
-        text += f"Clinical Status: {self.clinical_status}\n"
-        text += f"Verification Status: {self.verification_status}\n"
-        if self.onset_date:
-            text += f"Onset Date: {self.onset_date.strftime('%Y-%m-%d')}\n"
-        text += f"Recorded Date: {self.recorded_date.strftime('%Y-%m-%d')}"
-        return text
+class ConditionInfo:
+    """Internal condition representation"""
+    fhir_id: Optional[str] = None
+    condition_code: str = ""
+    condition_name: str = ""
+    diagnosis_date: Optional[date] = None
+    is_active: bool = True
 
 @dataclass
-class EMRMedication:
-    """Internal representation of patient medications"""
-    id: str
-    patient_id: str
-    code: str
-    display: str
-    status: str
-    intent: str
-    dosage_text: Optional[str]
-    authored_date: datetime
-    
-    def to_document_text(self):
-        """Convert medication to searchable document text"""
-        text = f"Medication: {self.display}\n"
-        text += f"Status: {self.status}\n"
-        text += f"Intent: {self.intent}\n"
-        if self.dosage_text:
-            text += f"Dosage: {self.dosage_text}\n"
-        text += f"Prescribed Date: {self.authored_date.strftime('%Y-%m-%d')}"
-        return text
+class ObservationInfo:
+    """Internal observation representation"""
+    fhir_id: Optional[str] = None
+    code_text: str = ""
+    value_text: str = ""
+    observation_date: Optional[date] = None
+    category: str = ""
+    raw_fhir: str = ""
 
-class EMRDataBundle:
-    """Container for all EMR data for a patient"""
+@dataclass
+class DiagnosticReportInfo:
+    """Internal diagnostic report representation"""
+    fhir_id: Optional[str] = None
+    category: str = ""
+    code_text: str = ""
+    report_date: Optional[date] = None
+    conclusion: str = ""
+    status: str = ""
+    raw_fhir: str = ""
+
+@dataclass
+class ScreeningResult:
+    """Internal screening result representation"""
+    screening_id: Optional[int] = None
+    patient_name: str = ""
+    screening_type: str = ""
+    status: str = "Due"  # Due, Due Soon, Complete, Overdue
+    last_completed_date: Optional[date] = None
+    next_due_date: Optional[date] = None
+    frequency: str = ""
+    matched_documents: List[DocumentInfo] = field(default_factory=list)
+    eligibility_met: bool = True
+    notes: str = ""
+    confidence_score: float = 0.0
+
+@dataclass
+class PrepSheetData:
+    """Internal prep sheet data representation"""
+    patient: PatientInfo = field(default_factory=PatientInfo)
+    prep_date: date = field(default_factory=date.today)
+    last_visit_date: Optional[date] = None
     
-    def __init__(self, patient: EMRPatient):
-        self.patient = patient
-        self.observations: List[EMRObservation] = []
-        self.diagnostic_reports: List[EMRDiagnosticReport] = []
-        self.conditions: List[EMRCondition] = []
-        self.medications: List[EMRMedication] = []
+    # Medical data sections
+    recent_labs: List[ObservationInfo] = field(default_factory=list)
+    recent_imaging: List[DiagnosticReportInfo] = field(default_factory=list)
+    recent_consults: List[DocumentInfo] = field(default_factory=list)
+    recent_hospital_stays: List[DocumentInfo] = field(default_factory=list)
     
-    def add_observation(self, observation: EMRObservation):
-        self.observations.append(observation)
+    # Screening checklist
+    screenings: List[ScreeningResult] = field(default_factory=list)
     
-    def add_diagnostic_report(self, report: EMRDiagnosticReport):
-        self.diagnostic_reports.append(report)
+    # Active conditions
+    active_conditions: List[ConditionInfo] = field(default_factory=list)
     
-    def add_condition(self, condition: EMRCondition):
-        self.conditions.append(condition)
+    # Document summaries
+    lab_documents: List[DocumentInfo] = field(default_factory=list)
+    imaging_documents: List[DocumentInfo] = field(default_factory=list)
+    consult_documents: List[DocumentInfo] = field(default_factory=list)
+    hospital_documents: List[DocumentInfo] = field(default_factory=list)
+
+@dataclass
+class EMRSyncStatus:
+    """EMR synchronization status"""
+    last_sync_time: Optional[datetime] = None
+    patients_synced: int = 0
+    documents_synced: int = 0
+    errors_encountered: int = 0
+    sync_duration_seconds: float = 0.0
+    error_details: List[str] = field(default_factory=list)
+    success: bool = False
+
+@dataclass
+class FHIRResource:
+    """Generic FHIR resource wrapper"""
+    resource_type: str = ""
+    resource_id: str = ""
+    resource_data: Dict[str, Any] = field(default_factory=dict)
+    patient_id: str = ""
+    last_updated: Optional[datetime] = None
     
-    def add_medication(self, medication: EMRMedication):
-        self.medications.append(medication)
-    
-    def get_all_searchable_content(self):
-        """Get all content as searchable text for screening matching"""
-        content = []
+    def get_display_name(self) -> str:
+        """Get human-readable display name for the resource"""
+        if self.resource_type == "Patient":
+            names = self.resource_data.get('name', [])
+            if names:
+                name = names[0]
+                given = ' '.join(name.get('given', []))
+                family = name.get('family', '')
+                return f"{given} {family}".strip()
+        elif self.resource_type == "DocumentReference":
+            return self.resource_data.get('description', 'Document')
+        elif self.resource_type == "DiagnosticReport":
+            code = self.resource_data.get('code', {})
+            return code.get('text', 'Diagnostic Report')
+        elif self.resource_type == "Condition":
+            code = self.resource_data.get('code', {})
+            return code.get('text', 'Condition')
+        elif self.resource_type == "Observation":
+            code = self.resource_data.get('code', {})
+            return code.get('text', 'Observation')
         
-        for obs in self.observations:
-            content.append(obs.to_document_text())
-        
-        for report in self.diagnostic_reports:
-            content.append(report.to_document_text())
-        
-        for condition in self.conditions:
-            content.append(condition.to_document_text())
-        
-        for medication in self.medications:
-            content.append(medication.to_document_text())
-        
-        return content
-    
-    def get_conditions_list(self):
-        """Get list of active condition codes for screening eligibility"""
-        return [condition.code for condition in self.conditions 
-                if condition.clinical_status.lower() == 'active']
+        return f"{self.resource_type} {self.resource_id}"

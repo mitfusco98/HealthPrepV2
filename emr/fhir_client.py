@@ -1,173 +1,303 @@
 """
 SMART on FHIR API client for EMR integration
 """
-import requests
+import os
 import json
 import logging
-from datetime import datetime
-import os
+import requests
+from typing import Dict, List, Any, Optional
+from datetime import datetime, timedelta
+from urllib.parse import urljoin
+
+logger = logging.getLogger(__name__)
 
 class FHIRClient:
+    """SMART on FHIR client for connecting to EMR systems"""
+    
     def __init__(self):
-        self.base_url = os.getenv('FHIR_BASE_URL', 'http://hapi.fhir.org/baseR4')
+        self.base_url = os.getenv('FHIR_BASE_URL', 'https://api.example.com/fhir')
         self.client_id = os.getenv('FHIR_CLIENT_ID', 'health-prep-client')
-        self.client_secret = os.getenv('FHIR_CLIENT_SECRET', 'default_secret')
+        self.client_secret = os.getenv('FHIR_CLIENT_SECRET', 'default-secret')
         self.access_token = None
+        self.token_expires_at = None
+        self.session = requests.Session()
         
-    def authenticate(self):
+        # Set default headers
+        self.session.headers.update({
+            'Accept': 'application/fhir+json',
+            'Content-Type': 'application/fhir+json'
+        })
+    
+    def authenticate(self) -> bool:
         """Authenticate with FHIR server using client credentials"""
         try:
-            auth_url = f"{self.base_url}/oauth/token"
+            auth_url = urljoin(self.base_url, 'auth/token')
             
-            data = {
+            auth_data = {
                 'grant_type': 'client_credentials',
                 'client_id': self.client_id,
                 'client_secret': self.client_secret,
-                'scope': 'system/Patient.read system/Observation.read system/DiagnosticReport.read'
+                'scope': 'system/Patient.read system/DocumentReference.read system/DiagnosticReport.read'
             }
             
-            response = requests.post(auth_url, data=data)
+            response = self.session.post(auth_url, data=auth_data)
             
             if response.status_code == 200:
                 token_data = response.json()
                 self.access_token = token_data.get('access_token')
-                logging.info("Successfully authenticated with FHIR server")
+                expires_in = token_data.get('expires_in', 3600)
+                self.token_expires_at = datetime.now() + timedelta(seconds=expires_in)
+                
+                # Update session headers with token
+                self.session.headers.update({
+                    'Authorization': f'Bearer {self.access_token}'
+                })
+                
+                logger.info("Successfully authenticated with FHIR server")
                 return True
             else:
-                logging.error(f"FHIR authentication failed: {response.status_code}")
+                logger.error(f"FHIR authentication failed: {response.status_code} - {response.text}")
                 return False
                 
         except Exception as e:
-            logging.error(f"Error during FHIR authentication: {e}")
+            logger.error(f"Error during FHIR authentication: {str(e)}")
             return False
     
-    def _make_request(self, endpoint, params=None):
-        """Make authenticated request to FHIR server"""
-        if not self.access_token:
-            if not self.authenticate():
-                return None
-        
-        headers = {
-            'Authorization': f'Bearer {self.access_token}',
-            'Accept': 'application/fhir+json'
-        }
+    def _ensure_authenticated(self) -> bool:
+        """Ensure we have a valid access token"""
+        if not self.access_token or (self.token_expires_at and datetime.now() >= self.token_expires_at):
+            return self.authenticate()
+        return True
+    
+    def get_patient(self, patient_id: str) -> Optional[Dict[str, Any]]:
+        """Get patient by FHIR ID"""
+        if not self._ensure_authenticated():
+            return None
         
         try:
-            url = f"{self.base_url}/{endpoint}"
-            response = requests.get(url, headers=headers, params=params)
+            url = urljoin(self.base_url, f'Patient/{patient_id}')
+            response = self.session.get(url)
             
             if response.status_code == 200:
                 return response.json()
-            elif response.status_code == 401:
-                # Token expired, try to re-authenticate
-                if self.authenticate():
-                    headers['Authorization'] = f'Bearer {self.access_token}'
-                    response = requests.get(url, headers=headers, params=params)
-                    if response.status_code == 200:
-                        return response.json()
-            
-            logging.error(f"FHIR request failed: {response.status_code} - {response.text}")
-            return None
-            
+            elif response.status_code == 404:
+                logger.warning(f"Patient {patient_id} not found")
+                return None
+            else:
+                logger.error(f"Error fetching patient {patient_id}: {response.status_code}")
+                return None
+                
         except Exception as e:
-            logging.error(f"Error making FHIR request: {e}")
+            logger.error(f"Error fetching patient {patient_id}: {str(e)}")
             return None
     
-    def get_patient(self, patient_id):
-        """Get patient resource by ID"""
-        return self._make_request(f"Patient/{patient_id}")
-    
-    def search_patients(self, family_name=None, given_name=None, identifier=None):
-        """Search for patients"""
-        params = {}
-        if family_name:
-            params['family'] = family_name
-        if given_name:
-            params['given'] = given_name
-        if identifier:
-            params['identifier'] = identifier
+    def search_patients(self, search_params: Dict[str, str]) -> List[Dict[str, Any]]:
+        """Search for patients using FHIR search parameters"""
+        if not self._ensure_authenticated():
+            return []
         
-        return self._make_request("Patient", params)
-    
-    def get_patient_observations(self, patient_id, code=None, date_from=None):
-        """Get observations for a patient"""
-        params = {
-            'patient': patient_id,
-            '_sort': '-date'
-        }
-        
-        if code:
-            params['code'] = code
-        if date_from:
-            params['date'] = f'ge{date_from.isoformat()}'
-        
-        return self._make_request("Observation", params)
-    
-    def get_diagnostic_reports(self, patient_id, category=None, date_from=None):
-        """Get diagnostic reports for a patient"""
-        params = {
-            'patient': patient_id,
-            '_sort': '-date'
-        }
-        
-        if category:
-            params['category'] = category
-        if date_from:
-            params['date'] = f'ge{date_from.isoformat()}'
-        
-        return self._make_request("DiagnosticReport", params)
-    
-    def get_conditions(self, patient_id):
-        """Get conditions for a patient"""
-        params = {
-            'patient': patient_id,
-            'clinical-status': 'active'
-        }
-        
-        return self._make_request("Condition", params)
-    
-    def get_medications(self, patient_id):
-        """Get medications for a patient"""
-        params = {
-            'patient': patient_id,
-            'status': 'active'
-        }
-        
-        return self._make_request("MedicationRequest", params)
-    
-    def sync_patient_data(self, fhir_patient_id, local_patient_id):
-        """Sync patient data from FHIR server to local database"""
         try:
-            # Get patient demographics
-            patient_data = self.get_patient(fhir_patient_id)
-            if not patient_data:
+            url = urljoin(self.base_url, 'Patient')
+            response = self.session.get(url, params=search_params)
+            
+            if response.status_code == 200:
+                bundle = response.json()
+                patients = []
+                
+                for entry in bundle.get('entry', []):
+                    if entry.get('resource', {}).get('resourceType') == 'Patient':
+                        patients.append(entry['resource'])
+                
+                return patients
+            else:
+                logger.error(f"Error searching patients: {response.status_code}")
+                return []
+                
+        except Exception as e:
+            logger.error(f"Error searching patients: {str(e)}")
+            return []
+    
+    def get_patient_documents(self, patient_id: str, document_type: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get documents for a patient"""
+        if not self._ensure_authenticated():
+            return []
+        
+        try:
+            search_params = {
+                'patient': patient_id,
+                '_sort': '-date'
+            }
+            
+            if document_type:
+                search_params['type'] = document_type
+            
+            url = urljoin(self.base_url, 'DocumentReference')
+            response = self.session.get(url, params=search_params)
+            
+            if response.status_code == 200:
+                bundle = response.json()
+                documents = []
+                
+                for entry in bundle.get('entry', []):
+                    if entry.get('resource', {}).get('resourceType') == 'DocumentReference':
+                        documents.append(entry['resource'])
+                
+                return documents
+            else:
+                logger.error(f"Error fetching documents for patient {patient_id}: {response.status_code}")
+                return []
+                
+        except Exception as e:
+            logger.error(f"Error fetching documents for patient {patient_id}: {str(e)}")
+            return []
+    
+    def get_diagnostic_reports(self, patient_id: str, category: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get diagnostic reports for a patient"""
+        if not self._ensure_authenticated():
+            return []
+        
+        try:
+            search_params = {
+                'patient': patient_id,
+                '_sort': '-date'
+            }
+            
+            if category:
+                search_params['category'] = category
+            
+            url = urljoin(self.base_url, 'DiagnosticReport')
+            response = self.session.get(url, params=search_params)
+            
+            if response.status_code == 200:
+                bundle = response.json()
+                reports = []
+                
+                for entry in bundle.get('entry', []):
+                    if entry.get('resource', {}).get('resourceType') == 'DiagnosticReport':
+                        reports.append(entry['resource'])
+                
+                return reports
+            else:
+                logger.error(f"Error fetching diagnostic reports for patient {patient_id}: {response.status_code}")
+                return []
+                
+        except Exception as e:
+            logger.error(f"Error fetching diagnostic reports for patient {patient_id}: {str(e)}")
+            return []
+    
+    def get_patient_conditions(self, patient_id: str) -> List[Dict[str, Any]]:
+        """Get conditions for a patient"""
+        if not self._ensure_authenticated():
+            return []
+        
+        try:
+            search_params = {
+                'patient': patient_id,
+                'clinical-status': 'active'
+            }
+            
+            url = urljoin(self.base_url, 'Condition')
+            response = self.session.get(url, params=search_params)
+            
+            if response.status_code == 200:
+                bundle = response.json()
+                conditions = []
+                
+                for entry in bundle.get('entry', []):
+                    if entry.get('resource', {}).get('resourceType') == 'Condition':
+                        conditions.append(entry['resource'])
+                
+                return conditions
+            else:
+                logger.error(f"Error fetching conditions for patient {patient_id}: {response.status_code}")
+                return []
+                
+        except Exception as e:
+            logger.error(f"Error fetching conditions for patient {patient_id}: {str(e)}")
+            return []
+    
+    def get_patient_observations(self, patient_id: str, category: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get observations for a patient"""
+        if not self._ensure_authenticated():
+            return []
+        
+        try:
+            search_params = {
+                'patient': patient_id,
+                '_sort': '-date',
+                '_count': '100'
+            }
+            
+            if category:
+                search_params['category'] = category
+            
+            url = urljoin(self.base_url, 'Observation')
+            response = self.session.get(url, params=search_params)
+            
+            if response.status_code == 200:
+                bundle = response.json()
+                observations = []
+                
+                for entry in bundle.get('entry', []):
+                    if entry.get('resource', {}).get('resourceType') == 'Observation':
+                        observations.append(entry['resource'])
+                
+                return observations
+            else:
+                logger.error(f"Error fetching observations for patient {patient_id}: {response.status_code}")
+                return []
+                
+        except Exception as e:
+            logger.error(f"Error fetching observations for patient {patient_id}: {str(e)}")
+            return []
+    
+    def download_document_content(self, document_reference: Dict[str, Any]) -> Optional[bytes]:
+        """Download the actual content of a document"""
+        if not self._ensure_authenticated():
+            return None
+        
+        try:
+            content = document_reference.get('content', [])
+            if not content:
+                return None
+            
+            attachment = content[0].get('attachment', {})
+            url = attachment.get('url')
+            
+            if not url:
+                return None
+            
+            response = self.session.get(url)
+            
+            if response.status_code == 200:
+                return response.content
+            else:
+                logger.error(f"Error downloading document content: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error downloading document content: {str(e)}")
+            return None
+    
+    def test_connection(self) -> bool:
+        """Test connection to FHIR server"""
+        try:
+            if not self._ensure_authenticated():
                 return False
             
-            # Get recent observations (last 2 years)
-            from datetime import timedelta
-            date_from = datetime.now() - timedelta(days=730)
-            observations = self.get_patient_observations(fhir_patient_id, date_from=date_from)
+            url = urljoin(self.base_url, 'metadata')
+            response = self.session.get(url)
             
-            # Get diagnostic reports
-            reports = self.get_diagnostic_reports(fhir_patient_id, date_from=date_from)
-            
-            # Get conditions
-            conditions = self.get_conditions(fhir_patient_id)
-            
-            # Process and store data
-            from emr.parser import FHIRParser
-            parser = FHIRParser()
-            
-            parser.process_patient_data(local_patient_id, {
-                'patient': patient_data,
-                'observations': observations,
-                'reports': reports,
-                'conditions': conditions
-            })
-            
-            logging.info(f"Successfully synced FHIR data for patient {local_patient_id}")
-            return True
-            
+            if response.status_code == 200:
+                logger.info("FHIR server connection test successful")
+                return True
+            else:
+                logger.error(f"FHIR server connection test failed: {response.status_code}")
+                return False
+                
         except Exception as e:
-            logging.error(f"Error syncing patient data: {e}")
+            logger.error(f"FHIR server connection test error: {str(e)}")
             return False
+
+# Global FHIR client instance
+fhir_client = FHIRClient()
