@@ -1,387 +1,345 @@
 """
-Main user interface views for screening management and prep sheets
+User interface views for patient-facing functionality
 """
+
 import logging
+from datetime import datetime
 from flask import render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
-
-from app import db
-from models import Patient, ScreeningType, Screening, MedicalDocument, ChecklistSettings
+from models import Patient, Screening, ScreeningType, MedicalDocument, ChecklistSettings, db
 from core.engine import ScreeningEngine
 from prep_sheet.generator import PrepSheetGenerator
 
 logger = logging.getLogger(__name__)
 
-@login_required
-def screening_list():
-    """Main screening list interface with multiple modes"""
-    try:
-        # Get all patients for dropdown
-        patients = Patient.query.order_by(Patient.last_name, Patient.first_name).all()
+class UIViews:
+    """Handles user interface views and interactions"""
+    
+    def __init__(self):
+        self.screening_engine = ScreeningEngine()
+        self.prep_generator = PrepSheetGenerator()
+    
+    @login_required
+    def screening_list(self):
+        """
+        Display screening list with multiple tabs (list, types, checklist)
+        """
+        # Get current tab from URL parameter
+        active_tab = request.args.get('tab', 'list')
         
-        # Get active screening types
-        screening_types = ScreeningType.query.filter_by(is_active=True).order_by(ScreeningType.name).all()
+        # Get filter parameters
+        patient_filter = request.args.get('patient', '')
+        status_filter = request.args.get('status', '')
+        screening_type_filter = request.args.get('screening_type', '')
         
-        # Get current tab from query params
-        tab = request.args.get('tab', 'list')
-        
-        if tab == 'list':
-            # Screening list mode
-            patient_id = request.args.get('patient_id')
-            status_filter = request.args.get('status')
-            type_filter = request.args.get('type_id')
-            
-            screenings_query = db.session.query(Screening).join(ScreeningType).filter(ScreeningType.is_active == True)
-            
-            if patient_id:
-                screenings_query = screenings_query.filter(Screening.patient_id == patient_id)
-            if status_filter:
-                screenings_query = screenings_query.filter(Screening.status == status_filter)
-            if type_filter:
-                screenings_query = screenings_query.filter(Screening.screening_type_id == type_filter)
-            
-            screenings = screenings_query.order_by(Screening.status.desc(), ScreeningType.name).all()
-            
-            # Add matched documents info
-            for screening in screenings:
-                if screening.matched_documents:
-                    screening.documents = MedicalDocument.query.filter(
-                        MedicalDocument.id.in_(screening.matched_documents)
-                    ).all()
-                else:
-                    screening.documents = []
-            
-            context = {
-                'screenings': screenings,
-                'patients': patients,
-                'screening_types': screening_types,
-                'current_patient_id': int(patient_id) if patient_id else None,
-                'current_status': status_filter,
-                'current_type_id': int(type_filter) if type_filter else None
+        # Base data for all tabs
+        context = {
+            'active_tab': active_tab,
+            'filters': {
+                'patient': patient_filter,
+                'status': status_filter,
+                'screening_type': screening_type_filter
             }
-            
-        elif tab == 'types':
-            # Screening types management mode
-            context = {
-                'screening_types': screening_types,
-                'patients': patients
-            }
-            
-        elif tab == 'checklist':
-            # Checklist settings mode
-            settings = ChecklistSettings.query.first()
-            if not settings:
-                settings = ChecklistSettings()
-            
-            context = {
-                'settings': settings,
-                'patients': patients
-            }
+        }
         
-        else:
-            # Default to list view
-            tab = 'list'
-            context = {
-                'screenings': [],
-                'patients': patients,
-                'screening_types': screening_types
-            }
+        if active_tab == 'list':
+            context.update(self._get_screening_list_data(patient_filter, status_filter, screening_type_filter))
+        elif active_tab == 'types':
+            context.update(self._get_screening_types_data())
+        elif active_tab == 'checklist':
+            context.update(self._get_checklist_settings_data())
         
-        context['current_tab'] = tab
         return render_template('screening/screening_list.html', **context)
+    
+    def _get_screening_list_data(self, patient_filter: str, status_filter: str, screening_type_filter: str):
+        """Get data for screening list tab"""
         
-    except Exception as e:
-        logger.error(f"Error in screening list view: {e}")
-        flash('Error loading screening list', 'error')
-        return render_template('screening/screening_list.html', 
-                             screenings=[], patients=[], screening_types=[], current_tab='list')
-
-@login_required
-def refresh_screenings():
-    """Refresh screening data for all or specific patients"""
-    try:
-        patient_id = request.form.get('patient_id')
-        screening_type_ids = request.form.getlist('screening_type_ids')
+        # Build query for screenings
+        query = Screening.query.join(Patient).join(ScreeningType)
         
-        engine = ScreeningEngine()
+        # Apply filters
+        if patient_filter:
+            query = query.filter(
+                (Patient.first_name.contains(patient_filter)) | 
+                (Patient.last_name.contains(patient_filter)) |
+                (Patient.mrn.contains(patient_filter))
+            )
         
-        if patient_id:
-            # Refresh specific patient
-            if screening_type_ids:
-                engine.refresh_patient_screenings(int(patient_id), [int(id) for id in screening_type_ids])
-            else:
-                engine.process_patient_screenings(int(patient_id))
-            flash(f'Screenings refreshed for patient', 'success')
-        else:
-            # Refresh all patients
-            patients = Patient.query.all()
-            for patient in patients:
-                try:
-                    engine.process_patient_screenings(patient.id)
-                except Exception as e:
-                    logger.error(f"Error refreshing patient {patient.id}: {e}")
-            
-            flash(f'Screenings refreshed for {len(patients)} patients', 'success')
+        if status_filter:
+            query = query.filter(Screening.status == status_filter)
         
-        return redirect(url_for('ui.screening_list'))
+        if screening_type_filter:
+            query = query.filter(ScreeningType.name.contains(screening_type_filter))
         
-    except Exception as e:
-        logger.error(f"Error refreshing screenings: {e}")
-        flash('Error refreshing screenings', 'error')
-        return redirect(url_for('ui.screening_list'))
-
-@login_required
-def generate_prep_sheet():
-    """Generate prep sheet for a patient"""
-    try:
-        patient_id = request.args.get('patient_id')
-        if not patient_id:
-            flash('Patient ID is required', 'error')
-            return redirect(url_for('ui.screening_list'))
+        # Get screenings with ordering
+        screenings = query.order_by(
+            Patient.last_name.asc(),
+            Patient.first_name.asc(),
+            ScreeningType.name.asc()
+        ).all()
         
-        patient = Patient.query.get(int(patient_id))
-        if not patient:
-            flash('Patient not found', 'error')
-            return redirect(url_for('ui.screening_list'))
+        # Get filter options
+        all_patients = Patient.query.order_by(Patient.last_name, Patient.first_name).all()
+        all_screening_types = ScreeningType.query.filter_by(is_active=True).order_by(ScreeningType.name).all()
+        
+        return {
+            'screenings': screenings,
+            'patients': all_patients,
+            'screening_types': all_screening_types,
+            'status_options': ['Complete', 'Due', 'Due Soon'],
+            'total_screenings': len(screenings)
+        }
+    
+    def _get_screening_types_data(self):
+        """Get data for screening types management tab"""
+        
+        screening_types = ScreeningType.query.order_by(ScreeningType.name).all()
+        
+        return {
+            'screening_types': screening_types,
+            'total_types': len(screening_types),
+            'active_types': len([st for st in screening_types if st.is_active])
+        }
+    
+    def _get_checklist_settings_data(self):
+        """Get data for checklist settings tab"""
+        
+        settings = ChecklistSettings.get_current()
+        
+        return {
+            'settings': settings,
+            'last_updated': settings.updated_at.strftime('%m/%d/%Y %I:%M %p') if settings.updated_at else 'Never'
+        }
+    
+    @login_required
+    def patient_detail(self, patient_id: int):
+        """
+        Display detailed patient information with prep sheet
+        """
+        patient = Patient.query.get_or_404(patient_id)
         
         # Generate prep sheet
-        generator = PrepSheetGenerator()
-        prep_data = generator.generate_prep_sheet(int(patient_id))
+        prep_sheet = self.prep_generator.generate_prep_sheet(patient)
         
-        return render_template('prep_sheet/prep_sheet.html', **prep_data)
+        # Get patient's screenings
+        screenings = Screening.query.filter_by(patient_id=patient_id).all()
         
-    except Exception as e:
-        logger.error(f"Error generating prep sheet: {e}")
-        flash('Error generating prep sheet', 'error')
-        return redirect(url_for('ui.screening_list'))
-
-@login_required
-def manage_screening_types():
-    """Manage screening types (CRUD operations)"""
-    try:
-        if request.method == 'POST':
-            action = request.form.get('action')
+        context = {
+            'patient': patient,
+            'prep_sheet': prep_sheet,
+            'screenings': screenings
+        }
+        
+        return render_template('patient/patient_detail.html', **context)
+    
+    @login_required
+    def prep_sheet_view(self, patient_id: int):
+        """
+        Display standalone prep sheet for a patient
+        """
+        patient = Patient.query.get_or_404(patient_id)
+        
+        # Get appointment date if provided
+        appointment_date_str = request.args.get('appointment_date')
+        appointment_date = datetime.utcnow()
+        
+        if appointment_date_str:
+            try:
+                appointment_date = datetime.strptime(appointment_date_str, '%Y-%m-%d')
+            except ValueError:
+                flash('Invalid appointment date format', 'error')
+        
+        # Generate prep sheet
+        prep_sheet = self.prep_generator.generate_prep_sheet(patient, appointment_date)
+        
+        context = {
+            'patient': patient,
+            'prep_sheet': prep_sheet,
+            'appointment_date': appointment_date,
+            'print_mode': request.args.get('print', '') == 'true'
+        }
+        
+        return render_template('prep_sheet/prep_sheet.html', **context)
+    
+    @login_required
+    def refresh_screenings(self):
+        """
+        Refresh screening engine for all patients
+        """
+        try:
+            # Run screening engine
+            result = self.screening_engine.process_all_patients()
             
-            if action == 'create':
-                return create_screening_type()
-            elif action == 'update':
-                return update_screening_type()
-            elif action == 'delete':
-                return delete_screening_type()
-            elif action == 'toggle_status':
-                return toggle_screening_type_status()
+            flash(f'Screenings refreshed: {result["patients_processed"]} patients processed, {result["total_screenings"]} screenings updated', 'success')
+            
+        except Exception as e:
+            logger.error(f"Error refreshing screenings: {str(e)}")
+            flash('Error refreshing screenings. Please try again.', 'error')
         
-        # GET request - show management interface
-        screening_types = ScreeningType.query.order_by(ScreeningType.name).all()
-        return render_template('screening/screening_types.html', screening_types=screening_types)
+        return redirect(url_for('ui.screening_list'))
+    
+    @login_required
+    def refresh_screening_type(self, screening_type_id: int):
+        """
+        Refresh screenings for a specific screening type
+        """
+        try:
+            result = self.screening_engine.refresh_screening_type(screening_type_id)
+            
+            flash(f'Screening type "{result["screening_type"]}" refreshed: {result["updated_screenings"]} screenings updated', 'success')
+            
+        except Exception as e:
+            logger.error(f"Error refreshing screening type {screening_type_id}: {str(e)}")
+            flash('Error refreshing screening type. Please try again.', 'error')
         
-    except Exception as e:
-        logger.error(f"Error in screening types management: {e}")
-        flash('Error managing screening types', 'error')
         return redirect(url_for('ui.screening_list', tab='types'))
-
-def create_screening_type():
-    """Create new screening type"""
-    try:
-        name = request.form.get('name', '').strip()
-        description = request.form.get('description', '').strip()
-        keywords = request.form.get('keywords', '').split(',')
-        keywords = [k.strip() for k in keywords if k.strip()]
+    
+    @login_required
+    def update_checklist_settings(self):
+        """
+        Update checklist settings from form submission
+        """
+        if request.method == 'POST':
+            try:
+                settings = ChecklistSettings.get_current()
+                
+                # Update settings from form
+                settings.lab_cutoff_months = int(request.form.get('lab_cutoff_months', 12))
+                settings.imaging_cutoff_months = int(request.form.get('imaging_cutoff_months', 24))
+                settings.consult_cutoff_months = int(request.form.get('consult_cutoff_months', 12))
+                settings.hospital_cutoff_months = int(request.form.get('hospital_cutoff_months', 24))
+                settings.updated_by = current_user.id
+                settings.updated_at = datetime.utcnow()
+                
+                db.session.commit()
+                
+                flash('Checklist settings updated successfully', 'success')
+                
+            except ValueError as e:
+                flash('Invalid input values. Please check your entries.', 'error')
+            except Exception as e:
+                logger.error(f"Error updating checklist settings: {str(e)}")
+                flash('Error updating settings. Please try again.', 'error')
+                db.session.rollback()
         
-        # Eligibility criteria
-        min_age = request.form.get('min_age')
-        max_age = request.form.get('max_age')
-        gender = request.form.get('gender')
-        
-        eligibility_criteria = {}
-        if min_age:
-            eligibility_criteria['min_age'] = int(min_age)
-        if max_age:
-            eligibility_criteria['max_age'] = int(max_age)
-        if gender and gender != 'any':
-            eligibility_criteria['gender'] = gender
-        
-        # Frequency
-        frequency_number = int(request.form.get('frequency_number', 1))
-        frequency_unit = request.form.get('frequency_unit', 'years')
-        
-        # Trigger conditions
-        trigger_conditions = request.form.get('trigger_conditions', '').split(',')
-        trigger_conditions = [c.strip() for c in trigger_conditions if c.strip()]
-        
-        # Create screening type
-        screening_type = ScreeningType(
-            name=name,
-            description=description,
-            keywords=keywords,
-            eligibility_criteria=eligibility_criteria,
-            frequency_number=frequency_number,
-            frequency_unit=frequency_unit,
-            trigger_conditions=trigger_conditions,
-            is_active=True
-        )
-        
-        db.session.add(screening_type)
-        db.session.commit()
-        
-        flash(f'Screening type "{name}" created successfully', 'success')
-        return redirect(url_for('ui.screening_list', tab='types'))
-        
-    except Exception as e:
-        logger.error(f"Error creating screening type: {e}")
-        flash('Error creating screening type', 'error')
-        return redirect(url_for('ui.screening_list', tab='types'))
-
-def update_screening_type():
-    """Update existing screening type"""
-    try:
-        screening_type_id = request.form.get('screening_type_id')
-        screening_type = ScreeningType.query.get(int(screening_type_id))
-        
-        if not screening_type:
-            flash('Screening type not found', 'error')
-            return redirect(url_for('ui.screening_list', tab='types'))
-        
-        # Update fields
-        screening_type.name = request.form.get('name', '').strip()
-        screening_type.description = request.form.get('description', '').strip()
-        
-        keywords = request.form.get('keywords', '').split(',')
-        screening_type.keywords = [k.strip() for k in keywords if k.strip()]
-        
-        # Update eligibility criteria
-        min_age = request.form.get('min_age')
-        max_age = request.form.get('max_age')
-        gender = request.form.get('gender')
-        
-        eligibility_criteria = {}
-        if min_age:
-            eligibility_criteria['min_age'] = int(min_age)
-        if max_age:
-            eligibility_criteria['max_age'] = int(max_age)
-        if gender and gender != 'any':
-            eligibility_criteria['gender'] = gender
-        
-        screening_type.eligibility_criteria = eligibility_criteria
-        
-        # Update frequency
-        screening_type.frequency_number = int(request.form.get('frequency_number', 1))
-        screening_type.frequency_unit = request.form.get('frequency_unit', 'years')
-        
-        # Update trigger conditions
-        trigger_conditions = request.form.get('trigger_conditions', '').split(',')
-        screening_type.trigger_conditions = [c.strip() for c in trigger_conditions if c.strip()]
-        
-        db.session.commit()
-        
-        flash(f'Screening type "{screening_type.name}" updated successfully', 'success')
-        return redirect(url_for('ui.screening_list', tab='types'))
-        
-    except Exception as e:
-        logger.error(f"Error updating screening type: {e}")
-        flash('Error updating screening type', 'error')
-        return redirect(url_for('ui.screening_list', tab='types'))
-
-def delete_screening_type():
-    """Delete screening type"""
-    try:
-        screening_type_id = request.form.get('screening_type_id')
-        screening_type = ScreeningType.query.get(int(screening_type_id))
-        
-        if not screening_type:
-            flash('Screening type not found', 'error')
-            return redirect(url_for('ui.screening_list', tab='types'))
-        
-        # Check if there are associated screenings
-        associated_screenings = Screening.query.filter_by(screening_type_id=screening_type.id).count()
-        
-        if associated_screenings > 0:
-            flash(f'Cannot delete screening type. It has {associated_screenings} associated screenings.', 'error')
-            return redirect(url_for('ui.screening_list', tab='types'))
-        
-        name = screening_type.name
-        db.session.delete(screening_type)
-        db.session.commit()
-        
-        flash(f'Screening type "{name}" deleted successfully', 'success')
-        return redirect(url_for('ui.screening_list', tab='types'))
-        
-    except Exception as e:
-        logger.error(f"Error deleting screening type: {e}")
-        flash('Error deleting screening type', 'error')
-        return redirect(url_for('ui.screening_list', tab='types'))
-
-def toggle_screening_type_status():
-    """Toggle screening type active status"""
-    try:
-        screening_type_id = request.form.get('screening_type_id')
-        screening_type = ScreeningType.query.get(int(screening_type_id))
-        
-        if not screening_type:
-            flash('Screening type not found', 'error')
-            return redirect(url_for('ui.screening_list', tab='types'))
-        
-        screening_type.is_active = not screening_type.is_active
-        db.session.commit()
-        
-        status = 'activated' if screening_type.is_active else 'deactivated'
-        flash(f'Screening type "{screening_type.name}" {status} successfully', 'success')
-        return redirect(url_for('ui.screening_list', tab='types'))
-        
-    except Exception as e:
-        logger.error(f"Error toggling screening type status: {e}")
-        flash('Error updating screening type status', 'error')
-        return redirect(url_for('ui.screening_list', tab='types'))
-
-@login_required
-def update_checklist_settings():
-    """Update checklist settings"""
-    try:
-        settings = ChecklistSettings.query.first()
-        if not settings:
-            settings = ChecklistSettings()
-            db.session.add(settings)
-        
-        # Update cutoff months
-        settings.labs_cutoff_months = int(request.form.get('labs_cutoff_months', 12))
-        settings.imaging_cutoff_months = int(request.form.get('imaging_cutoff_months', 24))
-        settings.consults_cutoff_months = int(request.form.get('consults_cutoff_months', 12))
-        settings.hospital_cutoff_months = int(request.form.get('hospital_cutoff_months', 12))
-        
-        # Update OCR threshold
-        settings.ocr_confidence_threshold = float(request.form.get('ocr_confidence_threshold', 70.0))
-        
-        # Update PHI filtering
-        settings.phi_filtering_enabled = bool(request.form.get('phi_filtering_enabled'))
-        
-        db.session.commit()
-        
-        flash('Checklist settings updated successfully', 'success')
         return redirect(url_for('ui.screening_list', tab='checklist'))
+    
+    @login_required
+    def document_viewer(self, document_id: int):
+        """
+        View a specific medical document
+        """
+        document = MedicalDocument.query.get_or_404(document_id)
         
-    except Exception as e:
-        logger.error(f"Error updating checklist settings: {e}")
-        flash('Error updating checklist settings', 'error')
-        return redirect(url_for('ui.screening_list', tab='checklist'))
-
-@login_required
-def get_screening_keywords():
-    """API endpoint to get keywords for a screening type"""
-    try:
-        screening_type_id = request.args.get('screening_type_id')
-        if not screening_type_id:
-            return jsonify({'success': False, 'error': 'Missing screening type ID'})
+        # Security check - ensure user has access to this patient's documents
+        if not current_user.is_admin:
+            # Add additional security checks here based on your access control model
+            pass
         
-        screening_type = ScreeningType.query.get(int(screening_type_id))
-        if not screening_type:
-            return jsonify({'success': False, 'error': 'Screening type not found'})
+        context = {
+            'document': document,
+            'patient': document.patient,
+            'ocr_available': document.ocr_processed,
+            'confidence_level': self._get_confidence_level(document.ocr_confidence)
+        }
+        
+        return render_template('document/document_viewer.html', **context)
+    
+    def _get_confidence_level(self, confidence: float) -> str:
+        """Get confidence level for display"""
+        if not confidence:
+            return 'unknown'
+        elif confidence >= 0.85:
+            return 'high'
+        elif confidence >= 0.70:
+            return 'medium'
+        else:
+            return 'low'
+    
+    @login_required
+    def search_patients(self):
+        """
+        Search for patients (AJAX endpoint)
+        """
+        query = request.args.get('q', '').strip()
+        
+        if len(query) < 2:
+            return jsonify({'patients': []})
+        
+        # Search patients by name or MRN
+        patients = Patient.query.filter(
+            (Patient.first_name.contains(query)) |
+            (Patient.last_name.contains(query)) |
+            (Patient.mrn.contains(query))
+        ).limit(20).all()
+        
+        patient_list = []
+        for patient in patients:
+            patient_list.append({
+                'id': patient.id,
+                'mrn': patient.mrn,
+                'name': patient.full_name,
+                'age': patient.age,
+                'gender': patient.gender
+            })
+        
+        return jsonify({'patients': patient_list})
+    
+    @login_required
+    def screening_keywords_api(self, screening_type_id: int):
+        """
+        API endpoint to get keywords for a screening type
+        """
+        screening_type = ScreeningType.query.get_or_404(screening_type_id)
         
         return jsonify({
             'success': True,
-            'keywords': screening_type.keywords or []
+            'keywords': screening_type.keywords_list,
+            'screening_type': screening_type.name
         })
+    
+    @login_required
+    def batch_prep_sheets(self):
+        """
+        Generate prep sheets for multiple patients
+        """
+        if request.method == 'POST':
+            try:
+                # Get patient IDs from form
+                patient_ids = request.form.getlist('patient_ids')
+                patient_ids = [int(pid) for pid in patient_ids if pid.isdigit()]
+                
+                if not patient_ids:
+                    flash('No patients selected', 'error')
+                    return redirect(url_for('ui.screening_list'))
+                
+                # Get appointment date
+                appointment_date_str = request.form.get('appointment_date')
+                appointment_date = datetime.utcnow()
+                
+                if appointment_date_str:
+                    try:
+                        appointment_date = datetime.strptime(appointment_date_str, '%Y-%m-%d')
+                    except ValueError:
+                        flash('Invalid appointment date format', 'error')
+                        return redirect(url_for('ui.screening_list'))
+                
+                # Generate batch prep sheets
+                result = self.prep_generator.generate_batch_prep_sheets(patient_ids, appointment_date)
+                
+                flash(f'Batch prep sheets generated: {result["successful"]} successful, {result["failed"]} failed', 'success')
+                
+                # Return the batch result for display/download
+                context = {
+                    'batch_result': result,
+                    'appointment_date': appointment_date
+                }
+                
+                return render_template('prep_sheet/batch_prep_sheets.html', **context)
+                
+            except Exception as e:
+                logger.error(f"Error generating batch prep sheets: {str(e)}")
+                flash('Error generating batch prep sheets. Please try again.', 'error')
         
-    except Exception as e:
-        logger.error(f"Error getting screening keywords: {e}")
-        return jsonify({'success': False, 'error': 'Internal error'})
+        return redirect(url_for('ui.screening_list'))
 
