@@ -1,395 +1,364 @@
 """
-OCR quality monitoring and confidence scoring
-Provides analytics and monitoring for OCR processing
+Quality/confidence scoring and monitoring for OCR processing
 """
+
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
-from models import Document, OCRProcessing, db
-from sqlalchemy import func, and_
+from sqlalchemy import func
+from models import MedicalDocument, db
+
+logger = logging.getLogger(__name__)
 
 class OCRMonitor:
     """Monitors OCR processing quality and performance"""
     
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        # Quality thresholds
+        self.confidence_thresholds = {
+            'high': 0.85,
+            'medium': 0.70,
+            'low': 0.50
+        }
         
-    def get_processing_dashboard(self) -> Dict[str, Any]:
-        """Get comprehensive OCR processing dashboard data"""
-        try:
-            dashboard_data = {
-                "overview": self._get_overview_stats(),
-                "quality_metrics": self._get_quality_metrics(),
-                "recent_activity": self._get_recent_activity(),
-                "low_confidence_documents": self._get_low_confidence_documents(),
-                "processing_errors": self._get_recent_errors(),
-                "performance_trends": self._get_performance_trends()
-            }
-            
-            return dashboard_data
-            
-        except Exception as e:
-            self.logger.error(f"Error generating OCR dashboard: {str(e)}")
-            return {"error": str(e)}
+        # Performance monitoring settings
+        self.monitoring_window_days = 7
     
-    def _get_overview_stats(self) -> Dict[str, Any]:
-        """Get basic overview statistics"""
-        try:
-            total_documents = Document.query.count()
-            processed_documents = Document.query.filter_by(is_processed=True).count()
-            pending_documents = total_documents - processed_documents
-            
-            # Recent processing (last 24 hours)
-            recent_cutoff = datetime.utcnow() - timedelta(hours=24)
-            recent_processed = OCRProcessing.query.filter(
-                OCRProcessing.processing_start >= recent_cutoff
-            ).count()
-            
-            return {
-                "total_documents": total_documents,
-                "processed_documents": processed_documents,
-                "pending_documents": pending_documents,
-                "processing_rate": (processed_documents / total_documents * 100) if total_documents > 0 else 0,
-                "recent_24h": recent_processed
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Error getting overview stats: {str(e)}")
-            return {}
+    def get_quality_metrics(self) -> Dict[str, Any]:
+        """Get comprehensive OCR quality metrics"""
+        
+        # Basic processing statistics
+        total_docs = MedicalDocument.query.count()
+        processed_docs = MedicalDocument.query.filter_by(ocr_processed=True).count()
+        pending_docs = total_docs - processed_docs
+        
+        # Confidence distribution
+        confidence_stats = self._get_confidence_distribution()
+        
+        # Recent processing activity
+        recent_activity = self._get_recent_activity()
+        
+        # Quality alerts
+        quality_alerts = self._get_quality_alerts()
+        
+        return {
+            'overview': {
+                'total_documents': total_docs,
+                'processed_documents': processed_docs,
+                'pending_documents': pending_docs,
+                'processing_rate': round((processed_docs / total_docs * 100), 2) if total_docs > 0 else 0
+            },
+            'confidence_distribution': confidence_stats,
+            'recent_activity': recent_activity,
+            'quality_alerts': quality_alerts,
+            'last_updated': datetime.utcnow().isoformat()
+        }
     
-    def _get_quality_metrics(self) -> Dict[str, Any]:
-        """Get OCR quality metrics"""
-        try:
-            # Confidence score statistics
-            confidence_stats = db.session.query(
-                func.avg(Document.ocr_confidence).label('avg_confidence'),
-                func.min(Document.ocr_confidence).label('min_confidence'),
-                func.max(Document.ocr_confidence).label('max_confidence'),
-                func.count(Document.id).label('total_with_confidence')
-            ).filter(
-                and_(Document.ocr_confidence.isnot(None), Document.ocr_confidence > 0)
-            ).first()
-            
-            # Confidence distribution
-            confidence_ranges = [
-                ("High (80-100%)", 80, 100),
-                ("Medium (60-79%)", 60, 79),
-                ("Low (40-59%)", 40, 59),
-                ("Very Low (0-39%)", 0, 39)
-            ]
-            
-            confidence_distribution = {}
-            for label, min_conf, max_conf in confidence_ranges:
-                count = Document.query.filter(
-                    and_(
-                        Document.ocr_confidence >= min_conf,
-                        Document.ocr_confidence <= max_conf
-                    )
-                ).count()
-                confidence_distribution[label] = count
-            
-            return {
-                "average_confidence": round(confidence_stats.avg_confidence or 0, 2),
-                "min_confidence": round(confidence_stats.min_confidence or 0, 2),
-                "max_confidence": round(confidence_stats.max_confidence or 0, 2),
-                "confidence_distribution": confidence_distribution,
-                "total_scored": confidence_stats.total_with_confidence or 0
+    def _get_confidence_distribution(self) -> Dict[str, Any]:
+        """Get distribution of confidence scores"""
+        
+        # Count documents by confidence ranges
+        high_confidence = MedicalDocument.query.filter(
+            MedicalDocument.ocr_processed == True,
+            MedicalDocument.ocr_confidence >= self.confidence_thresholds['high']
+        ).count()
+        
+        medium_confidence = MedicalDocument.query.filter(
+            MedicalDocument.ocr_processed == True,
+            MedicalDocument.ocr_confidence >= self.confidence_thresholds['medium'],
+            MedicalDocument.ocr_confidence < self.confidence_thresholds['high']
+        ).count()
+        
+        low_confidence = MedicalDocument.query.filter(
+            MedicalDocument.ocr_processed == True,
+            MedicalDocument.ocr_confidence < self.confidence_thresholds['medium']
+        ).count()
+        
+        # Average confidence
+        avg_confidence = db.session.query(func.avg(MedicalDocument.ocr_confidence)).\
+            filter(MedicalDocument.ocr_processed == True).scalar() or 0.0
+        
+        # Median confidence
+        median_result = db.session.query(MedicalDocument.ocr_confidence).\
+            filter(MedicalDocument.ocr_processed == True).\
+            order_by(MedicalDocument.ocr_confidence).\
+            offset(high_confidence + medium_confidence + low_confidence // 2).\
+            limit(1).first()
+        
+        median_confidence = median_result[0] if median_result else 0.0
+        
+        return {
+            'high_confidence': {
+                'count': high_confidence,
+                'threshold': self.confidence_thresholds['high'],
+                'description': f'≥{self.confidence_thresholds["high"]*100:.0f}%'
+            },
+            'medium_confidence': {
+                'count': medium_confidence,
+                'threshold': self.confidence_thresholds['medium'],
+                'description': f'{self.confidence_thresholds["medium"]*100:.0f}%-{self.confidence_thresholds["high"]*100:.0f}%'
+            },
+            'low_confidence': {
+                'count': low_confidence,
+                'threshold': self.confidence_thresholds['low'],
+                'description': f'<{self.confidence_thresholds["medium"]*100:.0f}%'
+            },
+            'statistics': {
+                'average_confidence': round(avg_confidence, 3),
+                'median_confidence': round(median_confidence, 3)
             }
-            
-        except Exception as e:
-            self.logger.error(f"Error getting quality metrics: {str(e)}")
-            return {}
+        }
     
-    def _get_recent_activity(self) -> List[Dict[str, Any]]:
+    def _get_recent_activity(self) -> Dict[str, Any]:
         """Get recent OCR processing activity"""
-        try:
-            recent_cutoff = datetime.utcnow() - timedelta(days=7)
-            
-            recent_processing = db.session.query(
-                OCRProcessing,
-                Document.filename,
-                Document.document_type
-            ).join(
-                Document, OCRProcessing.document_id == Document.id
-            ).filter(
-                OCRProcessing.processing_start >= recent_cutoff
-            ).order_by(
-                OCRProcessing.processing_start.desc()
-            ).limit(20).all()
-            
-            activity_list = []
-            for ocr_proc, filename, doc_type in recent_processing:
-                activity_list.append({
-                    "document_id": ocr_proc.document_id,
-                    "filename": filename,
-                    "document_type": doc_type,
-                    "processing_start": ocr_proc.processing_start,
-                    "processing_end": ocr_proc.processing_end,
-                    "success": ocr_proc.success,
-                    "confidence": round(ocr_proc.confidence_score or 0, 2),
-                    "error_message": ocr_proc.error_message
-                })
-            
-            return activity_list
-            
-        except Exception as e:
-            self.logger.error(f"Error getting recent activity: {str(e)}")
-            return []
+        
+        # Last 7 days of activity
+        week_ago = datetime.utcnow() - timedelta(days=self.monitoring_window_days)
+        
+        recent_docs = MedicalDocument.query.filter(
+            MedicalDocument.ocr_processed_at >= week_ago
+        ).order_by(MedicalDocument.ocr_processed_at.desc()).limit(50).all()
+        
+        # Group by day
+        daily_stats = {}
+        for doc in recent_docs:
+            if doc.ocr_processed_at:
+                day_key = doc.ocr_processed_at.strftime('%Y-%m-%d')
+                if day_key not in daily_stats:
+                    daily_stats[day_key] = {
+                        'count': 0,
+                        'avg_confidence': 0,
+                        'confidences': []
+                    }
+                daily_stats[day_key]['count'] += 1
+                daily_stats[day_key]['confidences'].append(doc.ocr_confidence or 0)
+        
+        # Calculate averages
+        for day_data in daily_stats.values():
+            if day_data['confidences']:
+                day_data['avg_confidence'] = sum(day_data['confidences']) / len(day_data['confidences'])
+            del day_data['confidences']  # Remove raw data
+        
+        # Recent processing details
+        recent_details = []
+        for doc in recent_docs[:10]:  # Last 10 processed
+            recent_details.append({
+                'document_id': doc.id,
+                'filename': doc.filename,
+                'confidence': doc.ocr_confidence,
+                'processed_at': doc.ocr_processed_at.isoformat() if doc.ocr_processed_at else None,
+                'confidence_level': self._get_confidence_level(doc.ocr_confidence or 0)
+            })
+        
+        return {
+            'daily_statistics': daily_stats,
+            'recent_documents': recent_details,
+            'total_this_week': len(recent_docs)
+        }
     
-    def _get_low_confidence_documents(self) -> List[Dict[str, Any]]:
-        """Get documents with low OCR confidence scores"""
-        try:
-            low_confidence_threshold = 60  # Below 60% confidence
-            
-            low_confidence_docs = db.session.query(
-                Document.id,
-                Document.filename,
-                Document.document_type,
-                Document.ocr_confidence,
-                Document.date_created,
-                Document.patient_id
-            ).filter(
-                and_(
-                    Document.ocr_confidence.isnot(None),
-                    Document.ocr_confidence < low_confidence_threshold
-                )
-            ).order_by(
-                Document.ocr_confidence.asc()
-            ).limit(15).all()
-            
-            low_confidence_list = []
-            for doc in low_confidence_docs:
-                low_confidence_list.append({
-                    "document_id": doc.id,
-                    "filename": doc.filename,
-                    "document_type": doc.document_type,
-                    "confidence": round(doc.ocr_confidence or 0, 2),
-                    "date_created": doc.date_created,
-                    "patient_id": doc.patient_id
-                })
-            
-            return low_confidence_list
-            
-        except Exception as e:
-            self.logger.error(f"Error getting low confidence documents: {str(e)}")
-            return []
+    def _get_quality_alerts(self) -> List[Dict[str, Any]]:
+        """Get quality alerts that need attention"""
+        alerts = []
+        
+        # Low confidence documents
+        low_confidence_docs = MedicalDocument.query.filter(
+            MedicalDocument.ocr_processed == True,
+            MedicalDocument.ocr_confidence < self.confidence_thresholds['low']
+        ).count()
+        
+        if low_confidence_docs > 0:
+            alerts.append({
+                'type': 'low_confidence',
+                'severity': 'warning',
+                'count': low_confidence_docs,
+                'message': f'{low_confidence_docs} documents with very low OCR confidence (<{self.confidence_thresholds["low"]*100:.0f}%)',
+                'action': 'Review and consider manual verification'
+            })
+        
+        # Large backlog
+        pending_docs = MedicalDocument.query.filter_by(ocr_processed=False).count()
+        if pending_docs > 50:
+            alerts.append({
+                'type': 'large_backlog',
+                'severity': 'info',
+                'count': pending_docs,
+                'message': f'{pending_docs} documents pending OCR processing',
+                'action': 'Consider batch processing or increasing processing capacity'
+            })
+        
+        # Recent processing failures (documents uploaded but not processed within 24 hours)
+        day_ago = datetime.utcnow() - timedelta(days=1)
+        stale_docs = MedicalDocument.query.filter(
+            MedicalDocument.upload_date < day_ago,
+            MedicalDocument.ocr_processed == False
+        ).count()
+        
+        if stale_docs > 0:
+            alerts.append({
+                'type': 'stale_documents',
+                'severity': 'warning',
+                'count': stale_docs,
+                'message': f'{stale_docs} documents uploaded over 24 hours ago but not yet processed',
+                'action': 'Check OCR processing system for issues'
+            })
+        
+        return alerts
     
-    def _get_recent_errors(self) -> List[Dict[str, Any]]:
-        """Get recent OCR processing errors"""
-        try:
-            recent_cutoff = datetime.utcnow() - timedelta(days=7)
-            
-            error_processing = db.session.query(
-                OCRProcessing,
-                Document.filename,
-                Document.document_type
-            ).join(
-                Document, OCRProcessing.document_id == Document.id
-            ).filter(
-                and_(
-                    OCRProcessing.success == False,
-                    OCRProcessing.processing_start >= recent_cutoff
-                )
-            ).order_by(
-                OCRProcessing.processing_start.desc()
-            ).limit(10).all()
-            
-            error_list = []
-            for ocr_proc, filename, doc_type in error_processing:
-                error_list.append({
-                    "document_id": ocr_proc.document_id,
-                    "filename": filename,
-                    "document_type": doc_type,
-                    "processing_start": ocr_proc.processing_start,
-                    "error_message": ocr_proc.error_message
-                })
-            
-            return error_list
-            
-        except Exception as e:
-            self.logger.error(f"Error getting recent errors: {str(e)}")
-            return []
+    def get_document_quality_report(self, document_id: int) -> Dict[str, Any]:
+        """Get detailed quality report for a specific document"""
+        
+        document = MedicalDocument.query.get(document_id)
+        if not document:
+            return {'error': 'Document not found'}
+        
+        if not document.ocr_processed:
+            return {'error': 'Document not yet processed'}
+        
+        confidence_level = self._get_confidence_level(document.ocr_confidence or 0)
+        
+        # Text quality metrics
+        text_metrics = self._analyze_text_quality(document.ocr_text or "")
+        
+        # PHI filtering report
+        phi_report = self._get_phi_filtering_report(document)
+        
+        return {
+            'document_info': {
+                'id': document.id,
+                'filename': document.filename,
+                'document_type': document.document_type,
+                'processed_at': document.ocr_processed_at.isoformat() if document.ocr_processed_at else None
+            },
+            'confidence': {
+                'score': document.ocr_confidence,
+                'level': confidence_level,
+                'description': self._get_confidence_description(confidence_level)
+            },
+            'text_quality': text_metrics,
+            'phi_filtering': phi_report,
+            'recommendations': self._get_quality_recommendations(document, confidence_level, text_metrics)
+        }
     
-    def _get_performance_trends(self) -> Dict[str, Any]:
-        """Get OCR performance trends over time"""
-        try:
-            # Get daily processing counts for the last 30 days
-            thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-            
-            daily_stats = db.session.query(
-                func.date(OCRProcessing.processing_start).label('date'),
-                func.count(OCRProcessing.id).label('total_processed'),
-                func.sum(func.case([(OCRProcessing.success == True, 1)], else_=0)).label('successful'),
-                func.avg(OCRProcessing.confidence_score).label('avg_confidence')
-            ).filter(
-                OCRProcessing.processing_start >= thirty_days_ago
-            ).group_by(
-                func.date(OCRProcessing.processing_start)
-            ).order_by(
-                func.date(OCRProcessing.processing_start)
-            ).all()
-            
-            trend_data = []
-            for stat in daily_stats:
-                trend_data.append({
-                    "date": stat.date.isoformat(),
-                    "total_processed": stat.total_processed or 0,
-                    "successful": stat.successful or 0,
-                    "success_rate": (stat.successful / stat.total_processed * 100) if stat.total_processed > 0 else 0,
-                    "avg_confidence": round(stat.avg_confidence or 0, 2)
-                })
-            
+    def _get_confidence_level(self, confidence: float) -> str:
+        """Get confidence level category"""
+        if confidence >= self.confidence_thresholds['high']:
+            return 'high'
+        elif confidence >= self.confidence_thresholds['medium']:
+            return 'medium'
+        else:
+            return 'low'
+    
+    def _get_confidence_description(self, level: str) -> str:
+        """Get human-readable confidence description"""
+        descriptions = {
+            'high': 'Excellent OCR quality - text is highly reliable',
+            'medium': 'Good OCR quality - text is generally reliable with minor errors possible',
+            'low': 'Poor OCR quality - text may contain significant errors and should be reviewed'
+        }
+        return descriptions.get(level, 'Unknown confidence level')
+    
+    def _analyze_text_quality(self, text: str) -> Dict[str, Any]:
+        """Analyze the quality of extracted text"""
+        if not text:
             return {
-                "daily_trends": trend_data,
-                "trend_period_days": 30
+                'word_count': 0,
+                'character_count': 0,
+                'readability_score': 0,
+                'suspicious_patterns': []
             }
-            
-        except Exception as e:
-            self.logger.error(f"Error getting performance trends: {str(e)}")
-            return {}
+        
+        word_count = len(text.split())
+        char_count = len(text)
+        
+        # Look for suspicious OCR patterns
+        suspicious_patterns = []
+        
+        # Too many single characters (OCR fragmentation)
+        single_chars = len([word for word in text.split() if len(word) == 1])
+        if word_count > 0 and single_chars / word_count > 0.2:
+            suspicious_patterns.append('High number of single character words (possible OCR fragmentation)')
+        
+        # Too many numeric sequences (possible misread text)
+        import re
+        numeric_sequences = len(re.findall(r'\b\d{3,}\b', text))
+        if numeric_sequences > word_count * 0.1:
+            suspicious_patterns.append('High number of numeric sequences (possible misread text)')
+        
+        # Unusual character patterns
+        unusual_chars = len(re.findall(r'[^\w\s.,;:()[\]{}/<>@#$%^&*+-=|\\~`"\'?!]', text))
+        if unusual_chars > char_count * 0.05:
+            suspicious_patterns.append('Unusual characters detected (possible OCR artifacts)')
+        
+        # Calculate basic readability score (simplified)
+        avg_word_length = char_count / word_count if word_count > 0 else 0
+        readability_score = max(0, min(100, 100 - (abs(avg_word_length - 5) * 10)))
+        
+        return {
+            'word_count': word_count,
+            'character_count': char_count,
+            'average_word_length': round(avg_word_length, 2),
+            'readability_score': round(readability_score, 2),
+            'suspicious_patterns': suspicious_patterns
+        }
     
-    def get_document_quality_assessment(self, document_id: int) -> Dict[str, Any]:
-        """Get detailed quality assessment for a specific document"""
-        try:
-            document = Document.query.get(document_id)
-            if not document:
-                return {"error": "Document not found"}
-            
-            ocr_processing = OCRProcessing.query.filter_by(document_id=document_id).first()
-            
-            # Basic quality metrics
-            quality_assessment = {
-                "document_id": document_id,
-                "filename": document.filename,
-                "is_processed": document.is_processed,
-                "ocr_confidence": document.ocr_confidence,
-                "text_length": len(document.ocr_text) if document.ocr_text else 0,
-                "processing_info": None,
-                "quality_flags": [],
-                "recommendations": []
-            }
-            
-            if ocr_processing:
-                processing_duration = None
-                if ocr_processing.processing_end and ocr_processing.processing_start:
-                    processing_duration = (ocr_processing.processing_end - ocr_processing.processing_start).total_seconds()
-                
-                quality_assessment["processing_info"] = {
-                    "success": ocr_processing.success,
-                    "processing_start": ocr_processing.processing_start,
-                    "processing_end": ocr_processing.processing_end,
-                    "processing_duration_seconds": processing_duration,
-                    "error_message": ocr_processing.error_message
-                }
-            
-            # Quality flags and recommendations
-            if document.ocr_confidence:
-                if document.ocr_confidence < 40:
-                    quality_assessment["quality_flags"].append("Very low confidence score")
-                    quality_assessment["recommendations"].append("Consider manual review or document reprocessing")
-                elif document.ocr_confidence < 60:
-                    quality_assessment["quality_flags"].append("Low confidence score")
-                    quality_assessment["recommendations"].append("Review extracted text for accuracy")
-                elif document.ocr_confidence > 90:
-                    quality_assessment["quality_flags"].append("High confidence score")
-            
-            if document.ocr_text:
-                if len(document.ocr_text) < 50:
-                    quality_assessment["quality_flags"].append("Very short extracted text")
-                    quality_assessment["recommendations"].append("Verify document contains readable text")
-                
-                # Check for common OCR artifacts
-                common_artifacts = ['|||', '~~~', '###', 'lll', 'III']
-                if any(artifact in document.ocr_text for artifact in common_artifacts):
-                    quality_assessment["quality_flags"].append("Possible OCR artifacts detected")
-                    quality_assessment["recommendations"].append("Review for scanning artifacts or poor image quality")
-            
-            return quality_assessment
-            
-        except Exception as e:
-            self.logger.error(f"Error assessing document quality for {document_id}: {str(e)}")
-            return {"error": str(e)}
+    def _get_phi_filtering_report(self, document: MedicalDocument) -> Dict[str, Any]:
+        """Get PHI filtering report for document"""
+        return {
+            'phi_filtered': document.phi_filtered,
+            'patterns_found': document.phi_patterns_list,
+            'patterns_count': len(document.phi_patterns_list),
+            'original_length': len(document.original_text) if document.original_text else 0,
+            'filtered_length': len(document.ocr_text) if document.ocr_text else 0
+        }
     
-    def generate_quality_report(self, days: int = 30) -> Dict[str, Any]:
-        """Generate a comprehensive OCR quality report"""
-        try:
-            cutoff_date = datetime.utcnow() - timedelta(days=days)
-            
-            report = {
-                "report_period_days": days,
-                "generated_at": datetime.utcnow().isoformat(),
-                "summary": {},
-                "quality_breakdown": {},
-                "issues_identified": [],
-                "recommendations": []
-            }
-            
-            # Summary statistics
-            total_processed = OCRProcessing.query.filter(
-                OCRProcessing.processing_start >= cutoff_date
-            ).count()
-            
-            successful = OCRProcessing.query.filter(
-                and_(
-                    OCRProcessing.processing_start >= cutoff_date,
-                    OCRProcessing.success == True
-                )
-            ).count()
-            
-            avg_confidence = db.session.query(
-                func.avg(OCRProcessing.confidence_score)
-            ).filter(
-                and_(
-                    OCRProcessing.processing_start >= cutoff_date,
-                    OCRProcessing.success == True
-                )
-            ).scalar() or 0
-            
-            report["summary"] = {
-                "total_processed": total_processed,
-                "successful": successful,
-                "failed": total_processed - successful,
-                "success_rate": (successful / total_processed * 100) if total_processed > 0 else 0,
-                "average_confidence": round(avg_confidence, 2)
-            }
-            
-            # Quality breakdown by confidence ranges
-            confidence_ranges = [
-                ("excellent", 90, 100),
-                ("good", 70, 89),
-                ("fair", 50, 69),
-                ("poor", 0, 49)
-            ]
-            
-            quality_breakdown = {}
-            for label, min_conf, max_conf in confidence_ranges:
-                count = db.session.query(func.count(Document.id)).filter(
-                    and_(
-                        Document.ocr_confidence >= min_conf,
-                        Document.ocr_confidence <= max_conf,
-                        Document.date_created >= cutoff_date
-                    )
-                ).scalar() or 0
-                quality_breakdown[label] = count
-            
-            report["quality_breakdown"] = quality_breakdown
-            
-            # Identify issues and recommendations
-            poor_quality_count = quality_breakdown.get("poor", 0)
-            if poor_quality_count > 0:
-                report["issues_identified"].append(f"{poor_quality_count} documents with poor OCR quality")
-                report["recommendations"].append("Review scanning processes and document quality")
-            
-            if report["summary"]["success_rate"] < 95:
-                report["issues_identified"].append("OCR success rate below 95%")
-                report["recommendations"].append("Investigate processing errors and system performance")
-            
-            if report["summary"]["average_confidence"] < 75:
-                report["issues_identified"].append("Average confidence score below 75%")
-                report["recommendations"].append("Consider document quality improvements or OCR parameter tuning")
-            
-            return report
-            
-        except Exception as e:
-            self.logger.error(f"Error generating quality report: {str(e)}")
-            return {"error": str(e)}
+    def _get_quality_recommendations(self, document: MedicalDocument, confidence_level: str, text_metrics: Dict[str, Any]) -> List[str]:
+        """Get recommendations for improving quality"""
+        recommendations = []
+        
+        if confidence_level == 'low':
+            recommendations.append('Consider manual review and correction of extracted text')
+            recommendations.append('Check if original document quality can be improved before reprocessing')
+        
+        if text_metrics['suspicious_patterns']:
+            recommendations.append('Review text for OCR artifacts and errors')
+        
+        if text_metrics['word_count'] < 10:
+            recommendations.append('Very short text extracted - verify document contains readable content')
+        
+        if not document.phi_filtered:
+            recommendations.append('Enable PHI filtering for HIPAA compliance')
+        
+        return recommendations
+    
+    def export_quality_report(self, format: str = 'json') -> Dict[str, Any]:
+        """Export comprehensive quality report"""
+        
+        metrics = self.get_quality_metrics()
+        
+        # Add detailed document breakdown
+        all_processed_docs = MedicalDocument.query.filter_by(ocr_processed=True).all()
+        
+        document_details = []
+        for doc in all_processed_docs:
+            document_details.append({
+                'id': doc.id,
+                'filename': doc.filename,
+                'document_type': doc.document_type,
+                'confidence': doc.ocr_confidence,
+                'confidence_level': self._get_confidence_level(doc.ocr_confidence or 0),
+                'processed_at': doc.ocr_processed_at.isoformat() if doc.ocr_processed_at else None,
+                'phi_filtered': doc.phi_filtered,
+                'text_length': len(doc.ocr_text) if doc.ocr_text else 0
+            })
+        
+        report = {
+            'report_metadata': {
+                'generated_at': datetime.utcnow().isoformat(),
+                'report_type': 'OCR Quality Report',
+                'format': format
+            },
+            'summary_metrics': metrics,
+            'document_details': document_details
+        }
+        
+        return report
