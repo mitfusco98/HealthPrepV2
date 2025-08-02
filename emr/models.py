@@ -1,254 +1,170 @@
 """
 Internal representations of EMR data
 """
-
 from dataclasses import dataclass
 from datetime import datetime, date
 from typing import List, Optional, Dict, Any
 
 @dataclass
 class EMRPatient:
-    """Internal representation of patient data"""
+    """Internal representation of patient data from EMR"""
     fhir_id: str
-    mrn: str
+    local_id: Optional[int]
     first_name: str
     last_name: str
     date_of_birth: date
     gender: str
+    mrn: str
     phone: Optional[str] = None
     email: Optional[str] = None
-    address: Optional[str] = None
+    address: Optional[Dict[str, str]] = None
     
     @property
-    def full_name(self) -> str:
+    def full_name(self):
         return f"{self.first_name} {self.last_name}"
     
     @property
-    def age(self) -> int:
+    def age(self):
         today = date.today()
         return today.year - self.date_of_birth.year - ((today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day))
 
 @dataclass
-class EMRCondition:
-    """Internal representation of medical condition"""
-    condition_name: str
-    icd10_code: Optional[str] = None
-    onset_date: Optional[date] = None
-    status: str = 'active'
-    fhir_id: Optional[str] = None
-
-@dataclass
-class EMRDocument:
-    """Internal representation of medical document"""
-    document_id: str
-    filename: str
-    document_type: str
-    document_date: Optional[date] = None
-    content_url: Optional[str] = None
-    mime_type: Optional[str] = None
-    size: Optional[int] = None
-    
-    def is_recent(self, days: int = 365) -> bool:
-        """Check if document is recent"""
-        if not self.document_date:
-            return False
-        return (date.today() - self.document_date).days <= days
-
-@dataclass
 class EMRObservation:
-    """Internal representation of observation/lab result"""
-    observation_id: str
+    """Internal representation of laboratory/vital observations"""
+    id: str
+    patient_id: str
     code: str
-    display_name: str
-    value: Optional[str] = None
-    unit: Optional[str] = None
-    reference_range: Optional[str] = None
-    status: str = 'final'
-    effective_date: Optional[date] = None
-    category: Optional[str] = None
+    display: str
+    value: str
+    unit: Optional[str]
+    reference_range: Optional[str]
+    status: str
+    effective_date: datetime
+    category: str
+    
+    def to_document_text(self):
+        """Convert observation to searchable document text"""
+        text = f"Lab Test: {self.display}\n"
+        text += f"Value: {self.value}"
+        if self.unit:
+            text += f" {self.unit}"
+        text += "\n"
+        if self.reference_range:
+            text += f"Reference Range: {self.reference_range}\n"
+        text += f"Date: {self.effective_date.strftime('%Y-%m-%d')}\n"
+        text += f"Status: {self.status}"
+        return text
+
+@dataclass 
+class EMRDiagnosticReport:
+    """Internal representation of diagnostic reports"""
+    id: str
+    patient_id: str
+    code: str
+    display: str
+    category: str
+    status: str
+    effective_date: datetime
+    conclusion: Optional[str]
+    presentation_text: Optional[str]
+    
+    def to_document_text(self):
+        """Convert diagnostic report to searchable document text"""
+        text = f"Diagnostic Report: {self.display}\n"
+        text += f"Category: {self.category}\n"
+        text += f"Date: {self.effective_date.strftime('%Y-%m-%d')}\n"
+        text += f"Status: {self.status}\n"
+        if self.conclusion:
+            text += f"Conclusion: {self.conclusion}\n"
+        if self.presentation_text:
+            text += f"Details: {self.presentation_text}"
+        return text
 
 @dataclass
-class EMRAppointment:
-    """Internal representation of appointment"""
-    appointment_id: str
-    appointment_date: datetime
-    appointment_type: str
-    provider: str
-    status: str = 'scheduled'
-    notes: Optional[str] = None
+class EMRCondition:
+    """Internal representation of patient conditions"""
+    id: str
+    patient_id: str
+    code: str
+    display: str
+    clinical_status: str
+    verification_status: str
+    onset_date: Optional[date]
+    recorded_date: datetime
+    
+    def to_document_text(self):
+        """Convert condition to searchable document text"""
+        text = f"Medical Condition: {self.display}\n"
+        text += f"Clinical Status: {self.clinical_status}\n"
+        text += f"Verification Status: {self.verification_status}\n"
+        if self.onset_date:
+            text += f"Onset Date: {self.onset_date.strftime('%Y-%m-%d')}\n"
+        text += f"Recorded Date: {self.recorded_date.strftime('%Y-%m-%d')}"
+        return text
 
 @dataclass
-class EMRBundle:
-    """Bundle of all EMR data for a patient"""
-    patient: EMRPatient
-    conditions: List[EMRCondition]
-    documents: List[EMRDocument]
-    observations: List[EMRObservation]
-    appointments: List[EMRAppointment]
+class EMRMedication:
+    """Internal representation of patient medications"""
+    id: str
+    patient_id: str
+    code: str
+    display: str
+    status: str
+    intent: str
+    dosage_text: Optional[str]
+    authored_date: datetime
     
-    def get_active_conditions(self) -> List[EMRCondition]:
-        """Get only active conditions"""
-        return [c for c in self.conditions if c.status == 'active']
-    
-    def get_recent_documents(self, days: int = 365) -> List[EMRDocument]:
-        """Get documents from the last N days"""
-        return [d for d in self.documents if d.is_recent(days)]
-    
-    def get_documents_by_type(self, doc_type: str) -> List[EMRDocument]:
-        """Get documents of specific type"""
-        return [d for d in self.documents if d.document_type == doc_type]
-    
-    def get_upcoming_appointments(self) -> List[EMRAppointment]:
-        """Get future appointments"""
-        now = datetime.now()
-        return [a for a in self.appointments if a.appointment_date > now and a.status == 'scheduled']
+    def to_document_text(self):
+        """Convert medication to searchable document text"""
+        text = f"Medication: {self.display}\n"
+        text += f"Status: {self.status}\n"
+        text += f"Intent: {self.intent}\n"
+        if self.dosage_text:
+            text += f"Dosage: {self.dosage_text}\n"
+        text += f"Prescribed Date: {self.authored_date.strftime('%Y-%m-%d')}"
+        return text
 
-class EMRDataValidator:
-    """Validates EMR data quality and completeness"""
+class EMRDataBundle:
+    """Container for all EMR data for a patient"""
     
-    @staticmethod
-    def validate_patient(patient: EMRPatient) -> Dict[str, Any]:
-        """Validate patient data completeness"""
-        issues = []
-        warnings = []
-        
-        # Required fields
-        if not patient.mrn:
-            issues.append("Missing MRN")
-        if not patient.first_name:
-            issues.append("Missing first name")
-        if not patient.last_name:
-            issues.append("Missing last name")
-        if not patient.date_of_birth:
-            issues.append("Missing date of birth")
-        if not patient.gender:
-            issues.append("Missing gender")
-        
-        # Optional but recommended fields
-        if not patient.phone:
-            warnings.append("Missing phone number")
-        if not patient.email:
-            warnings.append("Missing email address")
-        
-        # Data quality checks
-        if patient.age < 0 or patient.age > 150:
-            issues.append("Invalid age calculated from birth date")
-        
-        return {
-            'valid': len(issues) == 0,
-            'issues': issues,
-            'warnings': warnings
-        }
+    def __init__(self, patient: EMRPatient):
+        self.patient = patient
+        self.observations: List[EMRObservation] = []
+        self.diagnostic_reports: List[EMRDiagnosticReport] = []
+        self.conditions: List[EMRCondition] = []
+        self.medications: List[EMRMedication] = []
     
-    @staticmethod
-    def validate_bundle(bundle: EMRBundle) -> Dict[str, Any]:
-        """Validate complete EMR bundle"""
-        patient_validation = EMRDataValidator.validate_patient(bundle.patient)
-        
-        issues = patient_validation['issues']
-        warnings = patient_validation['warnings']
-        
-        # Check for minimum expected data
-        if not bundle.conditions:
-            warnings.append("No medical conditions found")
-        if not bundle.documents:
-            warnings.append("No medical documents found")
-        
-        # Check data consistency
-        active_conditions = bundle.get_active_conditions()
-        if len(active_conditions) != len(bundle.conditions):
-            warnings.append(f"{len(bundle.conditions) - len(active_conditions)} inactive conditions found")
-        
-        return {
-            'valid': len(issues) == 0,
-            'issues': issues,
-            'warnings': warnings,
-            'summary': {
-                'conditions_count': len(bundle.conditions),
-                'documents_count': len(bundle.documents),
-                'observations_count': len(bundle.observations),
-                'appointments_count': len(bundle.appointments)
-            }
-        }
-
-class EMRDataTransformer:
-    """Transforms EMR data between formats"""
+    def add_observation(self, observation: EMRObservation):
+        self.observations.append(observation)
     
-    @staticmethod
-    def fhir_to_emr_patient(fhir_patient: Dict[str, Any]) -> EMRPatient:
-        """Convert FHIR Patient resource to EMRPatient"""
-        # Extract basic demographics
-        fhir_id = fhir_patient.get('id', '')
-        
-        # Extract identifiers for MRN
-        mrn = ''
-        for identifier in fhir_patient.get('identifier', []):
-            if identifier.get('type', {}).get('coding', [{}])[0].get('code') == 'MR':
-                mrn = identifier.get('value', '')
-                break
-        
-        # Extract name
-        names = fhir_patient.get('name', [])
-        first_name = ''
-        last_name = ''
-        for name in names:
-            if name.get('use') in ['official', 'usual']:
-                first_name = ' '.join(name.get('given', []))
-                last_name = name.get('family', '')
-                break
-        
-        # Extract other demographics
-        birth_date_str = fhir_patient.get('birthDate', '')
-        birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date() if birth_date_str else None
-        
-        gender = fhir_patient.get('gender', '').upper()
-        if gender == 'MALE':
-            gender = 'M'
-        elif gender == 'FEMALE':
-            gender = 'F'
-        
-        # Extract contact info
-        phone = ''
-        email = ''
-        for telecom in fhir_patient.get('telecom', []):
-            if telecom.get('system') == 'phone':
-                phone = telecom.get('value', '')
-            elif telecom.get('system') == 'email':
-                email = telecom.get('value', '')
-        
-        return EMRPatient(
-            fhir_id=fhir_id,
-            mrn=mrn,
-            first_name=first_name,
-            last_name=last_name,
-            date_of_birth=birth_date,
-            gender=gender,
-            phone=phone or None,
-            email=email or None
-        )
+    def add_diagnostic_report(self, report: EMRDiagnosticReport):
+        self.diagnostic_reports.append(report)
     
-    @staticmethod
-    def fhir_to_emr_condition(fhir_condition: Dict[str, Any]) -> EMRCondition:
-        """Convert FHIR Condition resource to EMRCondition"""
-        # Extract condition name and code
-        coding = fhir_condition.get('code', {}).get('coding', [{}])[0]
-        condition_name = coding.get('display', 'Unknown Condition')
-        icd10_code = coding.get('code') if coding.get('system') == 'http://hl7.org/fhir/sid/icd-10' else None
+    def add_condition(self, condition: EMRCondition):
+        self.conditions.append(condition)
+    
+    def add_medication(self, medication: EMRMedication):
+        self.medications.append(medication)
+    
+    def get_all_searchable_content(self):
+        """Get all content as searchable text for screening matching"""
+        content = []
         
-        # Extract onset date
-        onset_date = None
-        onset_str = fhir_condition.get('onsetDateTime', '')
-        if onset_str:
-            onset_date = datetime.strptime(onset_str[:10], '%Y-%m-%d').date()
+        for obs in self.observations:
+            content.append(obs.to_document_text())
         
-        # Extract status
-        clinical_status = fhir_condition.get('clinicalStatus', {}).get('coding', [{}])[0]
-        status = clinical_status.get('code', 'active')
+        for report in self.diagnostic_reports:
+            content.append(report.to_document_text())
         
-        return EMRCondition(
-            condition_name=condition_name,
-            icd10_code=icd10_code,
-            onset_date=onset_date,
-            status=status,
-            fhir_id=fhir_condition.get('id')
-        )
+        for condition in self.conditions:
+            content.append(condition.to_document_text())
+        
+        for medication in self.medications:
+            content.append(medication.to_document_text())
+        
+        return content
+    
+    def get_conditions_list(self):
+        """Get list of active condition codes for screening eligibility"""
+        return [condition.code for condition in self.conditions 
+                if condition.clinical_status.lower() == 'active']

@@ -1,320 +1,173 @@
 """
 SMART on FHIR API client for EMR integration
 """
-
-import os
-import logging
 import requests
-from typing import Dict, List, Any, Optional
-from datetime import datetime
 import json
-
-logger = logging.getLogger(__name__)
+import logging
+from datetime import datetime
+import os
 
 class FHIRClient:
-    """Client for connecting to FHIR-enabled EMR systems"""
-    
     def __init__(self):
-        self.base_url = os.environ.get("FHIR_BASE_URL", "")
-        self.client_id = os.environ.get("FHIR_CLIENT_ID", "")
-        self.client_secret = os.environ.get("FHIR_CLIENT_SECRET", "")
+        self.base_url = os.getenv('FHIR_BASE_URL', 'http://hapi.fhir.org/baseR4')
+        self.client_id = os.getenv('FHIR_CLIENT_ID', 'health-prep-client')
+        self.client_secret = os.getenv('FHIR_CLIENT_SECRET', 'default_secret')
         self.access_token = None
-        self.token_expiry = None
         
-        # FHIR version
-        self.fhir_version = "R4"
-        
-        # Request session for connection pooling
-        self.session = requests.Session()
-        self.session.headers.update({
-            'Content-Type': 'application/fhir+json',
-            'Accept': 'application/fhir+json'
-        })
-    
-    def authenticate(self) -> bool:
-        """
-        Authenticate with FHIR server using client credentials
-        """
-        if not self.base_url or not self.client_id:
-            logger.warning("FHIR credentials not configured")
-            return False
-        
+    def authenticate(self):
+        """Authenticate with FHIR server using client credentials"""
         try:
-            auth_url = f"{self.base_url}/auth/token"
+            auth_url = f"{self.base_url}/oauth/token"
             
             data = {
                 'grant_type': 'client_credentials',
                 'client_id': self.client_id,
                 'client_secret': self.client_secret,
-                'scope': 'patient/*.read'
+                'scope': 'system/Patient.read system/Observation.read system/DiagnosticReport.read'
             }
             
             response = requests.post(auth_url, data=data)
-            response.raise_for_status()
             
-            token_data = response.json()
-            self.access_token = token_data.get('access_token')
-            expires_in = token_data.get('expires_in', 3600)
+            if response.status_code == 200:
+                token_data = response.json()
+                self.access_token = token_data.get('access_token')
+                logging.info("Successfully authenticated with FHIR server")
+                return True
+            else:
+                logging.error(f"FHIR authentication failed: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            logging.error(f"Error during FHIR authentication: {e}")
+            return False
+    
+    def _make_request(self, endpoint, params=None):
+        """Make authenticated request to FHIR server"""
+        if not self.access_token:
+            if not self.authenticate():
+                return None
+        
+        headers = {
+            'Authorization': f'Bearer {self.access_token}',
+            'Accept': 'application/fhir+json'
+        }
+        
+        try:
+            url = f"{self.base_url}/{endpoint}"
+            response = requests.get(url, headers=headers, params=params)
             
-            self.token_expiry = datetime.utcnow().timestamp() + expires_in
+            if response.status_code == 200:
+                return response.json()
+            elif response.status_code == 401:
+                # Token expired, try to re-authenticate
+                if self.authenticate():
+                    headers['Authorization'] = f'Bearer {self.access_token}'
+                    response = requests.get(url, headers=headers, params=params)
+                    if response.status_code == 200:
+                        return response.json()
             
-            # Update session headers
-            self.session.headers.update({
-                'Authorization': f'Bearer {self.access_token}'
+            logging.error(f"FHIR request failed: {response.status_code} - {response.text}")
+            return None
+            
+        except Exception as e:
+            logging.error(f"Error making FHIR request: {e}")
+            return None
+    
+    def get_patient(self, patient_id):
+        """Get patient resource by ID"""
+        return self._make_request(f"Patient/{patient_id}")
+    
+    def search_patients(self, family_name=None, given_name=None, identifier=None):
+        """Search for patients"""
+        params = {}
+        if family_name:
+            params['family'] = family_name
+        if given_name:
+            params['given'] = given_name
+        if identifier:
+            params['identifier'] = identifier
+        
+        return self._make_request("Patient", params)
+    
+    def get_patient_observations(self, patient_id, code=None, date_from=None):
+        """Get observations for a patient"""
+        params = {
+            'patient': patient_id,
+            '_sort': '-date'
+        }
+        
+        if code:
+            params['code'] = code
+        if date_from:
+            params['date'] = f'ge{date_from.isoformat()}'
+        
+        return self._make_request("Observation", params)
+    
+    def get_diagnostic_reports(self, patient_id, category=None, date_from=None):
+        """Get diagnostic reports for a patient"""
+        params = {
+            'patient': patient_id,
+            '_sort': '-date'
+        }
+        
+        if category:
+            params['category'] = category
+        if date_from:
+            params['date'] = f'ge{date_from.isoformat()}'
+        
+        return self._make_request("DiagnosticReport", params)
+    
+    def get_conditions(self, patient_id):
+        """Get conditions for a patient"""
+        params = {
+            'patient': patient_id,
+            'clinical-status': 'active'
+        }
+        
+        return self._make_request("Condition", params)
+    
+    def get_medications(self, patient_id):
+        """Get medications for a patient"""
+        params = {
+            'patient': patient_id,
+            'status': 'active'
+        }
+        
+        return self._make_request("MedicationRequest", params)
+    
+    def sync_patient_data(self, fhir_patient_id, local_patient_id):
+        """Sync patient data from FHIR server to local database"""
+        try:
+            # Get patient demographics
+            patient_data = self.get_patient(fhir_patient_id)
+            if not patient_data:
+                return False
+            
+            # Get recent observations (last 2 years)
+            from datetime import timedelta
+            date_from = datetime.now() - timedelta(days=730)
+            observations = self.get_patient_observations(fhir_patient_id, date_from=date_from)
+            
+            # Get diagnostic reports
+            reports = self.get_diagnostic_reports(fhir_patient_id, date_from=date_from)
+            
+            # Get conditions
+            conditions = self.get_conditions(fhir_patient_id)
+            
+            # Process and store data
+            from emr.parser import FHIRParser
+            parser = FHIRParser()
+            
+            parser.process_patient_data(local_patient_id, {
+                'patient': patient_data,
+                'observations': observations,
+                'reports': reports,
+                'conditions': conditions
             })
             
-            logger.info("FHIR authentication successful")
+            logging.info(f"Successfully synced FHIR data for patient {local_patient_id}")
             return True
             
         except Exception as e:
-            logger.error(f"FHIR authentication failed: {str(e)}")
+            logging.error(f"Error syncing patient data: {e}")
             return False
-    
-    def _ensure_authenticated(self) -> bool:
-        """Ensure we have a valid access token"""
-        if not self.access_token or (self.token_expiry and datetime.utcnow().timestamp() >= self.token_expiry):
-            return self.authenticate()
-        return True
-    
-    def get_patient(self, patient_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get patient resource by ID
-        """
-        if not self._ensure_authenticated():
-            return None
-        
-        try:
-            url = f"{self.base_url}/Patient/{patient_id}"
-            response = self.session.get(url)
-            response.raise_for_status()
-            
-            return response.json()
-            
-        except Exception as e:
-            logger.error(f"Error fetching patient {patient_id}: {str(e)}")
-            return None
-    
-    def search_patients(self, **params) -> List[Dict[str, Any]]:
-        """
-        Search for patients with given parameters
-        """
-        if not self._ensure_authenticated():
-            return []
-        
-        try:
-            url = f"{self.base_url}/Patient"
-            response = self.session.get(url, params=params)
-            response.raise_for_status()
-            
-            bundle = response.json()
-            patients = []
-            
-            if bundle.get('entry'):
-                for entry in bundle['entry']:
-                    if entry.get('resource', {}).get('resourceType') == 'Patient':
-                        patients.append(entry['resource'])
-            
-            return patients
-            
-        except Exception as e:
-            logger.error(f"Error searching patients: {str(e)}")
-            return []
-    
-    def get_patient_documents(self, patient_id: str) -> List[Dict[str, Any]]:
-        """
-        Get all documents for a patient (DocumentReference resources)
-        """
-        if not self._ensure_authenticated():
-            return []
-        
-        try:
-            url = f"{self.base_url}/DocumentReference"
-            params = {'patient': patient_id, '_count': 100}
-            
-            response = self.session.get(url, params=params)
-            response.raise_for_status()
-            
-            bundle = response.json()
-            documents = []
-            
-            if bundle.get('entry'):
-                for entry in bundle['entry']:
-                    if entry.get('resource', {}).get('resourceType') == 'DocumentReference':
-                        documents.append(entry['resource'])
-            
-            return documents
-            
-        except Exception as e:
-            logger.error(f"Error fetching documents for patient {patient_id}: {str(e)}")
-            return []
-    
-    def get_patient_conditions(self, patient_id: str) -> List[Dict[str, Any]]:
-        """
-        Get patient conditions
-        """
-        if not self._ensure_authenticated():
-            return []
-        
-        try:
-            url = f"{self.base_url}/Condition"
-            params = {'patient': patient_id, 'clinical-status': 'active'}
-            
-            response = self.session.get(url, params=params)
-            response.raise_for_status()
-            
-            bundle = response.json()
-            conditions = []
-            
-            if bundle.get('entry'):
-                for entry in bundle['entry']:
-                    if entry.get('resource', {}).get('resourceType') == 'Condition':
-                        conditions.append(entry['resource'])
-            
-            return conditions
-            
-        except Exception as e:
-            logger.error(f"Error fetching conditions for patient {patient_id}: {str(e)}")
-            return []
-    
-    def get_patient_observations(self, patient_id: str, category: str = None) -> List[Dict[str, Any]]:
-        """
-        Get patient observations (labs, vitals, etc.)
-        """
-        if not self._ensure_authenticated():
-            return []
-        
-        try:
-            url = f"{self.base_url}/Observation"
-            params = {'patient': patient_id, '_count': 100}
-            
-            if category:
-                params['category'] = category
-            
-            response = self.session.get(url, params=params)
-            response.raise_for_status()
-            
-            bundle = response.json()
-            observations = []
-            
-            if bundle.get('entry'):
-                for entry in bundle['entry']:
-                    if entry.get('resource', {}).get('resourceType') == 'Observation':
-                        observations.append(entry['resource'])
-            
-            return observations
-            
-        except Exception as e:
-            logger.error(f"Error fetching observations for patient {patient_id}: {str(e)}")
-            return []
-    
-    def get_patient_appointments(self, patient_id: str) -> List[Dict[str, Any]]:
-        """
-        Get patient appointments
-        """
-        if not self._ensure_authenticated():
-            return []
-        
-        try:
-            url = f"{self.base_url}/Appointment"
-            params = {'patient': patient_id, '_count': 50}
-            
-            response = self.session.get(url, params=params)
-            response.raise_for_status()
-            
-            bundle = response.json()
-            appointments = []
-            
-            if bundle.get('entry'):
-                for entry in bundle['entry']:
-                    if entry.get('resource', {}).get('resourceType') == 'Appointment':
-                        appointments.append(entry['resource'])
-            
-            return appointments
-            
-        except Exception as e:
-            logger.error(f"Error fetching appointments for patient {patient_id}: {str(e)}")
-            return []
-    
-    def get_patient_bundle(self, patient_id: str) -> Dict[str, Any]:
-        """
-        Get comprehensive patient data bundle
-        """
-        if not self._ensure_authenticated():
-            return {}
-        
-        try:
-            # Get all resources for patient in one request
-            url = f"{self.base_url}/Patient/{patient_id}/$everything"
-            
-            response = self.session.get(url)
-            response.raise_for_status()
-            
-            return response.json()
-            
-        except Exception as e:
-            logger.error(f"Error fetching patient bundle for {patient_id}: {str(e)}")
-            # Fallback to individual requests
-            return self._get_patient_bundle_fallback(patient_id)
-    
-    def _get_patient_bundle_fallback(self, patient_id: str) -> Dict[str, Any]:
-        """
-        Fallback method to get patient data using individual requests
-        """
-        bundle = {
-            'resourceType': 'Bundle',
-            'id': f'patient-{patient_id}-bundle',
-            'type': 'collection',
-            'entry': []
-        }
-        
-        # Get patient
-        patient = self.get_patient(patient_id)
-        if patient:
-            bundle['entry'].append({'resource': patient})
-        
-        # Get conditions
-        conditions = self.get_patient_conditions(patient_id)
-        for condition in conditions:
-            bundle['entry'].append({'resource': condition})
-        
-        # Get documents
-        documents = self.get_patient_documents(patient_id)
-        for document in documents:
-            bundle['entry'].append({'resource': document})
-        
-        # Get observations
-        observations = self.get_patient_observations(patient_id)
-        for observation in observations:
-            bundle['entry'].append({'resource': observation})
-        
-        # Get appointments
-        appointments = self.get_patient_appointments(patient_id)
-        for appointment in appointments:
-            bundle['entry'].append({'resource': appointment})
-        
-        return bundle
-    
-    def test_connection(self) -> Dict[str, Any]:
-        """
-        Test FHIR server connection and return capability statement
-        """
-        try:
-            url = f"{self.base_url}/metadata"
-            response = self.session.get(url)
-            response.raise_for_status()
-            
-            capability_statement = response.json()
-            
-            return {
-                'success': True,
-                'server_version': capability_statement.get('fhirVersion', 'Unknown'),
-                'software': capability_statement.get('software', {}),
-                'implementation': capability_statement.get('implementation', {})
-            }
-            
-        except Exception as e:
-            logger.error(f"FHIR connection test failed: {str(e)}")
-            return {
-                'success': False,
-                'error': str(e)
-            }

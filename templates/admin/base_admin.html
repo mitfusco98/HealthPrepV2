@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Cache control -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
+    <title>{% block title %}HealthPrep Admin - System Administration{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link href="{{ url_for('static', filename='css/custom.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/medical_terminology_ui.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/loading-states.css') }}" rel="stylesheet">
+    
+    <!-- Admin-specific styles -->
+    <style>
+    .admin-nav {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    }
+    .admin-sidebar {
+        min-height: calc(100vh - 200px);
+        background-color: var(--bs-dark);
+        border-radius: 8px;
+    }
+    .admin-content {
+        background-color: var(--bs-dark);
+        border-radius: 8px;
+        padding: 2rem;
+    }
+    .metric-card {
+        transition: transform 0.2s ease;
+    }
+    .metric-card:hover {
+        transform: translateY(-2px);
+    }
+    .admin-badge {
+        background: linear-gradient(45deg, #dc3545, #c82333);
+        color: white;
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 10px;
+    }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Admin Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark admin-nav mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('admin.dashboard') }}">
+                <i class="fas fa-shield-alt me-2"></i>HealthPrep Admin
+                <span class="admin-badge ms-2">Admin</span>
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="adminNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.dashboard') }}">
+                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.logs') }}">
+                            <i class="fas fa-file-alt me-1"></i>Audit Logs
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.ocr_dashboard') }}">
+                            <i class="fas fa-eye me-1"></i>OCR Monitor
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.phi_settings') }}">
+                            <i class="fas fa-user-shield me-1"></i>PHI Settings
+                        </a>
+                    </li>
+                </ul>
+                
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('index') }}">
+                            <i class="fas fa-arrow-left me-1"></i>Back to App
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user me-1"></i>{{ current_user.username }}
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">
+                                <i class="fas fa-sign-out-alt me-1"></i>Logout
+                            </a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    <div class="container-fluid">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'info-circle' if category == 'info' else 'check-circle' }} me-2"></i>
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Admin Layout -->
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-lg-2 mb-4">
+                <div class="admin-sidebar p-3">
+                    <h6 class="text-muted mb-3">
+                        <i class="fas fa-cogs me-1"></i>System Tools
+                    </h6>
+                    <div class="list-group list-group-flush">
+                        <a href="{{ url_for('admin.dashboard') }}" class="list-group-item list-group-item-action bg-transparent text-light">
+                            <i class="fas fa-chart-line me-2"></i>Analytics
+                        </a>
+                        <a href="{{ url_for('screening.screening_types') }}" class="list-group-item list-group-item-action bg-transparent text-light">
+                            <i class="fas fa-list-check me-2"></i>Screening Types
+                        </a>
+                        <a href="{{ url_for('prep_sheet.prep_sheet_settings') }}" class="list-group-item list-group-item-action bg-transparent text-light">
+                            <i class="fas fa-cog me-2"></i>Prep Settings
+                        </a>
+                        <a href="{{ url_for('documents.document_list') }}" class="list-group-item list-group-item-action bg-transparent text-light">
+                            <i class="fas fa-folder-open me-2"></i>Documents
+                        </a>
+                    </div>
+                    
+                    <h6 class="text-muted mb-3 mt-4">
+                        <i class="fas fa-shield-alt me-1"></i>Security
+                    </h6>
+                    <div class="list-group list-group-flush">
+                        <a href="{{ url_for('admin.phi_settings') }}" class="list-group-item list-group-item-action bg-transparent text-light">
+                            <i class="fas fa-user-secret me-2"></i>PHI Filters
+                        </a>
+                        <a href="{{ url_for('admin.logs') }}" class="list-group-item list-group-item-action bg-transparent text-light">
+                            <i class="fas fa-history me-2"></i>Audit Trail
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Main Content -->
+            <div class="col-lg-10">
+                <div class="admin-content">
+                    {% block content %}{% endblock %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-light py-3 mt-5">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-md-6">
+                    <small class="text-muted">
+                        <i class="fas fa-shield-alt me-1"></i>HealthPrep Admin Panel - 
+                        Logged in as {{ current_user.username }}
+                    </small>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <small class="text-muted">
+                        <i class="fas fa-clock me-1"></i>{{ moment().format('YYYY-MM-DD HH:mm:ss') }} UTC
+                    </small>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay d-none">
+        <div class="loading-spinner">
+            <div class="spinner-border text-danger" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <div class="loading-text mt-3">Processing...</div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Admin JS -->
+    <script>
+        // Admin-specific JavaScript
+        function showLoading(text = 'Processing...') {
+            const overlay = document.getElementById('loading-overlay');
+            const loadingText = overlay.querySelector('.loading-text');
+            loadingText.textContent = text;
+            overlay.classList.remove('d-none');
+        }
+
+        function hideLoading() {
+            const overlay = document.getElementById('loading-overlay');
+            overlay.classList.add('d-none');
+        }
+
+        // Auto-refresh for real-time data
+        function startAutoRefresh(interval = 30000) {
+            setInterval(function() {
+                // Refresh dashboard metrics
+                if (window.location.pathname.includes('/admin/dashboard')) {
+                    location.reload();
+                }
+            }, interval);
+        }
+
+        // Export functionality
+        function exportData(endpoint, filename) {
+            showLoading('Exporting data...');
+            
+            fetch(endpoint)
+                .then(response => response.json())
+                .then(data => {
+                    const blob = new Blob([JSON.stringify(data, null, 2)], 
+                        { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                })
+                .catch(error => {
+                    console.error('Export failed:', error);
+                    alert('Export failed. Please try again.');
+                })
+                .finally(() => {
+                    hideLoading();
+                });
+        }
+
+        // Auto-hide alerts
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(function(alert) {
+                setTimeout(function() {
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                }, 7000);
+            });
+            
+            // Highlight active nav item
+            const currentPath = window.location.pathname;
+            const navItems = document.querySelectorAll('.navbar-nav .nav-link, .list-group-item');
+            navItems.forEach(function(item) {
+                if (item.getAttribute('href') === currentPath) {
+                    item.classList.add('active');
+                }
+            });
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
+

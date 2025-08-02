@@ -1,0 +1,273 @@
+<!-- Screening List Tab Content -->
+<div class="row">
+    <div class="col-12">
+        <!-- Filter Controls -->
+        <div class="filter-controls">
+            <form method="GET" action="{{ url_for('ui.screening_list') }}">
+                <input type="hidden" name="tab" value="list">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label for="patientFilter" class="form-label">
+                            <i class="fas fa-user me-1"></i>Patient
+                        </label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="patientFilter" 
+                               name="patient" 
+                               placeholder="Search by name or MRN"
+                               value="{{ filters.patient }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="statusFilter" class="form-label">
+                            <i class="fas fa-flag me-1"></i>Status
+                        </label>
+                        <select class="form-select" id="statusFilter" name="status">
+                            <option value="">All Statuses</option>
+                            {% for status in status_options %}
+                                <option value="{{ status }}" {{ 'selected' if filters.status == status else '' }}>
+                                    {{ status }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="screeningTypeFilter" class="form-label">
+                            <i class="fas fa-stethoscope me-1"></i>Screening Type
+                        </label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="screeningTypeFilter" 
+                               name="screening_type" 
+                               placeholder="Search screening types"
+                               value="{{ filters.screening_type }}">
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <div class="btn-group w-100" role="group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Filter
+                            </button>
+                            <a href="{{ url_for('ui.screening_list', tab='list') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Clear
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Results Summary -->
+        {% if screenings %}
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <span class="text-muted">
+                        Showing {{ screenings|length }} screening{{ 's' if screenings|length != 1 else '' }}
+                    </span>
+                </div>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAllPatients()">
+                        <i class="fas fa-check-square me-1"></i>Select All
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearSelection()">
+                        <i class="fas fa-square me-1"></i>Clear Selection
+                    </button>
+                </div>
+            </div>
+
+            <!-- Screening Cards -->
+            <div class="row g-3">
+                {% for screening in screenings %}
+                    <div class="col-lg-6 xl-4">
+                        <div class="screening-card p-3">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" 
+                                           type="checkbox" 
+                                           id="patient_{{ screening.patient.id }}"
+                                           onchange="updateBatchSelection({{ screening.patient.id }}, '{{ screening.patient.full_name }}', this.checked)">
+                                    <label class="form-check-label fw-bold" for="patient_{{ screening.patient.id }}">
+                                        {{ screening.patient.full_name }}
+                                    </label>
+                                </div>
+                                <span class="badge {{ getStatusClass(screening.status) }}">
+                                    {{ screening.status }}
+                                </span>
+                            </div>
+                            
+                            <div class="mb-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-id-card me-1"></i>MRN: {{ screening.patient.mrn }}
+                                    <span class="ms-3">
+                                        <i class="fas fa-birthday-cake me-1"></i>Age: {{ screening.patient.age }}
+                                    </span>
+                                    <span class="ms-3">
+                                        <i class="fas fa-{{ 'mars' if screening.patient.gender == 'M' else 'venus' }} me-1"></i>{{ screening.patient.gender }}
+                                    </span>
+                                </small>
+                            </div>
+                            
+                            <h6 class="mb-2">
+                                <i class="fas fa-stethoscope text-primary me-2"></i>
+                                {{ screening.screening_type.name }}
+                            </h6>
+                            
+                            <div class="row mb-2">
+                                <div class="col-6">
+                                    <small class="text-muted">Last Completed:</small><br>
+                                    <small class="fw-bold">
+                                        {{ screening.last_completed_date.strftime('%m/%d/%Y') if screening.last_completed_date else 'Never' }}
+                                    </small>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Frequency:</small><br>
+                                    <small class="fw-bold">
+                                        Every {{ screening.screening_type.frequency_number }} {{ screening.screening_type.frequency_unit }}
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <!-- Matched Documents -->
+                            {% if screening.matched_documents_list %}
+                                <div class="mb-2">
+                                    <small class="text-muted d-block mb-1">
+                                        <i class="fas fa-file-medical me-1"></i>
+                                        Matched Documents ({{ screening.matched_documents_list|length }}):
+                                    </small>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        {% set documents = [] %}
+                                        {% for doc_id in screening.matched_documents_list %}
+                                            {% set doc = models.MedicalDocument.query.get(doc_id) %}
+                                            {% if doc %}
+                                                {% set _ = documents.append(doc) %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        
+                                        {% for doc in documents[:3] %}
+                                            <a href="{{ url_for('ui.document_viewer', document_id=doc.id) }}" 
+                                               class="document-link {{ getConfidenceClass(doc.ocr_confidence) }}"
+                                               title="Confidence: {{ '%.1f'|format(doc.ocr_confidence * 100) if doc.ocr_confidence else 'Unknown' }}%">
+                                                {{ doc.filename[:20] }}{% if doc.filename|length > 20 %}...{% endif %}
+                                            </a>
+                                        {% endfor %}
+                                        
+                                        {% if documents|length > 3 %}
+                                            <span class="badge bg-secondary">
+                                                +{{ documents|length - 3 }} more
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="mb-2">
+                                    <small class="text-muted">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>
+                                        No matching documents found
+                                    </small>
+                                </div>
+                            {% endif %}
+                            
+                            <!-- Action Buttons -->
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('ui.patient_detail', patient_id=screening.patient.id) }}" 
+                                       class="btn btn-outline-primary">
+                                        <i class="fas fa-user me-1"></i>Patient
+                                    </a>
+                                    <a href="{{ url_for('ui.prep_sheet_view', patient_id=screening.patient.id) }}" 
+                                       class="btn btn-primary">
+                                        <i class="fas fa-file-medical me-1"></i>Prep Sheet
+                                    </a>
+                                </div>
+                                
+                                {% if screening.next_due_date %}
+                                    <small class="text-muted">
+                                        Next due: {{ screening.next_due_date.strftime('%m/%d/%Y') }}
+                                    </small>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination (if needed) -->
+            {% if screenings|length >= 50 %}
+                <div class="d-flex justify-content-center mt-4">
+                    <nav>
+                        <ul class="pagination">
+                            <li class="page-item">
+                                <a class="page-link" href="#" aria-label="Previous">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                            <li class="page-item"><a class="page-link" href="#">2</a></li>
+                            <li class="page-item"><a class="page-link" href="#">3</a></li>
+                            <li class="page-item">
+                                <a class="page-link" href="#" aria-label="Next">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            {% endif %}
+
+        {% else %}
+            <!-- Empty State -->
+            <div class="text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-search text-muted" style="font-size: 4rem;"></i>
+                </div>
+                <h4 class="text-muted">No screenings found</h4>
+                <p class="text-muted">
+                    {% if filters.patient or filters.status or filters.screening_type %}
+                        Try adjusting your filters or <a href="{{ url_for('ui.screening_list', tab='list') }}">clear all filters</a>.
+                    {% else %}
+                        No screening data is currently available. 
+                        <a href="{{ url_for('ui.screening_list', tab='types') }}">Configure screening types</a> 
+                        to begin tracking patient screenings.
+                    {% endif %}
+                </p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+// Selection management for batch actions
+let selectedPatients = new Set();
+
+function selectAllPatients() {
+    const checkboxes = document.querySelectorAll('input[type="checkbox"][id^="patient_"]');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = true;
+        const patientId = parseInt(checkbox.id.replace('patient_', ''));
+        const patientName = checkbox.nextElementSibling.textContent.trim();
+        updateBatchSelection(patientId, patientName, true);
+    });
+}
+
+function clearSelection() {
+    const checkboxes = document.querySelectorAll('input[type="checkbox"][id^="patient_"]');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+        const patientId = parseInt(checkbox.id.replace('patient_', ''));
+        updateBatchSelection(patientId, '', false);
+    });
+}
+
+function getStatusClass(status) {
+    switch (status) {
+        case 'Complete': return 'bg-success';
+        case 'Due': return 'bg-danger';
+        case 'Due Soon': return 'bg-warning text-dark';
+        default: return 'bg-secondary';
+    }
+}
+
+function getConfidenceClass(confidence) {
+    if (confidence >= 0.85) return 'confidence-high';
+    if (confidence >= 0.70) return 'confidence-medium';
+    return 'confidence-low';
+}
+</script>

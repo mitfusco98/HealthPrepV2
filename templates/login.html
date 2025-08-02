@@ -1,0 +1,381 @@
+{% extends 'base_demo.html' %}
+
+{% block title %}HealthPrep - Login{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: linear-gradient(135deg, #1a1d23 0%, #2c3034 50%, #1a1d23 100%);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .login-container {
+        min-height: calc(100vh - 200px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 0;
+    }
+
+    .login-card {
+        background: var(--bs-card-bg);
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+        border: 1px solid var(--health-primary);
+        overflow: hidden;
+        max-width: 450px;
+        width: 100%;
+    }
+
+    .login-header {
+        background: linear-gradient(135deg, var(--health-primary), var(--health-secondary));
+        padding: 2rem;
+        text-align: center;
+        color: white;
+    }
+
+    .login-header h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: white;
+    }
+
+    .login-header p {
+        opacity: 0.9;
+        margin-bottom: 0;
+        font-size: 1rem;
+    }
+
+    .login-body {
+        padding: 2rem;
+    }
+
+    .form-floating {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-floating .form-control {
+        background: rgba(255, 255, 255, 0.05);
+        border: 2px solid var(--bs-border-color);
+        color: var(--bs-body-color);
+        font-size: 1rem;
+        padding: 1rem 1rem;
+        height: auto;
+    }
+
+    .form-floating .form-control:focus {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: var(--health-primary);
+        box-shadow: 0 0 0 0.2rem rgba(0, 102, 204, 0.25);
+    }
+
+    .form-floating label {
+        color: rgba(255, 255, 255, 0.7);
+        font-weight: 500;
+    }
+
+    .btn-login {
+        background: linear-gradient(135deg, var(--health-primary), var(--health-secondary));
+        border: none;
+        padding: 0.875rem 2rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 8px;
+        width: 100%;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .btn-login:hover {
+        background: linear-gradient(135deg, var(--health-secondary), #003366);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 102, 204, 0.4);
+    }
+
+    .btn-login:focus {
+        box-shadow: 0 0 0 0.2rem rgba(0, 102, 204, 0.5);
+    }
+
+    .form-check {
+        margin: 1.5rem 0;
+    }
+
+    .form-check-input:checked {
+        background-color: var(--health-primary);
+        border-color: var(--health-primary);
+    }
+
+    .form-check-label {
+        color: var(--bs-body-color);
+        font-weight: 500;
+    }
+
+    .security-notice {
+        background: rgba(40, 167, 69, 0.1);
+        border: 1px solid rgba(40, 167, 69, 0.3);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1.5rem;
+        text-align: center;
+    }
+
+    .security-notice .icon {
+        color: var(--health-success);
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .security-notice h6 {
+        color: var(--health-success);
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+    }
+
+    .security-notice p {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 0.9rem;
+        margin-bottom: 0;
+    }
+
+    .features-list {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .feature-item {
+        text-align: center;
+        flex: 1;
+    }
+
+    .feature-item i {
+        color: var(--health-primary);
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .feature-item span {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    @media (max-width: 768px) {
+        .login-container {
+            padding: 1rem;
+        }
+        
+        .login-header {
+            padding: 1.5rem;
+        }
+        
+        .login-body {
+            padding: 1.5rem;
+        }
+        
+        .features-list {
+            flex-direction: column;
+            gap: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-card">
+        <!-- Header -->
+        <div class="login-header">
+            <i class="fas fa-heartbeat" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+            <h1>HealthPrep</h1>
+            <p>HIPAA-Compliant Medical Preparation System</p>
+        </div>
+
+        <!-- Login Form -->
+        <div class="login-body">
+            <form method="POST" action="{{ url_for('auth.login') }}" novalidate>
+                {{ form.hidden_tag() }}
+                
+                <!-- Username Field -->
+                <div class="form-floating">
+                    {{ form.username(class="form-control", id="floatingUsername", placeholder="Username") }}
+                    {{ form.username.label(for="floatingUsername") }}
+                    {% if form.username.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.username.errors %}
+                                <div>{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Password Field -->
+                <div class="form-floating">
+                    {{ form.password(class="form-control", id="floatingPassword", placeholder="Password") }}
+                    {{ form.password.label(for="floatingPassword") }}
+                    {% if form.password.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.password.errors %}
+                                <div>{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Remember Me -->
+                <div class="form-check">
+                    {{ form.remember_me(class="form-check-input", id="rememberMe") }}
+                    {{ form.remember_me.label(class="form-check-label", for="rememberMe") }}
+                </div>
+
+                <!-- Submit Button -->
+                {{ form.submit(class="btn btn-primary btn-login") }}
+            </form>
+
+            <!-- Security Notice -->
+            <div class="security-notice">
+                <i class="fas fa-shield-alt icon"></i>
+                <h6>Secure Healthcare Platform</h6>
+                <p>This system is HIPAA-compliant and uses enterprise-grade security to protect patient information.</p>
+                
+                <div class="features-list">
+                    <div class="feature-item">
+                        <i class="fas fa-lock"></i>
+                        <span>AES-256<br>Encryption</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-user-shield"></i>
+                        <span>HIPAA<br>Compliant</span>
+                    </div>
+                    <div class="feature-item">
+                        <i class="fas fa-clipboard-check"></i>
+                        <span>Audit<br>Logging</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Demo Credentials Info (for development only) -->
+{% if config.DEBUG %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="alert alert-info">
+                <h6><i class="fas fa-info-circle me-2"></i>Demo Access</h6>
+                <p class="mb-2"><strong>Administrator:</strong></p>
+                <ul class="mb-2">
+                    <li>Username: <code>admin</code></li>
+                    <li>Password: <code>admin123</code></li>
+                </ul>
+                <p class="mb-2"><strong>Standard User:</strong></p>
+                <ul class="mb-0">
+                    <li>Username: <code>user</code></li>
+                    <li>Password: <code>user123</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Form validation enhancement
+    const form = document.querySelector('form');
+    const inputs = form.querySelectorAll('input[required]');
+    
+    // Real-time validation
+    inputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            validateField(this);
+        });
+        
+        input.addEventListener('input', function() {
+            if (this.classList.contains('is-invalid')) {
+                validateField(this);
+            }
+        });
+    });
+    
+    function validateField(field) {
+        const value = field.value.trim();
+        const isValid = value.length > 0;
+        
+        field.classList.remove('is-valid', 'is-invalid');
+        
+        if (field.hasAttribute('required')) {
+            if (isValid) {
+                field.classList.add('is-valid');
+            } else {
+                field.classList.add('is-invalid');
+            }
+        }
+    }
+    
+    // Form submission handling
+    form.addEventListener('submit', function(e) {
+        let isValid = true;
+        
+        inputs.forEach(input => {
+            validateField(input);
+            if (input.classList.contains('is-invalid')) {
+                isValid = false;
+            }
+        });
+        
+        if (isValid) {
+            // Show loading state
+            const submitBtn = form.querySelector('button[type="submit"]');
+            submitBtn.classList.add('btn-loading');
+            submitBtn.disabled = true;
+            
+            // Add loading text
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Signing In...';
+        }
+    });
+    
+    // Focus first empty field
+    const firstEmptyField = Array.from(inputs).find(input => !input.value.trim());
+    if (firstEmptyField) {
+        firstEmptyField.focus();
+    }
+    
+    // Password field enhancements
+    const passwordField = document.getElementById('floatingPassword');
+    if (passwordField) {
+        // Add password visibility toggle
+        const toggleBtn = document.createElement('button');
+        toggleBtn.type = 'button';
+        toggleBtn.className = 'btn btn-outline-secondary password-toggle';
+        toggleBtn.innerHTML = '<i class="fas fa-eye"></i>';
+        toggleBtn.style.cssText = 'position: absolute; right: 10px; top: 50%; transform: translateY(-50%); border: none; background: transparent; color: var(--bs-body-color); z-index: 10;';
+        
+        passwordField.parentElement.style.position = 'relative';
+        passwordField.parentElement.appendChild(toggleBtn);
+        
+        toggleBtn.addEventListener('click', function() {
+            const icon = this.querySelector('i');
+            if (passwordField.type === 'password') {
+                passwordField.type = 'text';
+                icon.className = 'fas fa-eye-slash';
+            } else {
+                passwordField.type = 'password';
+                icon.className = 'fas fa-eye';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,515 @@
+/* Medical Terminology UI Styles */
+/* Specialized styling for medical terms, conditions, and healthcare-specific components */
+
+/* Medical Term Highlighting */
+.medical-term {
+    background: linear-gradient(135deg, rgba(0, 102, 204, 0.1), rgba(0, 102, 204, 0.05));
+    border-radius: 4px;
+    padding: 0.2rem 0.4rem;
+    font-weight: 500;
+    border-left: 3px solid var(--health-primary);
+    font-family: 'Courier New', monospace;
+}
+
+.medical-term:hover {
+    background: rgba(0, 102, 204, 0.15);
+    cursor: help;
+}
+
+/* Medical Condition Badges */
+.condition-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin: 0.125rem;
+    transition: all 0.2s ease;
+}
+
+.condition-badge.active {
+    background: linear-gradient(135deg, #28a745, #1e7e34);
+    color: white;
+    border: 1px solid #1e7e34;
+}
+
+.condition-badge.inactive {
+    background: linear-gradient(135deg, #6c757d, #545b62);
+    color: white;
+    border: 1px solid #545b62;
+}
+
+.condition-badge.resolved {
+    background: linear-gradient(135deg, #17a2b8, #138496);
+    color: white;
+    border: 1px solid #138496;
+}
+
+.condition-badge:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Screening Status Indicators */
+.screening-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4rem 0.8rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
+}
+
+.screening-status::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 4px;
+    height: 100%;
+    background: currentColor;
+}
+
+.screening-status.due {
+    background: rgba(220, 53, 69, 0.15);
+    color: #721c24;
+    border: 1px solid rgba(220, 53, 69, 0.3);
+}
+
+.screening-status.due-soon {
+    background: rgba(255, 193, 7, 0.15);
+    color: #856404;
+    border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.screening-status.complete {
+    background: rgba(40, 167, 69, 0.15);
+    color: #155724;
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+/* Medical Document Types */
+.document-type-icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 0.5rem;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: white;
+    text-transform: uppercase;
+}
+
+.document-type-icon.lab {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+}
+
+.document-type-icon.imaging {
+    background: linear-gradient(135deg, #28a745, #1e7e34);
+}
+
+.document-type-icon.consult {
+    background: linear-gradient(135deg, #17a2b8, #138496);
+}
+
+.document-type-icon.hospital {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+}
+
+.document-type-icon.pathology {
+    background: linear-gradient(135deg, #6f42c1, #563d7c);
+}
+
+.document-type-icon.progress {
+    background: linear-gradient(135deg, #fd7e14, #e55a00);
+}
+
+/* Medical Value Displays */
+.medical-value {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    padding: 0.3rem 0.6rem;
+    background: var(--bs-card-bg);
+    border: 2px solid var(--bs-border-color);
+    border-radius: 6px;
+    display: inline-block;
+    min-width: 80px;
+    text-align: center;
+}
+
+.medical-value.normal {
+    border-color: #28a745;
+    color: #155724;
+}
+
+.medical-value.abnormal {
+    border-color: #dc3545;
+    color: #721c24;
+}
+
+.medical-value.critical {
+    border-color: #dc3545;
+    background: rgba(220, 53, 69, 0.1);
+    color: #721c24;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+/* Frequency Indicators */
+.frequency-indicator {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.5rem;
+    background: rgba(0, 102, 204, 0.1);
+    border-radius: 20px;
+    font-size: 0.75rem;
+    color: var(--health-primary);
+    border: 1px solid rgba(0, 102, 204, 0.2);
+}
+
+.frequency-indicator .frequency-number {
+    font-weight: 700;
+    margin-right: 0.25rem;
+}
+
+.frequency-indicator .frequency-unit {
+    opacity: 0.8;
+}
+
+/* Age Group Indicators */
+.age-group {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.age-group.pediatric {
+    background: linear-gradient(135deg, #e83e8c, #d91a72);
+    color: white;
+}
+
+.age-group.adult {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+}
+
+.age-group.geriatric {
+    background: linear-gradient(135deg, #6f42c1, #563d7c);
+    color: white;
+}
+
+/* Gender Indicators */
+.gender-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    font-weight: 600;
+    font-size: 0.75rem;
+    color: white;
+    margin-right: 0.5rem;
+}
+
+.gender-indicator.male {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+}
+
+.gender-indicator.female {
+    background: linear-gradient(135deg, #e83e8c, #d91a72);
+}
+
+.gender-indicator.other {
+    background: linear-gradient(135deg, #6c757d, #545b62);
+}
+
+/* Medical Priority Levels */
+.priority-level {
+    position: relative;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.priority-level::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 4px;
+    border-radius: 8px 8px 0 0;
+}
+
+.priority-level.high {
+    background: rgba(220, 53, 69, 0.1);
+    color: #721c24;
+    border: 1px solid rgba(220, 53, 69, 0.3);
+}
+
+.priority-level.high::before {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+}
+
+.priority-level.medium {
+    background: rgba(255, 193, 7, 0.1);
+    color: #856404;
+    border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.priority-level.medium::before {
+    background: linear-gradient(135deg, #ffc107, #e0a800);
+}
+
+.priority-level.low {
+    background: rgba(40, 167, 69, 0.1);
+    color: #155724;
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.priority-level.low::before {
+    background: linear-gradient(135deg, #28a745, #1e7e34);
+}
+
+/* Medical Timeline */
+.medical-timeline {
+    position: relative;
+    padding-left: 2rem;
+}
+
+.medical-timeline::before {
+    content: '';
+    position: absolute;
+    left: 1rem;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--health-primary), var(--health-secondary));
+}
+
+.timeline-item {
+    position: relative;
+    padding: 1rem 0;
+    border-left: 2px solid transparent;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -5px;
+    top: 1.5rem;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--health-primary);
+    border: 2px solid var(--bs-card-bg);
+}
+
+.timeline-item.completed::before {
+    background: #28a745;
+}
+
+.timeline-item.overdue::before {
+    background: #dc3545;
+}
+
+/* Keyword Display */
+.keywords-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
+}
+
+.keyword-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    background: rgba(0, 102, 204, 0.1);
+    border: 1px solid rgba(0, 102, 204, 0.2);
+    border-radius: 12px;
+    font-size: 0.75rem;
+    color: var(--health-primary);
+    font-weight: 500;
+}
+
+.keyword-badge:hover {
+    background: rgba(0, 102, 204, 0.2);
+    transform: scale(1.05);
+}
+
+/* Medical Data Tables */
+.medical-data-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.medical-data-table th {
+    background: linear-gradient(135deg, var(--health-primary), var(--health-secondary));
+    color: white;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+    padding: 1rem;
+    border: none;
+}
+
+.medical-data-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--bs-border-color);
+    vertical-align: middle;
+}
+
+.medical-data-table tbody tr:hover {
+    background: rgba(0, 102, 204, 0.05);
+}
+
+/* Medical Alert Styles */
+.medical-alert {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    border-left: 4px solid;
+    margin-bottom: 1rem;
+    background: var(--bs-card-bg);
+}
+
+.medical-alert-icon {
+    margin-right: 0.75rem;
+    font-size: 1.25rem;
+}
+
+.medical-alert.allergy {
+    border-left-color: #dc3545;
+    background: rgba(220, 53, 69, 0.05);
+}
+
+.medical-alert.allergy .medical-alert-icon {
+    color: #dc3545;
+}
+
+.medical-alert.medication {
+    border-left-color: #fd7e14;
+    background: rgba(253, 126, 20, 0.05);
+}
+
+.medical-alert.medication .medical-alert-icon {
+    color: #fd7e14;
+}
+
+.medical-alert.condition {
+    border-left-color: #17a2b8;
+    background: rgba(23, 162, 184, 0.05);
+}
+
+.medical-alert.condition .medical-alert-icon {
+    color: #17a2b8;
+}
+
+/* Responsive Medical Components */
+@media (max-width: 768px) {
+    .medical-timeline {
+        padding-left: 1.5rem;
+    }
+    
+    .medical-timeline::before {
+        left: 0.75rem;
+    }
+    
+    .timeline-item::before {
+        left: -3px;
+        width: 6px;
+        height: 6px;
+    }
+    
+    .keywords-container {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .keyword-badge {
+        margin-bottom: 0.25rem;
+    }
+    
+    .medical-data-table {
+        font-size: 0.9rem;
+    }
+    
+    .medical-data-table th,
+    .medical-data-table td {
+        padding: 0.5rem;
+    }
+}
+
+/* Print Styles for Medical Components */
+@media print {
+    .medical-term,
+    .condition-badge,
+    .screening-status,
+    .medical-value,
+    .keyword-badge {
+        background: white !important;
+        color: black !important;
+        border: 1px solid #333 !important;
+    }
+    
+    .medical-timeline::before {
+        background: #333 !important;
+    }
+    
+    .timeline-item::before {
+        background: #333 !important;
+        border-color: white !important;
+    }
+    
+    .medical-data-table th {
+        background: #f8f9fa !important;
+        color: black !important;
+    }
+}
+
+/* High Contrast Mode for Medical Components */
+@media (prefers-contrast: high) {
+    .medical-term,
+    .condition-badge,
+    .screening-status,
+    .medical-value,
+    .keyword-badge {
+        border-width: 2px;
+        font-weight: 700;
+    }
+    
+    .medical-timeline::before {
+        width: 4px;
+    }
+    
+    .timeline-item::before {
+        width: 12px;
+        height: 12px;
+        border-width: 3px;
+    }
+}

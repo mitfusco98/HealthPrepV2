@@ -1,487 +1,419 @@
 """
-Admin configuration management
-Handles system settings, presets, and configuration options
+Configuration management for admin settings
+Handles system configuration and preference management
 """
-import json
 import logging
+import json
 from datetime import datetime
-from typing import Dict, List, Any, Optional
-from models import ScreeningType, ChecklistSettings, PHISettings, db
+from typing import Dict, Any, Optional, List
 
-class AdminConfig:
-    """Manages administrative configuration and settings"""
+from models import ChecklistSettings, OCRSettings, AdminLog
+from app import db
+
+logger = logging.getLogger(__name__)
+
+class ConfigManager:
+    """Manages system configuration and settings"""
     
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        self.config_cache = {}
+        self.cache_timestamp = None
+        self.cache_duration = 300  # 5 minutes
     
-    def get_system_settings(self) -> Dict[str, Any]:
-        """Get current system configuration settings"""
+    def get_system_config(self) -> Dict[str, Any]:
+        """Get complete system configuration"""
         try:
-            # Get checklist settings
-            checklist_settings = ChecklistSettings.query.first()
-            if not checklist_settings:
-                checklist_settings = ChecklistSettings()
-                db.session.add(checklist_settings)
-                db.session.commit()
-            
-            # Get PHI settings
-            phi_settings = PHISettings.query.first()
-            if not phi_settings:
-                phi_settings = PHISettings()
-                db.session.add(phi_settings)
-                db.session.commit()
-            
-            # Get screening type statistics
-            total_screening_types = ScreeningType.query.count()
-            active_screening_types = ScreeningType.query.filter_by(is_active=True).count()
-            
-            return {
-                "checklist_settings": {
-                    "labs_cutoff_months": checklist_settings.labs_cutoff_months,
-                    "imaging_cutoff_months": checklist_settings.imaging_cutoff_months,
-                    "consults_cutoff_months": checklist_settings.consults_cutoff_months,
-                    "hospital_cutoff_months": checklist_settings.hospital_cutoff_months,
-                    "default_items": json.loads(checklist_settings.default_items) if checklist_settings.default_items else [],
-                    "last_updated": checklist_settings.updated_at
-                },
-                "phi_settings": {
-                    "filter_enabled": phi_settings.filter_enabled,
-                    "filter_ssn": phi_settings.filter_ssn,
-                    "filter_phone": phi_settings.filter_phone,
-                    "filter_mrn": phi_settings.filter_mrn,
-                    "filter_addresses": phi_settings.filter_addresses,
-                    "filter_names": phi_settings.filter_names,
-                    "filter_dates": phi_settings.filter_dates,
-                    "custom_patterns": json.loads(phi_settings.custom_patterns) if phi_settings.custom_patterns else [],
-                    "last_updated": phi_settings.updated_at
-                },
-                "screening_types": {
-                    "total": total_screening_types,
-                    "active": active_screening_types,
-                    "inactive": total_screening_types - active_screening_types
-                },
-                "system_info": {
-                    "version": "2.0",
-                    "last_config_check": datetime.utcnow().isoformat()
-                }
+            config = {
+                'checklist_settings': self._get_checklist_config(),
+                'ocr_settings': self._get_ocr_config(),
+                'general_settings': self._get_general_config(),
+                'last_updated': datetime.utcnow()
             }
             
+            return config
+            
         except Exception as e:
-            self.logger.error(f"Error getting system settings: {str(e)}")
-            return {"error": str(e)}
+            logger.error(f"Error getting system config: {str(e)}")
+            return self._get_default_config()
     
-    def update_checklist_settings(self, settings: Dict[str, Any]) -> Dict[str, Any]:
-        """Update checklist/prep sheet settings"""
+    def update_checklist_settings(self, settings_data: Dict[str, Any], user_id: int) -> bool:
+        """Update checklist settings"""
         try:
-            checklist_settings = ChecklistSettings.query.first()
-            if not checklist_settings:
-                checklist_settings = ChecklistSettings()
-                db.session.add(checklist_settings)
+            settings = ChecklistSettings.query.first()
+            if not settings:
+                settings = ChecklistSettings()
+                db.session.add(settings)
             
             # Update settings
-            if 'labs_cutoff_months' in settings:
-                checklist_settings.labs_cutoff_months = settings['labs_cutoff_months']
+            if 'cutoff_months' in settings_data:
+                settings.cutoff_months = settings_data['cutoff_months']
+            if 'lab_cutoff' in settings_data:
+                settings.lab_cutoff = settings_data['lab_cutoff']
+            if 'imaging_cutoff' in settings_data:
+                settings.imaging_cutoff = settings_data['imaging_cutoff']
+            if 'consult_cutoff' in settings_data:
+                settings.consult_cutoff = settings_data['consult_cutoff']
+            if 'hospital_cutoff' in settings_data:
+                settings.hospital_cutoff = settings_data['hospital_cutoff']
+            if 'phi_filtering_enabled' in settings_data:
+                settings.phi_filtering_enabled = settings_data['phi_filtering_enabled']
             
-            if 'imaging_cutoff_months' in settings:
-                checklist_settings.imaging_cutoff_months = settings['imaging_cutoff_months']
-            
-            if 'consults_cutoff_months' in settings:
-                checklist_settings.consults_cutoff_months = settings['consults_cutoff_months']
-            
-            if 'hospital_cutoff_months' in settings:
-                checklist_settings.hospital_cutoff_months = settings['hospital_cutoff_months']
-            
-            if 'default_items' in settings:
-                checklist_settings.default_items = json.dumps(settings['default_items'])
-            
-            checklist_settings.updated_at = datetime.utcnow()
+            settings.updated_at = datetime.utcnow()
             db.session.commit()
             
-            self.logger.info("Checklist settings updated successfully")
+            # Log configuration change
+            self._log_config_change(user_id, 'CHECKLIST_SETTINGS_UPDATE', settings_data)
             
-            return {
-                "success": True,
-                "message": "Checklist settings updated successfully",
-                "updated_at": checklist_settings.updated_at.isoformat()
-            }
+            # Clear cache
+            self._clear_cache()
+            
+            return True
             
         except Exception as e:
-            self.logger.error(f"Error updating checklist settings: {str(e)}")
+            logger.error(f"Error updating checklist settings: {str(e)}")
             db.session.rollback()
-            return {"error": str(e)}
+            return False
     
-    def update_phi_settings(self, settings: Dict[str, Any]) -> Dict[str, Any]:
-        """Update PHI filtering settings"""
+    def update_ocr_settings(self, settings_data: Dict[str, Any], user_id: int) -> bool:
+        """Update OCR settings"""
         try:
-            phi_settings = PHISettings.query.first()
-            if not phi_settings:
-                phi_settings = PHISettings()
-                db.session.add(phi_settings)
+            settings = OCRSettings.query.first()
+            if not settings:
+                settings = OCRSettings()
+                db.session.add(settings)
             
             # Update settings
-            if 'filter_enabled' in settings:
-                phi_settings.filter_enabled = settings['filter_enabled']
+            if 'confidence_threshold' in settings_data:
+                settings.confidence_threshold = settings_data['confidence_threshold']
+            if 'auto_process' in settings_data:
+                settings.auto_process = settings_data['auto_process']
+            if 'tesseract_config' in settings_data:
+                settings.tesseract_config = json.dumps(settings_data['tesseract_config'])
             
-            if 'filter_ssn' in settings:
-                phi_settings.filter_ssn = settings['filter_ssn']
-            
-            if 'filter_phone' in settings:
-                phi_settings.filter_phone = settings['filter_phone']
-            
-            if 'filter_mrn' in settings:
-                phi_settings.filter_mrn = settings['filter_mrn']
-            
-            if 'filter_addresses' in settings:
-                phi_settings.filter_addresses = settings['filter_addresses']
-            
-            if 'filter_names' in settings:
-                phi_settings.filter_names = settings['filter_names']
-            
-            if 'filter_dates' in settings:
-                phi_settings.filter_dates = settings['filter_dates']
-            
-            if 'custom_patterns' in settings:
-                phi_settings.custom_patterns = json.dumps(settings['custom_patterns'])
-            
-            phi_settings.updated_at = datetime.utcnow()
+            settings.updated_at = datetime.utcnow()
             db.session.commit()
             
-            self.logger.info("PHI settings updated successfully")
+            # Log configuration change
+            self._log_config_change(user_id, 'OCR_SETTINGS_UPDATE', settings_data)
             
-            return {
-                "success": True,
-                "message": "PHI settings updated successfully",
-                "updated_at": phi_settings.updated_at.isoformat()
-            }
+            # Clear cache
+            self._clear_cache()
+            
+            return True
             
         except Exception as e:
-            self.logger.error(f"Error updating PHI settings: {str(e)}")
+            logger.error(f"Error updating OCR settings: {str(e)}")
             db.session.rollback()
-            return {"error": str(e)}
+            return False
     
-    def get_screening_presets(self) -> Dict[str, Any]:
-        """Get available screening type presets"""
+    def export_configuration(self) -> str:
+        """Export system configuration as JSON"""
         try:
-            # Define common screening presets for different specialties
-            presets = {
-                "primary_care": {
-                    "name": "Primary Care Basic",
-                    "description": "Essential screenings for primary care practice",
-                    "screening_types": [
-                        {
-                            "name": "Mammogram",
-                            "keywords": ["mammogram", "mammo", "mammography", "breast screening"],
-                            "gender_criteria": "F",
-                            "min_age": 40,
-                            "max_age": 74,
-                            "frequency_years": 1,
-                            "description": "Annual mammogram screening for breast cancer"
-                        },
-                        {
-                            "name": "Colonoscopy",
-                            "keywords": ["colonoscopy", "colon screening", "colorectal screening"],
-                            "gender_criteria": "ALL",
-                            "min_age": 50,
-                            "max_age": 75,
-                            "frequency_years": 10,
-                            "description": "Colorectal cancer screening"
-                        },
-                        {
-                            "name": "Pap Smear",
-                            "keywords": ["pap smear", "pap test", "cervical screening", "papanicolaou"],
-                            "gender_criteria": "F",
-                            "min_age": 21,
-                            "max_age": 65,
-                            "frequency_years": 3,
-                            "description": "Cervical cancer screening"
-                        },
-                        {
-                            "name": "DEXA Scan",
-                            "keywords": ["dexa", "dxa", "bone density", "osteoporosis screening"],
-                            "gender_criteria": "F",
-                            "min_age": 65,
-                            "frequency_years": 2,
-                            "description": "Bone density screening"
-                        },
-                        {
-                            "name": "Lipid Panel",
-                            "keywords": ["lipid panel", "cholesterol", "lipids", "cholesterol screening"],
-                            "gender_criteria": "ALL",
-                            "min_age": 20,
-                            "frequency_years": 5,
-                            "description": "Cholesterol and lipid screening"
-                        }
-                    ]
+            config = self.get_system_config()
+            
+            # Remove sensitive information
+            export_config = {
+                'version': '2.0',
+                'export_date': datetime.utcnow().isoformat(),
+                'checklist_settings': config['checklist_settings'],
+                'ocr_settings': config['ocr_settings'],
+                'general_settings': config['general_settings']
+            }
+            
+            return json.dumps(export_config, indent=2, default=str)
+            
+        except Exception as e:
+            logger.error(f"Error exporting configuration: {str(e)}")
+            return "{}"
+    
+    def import_configuration(self, config_json: str, user_id: int) -> bool:
+        """Import system configuration from JSON"""
+        try:
+            config = json.loads(config_json)
+            
+            # Validate configuration version
+            if config.get('version') != '2.0':
+                logger.warning(f"Configuration version mismatch: {config.get('version')}")
+            
+            # Import checklist settings
+            if 'checklist_settings' in config:
+                success = self.update_checklist_settings(config['checklist_settings'], user_id)
+                if not success:
+                    return False
+            
+            # Import OCR settings
+            if 'ocr_settings' in config:
+                success = self.update_ocr_settings(config['ocr_settings'], user_id)
+                if not success:
+                    return False
+            
+            # Log import
+            self._log_config_change(user_id, 'CONFIG_IMPORT', {'source': 'import'})
+            
+            return True
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in configuration import: {str(e)}")
+            return False
+        except Exception as e:
+            logger.error(f"Error importing configuration: {str(e)}")
+            return False
+    
+    def get_configuration_presets(self) -> List[Dict[str, Any]]:
+        """Get predefined configuration presets"""
+        return [
+            {
+                'name': 'General Medicine',
+                'description': 'Standard configuration for general medicine practice',
+                'checklist_settings': {
+                    'cutoff_months': 12,
+                    'lab_cutoff': 6,
+                    'imaging_cutoff': 12,
+                    'consult_cutoff': 12,
+                    'hospital_cutoff': 24,
+                    'phi_filtering_enabled': True
                 },
-                "cardiology": {
-                    "name": "Cardiology Focused",
-                    "description": "Heart-focused screening protocols",
-                    "screening_types": [
-                        {
-                            "name": "Echocardiogram",
-                            "keywords": ["echo", "echocardiogram", "cardiac echo"],
-                            "gender_criteria": "ALL",
-                            "frequency_years": 3,
-                            "trigger_conditions": ["heart disease", "hypertension", "diabetes"],
-                            "description": "Heart function assessment"
-                        },
-                        {
-                            "name": "Stress Test",
-                            "keywords": ["stress test", "cardiac stress", "exercise stress"],
-                            "gender_criteria": "ALL",
-                            "min_age": 40,
-                            "frequency_years": 2,
-                            "trigger_conditions": ["heart disease", "chest pain"],
-                            "description": "Cardiac stress testing"
-                        },
-                        {
-                            "name": "Lipid Panel - High Risk",
-                            "keywords": ["lipid panel", "cholesterol", "lipids"],
-                            "gender_criteria": "ALL",
-                            "frequency_months": 6,
-                            "trigger_conditions": ["heart disease", "diabetes", "hypertension"],
-                            "description": "Frequent lipid monitoring for high-risk patients"
-                        }
-                    ]
+                'ocr_settings': {
+                    'confidence_threshold': 0.7,
+                    'auto_process': True
+                }
+            },
+            {
+                'name': 'Specialty Care',
+                'description': 'Configuration optimized for specialty care practices',
+                'checklist_settings': {
+                    'cutoff_months': 18,
+                    'lab_cutoff': 12,
+                    'imaging_cutoff': 18,
+                    'consult_cutoff': 18,
+                    'hospital_cutoff': 36,
+                    'phi_filtering_enabled': True
                 },
-                "endocrinology": {
-                    "name": "Endocrinology Focused",
-                    "description": "Diabetes and hormone-focused screenings",
-                    "screening_types": [
-                        {
-                            "name": "Hemoglobin A1C",
-                            "keywords": ["a1c", "hemoglobin a1c", "hba1c", "glycated hemoglobin"],
-                            "gender_criteria": "ALL",
-                            "frequency_months": 3,
-                            "trigger_conditions": ["diabetes", "diabetic"],
-                            "description": "Diabetes monitoring - diabetic patients"
-                        },
-                        {
-                            "name": "Hemoglobin A1C - Pre-diabetic",
-                            "keywords": ["a1c", "hemoglobin a1c", "hba1c"],
-                            "gender_criteria": "ALL",
-                            "frequency_months": 6,
-                            "trigger_conditions": ["pre-diabetes", "prediabetes"],
-                            "description": "Diabetes monitoring - pre-diabetic patients"
-                        },
-                        {
-                            "name": "Thyroid Function",
-                            "keywords": ["tsh", "thyroid", "t3", "t4", "thyroid function"],
-                            "gender_criteria": "ALL",
-                            "frequency_years": 2,
-                            "description": "Thyroid function screening"
-                        }
-                    ]
+                'ocr_settings': {
+                    'confidence_threshold': 0.8,
+                    'auto_process': True
+                }
+            },
+            {
+                'name': 'High Volume Practice',
+                'description': 'Configuration for high-volume practices requiring fast processing',
+                'checklist_settings': {
+                    'cutoff_months': 6,
+                    'lab_cutoff': 3,
+                    'imaging_cutoff': 6,
+                    'consult_cutoff': 6,
+                    'hospital_cutoff': 12,
+                    'phi_filtering_enabled': True
                 },
-                "womens_health": {
-                    "name": "Women's Health",
-                    "description": "Women's health focused screenings",
-                    "screening_types": [
-                        {
-                            "name": "Mammogram - Standard",
-                            "keywords": ["mammogram", "mammo", "mammography"],
-                            "gender_criteria": "F",
-                            "min_age": 50,
-                            "max_age": 74,
-                            "frequency_years": 2,
-                            "description": "Biennial mammogram screening"
-                        },
-                        {
-                            "name": "Mammogram - High Risk",
-                            "keywords": ["mammogram", "mammo", "mammography"],
-                            "gender_criteria": "F",
-                            "min_age": 40,
-                            "frequency_years": 1,
-                            "trigger_conditions": ["family history breast cancer", "brca", "high risk"],
-                            "description": "Annual mammogram for high-risk patients"
-                        },
-                        {
-                            "name": "Pap Smear",
-                            "keywords": ["pap smear", "pap test", "cervical screening"],
-                            "gender_criteria": "F",
-                            "min_age": 21,
-                            "max_age": 65,
-                            "frequency_years": 3,
-                            "description": "Cervical cancer screening"
-                        },
-                        {
-                            "name": "DEXA Scan",
-                            "keywords": ["dexa", "dxa", "bone density"],
-                            "gender_criteria": "F",
-                            "min_age": 65,
-                            "frequency_years": 2,
-                            "description": "Bone density screening"
-                        }
-                    ]
+                'ocr_settings': {
+                    'confidence_threshold': 0.6,
+                    'auto_process': True
                 }
             }
+        ]
+    
+    def apply_configuration_preset(self, preset_name: str, user_id: int) -> bool:
+        """Apply a configuration preset"""
+        try:
+            presets = self.get_configuration_presets()
+            preset = next((p for p in presets if p['name'] == preset_name), None)
             
-            return {
-                "presets": presets,
-                "total_presets": len(presets),
-                "generated_at": datetime.utcnow().isoformat()
-            }
+            if not preset:
+                logger.error(f"Configuration preset not found: {preset_name}")
+                return False
+            
+            # Apply checklist settings
+            success = self.update_checklist_settings(preset['checklist_settings'], user_id)
+            if not success:
+                return False
+            
+            # Apply OCR settings
+            success = self.update_ocr_settings(preset['ocr_settings'], user_id)
+            if not success:
+                return False
+            
+            # Log preset application
+            self._log_config_change(user_id, 'PRESET_APPLIED', {'preset_name': preset_name})
+            
+            return True
             
         except Exception as e:
-            self.logger.error(f"Error getting screening presets: {str(e)}")
-            return {"error": str(e)}
+            logger.error(f"Error applying configuration preset: {str(e)}")
+            return False
     
-    def import_screening_preset(self, preset_name: str) -> Dict[str, Any]:
-        """Import a screening preset"""
+    def validate_configuration(self, config: Dict[str, Any]) -> Dict[str, List[str]]:
+        """Validate configuration settings"""
+        errors = {}
+        
+        # Validate checklist settings
+        if 'checklist_settings' in config:
+            checklist_errors = []
+            cs = config['checklist_settings']
+            
+            if 'cutoff_months' in cs and (cs['cutoff_months'] < 1 or cs['cutoff_months'] > 60):
+                checklist_errors.append('Cutoff months must be between 1 and 60')
+            
+            if 'lab_cutoff' in cs and (cs['lab_cutoff'] < 1 or cs['lab_cutoff'] > 24):
+                checklist_errors.append('Lab cutoff must be between 1 and 24 months')
+            
+            if 'imaging_cutoff' in cs and (cs['imaging_cutoff'] < 1 or cs['imaging_cutoff'] > 60):
+                checklist_errors.append('Imaging cutoff must be between 1 and 60 months')
+            
+            if checklist_errors:
+                errors['checklist_settings'] = checklist_errors
+        
+        # Validate OCR settings
+        if 'ocr_settings' in config:
+            ocr_errors = []
+            os = config['ocr_settings']
+            
+            if 'confidence_threshold' in os and (os['confidence_threshold'] < 0.1 or os['confidence_threshold'] > 1.0):
+                ocr_errors.append('Confidence threshold must be between 0.1 and 1.0')
+            
+            if ocr_errors:
+                errors['ocr_settings'] = ocr_errors
+        
+        return errors
+    
+    def reset_to_defaults(self, user_id: int) -> bool:
+        """Reset configuration to default values"""
         try:
-            presets = self.get_screening_presets()
-            if "error" in presets:
-                return presets
+            # Reset checklist settings
+            default_checklist = {
+                'cutoff_months': 12,
+                'lab_cutoff': 6,
+                'imaging_cutoff': 12,
+                'consult_cutoff': 12,
+                'hospital_cutoff': 24,
+                'phi_filtering_enabled': True
+            }
             
-            if preset_name not in presets["presets"]:
-                return {"error": f"Preset '{preset_name}' not found"}
+            # Reset OCR settings
+            default_ocr = {
+                'confidence_threshold': 0.7,
+                'auto_process': True,
+                'tesseract_config': {}
+            }
             
-            preset = presets["presets"][preset_name]
-            imported_count = 0
-            skipped_count = 0
-            errors = []
+            # Apply defaults
+            success = self.update_checklist_settings(default_checklist, user_id)
+            if not success:
+                return False
             
-            for screening_data in preset["screening_types"]:
+            success = self.update_ocr_settings(default_ocr, user_id)
+            if not success:
+                return False
+            
+            # Log reset
+            self._log_config_change(user_id, 'CONFIG_RESET', {'action': 'reset_to_defaults'})
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error resetting configuration: {str(e)}")
+            return False
+    
+    def _get_checklist_config(self) -> Dict[str, Any]:
+        """Get checklist configuration"""
+        try:
+            settings = ChecklistSettings.query.first()
+            if not settings:
+                return self._get_default_checklist_config()
+            
+            return {
+                'cutoff_months': settings.cutoff_months,
+                'lab_cutoff': settings.lab_cutoff,
+                'imaging_cutoff': settings.imaging_cutoff,
+                'consult_cutoff': settings.consult_cutoff,
+                'hospital_cutoff': settings.hospital_cutoff,
+                'phi_filtering_enabled': settings.phi_filtering_enabled,
+                'updated_at': settings.updated_at.isoformat() if settings.updated_at else None
+            }
+        except:
+            return self._get_default_checklist_config()
+    
+    def _get_ocr_config(self) -> Dict[str, Any]:
+        """Get OCR configuration"""
+        try:
+            settings = OCRSettings.query.first()
+            if not settings:
+                return self._get_default_ocr_config()
+            
+            tesseract_config = {}
+            if settings.tesseract_config:
                 try:
-                    # Check if screening type already exists
-                    existing = ScreeningType.query.filter_by(name=screening_data["name"]).first()
-                    if existing:
-                        skipped_count += 1
-                        continue
-                    
-                    # Create new screening type
-                    screening_type = ScreeningType(
-                        name=screening_data["name"],
-                        description=screening_data.get("description", ""),
-                        keywords="\n".join(screening_data.get("keywords", [])),
-                        gender_criteria=screening_data.get("gender_criteria", "ALL"),
-                        min_age=screening_data.get("min_age"),
-                        max_age=screening_data.get("max_age"),
-                        frequency_years=screening_data.get("frequency_years"),
-                        frequency_months=screening_data.get("frequency_months"),
-                        trigger_conditions="\n".join(screening_data.get("trigger_conditions", [])),
-                        is_active=True
-                    )
-                    
-                    db.session.add(screening_type)
-                    imported_count += 1
-                    
-                except Exception as e:
-                    errors.append(f"Error importing '{screening_data['name']}': {str(e)}")
-            
-            db.session.commit()
-            
-            self.logger.info(f"Imported {imported_count} screening types from preset '{preset_name}'")
+                    tesseract_config = json.loads(settings.tesseract_config)
+                except:
+                    pass
             
             return {
-                "success": True,
-                "preset_name": preset_name,
-                "imported_count": imported_count,
-                "skipped_count": skipped_count,
-                "errors": errors,
-                "total_attempted": len(preset["screening_types"])
+                'confidence_threshold': settings.confidence_threshold,
+                'auto_process': settings.auto_process,
+                'tesseract_config': tesseract_config,
+                'updated_at': settings.updated_at.isoformat() if settings.updated_at else None
             }
-            
-        except Exception as e:
-            self.logger.error(f"Error importing screening preset: {str(e)}")
-            db.session.rollback()
-            return {"error": str(e)}
+        except:
+            return self._get_default_ocr_config()
     
-    def export_current_config(self) -> Dict[str, Any]:
-        """Export current system configuration for backup"""
-        try:
-            # Get all current screening types
-            screening_types = ScreeningType.query.all()
-            
-            # Get system settings
-            settings = self.get_system_settings()
-            if "error" in settings:
-                return settings
-            
-            export_data = {
-                "export_info": {
-                    "exported_at": datetime.utcnow().isoformat(),
-                    "version": "2.0",
-                    "export_type": "full_config"
-                },
-                "system_settings": settings,
-                "screening_types": [
-                    {
-                        "name": st.name,
-                        "description": st.description,
-                        "keywords": st.keywords.split('\n') if st.keywords else [],
-                        "gender_criteria": st.gender_criteria,
-                        "min_age": st.min_age,
-                        "max_age": st.max_age,
-                        "frequency_years": st.frequency_years,
-                        "frequency_months": st.frequency_months,
-                        "trigger_conditions": st.trigger_conditions.split('\n') if st.trigger_conditions else [],
-                        "is_active": st.is_active,
-                        "created_at": st.created_at.isoformat() if st.created_at else None
-                    } for st in screening_types
-                ]
-            }
-            
-            return export_data
-            
-        except Exception as e:
-            self.logger.error(f"Error exporting current config: {str(e)}")
-            return {"error": str(e)}
+    def _get_general_config(self) -> Dict[str, Any]:
+        """Get general system configuration"""
+        return {
+            'system_name': 'HealthPrep',
+            'version': '2.0',
+            'timezone': 'UTC',
+            'session_timeout': 28800,  # 8 hours
+            'max_upload_size': 52428800,  # 50MB
+            'supported_file_types': ['.pdf', '.png', '.jpg', '.jpeg', '.tiff'],
+            'maintenance_mode': False
+        }
     
-    def validate_config(self) -> Dict[str, Any]:
-        """Validate current system configuration"""
+    def _get_default_config(self) -> Dict[str, Any]:
+        """Get default configuration when errors occur"""
+        return {
+            'checklist_settings': self._get_default_checklist_config(),
+            'ocr_settings': self._get_default_ocr_config(),
+            'general_settings': self._get_general_config(),
+            'last_updated': datetime.utcnow(),
+            'error': 'Using default configuration'
+        }
+    
+    def _get_default_checklist_config(self) -> Dict[str, Any]:
+        """Get default checklist configuration"""
+        return {
+            'cutoff_months': 12,
+            'lab_cutoff': 6,
+            'imaging_cutoff': 12,
+            'consult_cutoff': 12,
+            'hospital_cutoff': 24,
+            'phi_filtering_enabled': True
+        }
+    
+    def _get_default_ocr_config(self) -> Dict[str, Any]:
+        """Get default OCR configuration"""
+        return {
+            'confidence_threshold': 0.7,
+            'auto_process': True,
+            'tesseract_config': {}
+        }
+    
+    def _log_config_change(self, user_id: int, action: str, details: Dict[str, Any]) -> None:
+        """Log configuration changes"""
         try:
-            validation_results = {
-                "valid": True,
-                "warnings": [],
-                "errors": [],
-                "recommendations": []
-            }
-            
-            # Check screening types
-            screening_types = ScreeningType.query.all()
-            active_screenings = ScreeningType.query.filter_by(is_active=True).all()
-            
-            if len(screening_types) == 0:
-                validation_results["errors"].append("No screening types defined")
-                validation_results["valid"] = False
-            
-            if len(active_screenings) == 0:
-                validation_results["errors"].append("No active screening types")
-                validation_results["valid"] = False
-            
-            # Check for screenings without keywords
-            no_keywords = [st.name for st in active_screenings if not st.keywords]
-            if no_keywords:
-                validation_results["warnings"].append(f"Screening types without keywords: {', '.join(no_keywords)}")
-            
-            # Check for screenings without frequency
-            no_frequency = [st.name for st in active_screenings if not st.frequency_years and not st.frequency_months]
-            if no_frequency:
-                validation_results["warnings"].append(f"Screening types without frequency: {', '.join(no_frequency)}")
-            
-            # Check PHI settings
-            phi_settings = PHISettings.query.first()
-            if not phi_settings or not phi_settings.filter_enabled:
-                validation_results["warnings"].append("PHI filtering is disabled - may not be HIPAA compliant")
-            
-            # Check checklist settings
-            checklist_settings = ChecklistSettings.query.first()
-            if not checklist_settings:
-                validation_results["warnings"].append("No checklist settings configured - using defaults")
-            
-            # Generate recommendations
-            if len(active_screenings) < 5:
-                validation_results["recommendations"].append("Consider importing a specialty preset to add more screening types")
-            
-            if validation_results["valid"] and not validation_results["warnings"]:
-                validation_results["recommendations"].append("Configuration is valid and complete")
-            
-            return validation_results
-            
+            log_entry = AdminLog(
+                user_id=user_id,
+                action=action,
+                details=json.dumps(details),
+                timestamp=datetime.utcnow()
+            )
+            db.session.add(log_entry)
+            db.session.commit()
         except Exception as e:
-            self.logger.error(f"Error validating config: {str(e)}")
-            return {"error": str(e)}
+            logger.error(f"Error logging config change: {str(e)}")
+    
+    def _clear_cache(self) -> None:
+        """Clear configuration cache"""
+        self.config_cache = {}
+        self.cache_timestamp = None
 
-# Global config instance
-admin_config = AdminConfig()
+# Global config manager instance
+config_manager = ConfigManager()
