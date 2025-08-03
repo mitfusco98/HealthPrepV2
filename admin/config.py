@@ -370,3 +370,29 @@ class SystemConfigManager:
             logger.error(f"Error creating settings backup: {str(e)}")
             return None
 
+
+class AdminConfig:
+    """Admin configuration and system management"""
+    
+    def __init__(self):
+        self.preset_manager = ScreeningPresetManager()
+        self.config_manager = SystemConfigManager()
+    
+    def get_app_info(self):
+        """Get application information"""
+        return {
+            'version': '1.0.0',
+            'environment': 'development',
+            'database_connected': True,
+            'uptime': 'N/A'
+        }
+    
+    def get_security_info(self):
+        """Get security configuration info"""
+        return {
+            'session_timeout': 480,
+            'max_login_attempts': 5,
+            'phi_filtering_enabled': True,
+            'audit_logging_enabled': True
+        }
+
