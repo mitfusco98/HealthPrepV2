@@ -75,3 +75,8 @@ def register_blueprints(app):
     def home():
         from flask import redirect, url_for
         return redirect(url_for('index'))
+    
+    # Add test route to verify app is live
+    @app.route('/test')
+    def test():
+        return '<h1>✅ YOUR APP IS LIVE!</h1><p>Flask is running successfully on Replit.</p><p><a href="/">Go to Home</a></p>'
