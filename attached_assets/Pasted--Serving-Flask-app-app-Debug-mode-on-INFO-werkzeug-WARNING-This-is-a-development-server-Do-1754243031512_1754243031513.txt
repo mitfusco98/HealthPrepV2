@@ -1,0 +1,36 @@
+ * Serving Flask app 'app'
+ * Debug mode: on
+INFO:werkzeug:WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://172.31.86.194:5000
+INFO:werkzeug:Press CTRL+C to quit
+INFO:werkzeug: * Restarting with stat
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 132-444-005
+INFO:werkzeug:10.82.0.253 - - [03/Aug/2025 17:40:59] "GET / HTTP/1.1" 302 -
+ERROR:routes.main_routes:Error in dashboard route: Could not build url for endpoint 'screening_list'. Did you mean 'screening.screening_list' instead?
+INFO:werkzeug:10.82.0.253 - - [03/Aug/2025 17:40:59] "GET /dashboard HTTP/1.1" 500 -
+INFO:werkzeug:10.82.0.253 - - [03/Aug/2025 17:41:00] "POST /admin/log-error HTTP/1.1" 404 -
+ERROR:routes.main_routes:Error in dashboard route: Could not build url for endpoint 'screening_list'. Did you mean 'screening.screening_list' instead?
+INFO:werkzeug:10.82.0.253 - - [03/Aug/2025 17:41:10] "GET /dashboard?retry=1 HTTP/1.1" 500 -
+INFO:werkzeug:10.82.0.253 - - [03/Aug/2025 17:41:10] "POST /admin/log-error HTTP/1.1" 404 -
+ERROR:routes.main_routes:Error in dashboard route: Could not build url for endpoint 'screening_list'. Did you mean 'screening.screening_list' instead?
+INFO:werkzeug:10.82.0.253 - - [03/Aug/2025 17:41:20] "GET /dashboard?retry=2 HTTP/1.1" 500 -
+INFO:werkzeug:10.82.0.253 - - [03/Aug/2025 17:41:20] "POST /admin/log-error HTTP/1.1" 404 -
+ERROR:routes.main_routes:Error in dashboard route: Could not build url for endpoint 'screening_list'. Did you mean 'screening.screening_list' instead?
+INFO:werkzeug:10.82.0.253 - - [03/Aug/2025 17:41:30] "GET /dashboard?retry=3 HTTP/1.1" 500 -
+INFO:werkzeug:10.82.0.253 - - [03/Aug/2025 17:41:31] "POST /admin/log-error HTTP/1.1" 404 -
+INFO:werkzeug:10.82.0.253 - - [03/Aug/2025 17:42:30] "GET / HTTP/1.1" 302 -
+ERROR:routes.main_routes:Error in dashboard route: Could not build url for endpoint 'screening_list'. Did you mean 'screening.screening_list' instead?
+INFO:werkzeug:10.82.0.253 - - [03/Aug/2025 17:42:31] "GET /dashboard HTTP/1.1" 500 -
+INFO:werkzeug:10.82.0.253 - - [03/Aug/2025 17:42:31] "POST /admin/log-error HTTP/1.1" 404 -
+ERROR:routes.main_routes:Error in dashboard route: Could not build url for endpoint 'screening_list'. Did you mean 'screening.screening_list' instead?
+INFO:werkzeug:10.82.0.253 - - [03/Aug/2025 17:42:41] "GET /dashboard?retry=1 HTTP/1.1" 500 -
+INFO:werkzeug:10.82.0.253 - - [03/Aug/2025 17:42:41] "POST /admin/log-error HTTP/1.1" 404 -
+ERROR:routes.main_routes:Error in dashboard route: Could not build url for endpoint 'screening_list'. Did you mean 'screening.screening_list' instead?
+INFO:werkzeug:10.82.0.253 - - [03/Aug/2025 17:42:51] "GET /dashboard?retry=2 HTTP/1.1" 500 -
+INFO:werkzeug:10.82.0.253 - - [03/Aug/2025 17:42:52] "POST /admin/log-error HTTP/1.1" 404 -
+ERROR:routes.main_routes:Error in dashboard route: Could not build url for endpoint 'screening_list'. Did you mean 'screening.screening_list' instead?
+INFO:werkzeug:10.82.0.253 - - [03/Aug/2025 17:43:02] "GET /dashboard?retry=3 HTTP/1.1" 500 -
+INFO:werkzeug:10.82.0.253 - - [03/Aug/2025 17:43:02] "POST /admin/log-error HTTP/1.1" 404 -
