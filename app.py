@@ -58,11 +58,13 @@ from routes.auth_routes import auth_bp
 from routes.screening_routes import screening_bp
 from routes.admin_routes import admin_bp
 from routes.prep_sheet_routes import prep_sheet_bp
+from routes.patient_routes import patient_bp
 
 app.register_blueprint(auth_bp, url_prefix='/auth')
 app.register_blueprint(screening_bp, url_prefix='/screening')
 app.register_blueprint(admin_bp, url_prefix='/admin')
 app.register_blueprint(prep_sheet_bp, url_prefix='/prep')
+app.register_blueprint(patient_bp, url_prefix='/patient')
 
 # Main route
 @app.route('/')

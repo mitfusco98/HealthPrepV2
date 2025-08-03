@@ -155,3 +155,52 @@ def upload_document(patient_id):
 def view_document(document_id):
     document = MedicalDocument.query.get_or_404(document_id)
     return render_template('patient/view_document.html', document=document)
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask_login import login_required, current_user
+from models import Patient, db
+from forms import PatientForm
+from datetime import datetime
+
+patient_bp = Blueprint('patient', __name__)
+
+@patient_bp.route('/add', methods=['GET', 'POST'])
+@login_required
+def add_patient():
+    """Add a new patient"""
+    form = PatientForm()
+    
+    if form.validate_on_submit():
+        try:
+            patient = Patient(
+                mrn=form.mrn.data,
+                first_name=form.first_name.data,
+                last_name=form.last_name.data,
+                date_of_birth=form.date_of_birth.data,
+                gender=form.gender.data
+            )
+            
+            db.session.add(patient)
+            db.session.commit()
+            
+            flash('Patient added successfully!', 'success')
+            return redirect(url_for('patient.patient_list'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error adding patient: {str(e)}', 'error')
+    
+    return render_template('patients/add_patient.html', form=form)
+
+@patient_bp.route('/list')
+@login_required
+def patient_list():
+    """List all patients"""
+    patients = Patient.query.all()
+    return render_template('patients/patient_list.html', patients=patients)
+
+@patient_bp.route('/<int:patient_id>')
+@login_required
+def patient_detail(patient_id):
+    """Patient detail view"""
+    patient = Patient.query.get_or_404(patient_id)
+    return render_template('patients/patient_detail.html', patient=patient)

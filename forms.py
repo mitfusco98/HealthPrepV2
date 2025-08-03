@@ -69,8 +69,8 @@ class PHIFilterForm(FlaskForm):
     filter_names = BooleanField('Filter Patient Names', default=True)
     filter_dates = BooleanField('Filter Dates (preserve medical values)', default=True)
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField, SelectField, TextAreaField, IntegerField
-from wtforms.validators import DataRequired, Length, Email, Optional, NumberRange
+from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectField, IntegerField, BooleanField, DateField
+from wtforms.validators import DataRequired, Email, Length, Optional, NumberRange
 
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired(), Length(min=4, max=25)])
@@ -84,12 +84,24 @@ class ChangePasswordForm(FlaskForm):
     submit = SubmitField('Change Password')
 
 class ScreeningTypeForm(FlaskForm):
-    name = StringField('Screening Name', validators=[DataRequired(), Length(max=100)])
-    description = TextAreaField('Description', validators=[Optional(), Length(max=500)])
-    keywords = TextAreaField('Keywords (comma-separated)', validators=[DataRequired()])
-    eligibility_gender = SelectField('Gender', choices=[('', 'Any'), ('M', 'Male'), ('F', 'Female')], validators=[Optional()])
+    name = StringField('Name', validators=[DataRequired(), Length(max=200)])
+    description = TextAreaField('Description', validators=[Optional()])
+    keywords = TextAreaField('Keywords', validators=[DataRequired()], 
+                            render_kw={'placeholder': 'Enter keywords separated by commas'})
+    eligibility_gender = SelectField('Gender', choices=[('', 'Any'), ('M', 'Male'), ('F', 'Female')], 
+                                   validators=[Optional()])
     eligibility_min_age = IntegerField('Minimum Age', validators=[Optional(), NumberRange(min=0, max=120)])
     eligibility_max_age = IntegerField('Maximum Age', validators=[Optional(), NumberRange(min=0, max=120)])
     frequency_value = IntegerField('Frequency Value', validators=[DataRequired(), NumberRange(min=1)])
-    frequency_unit = SelectField('Frequency Unit', choices=[('days', 'Days'), ('months', 'Months'), ('years', 'Years')], validators=[DataRequired()])
+    frequency_unit = SelectField('Frequency Unit', 
+                                choices=[('days', 'Days'), ('months', 'Months'), ('years', 'Years')],
+                                validators=[DataRequired()])
+    is_active = BooleanField('Active', default=True)
     submit = SubmitField('Save Screening Type')
+
+class PatientForm(FlaskForm):
+    mrn = StringField('Medical Record Number', validators=[DataRequired(), Length(max=50)])
+    name = StringField('Full Name', validators=[DataRequired(), Length(max=200)])
+    date_of_birth = DateField('Date of Birth', validators=[DataRequired()])
+    gender = SelectField('Gender', choices=[('M', 'Male'), ('F', 'Female'), ('O', 'Other')], validators=[DataRequired()])
+    submit = SubmitField('Add Patient')
