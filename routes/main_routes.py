@@ -9,6 +9,7 @@ import logging
 from models import Patient, Screening, MedicalDocument, ScreeningType
 from core.engine import ScreeningEngine
 from prep_sheet.generator import PrepSheetGenerator
+from forms import LoginForm
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,8 @@ def index():
         if current_user.is_authenticated:
             return redirect(url_for('main.dashboard'))
         else:
-            return render_template('auth/login.html')
+            form = LoginForm()
+            return render_template('auth/login.html', form=form)
     except Exception as e:
         logger.error(f"Error in index route: {str(e)}")
         return render_template('error/500.html'), 500
