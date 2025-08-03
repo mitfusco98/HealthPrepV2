@@ -65,3 +65,7 @@ with app.app_context():
         db.session.add(admin_user)
         db.session.commit()
         logging.info("Default admin user created")
+
+# Initialize routes
+from routes import init_routes
+init_routes(app)
