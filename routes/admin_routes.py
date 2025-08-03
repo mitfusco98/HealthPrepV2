@@ -6,6 +6,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 import logging
+import functools
 
 from models import User, AdminLog, PHISettings, ChecklistSettings
 from admin.logs import AdminLogManager
@@ -20,6 +21,7 @@ admin_bp = Blueprint('admin', __name__)
 
 def admin_required(f):
     """Decorator to require admin role"""
+    @functools.wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated or current_user.role != 'admin':
             flash('Admin access required', 'error')
