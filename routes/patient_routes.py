@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
 from flask_login import login_required, current_user
-from models import Patient, MedicalDocument, PatientCondition, Screening
+from models import Patient, Document, Condition, Screening
 from forms import PatientForm, DocumentUploadForm
 from app import db
 from admin.logs import log_admin_action
@@ -75,9 +75,9 @@ def patient_detail(patient_id):
     patient = Patient.query.get_or_404(patient_id)
     
     # Get patient's documents
-    documents = MedicalDocument.query.filter_by(patient_id=patient_id).order_by(
-        MedicalDocument.document_date.desc().nullslast(),
-        MedicalDocument.upload_date.desc()
+    documents = Document.query.filter_by(patient_id=patient_id).order_by(
+        Document.document_date.desc().nullslast(),
+        Document.upload_date.desc()
     ).all()
     
     # Get patient's screenings
@@ -86,9 +86,9 @@ def patient_detail(patient_id):
     ).order_by(ScreeningType.name).all()
     
     # Get patient's conditions
-    conditions = PatientCondition.query.filter_by(
-        patient_id=patient_id, is_active=True
-    ).order_by(PatientCondition.condition_name).all()
+    conditions = Condition.query.filter_by(
+        patient_id=patient_id, status='active'
+    ).order_by(Condition.condition_name).all()
     
     return render_template('patient/patient_detail.html',
                          patient=patient,
@@ -116,9 +116,11 @@ def upload_document(patient_id):
             file.save(file_path)
             
             # Create document record
-            document = MedicalDocument(
+            document = Document(
                 patient_id=patient_id,
                 filename=filename,
+                original_filename=filename,
+                file_path=file_path,
                 document_type=form.document_type.data,
                 document_date=form.document_date.data
             )
@@ -153,7 +155,7 @@ def upload_document(patient_id):
 @patient_bp.route('/document/<int:document_id>')
 @login_required
 def view_document(document_id):
-    document = MedicalDocument.query.get_or_404(document_id)
+    document = Document.query.get_or_404(document_id)
     return render_template('patient/view_document.html', document=document)
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
