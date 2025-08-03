@@ -12,7 +12,15 @@ def reset_database():
     """Drop all tables and recreate with current schema"""
     with app.app_context():
         print("Dropping all tables...")
-        db.drop_all()
+        # Use raw SQL to drop tables with CASCADE to handle foreign key constraints
+        try:
+            db.engine.execute('DROP SCHEMA public CASCADE')
+            db.engine.execute('CREATE SCHEMA public')
+            db.engine.execute('GRANT ALL ON SCHEMA public TO postgres')
+            db.engine.execute('GRANT ALL ON SCHEMA public TO public')
+        except Exception as e:
+            print(f"Note: Schema reset method failed, trying db.drop_all(): {e}")
+            db.drop_all()
         
         print("Creating all tables with current schema...")
         db.create_all()
