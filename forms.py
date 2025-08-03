@@ -1,4 +1,5 @@
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileRequired
 from wtforms import StringField, PasswordField, BooleanField, TextAreaField, IntegerField, SelectField, DateField
 from wtforms.validators import DataRequired, Email, Length, NumberRange, Optional
 
@@ -31,6 +32,21 @@ class PatientForm(FlaskForm):
     phone = StringField('Phone', validators=[Optional(), Length(max=20)])
     email = StringField('Email', validators=[Optional(), Email(), Length(max=120)])
     address = TextAreaField('Address')
+
+class DocumentUploadForm(FlaskForm):
+    patient_id = SelectField('Patient', validators=[DataRequired()], coerce=int)
+    file = FileField('Document File', validators=[FileRequired()])
+    document_type = SelectField('Document Type', 
+                               choices=[
+                                   ('lab', 'Lab Results'),
+                                   ('imaging', 'Imaging Studies'),
+                                   ('consult', 'Consultation Notes'),
+                                   ('hospital', 'Hospital Records'),
+                                   ('screening', 'Screening Results'),
+                                   ('other', 'Other')
+                               ],
+                               validators=[DataRequired()])
+    document_date = DateField('Document Date', validators=[Optional()])
 
 class ChecklistSettingsForm(FlaskForm):
     labs_cutoff_months = IntegerField('Labs Cutoff (months)', 
