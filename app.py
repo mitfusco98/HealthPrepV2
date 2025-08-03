@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask
+from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -57,6 +57,11 @@ def not_found(error):
 @app.errorhandler(500)
 def internal_error(error):
     return render_template('error/500.html'), 500
+
+# Add a root route
+@app.route('/')
+def index():
+    return render_template('dashboard.html')
 
 with app.app_context():
     # Import models to create tables
