@@ -63,13 +63,21 @@ templates/
 - Database models for patients, screenings, documents, conditions
 - Basic Flask app structure with authentication
 - Error handling templates
+- Admin dashboard structure (logs, analytics, PHI settings)
+- OCR processing framework with confidence scoring
+- PHI filtering system with configurable patterns
 
 ### 🔄 In Progress  
+- Form definitions alignment (DocumentUploadForm missing)
+- Model naming consistency (Document vs MedicalDocument)
 - Core screening engine with fuzzy detection
-- OCR processing with PHI filtering
 - FHIR client integration
-- Admin dashboard components
-- Reusable template assets migration
+- Template asset organization and modularization
+
+### ⚠️ Current Issues
+- Import errors due to missing forms and model mismatches
+- Incomplete screening engine implementation
+- FHIR integration not yet started
 
 ### 📋 Planned
 - Screening type variants and presets
@@ -84,10 +92,27 @@ templates/
 - Maintain separation between user and admin interfaces
 - Prioritize screening engine accuracy and performance
 
+## Design Document Adherence
+
+### Aligned with TDD/Design Intent:
+- ✅ Database schema matches healthcare data requirements
+- ✅ Admin dashboard follows specified structure
+- ✅ OCR processing with HIPAA-compliant PHI filtering
+- ✅ Screening status tracking (Complete, Due, Due Soon)
+- ✅ Multi-tenant ready architecture
+
+### Needs Alignment:
+- ⚠️ FHIR integration (core requirement not yet implemented)
+- ⚠️ Fuzzy detection for screening types
+- ⚠️ Screening type variants system
+- ⚠️ Batch automation for 500+ patients
+- ⚠️ Performance targets (10s prep generation)
+
 ## Recent Changes
 - 2025-02-02: Initial project setup with models and Flask structure
 - 2025-02-02: Created comprehensive database schema for healthcare data
 - 2025-02-02: Planned reusable asset migration from V1 project
+- 2025-02-02: Identified import/naming inconsistencies requiring fixes
 
 ## Technical Requirements
 - Python 3.11+ with Flask framework
