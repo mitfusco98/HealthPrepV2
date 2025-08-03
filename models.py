@@ -158,3 +158,17 @@ class PHISettings(db.Model):
     filter_dates = db.Column(db.Boolean, default=True)
     preserve_medical_terms = db.Column(db.Boolean, default=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class OCRProcessingStats(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    document_id = db.Column(db.Integer, db.ForeignKey('document.id'), nullable=False)
+    processing_time = db.Column(db.Float)  # Time in seconds
+    confidence_score = db.Column(db.Float)
+    pages_processed = db.Column(db.Integer, default=1)
+    characters_extracted = db.Column(db.Integer)
+    phi_items_filtered = db.Column(db.Integer, default=0)
+    ocr_engine = db.Column(db.String(50), default='tesseract')
+    processing_date = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationship
+    document = db.relationship('Document', backref='ocr_stats')

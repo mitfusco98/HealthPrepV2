@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 
-from models import User, AdminLog, PHIFilterSettings, OCRProcessingStats
+from models import User, AdminLog, PHISettings as PHIFilterSettings, OCRProcessingStats
 from forms import PHIFilterForm
 from routes.auth_routes import admin_required
 from admin.logs import AdminLogger
