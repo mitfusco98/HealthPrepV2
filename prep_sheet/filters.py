@@ -1,360 +1,268 @@
 """
-Frequency and cutoff filtering logic
-Handles filtering of medical data based on time periods and relevancy
+Frequency and cutoff filtering logic for prep sheets
+Handles time-based filtering of medical data
 """
-
-from datetime import date, datetime, timedelta
-from dateutil.relativedelta import relativedelta
-from sqlalchemy import and_, or_
-from app import db
-from models import MedicalDocument, Screening, ChecklistSettings
 import logging
+from datetime import datetime, timedelta
+from app import db
+from models import Document, Screening, ScreeningType
+
+logger = logging.getLogger(__name__)
 
 class PrepSheetFilters:
     """Handles filtering logic for prep sheet data"""
     
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        pass
     
-    def filter_documents_by_cutoff(self, patient_id, document_type, cutoff_months):
-        """Filter documents by cutoff period"""
-        try:
-            cutoff_date = date.today() - relativedelta(months=cutoff_months)
-            
-            documents = MedicalDocument.query.filter(
-                and_(
-                    MedicalDocument.patient_id == patient_id,
-                    MedicalDocument.document_type == document_type,
-                    MedicalDocument.document_date >= cutoff_date,
-                    MedicalDocument.is_processed == True
+    def filter_documents_by_relevancy(self, patient_id, section_type, cutoff_date):
+        """Filter documents by relevancy to specific sections"""
+        base_query = Document.query.filter_by(patient_id=patient_id)\
+                                 .filter(Document.document_date >= cutoff_date)
+        
+        # Section-specific filtering
+        if section_type == 'laboratories':
+            relevant_docs = base_query.filter(
+                db.or_(
+                    Document.document_type == 'lab',
+                    Document.original_filename.ilike('%lab%'),
+                    Document.original_filename.ilike('%blood%'),
+                    Document.original_filename.ilike('%urine%'),
+                    Document.ocr_text.ilike('%laboratory%'),
+                    Document.ocr_text.ilike('%lab results%')
                 )
-            ).order_by(MedicalDocument.document_date.desc()).all()
+            ).order_by(Document.document_date.desc()).all()
             
+        elif section_type == 'imaging':
+            relevant_docs = base_query.filter(
+                db.or_(
+                    Document.document_type == 'imaging',
+                    Document.original_filename.ilike('%xray%'),
+                    Document.original_filename.ilike('%ct%'),
+                    Document.original_filename.ilike('%mri%'),
+                    Document.original_filename.ilike('%ultrasound%'),
+                    Document.original_filename.ilike('%mammogram%'),
+                    Document.ocr_text.ilike('%radiology%'),
+                    Document.ocr_text.ilike('%imaging%')
+                )
+            ).order_by(Document.document_date.desc()).all()
+            
+        elif section_type == 'consults':
+            relevant_docs = base_query.filter(
+                db.or_(
+                    Document.document_type == 'consult',
+                    Document.original_filename.ilike('%consult%'),
+                    Document.original_filename.ilike('%referral%'),
+                    Document.original_filename.ilike('%specialist%'),
+                    Document.ocr_text.ilike('%consultation%'),
+                    Document.ocr_text.ilike('%specialist%')
+                )
+            ).order_by(Document.document_date.desc()).all()
+            
+        elif section_type == 'hospital_visits':
+            relevant_docs = base_query.filter(
+                db.or_(
+                    Document.document_type == 'hospital',
+                    Document.original_filename.ilike('%discharge%'),
+                    Document.original_filename.ilike('%admission%'),
+                    Document.original_filename.ilike('%hospital%'),
+                    Document.original_filename.ilike('%emergency%'),
+                    Document.ocr_text.ilike('%discharge summary%'),
+                    Document.ocr_text.ilike('%hospital%')
+                )
+            ).order_by(Document.document_date.desc()).all()
+            
+        else:
+            # Generic filtering for unknown section types
+            relevant_docs = base_query.order_by(Document.document_date.desc()).all()
+        
+        return relevant_docs
+    
+    def filter_by_screening_frequency(self, documents, screening_type_id):
+        """Filter documents based on screening frequency cycles"""
+        screening_type = ScreeningType.query.get(screening_type_id)
+        if not screening_type:
             return documents
-            
-        except Exception as e:
-            self.logger.error(f"Error filtering documents by cutoff: {str(e)}")
-            return []
+        
+        # Calculate frequency period in days
+        if screening_type.frequency_unit == 'months':
+            frequency_days = screening_type.frequency_value * 30
+        else:  # years
+            frequency_days = screening_type.frequency_value * 365
+        
+        cutoff_date = datetime.utcnow() - timedelta(days=frequency_days)
+        
+        # Filter documents within the current screening cycle
+        filtered_docs = [
+            doc for doc in documents 
+            if doc.document_date and doc.document_date >= cutoff_date
+        ]
+        
+        return filtered_docs
     
-    def filter_documents_by_screening_frequency(self, patient_id, screening_id):
-        """Filter documents based on screening frequency"""
-        try:
-            screening = Screening.query.get(screening_id)
-            if not screening:
-                return []
-            
-            # Calculate frequency period
-            frequency_years = screening.screening_type.frequency_years or 0
-            frequency_months = screening.screening_type.frequency_months or 0
-            
-            if frequency_years == 0 and frequency_months == 0:
-                # No frequency specified, return all documents
-                cutoff_date = date.today() - relativedelta(years=10)  # Default 10 years
-            else:
-                # Calculate cutoff based on frequency
-                cutoff_date = date.today()
-                if frequency_years > 0:
-                    cutoff_date = cutoff_date - relativedelta(years=frequency_years)
-                if frequency_months > 0:
-                    cutoff_date = cutoff_date - relativedelta(months=frequency_months)
-            
-            # Get documents that match the screening keywords
-            if not screening.matched_documents:
-                return []
-            
-            documents = MedicalDocument.query.filter(
-                and_(
-                    MedicalDocument.id.in_(screening.matched_documents),
-                    MedicalDocument.document_date >= cutoff_date
-                )
-            ).order_by(MedicalDocument.document_date.desc()).all()
-            
+    def apply_confidence_threshold(self, documents, min_confidence=0.0):
+        """Filter documents by OCR confidence threshold"""
+        if min_confidence <= 0:
             return documents
-            
-        except Exception as e:
-            self.logger.error(f"Error filtering documents by screening frequency: {str(e)}")
-            return []
+        
+        return [
+            doc for doc in documents 
+            if doc.ocr_confidence and doc.ocr_confidence >= min_confidence
+        ]
     
-    def get_relevant_documents_for_prep(self, patient_id, settings=None):
-        """Get all relevant documents for prep sheet based on settings"""
-        try:
-            if not settings:
-                settings = ChecklistSettings.query.filter_by(is_active=True).first()
-                if not settings:
-                    settings = self._get_default_settings()
-            
-            relevant_docs = {
-                'labs': self.filter_documents_by_cutoff(patient_id, 'lab', settings.lab_cutoff_months),
-                'imaging': self.filter_documents_by_cutoff(patient_id, 'imaging', settings.imaging_cutoff_months),
-                'consults': self.filter_documents_by_cutoff(patient_id, 'consult', settings.consult_cutoff_months),
-                'hospital': self.filter_documents_by_cutoff(patient_id, 'hospital', settings.hospital_cutoff_months)
-            }
-            
-            return relevant_docs
-            
-        except Exception as e:
-            self.logger.error(f"Error getting relevant documents for prep: {str(e)}")
-            return {}
+    def filter_by_document_type(self, documents, allowed_types):
+        """Filter documents by specific document types"""
+        if not allowed_types:
+            return documents
+        
+        return [
+            doc for doc in documents 
+            if doc.document_type in allowed_types
+        ]
     
-    def filter_documents_by_confidence(self, documents, min_confidence=60):
-        """Filter documents by OCR confidence level"""
-        try:
-            high_confidence = []
-            medium_confidence = []
-            low_confidence = []
-            no_confidence = []
-            
-            for doc in documents:
-                if doc.ocr_confidence is None:
-                    no_confidence.append(doc)
-                elif doc.ocr_confidence >= 80:
-                    high_confidence.append(doc)
-                elif doc.ocr_confidence >= min_confidence:
-                    medium_confidence.append(doc)
-                else:
-                    low_confidence.append(doc)
-            
-            return {
-                'high_confidence': high_confidence,
-                'medium_confidence': medium_confidence,
-                'low_confidence': low_confidence,
-                'no_confidence': no_confidence,
-                'all_above_threshold': high_confidence + medium_confidence
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Error filtering documents by confidence: {str(e)}")
-            return {}
-    
-    def get_documents_by_date_range(self, patient_id, start_date, end_date, document_types=None):
-        """Get documents within a specific date range"""
-        try:
-            query = MedicalDocument.query.filter(
-                and_(
-                    MedicalDocument.patient_id == patient_id,
-                    MedicalDocument.document_date >= start_date,
-                    MedicalDocument.document_date <= end_date,
-                    MedicalDocument.is_processed == True
-                )
+    def deduplicate_documents(self, documents):
+        """Remove duplicate documents based on filename and date"""
+        seen_combinations = set()
+        unique_docs = []
+        
+        for doc in documents:
+            # Create a unique identifier based on filename and date
+            identifier = (
+                doc.original_filename.lower(),
+                doc.document_date.date() if doc.document_date else None
             )
             
-            if document_types:
-                query = query.filter(MedicalDocument.document_type.in_(document_types))
-            
-            documents = query.order_by(MedicalDocument.document_date.desc()).all()
-            
-            return documents
-            
-        except Exception as e:
-            self.logger.error(f"Error getting documents by date range: {str(e)}")
-            return []
-    
-    def filter_screenings_by_status(self, patient_id, status_filter=None):
-        """Filter screenings by status"""
-        try:
-            query = Screening.query.filter_by(patient_id=patient_id)
-            
-            if status_filter:
-                if isinstance(status_filter, list):
-                    query = query.filter(Screening.status.in_(status_filter))
-                else:
-                    query = query.filter_by(status=status_filter)
-            
-            screenings = query.all()
-            
-            return screenings
-            
-        except Exception as e:
-            self.logger.error(f"Error filtering screenings by status: {str(e)}")
-            return []
-    
-    def get_priority_screenings(self, patient_id):
-        """Get screenings that need immediate attention"""
-        try:
-            priority_statuses = ['Overdue', 'Due']
-            
-            priority_screenings = Screening.query.filter(
-                and_(
-                    Screening.patient_id == patient_id,
-                    Screening.status.in_(priority_statuses)
-                )
-            ).order_by(
-                # Order by priority: Overdue first, then Due
-                Screening.status.desc(),
-                Screening.next_due_date.asc()
-            ).all()
-            
-            return priority_screenings
-            
-        except Exception as e:
-            self.logger.error(f"Error getting priority screenings: {str(e)}")
-            return []
-    
-    def calculate_document_relevancy_score(self, document, screening_keywords):
-        """Calculate how relevant a document is to specific screening keywords"""
-        try:
-            if not screening_keywords or not document.ocr_text:
-                return 0
-            
-            text_lower = document.ocr_text.lower()
-            filename_lower = document.filename.lower()
-            
-            score = 0
-            max_score = len(screening_keywords) * 10  # Max 10 points per keyword
-            
-            for keyword in screening_keywords:
-                keyword_lower = keyword.lower()
-                
-                # Filename matches are worth more
-                if keyword_lower in filename_lower:
-                    score += 10
-                # Content matches
-                elif keyword_lower in text_lower:
-                    score += 7
-                # Partial matches (fuzzy)
-                elif any(word in keyword_lower for word in text_lower.split() if len(word) > 3):
-                    score += 3
-            
-            # Normalize score to 0-100
-            relevancy_score = min(100, (score / max_score * 100)) if max_score > 0 else 0
-            
-            # Boost score based on OCR confidence
-            if document.ocr_confidence:
-                confidence_boost = document.ocr_confidence / 100
-                relevancy_score = relevancy_score * (0.5 + 0.5 * confidence_boost)
-            
-            return round(relevancy_score, 2)
-            
-        except Exception as e:
-            self.logger.error(f"Error calculating document relevancy: {str(e)}")
-            return 0
-    
-    def get_most_recent_document_per_type(self, patient_id):
-        """Get the most recent document for each document type"""
-        try:
-            from sqlalchemy import func
-            
-            # Subquery to get max date per document type
-            subquery = db.session.query(
-                MedicalDocument.document_type,
-                func.max(MedicalDocument.document_date).label('max_date')
-            ).filter(
-                and_(
-                    MedicalDocument.patient_id == patient_id,
-                    MedicalDocument.is_processed == True
-                )
-            ).group_by(MedicalDocument.document_type).subquery()
-            
-            # Join to get the actual documents
-            recent_docs = db.session.query(MedicalDocument).join(
-                subquery,
-                and_(
-                    MedicalDocument.document_type == subquery.c.document_type,
-                    MedicalDocument.document_date == subquery.c.max_date,
-                    MedicalDocument.patient_id == patient_id
-                )
-            ).all()
-            
-            return recent_docs
-            
-        except Exception as e:
-            self.logger.error(f"Error getting most recent documents per type: {str(e)}")
-            return []
-    
-    def filter_documents_older_than_frequency(self, patient_id, screening_type):
-        """Filter out documents older than the screening frequency"""
-        try:
-            frequency_years = screening_type.frequency_years or 0
-            frequency_months = screening_type.frequency_months or 0
-            
-            if frequency_years == 0 and frequency_months == 0:
-                # No frequency specified, don't filter
-                return MedicalDocument.query.filter_by(patient_id=patient_id).all()
-            
-            # Calculate cutoff date
-            cutoff_date = date.today()
-            if frequency_years > 0:
-                cutoff_date = cutoff_date - relativedelta(years=frequency_years)
-            if frequency_months > 0:
-                cutoff_date = cutoff_date - relativedelta(months=frequency_months)
-            
-            # Get documents newer than cutoff
-            recent_docs = MedicalDocument.query.filter(
-                and_(
-                    MedicalDocument.patient_id == patient_id,
-                    MedicalDocument.document_date >= cutoff_date,
-                    MedicalDocument.is_processed == True
-                )
-            ).order_by(MedicalDocument.document_date.desc()).all()
-            
-            return recent_docs
-            
-        except Exception as e:
-            self.logger.error(f"Error filtering documents by frequency: {str(e)}")
-            return []
-    
-    def _get_default_settings(self):
-        """Get default settings if none exist"""
-        from models import ChecklistSettings
+            if identifier not in seen_combinations:
+                seen_combinations.add(identifier)
+                unique_docs.append(doc)
         
-        return ChecklistSettings(
-            name='Default',
-            lab_cutoff_months=12,
-            imaging_cutoff_months=24,
-            consult_cutoff_months=12,
-            hospital_cutoff_months=24
+        return unique_docs
+    
+    def sort_by_priority(self, documents, priority_keywords=None):
+        """Sort documents by priority based on keywords"""
+        if not priority_keywords:
+            # Default priority order
+            priority_keywords = [
+                'urgent', 'stat', 'critical', 'abnormal', 'positive',
+                'negative', 'normal', 'routine'
+            ]
+        
+        def get_priority_score(doc):
+            if not doc.ocr_text:
+                return 999  # Low priority for docs without text
+            
+            text_lower = doc.ocr_text.lower()
+            for i, keyword in enumerate(priority_keywords):
+                if keyword in text_lower:
+                    return i
+            
+            return len(priority_keywords)  # No keywords found
+        
+        return sorted(documents, key=get_priority_score)
+    
+    def filter_by_date_range(self, documents, start_date=None, end_date=None):
+        """Filter documents by date range"""
+        filtered_docs = documents
+        
+        if start_date:
+            filtered_docs = [
+                doc for doc in filtered_docs 
+                if doc.document_date and doc.document_date >= start_date
+            ]
+        
+        if end_date:
+            filtered_docs = [
+                doc for doc in filtered_docs 
+                if doc.document_date and doc.document_date <= end_date
+            ]
+        
+        return filtered_docs
+    
+    def group_documents_by_type(self, documents):
+        """Group documents by their type for organized display"""
+        grouped = {}
+        
+        for doc in documents:
+            doc_type = doc.document_type or 'other'
+            if doc_type not in grouped:
+                grouped[doc_type] = []
+            grouped[doc_type].append(doc)
+        
+        # Sort each group by date (newest first)
+        for doc_type in grouped:
+            grouped[doc_type].sort(
+                key=lambda x: x.document_date or datetime.min, 
+                reverse=True
+            )
+        
+        return grouped
+    
+    def apply_prep_sheet_filters(self, patient_id, section_config):
+        """Apply comprehensive filtering for prep sheet sections"""
+        section_type = section_config.get('type')
+        cutoff_months = section_config.get('cutoff_months', 12)
+        min_confidence = section_config.get('min_confidence', 0.0)
+        max_documents = section_config.get('max_documents', 50)
+        
+        # Calculate cutoff date
+        cutoff_date = datetime.utcnow() - timedelta(days=cutoff_months * 30)
+        
+        # Get relevant documents
+        documents = self.filter_documents_by_relevancy(
+            patient_id, section_type, cutoff_date
         )
+        
+        # Apply confidence filtering
+        documents = self.apply_confidence_threshold(documents, min_confidence)
+        
+        # Remove duplicates
+        documents = self.deduplicate_documents(documents)
+        
+        # Sort by priority
+        documents = self.sort_by_priority(documents)
+        
+        # Limit number of documents
+        documents = documents[:max_documents]
+        
+        return documents
     
-    def apply_prep_sheet_filters(self, patient_id, filter_config=None):
-        """Apply comprehensive filtering for prep sheet generation"""
-        try:
-            if not filter_config:
-                filter_config = self._get_default_filter_config()
-            
-            filtered_data = {}
-            
-            # Apply document type filters
-            for doc_type, config in filter_config.get('document_types', {}).items():
-                cutoff_months = config.get('cutoff_months', 12)
-                min_confidence = config.get('min_confidence', 60)
-                
-                docs = self.filter_documents_by_cutoff(patient_id, doc_type, cutoff_months)
-                confidence_filtered = self.filter_documents_by_confidence(docs, min_confidence)
-                
-                filtered_data[doc_type] = {
-                    'all_documents': docs,
-                    'high_confidence': confidence_filtered['high_confidence'],
-                    'above_threshold': confidence_filtered['all_above_threshold']
-                }
-            
-            # Apply screening filters
-            screening_config = filter_config.get('screenings', {})
-            status_filter = screening_config.get('status_filter')
-            
-            screenings = self.filter_screenings_by_status(patient_id, status_filter)
-            priority_screenings = self.get_priority_screenings(patient_id)
-            
-            filtered_data['screenings'] = {
-                'all_screenings': screenings,
-                'priority_screenings': priority_screenings
+    def calculate_data_freshness(self, documents):
+        """Calculate how fresh/recent the document data is"""
+        if not documents:
+            return {
+                'avg_age_days': None,
+                'newest_doc_age': None,
+                'oldest_doc_age': None,
+                'freshness_score': 0
             }
-            
-            return filtered_data
-            
-        except Exception as e:
-            self.logger.error(f"Error applying prep sheet filters: {str(e)}")
-            return {}
-    
-    def _get_default_filter_config(self):
-        """Get default filter configuration"""
+        
+        now = datetime.utcnow()
+        doc_ages = []
+        
+        for doc in documents:
+            if doc.document_date:
+                age_days = (now - doc.document_date).days
+                doc_ages.append(age_days)
+        
+        if not doc_ages:
+            return {
+                'avg_age_days': None,
+                'newest_doc_age': None,
+                'oldest_doc_age': None,
+                'freshness_score': 0
+            }
+        
+        avg_age = sum(doc_ages) / len(doc_ages)
+        newest_age = min(doc_ages)
+        oldest_age = max(doc_ages)
+        
+        # Calculate freshness score (0-100, higher = fresher)
+        # Documents less than 30 days old get high scores
+        freshness_score = max(0, 100 - (avg_age / 365 * 100))
+        
         return {
-            'document_types': {
-                'lab': {'cutoff_months': 12, 'min_confidence': 60},
-                'imaging': {'cutoff_months': 24, 'min_confidence': 70},
-                'consult': {'cutoff_months': 12, 'min_confidence': 60},
-                'hospital': {'cutoff_months': 24, 'min_confidence': 60}
-            },
-            'screenings': {
-                'status_filter': None  # Include all statuses
-            }
+            'avg_age_days': round(avg_age, 1),
+            'newest_doc_age': newest_age,
+            'oldest_doc_age': oldest_age,
+            'freshness_score': round(freshness_score, 1)
         }

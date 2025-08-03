@@ -1,413 +1,324 @@
 """
-RBAC, encryption config
-Security configurations and access control for healthcare data
+RBAC, encryption config, and security utilities
+Handles security-related configuration and utilities
 """
-
 import os
-from datetime import datetime, timedelta
-from functools import wraps
-from flask import request, jsonify, session, current_app
-from flask_login import current_user
 import hashlib
 import secrets
+from datetime import datetime, timedelta
+from functools import wraps
+from flask import session, request, abort, current_app
+from flask_login import current_user
 import logging
 
-class SecurityConfig:
-    """Security configuration and constants"""
-    
-    # Password requirements
-    MIN_PASSWORD_LENGTH = 8
-    REQUIRE_UPPERCASE = True
-    REQUIRE_LOWERCASE = True
-    REQUIRE_NUMBERS = True
-    REQUIRE_SPECIAL_CHARS = True
-    
-    # Session security
-    SESSION_TIMEOUT_MINUTES = 480  # 8 hours
-    MAX_LOGIN_ATTEMPTS = 5
-    LOCKOUT_DURATION_MINUTES = 30
-    
-    # HIPAA compliance settings
-    AUDIT_ALL_PHI_ACCESS = True
-    MINIMUM_NECESSARY_PRINCIPLE = True
-    AUTO_LOGOUT_ENABLED = True
-    
-    # Encryption settings
-    ENCRYPTION_ALGORITHM = 'AES-256'
-    HASH_ALGORITHM = 'SHA-256'
-    
-    # API rate limiting
-    API_RATE_LIMIT = '100/hour'
-    ADMIN_API_RATE_LIMIT = '500/hour'
+logger = logging.getLogger(__name__)
 
-class RoleBasedAccessControl:
-    """Role-based access control system"""
-    
-    # Define role hierarchy (higher number = more permissions)
-    ROLE_HIERARCHY = {
-        'ma': 1,        # Medical Assistant
-        'nurse': 2,     # Nurse
-        'user': 3,      # General User
-        'admin': 4      # Administrator
-    }
-    
-    # Define permissions for each role
-    ROLE_PERMISSIONS = {
-        'ma': [
-            'view_patients',
-            'view_screenings',
-            'upload_documents',
-            'generate_prep_sheets'
-        ],
-        'nurse': [
-            'view_patients',
-            'view_screenings',
-            'upload_documents',
-            'generate_prep_sheets',
-            'edit_patient_info',
-            'manage_screenings'
-        ],
-        'user': [
-            'view_patients',
-            'view_screenings',
-            'upload_documents',
-            'generate_prep_sheets',
-            'edit_patient_info',
-            'manage_screenings',
-            'view_reports'
-        ],
-        'admin': [
-            'view_patients',
-            'view_screenings',
-            'upload_documents',
-            'generate_prep_sheets',
-            'edit_patient_info',
-            'manage_screenings',
-            'view_reports',
+# Role definitions
+ROLES = {
+    'admin': {
+        'permissions': [
+            'view_admin_dashboard',
             'manage_users',
-            'access_admin_panel',
-            'manage_settings',
+            'manage_screening_types',
+            'view_all_patients',
+            'manage_system_settings',
             'view_audit_logs',
             'export_data',
-            'manage_phi_settings'
+            'manage_phi_settings',
+            'system_administration'
+        ]
+    },
+    'user': {
+        'permissions': [
+            'view_screening_list',
+            'view_patient_details',
+            'generate_prep_sheets',
+            'upload_documents',
+            'view_own_activity'
+        ]
+    },
+    'readonly': {
+        'permissions': [
+            'view_screening_list',
+            'view_patient_details',
+            'view_prep_sheets'
         ]
     }
+}
+
+# Security constants
+SESSION_TIMEOUT_MINUTES = int(os.environ.get("SESSION_TIMEOUT_MINUTES", "480"))  # 8 hours
+MAX_LOGIN_ATTEMPTS = int(os.environ.get("MAX_LOGIN_ATTEMPTS", "5"))
+LOCKOUT_DURATION_MINUTES = int(os.environ.get("LOCKOUT_DURATION_MINUTES", "30"))
+PASSWORD_MIN_LENGTH = int(os.environ.get("PASSWORD_MIN_LENGTH", "8"))
+
+class SecurityManager:
+    """Handles security operations and validations"""
     
-    @classmethod
-    def get_user_permissions(cls, role):
-        """Get all permissions for a role"""
-        return cls.ROLE_PERMISSIONS.get(role, [])
+    def __init__(self):
+        self.failed_logins = {}  # In production, use Redis or database
     
-    @classmethod
-    def has_permission(cls, user_role, required_permission):
-        """Check if a role has a specific permission"""
-        user_permissions = cls.get_user_permissions(user_role)
-        return required_permission in user_permissions
+    def check_permission(self, user, permission):
+        """Check if user has specific permission"""
+        if not user or not user.is_authenticated:
+            return False
+        
+        user_role = getattr(user, 'role', 'user')
+        role_config = ROLES.get(user_role, {})
+        permissions = role_config.get('permissions', [])
+        
+        return permission in permissions
     
-    @classmethod
-    def role_can_access_role(cls, user_role, target_role):
-        """Check if a user role can manage/access another role"""
-        user_level = cls.ROLE_HIERARCHY.get(user_role, 0)
-        target_level = cls.ROLE_HIERARCHY.get(target_role, 0)
-        return user_level >= target_level
+    def require_permission(self, permission):
+        """Decorator to require specific permission"""
+        def decorator(f):
+            @wraps(f)
+            def decorated_function(*args, **kwargs):
+                if not self.check_permission(current_user, permission):
+                    logger.warning(f"Permission denied: {permission} for user {current_user.id if current_user.is_authenticated else 'anonymous'}")
+                    abort(403)
+                return f(*args, **kwargs)
+            return decorated_function
+        return decorator
+    
+    def is_admin(self, user):
+        """Check if user is admin"""
+        return self.check_permission(user, 'system_administration')
+    
+    def validate_session_security(self):
+        """Validate session security and handle timeouts"""
+        if not current_user.is_authenticated:
+            return True
+        
+        # Check session timeout
+        last_activity = session.get('last_activity')
+        if last_activity:
+            last_activity_time = datetime.fromisoformat(last_activity)
+            if datetime.utcnow() - last_activity_time > timedelta(minutes=SESSION_TIMEOUT_MINUTES):
+                logger.info(f"Session timeout for user {current_user.id}")
+                return False
+        
+        # Update last activity
+        session['last_activity'] = datetime.utcnow().isoformat()
+        session.permanent = True
+        
+        return True
+    
+    def check_rate_limit(self, identifier, max_attempts=10, window_minutes=60):
+        """Check rate limiting for various operations"""
+        current_time = datetime.utcnow()
+        window_start = current_time - timedelta(minutes=window_minutes)
+        
+        # Clean old attempts
+        if identifier in self.failed_logins:
+            self.failed_logins[identifier] = [
+                attempt for attempt in self.failed_logins[identifier]
+                if attempt > window_start
+            ]
+        
+        # Check current attempts
+        attempts = len(self.failed_logins.get(identifier, []))
+        return attempts < max_attempts
+    
+    def record_failed_attempt(self, identifier):
+        """Record a failed login/operation attempt"""
+        if identifier not in self.failed_logins:
+            self.failed_logins[identifier] = []
+        
+        self.failed_logins[identifier].append(datetime.utcnow())
+        logger.warning(f"Failed attempt recorded for {identifier}")
+    
+    def is_locked_out(self, identifier):
+        """Check if identifier is currently locked out"""
+        if identifier not in self.failed_logins:
+            return False
+        
+        recent_failures = [
+            attempt for attempt in self.failed_logins[identifier]
+            if datetime.utcnow() - attempt < timedelta(minutes=LOCKOUT_DURATION_MINUTES)
+        ]
+        
+        return len(recent_failures) >= MAX_LOGIN_ATTEMPTS
+    
+    def validate_password_strength(self, password):
+        """Validate password meets security requirements"""
+        errors = []
+        
+        if len(password) < PASSWORD_MIN_LENGTH:
+            errors.append(f"Password must be at least {PASSWORD_MIN_LENGTH} characters long")
+        
+        if not any(c.isupper() for c in password):
+            errors.append("Password must contain at least one uppercase letter")
+        
+        if not any(c.islower() for c in password):
+            errors.append("Password must contain at least one lowercase letter")
+        
+        if not any(c.isdigit() for c in password):
+            errors.append("Password must contain at least one digit")
+        
+        if not any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in password):
+            errors.append("Password must contain at least one special character")
+        
+        return errors
+    
+    def generate_secure_token(self, length=32):
+        """Generate a cryptographically secure token"""
+        return secrets.token_urlsafe(length)
+    
+    def hash_sensitive_data(self, data):
+        """Hash sensitive data for logging/storage"""
+        if not data:
+            return None
+        
+        return hashlib.sha256(str(data).encode()).hexdigest()[:16]
+    
+    def sanitize_input(self, input_string, max_length=1000):
+        """Sanitize user input to prevent injection attacks"""
+        if not input_string:
+            return ""
+        
+        # Remove potentially dangerous characters
+        dangerous_chars = ['<', '>', '"', "'", '&', '\x00', '\n', '\r']
+        sanitized = input_string
+        
+        for char in dangerous_chars:
+            sanitized = sanitized.replace(char, '')
+        
+        # Limit length
+        return sanitized[:max_length]
+    
+    def audit_security_event(self, event_type, details=None):
+        """Log security-related events for audit trail"""
+        from admin.logs import log_admin_action
+        
+        user_id = current_user.id if current_user.is_authenticated else None
+        ip_address = request.remote_addr if request else None
+        
+        log_admin_action(
+            user_id=user_id,
+            action=f"security_event_{event_type}",
+            resource_type="security",
+            details={
+                'event_type': event_type,
+                'ip_address': ip_address,
+                'user_agent': request.headers.get('User-Agent') if request else None,
+                'timestamp': datetime.utcnow().isoformat(),
+                **(details or {})
+            },
+            ip_address=ip_address
+        )
+
+# Security decorators
+def require_admin(f):
+    """Decorator to require admin role"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.role != 'admin':
+            logger.warning(f"Admin access denied for user {current_user.id if current_user.is_authenticated else 'anonymous'}")
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated_function
 
 def require_permission(permission):
     """Decorator to require specific permission"""
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            if not current_user.is_authenticated:
-                return jsonify({'error': 'Authentication required'}), 401
-            
-            if not RoleBasedAccessControl.has_permission(current_user.role, permission):
-                log_security_event('unauthorized_access_attempt', 
-                                 f'User {current_user.username} attempted to access {permission}')
-                return jsonify({'error': 'Insufficient permissions'}), 403
-            
-            # Log PHI access if required
-            if permission in ['view_patients', 'generate_prep_sheets', 'view_reports']:
-                log_phi_access(current_user.id, permission, request.endpoint)
-            
+            security_manager = SecurityManager()
+            if not security_manager.check_permission(current_user, permission):
+                logger.warning(f"Permission denied: {permission} for user {current_user.id if current_user.is_authenticated else 'anonymous'}")
+                abort(403)
             return f(*args, **kwargs)
-        
         return decorated_function
     return decorator
 
-def require_role(required_role):
-    """Decorator to require minimum role level"""
+def validate_session_security(f):
+    """Decorator to validate session security"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        security_manager = SecurityManager()
+        if not security_manager.validate_session_security():
+            abort(401)
+        return f(*args, **kwargs)
+    return decorated_function
+
+def rate_limit(max_attempts=10, window_minutes=60):
+    """Decorator for rate limiting"""
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            if not current_user.is_authenticated:
-                return jsonify({'error': 'Authentication required'}), 401
+            security_manager = SecurityManager()
+            identifier = request.remote_addr
             
-            user_level = RoleBasedAccessControl.ROLE_HIERARCHY.get(current_user.role, 0)
-            required_level = RoleBasedAccessControl.ROLE_HIERARCHY.get(required_role, 0)
-            
-            if user_level < required_level:
-                log_security_event('insufficient_role', 
-                                 f'User {current_user.username} (role: {current_user.role}) '
-                                 f'attempted to access {required_role} resource')
-                return jsonify({'error': 'Insufficient role'}), 403
+            if not security_manager.check_rate_limit(identifier, max_attempts, window_minutes):
+                logger.warning(f"Rate limit exceeded for {identifier}")
+                abort(429)  # Too Many Requests
             
             return f(*args, **kwargs)
-        
         return decorated_function
     return decorator
 
-def admin_required(f):
-    """Decorator to require admin role"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated:
-            return jsonify({'error': 'Authentication required'}), 401
-        
-        if not current_user.is_admin():
-            log_security_event('admin_access_denied', 
-                             f'Non-admin user {current_user.username} attempted admin access')
-            return jsonify({'error': 'Admin privileges required'}), 403
-        
-        log_security_event('admin_access', f'Admin {current_user.username} accessed admin function')
-        return f(*args, **kwargs)
+# Security headers middleware
+def add_security_headers(response):
+    """Add security headers to response"""
+    from config.settings import SECURITY_HEADERS
     
-    return decorated_function
-
-class PHIAccessControl:
-    """Protected Health Information access control"""
+    for header, value in SECURITY_HEADERS.items():
+        response.headers[header] = value
     
-    @staticmethod
-    def log_phi_access(user_id, action, resource, patient_id=None, additional_info=None):
-        """Log PHI access for HIPAA compliance"""
-        from models import AdminLog
-        from app import db
-        
-        try:
-            description = f"PHI Access: {action} on {resource}"
-            if patient_id:
-                description += f" for patient {patient_id}"
-            if additional_info:
-                description += f" - {additional_info}"
-            
-            log_entry = AdminLog(
-                user_id=user_id,
-                action='phi_access',
-                description=description,
-                ip_address=request.remote_addr if request else None,
-                user_agent=request.headers.get('User-Agent', '')[:500] if request else None
-            )
-            
-            db.session.add(log_entry)
-            db.session.commit()
-            
-        except Exception as e:
-            logging.error(f"Failed to log PHI access: {str(e)}")
-    
-    @staticmethod
-    def check_minimum_necessary(user_role, requested_data_type):
-        """Check if data access follows minimum necessary principle"""
-        # Define what data each role needs access to
-        role_data_access = {
-            'ma': ['basic_patient_info', 'appointments', 'screenings'],
-            'nurse': ['basic_patient_info', 'appointments', 'screenings', 'medical_history', 'medications'],
-            'user': ['basic_patient_info', 'appointments', 'screenings', 'medical_history', 'medications', 'lab_results'],
-            'admin': ['all']  # Admins can access all data for system management
-        }
-        
-        allowed_data = role_data_access.get(user_role, [])
-        return 'all' in allowed_data or requested_data_type in allowed_data
-
-def validate_password_strength(password):
-    """Validate password against security requirements"""
-    errors = []
-    
-    if len(password) < SecurityConfig.MIN_PASSWORD_LENGTH:
-        errors.append(f"Password must be at least {SecurityConfig.MIN_PASSWORD_LENGTH} characters long")
-    
-    if SecurityConfig.REQUIRE_UPPERCASE and not any(c.isupper() for c in password):
-        errors.append("Password must contain at least one uppercase letter")
-    
-    if SecurityConfig.REQUIRE_LOWERCASE and not any(c.islower() for c in password):
-        errors.append("Password must contain at least one lowercase letter")
-    
-    if SecurityConfig.REQUIRE_NUMBERS and not any(c.isdigit() for c in password):
-        errors.append("Password must contain at least one number")
-    
-    if SecurityConfig.REQUIRE_SPECIAL_CHARS and not any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in password):
-        errors.append("Password must contain at least one special character")
-    
-    return errors
-
-def generate_secure_token(length=32):
-    """Generate a secure random token"""
-    return secrets.token_urlsafe(length)
-
-def hash_sensitive_data(data):
-    """Hash sensitive data for storage"""
-    if isinstance(data, str):
-        data = data.encode('utf-8')
-    
-    return hashlib.sha256(data).hexdigest()
-
-def encrypt_phi_data(data, key=None):
-    """Encrypt PHI data (placeholder for actual encryption implementation)"""
-    # In a production system, this would use proper AES-256 encryption
-    # For now, return a placeholder indicating encryption would occur
-    return f"[ENCRYPTED:{hash_sensitive_data(data)[:16]}]"
-
-def decrypt_phi_data(encrypted_data, key=None):
-    """Decrypt PHI data (placeholder for actual decryption implementation)"""
-    # In a production system, this would decrypt AES-256 encrypted data
-    # For now, return indication that decryption would occur
-    if encrypted_data.startswith("[ENCRYPTED:"):
-        return "[DECRYPTED_DATA]"
-    return encrypted_data
-
-class SessionSecurity:
-    """Session security management"""
-    
-    @staticmethod
-    def is_session_expired():
-        """Check if current session is expired"""
-        if 'last_activity' not in session:
-            return True
-        
-        last_activity = datetime.fromisoformat(session['last_activity'])
-        timeout = timedelta(minutes=SecurityConfig.SESSION_TIMEOUT_MINUTES)
-        
-        return datetime.utcnow() - last_activity > timeout
-    
-    @staticmethod
-    def update_session_activity():
-        """Update session last activity timestamp"""
-        session['last_activity'] = datetime.utcnow().isoformat()
-    
-    @staticmethod
-    def invalidate_session():
-        """Invalidate current session"""
-        session.clear()
-    
-    @staticmethod
-    def check_concurrent_sessions(user_id):
-        """Check for concurrent sessions (placeholder implementation)"""
-        # In a production system, this would check for multiple active sessions
-        # and potentially limit concurrent logins
-        return True
-
-def log_security_event(event_type, description, user_id=None):
-    """Log security-related events"""
-    from models import AdminLog
-    from app import db
-    
-    try:
-        log_entry = AdminLog(
-            user_id=user_id or (current_user.id if current_user.is_authenticated else None),
-            action=f'security_{event_type}',
-            description=description,
-            ip_address=request.remote_addr if request else None,
-            user_agent=request.headers.get('User-Agent', '')[:500] if request else None
-        )
-        
-        db.session.add(log_entry)
-        db.session.commit()
-        
-        # Also log to application logger for monitoring
-        logging.warning(f"Security Event: {event_type} - {description}")
-        
-    except Exception as e:
-        logging.error(f"Failed to log security event: {str(e)}")
-
-def log_phi_access(user_id, action, resource, patient_id=None):
-    """Log PHI access for HIPAA compliance"""
-    PHIAccessControl.log_phi_access(user_id, action, resource, patient_id)
-
-class BreachDetection:
-    """Detect potential security breaches"""
-    
-    @staticmethod
-    def detect_unusual_access_patterns(user_id, timeframe_hours=24):
-        """Detect unusual access patterns for a user"""
-        from models import AdminLog
-        from sqlalchemy import and_
-        
-        cutoff_time = datetime.utcnow() - timedelta(hours=timeframe_hours)
-        
-        # Count PHI access events
-        phi_access_count = AdminLog.query.filter(
-            and_(
-                AdminLog.user_id == user_id,
-                AdminLog.action == 'phi_access',
-                AdminLog.created_at >= cutoff_time
-            )
-        ).count()
-        
-        # Define normal access thresholds
-        normal_thresholds = {
-            'ma': 50,
-            'nurse': 100,
-            'user': 150,
-            'admin': 500
-        }
-        
-        if current_user.is_authenticated:
-            threshold = normal_thresholds.get(current_user.role, 100)
-            if phi_access_count > threshold:
-                log_security_event('unusual_access_pattern', 
-                                 f'User {user_id} accessed PHI {phi_access_count} times in {timeframe_hours} hours')
-                return True
-        
-        return False
-    
-    @staticmethod
-    def detect_after_hours_access():
-        """Detect access outside normal business hours"""
-        current_hour = datetime.now().hour
-        
-        # Define business hours (6 AM to 10 PM)
-        if current_hour < 6 or current_hour > 22:
-            if current_user.is_authenticated:
-                log_security_event('after_hours_access', 
-                                 f'User {current_user.username} accessed system at {datetime.now()}')
-                return True
-        
-        return False
-
-# Security middleware function
-def apply_security_headers(response):
-    """Apply security headers to all responses"""
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['X-Frame-Options'] = 'DENY'
-    response.headers['X-XSS-Protection'] = '1; mode=block'
-    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
     return response
 
-# Audit compliance functions
-def generate_audit_report(start_date, end_date):
-    """Generate HIPAA audit report"""
-    from models import AdminLog
-    from sqlalchemy import and_
+# HIPAA compliance utilities
+def log_phi_access(patient_id, access_type, details=None):
+    """Log PHI access for HIPAA compliance"""
+    security_manager = SecurityManager()
+    security_manager.audit_security_event(
+        'phi_access',
+        {
+            'patient_id': patient_id,
+            'access_type': access_type,
+            'details': details
+        }
+    )
+
+def validate_hipaa_compliance(f):
+    """Decorator to ensure HIPAA compliance for PHI access"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Log the access attempt
+        patient_id = kwargs.get('patient_id') or request.view_args.get('patient_id')
+        if patient_id:
+            log_phi_access(patient_id, f.__name__)
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Encryption utilities for sensitive data
+class DataEncryption:
+    """Handle encryption/decryption of sensitive data"""
     
-    audit_events = AdminLog.query.filter(
-        and_(
-            AdminLog.created_at >= start_date,
-            AdminLog.created_at <= end_date,
-            AdminLog.action.in_(['phi_access', 'security_login', 'security_logout', 'security_unauthorized_access_attempt'])
-        )
-    ).order_by(AdminLog.created_at.desc()).all()
+    def __init__(self):
+        self.key = os.environ.get("ENCRYPTION_KEY", "").encode()
+        if not self.key:
+            # Generate a key if not provided (for development)
+            self.key = os.urandom(32)
+            logger.warning("No encryption key provided, using generated key (development only)")
     
-    return {
-        'period': f"{start_date} to {end_date}",
-        'total_events': len(audit_events),
-        'phi_access_events': len([e for e in audit_events if e.action == 'phi_access']),
-        'security_events': len([e for e in audit_events if e.action.startswith('security_')]),
-        'events': [
-            {
-                'timestamp': event.created_at,
-                'user_id': event.user_id,
-                'action': event.action,
-                'description': event.description,
-                'ip_address': event.ip_address
-            }
-            for event in audit_events
-        ]
-    }
+    def encrypt_data(self, data):
+        """Encrypt sensitive data (placeholder - implement with proper encryption library)"""
+        # In production, use proper encryption like Fernet from cryptography library
+        import base64
+        return base64.b64encode(str(data).encode()).decode()
+    
+    def decrypt_data(self, encrypted_data):
+        """Decrypt sensitive data (placeholder - implement with proper encryption library)"""
+        # In production, use proper decryption
+        import base64
+        try:
+            return base64.b64decode(encrypted_data.encode()).decode()
+        except:
+            return encrypted_data
+
+# Initialize security manager
+security_manager = SecurityManager()
+data_encryption = DataEncryption()

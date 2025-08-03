@@ -1,237 +1,137 @@
 {
-  "name": "Primary Care Preventive Screenings",
-  "description": "Standard preventive screening recommendations for primary care practices",
+  "name": "Primary Care Screening Preset",
+  "description": "Comprehensive screening protocols for primary care practice",
+  "specialty": "Primary Care",
   "version": "1.0",
-  "created_at": "2024-01-01T00:00:00",
-  "screening_types": [
+  "created_date": "2025-01-01T00:00:00",
+  "screenings": [
     {
       "name": "Mammogram",
-      "description": "Breast cancer screening mammography",
-      "keywords": [
-        "mammogram",
-        "mammography",
-        "breast imaging",
-        "breast cancer screening",
-        "mammo"
-      ],
-      "eligible_genders": ["F"],
-      "min_age": 40,
-      "max_age": 74,
-      "frequency_years": 1,
-      "frequency_months": null,
+      "description": "Breast cancer screening for women",
+      "keywords": ["mammogram", "mammography", "breast imaging", "breast screening"],
+      "eligibility": {
+        "gender": "F",
+        "min_age": 40,
+        "max_age": null
+      },
+      "frequency": {
+        "value": 12,
+        "unit": "months"
+      },
       "trigger_conditions": [],
-      "is_active": true
+      "status": "active"
     },
     {
       "name": "Colonoscopy",
       "description": "Colorectal cancer screening",
-      "keywords": [
-        "colonoscopy",
-        "colon screening",
-        "colorectal cancer screening",
-        "colon scope",
-        "colonoscopic"
-      ],
-      "eligible_genders": ["M", "F"],
-      "min_age": 45,
-      "max_age": 75,
-      "frequency_years": 10,
-      "frequency_months": null,
+      "keywords": ["colonoscopy", "colon screening", "colorectal screening", "colono"],
+      "eligibility": {
+        "gender": "any",
+        "min_age": 45,
+        "max_age": 75
+      },
+      "frequency": {
+        "value": 10,
+        "unit": "years"
+      },
       "trigger_conditions": [],
-      "is_active": true
+      "status": "active"
     },
     {
-      "name": "Pap Smear",
-      "description": "Cervical cancer screening",
-      "keywords": [
-        "pap smear",
-        "pap test",
-        "papanicolaou",
-        "cervical cytology",
-        "cervical cancer screening"
-      ],
-      "eligible_genders": ["F"],
-      "min_age": 21,
-      "max_age": 65,
-      "frequency_years": 3,
-      "frequency_months": null,
+      "name": "Cervical Cancer Screening",
+      "description": "Pap smear for cervical cancer screening",
+      "keywords": ["pap smear", "pap test", "cervical screening", "papanicolaou"],
+      "eligibility": {
+        "gender": "F",
+        "min_age": 21,
+        "max_age": 65
+      },
+      "frequency": {
+        "value": 36,
+        "unit": "months"
+      },
       "trigger_conditions": [],
-      "is_active": true
+      "status": "active"
     },
     {
-      "name": "Bone Density (DEXA)",
-      "description": "Osteoporosis screening",
-      "keywords": [
-        "dexa",
-        "dxa",
-        "bone density",
-        "dual energy",
-        "osteoporosis screening",
-        "bone scan"
-      ],
-      "eligible_genders": ["F"],
-      "min_age": 65,
-      "max_age": null,
-      "frequency_years": 2,
-      "frequency_months": null,
+      "name": "Bone Density Screening",
+      "description": "DEXA scan for osteoporosis screening",
+      "keywords": ["dexa", "dxa", "bone density", "bone scan", "osteoporosis screening"],
+      "eligibility": {
+        "gender": "F",
+        "min_age": 65,
+        "max_age": null
+      },
+      "frequency": {
+        "value": 24,
+        "unit": "months"
+      },
       "trigger_conditions": [],
-      "is_active": true
+      "status": "active"
     },
     {
       "name": "Lipid Panel",
-      "description": "Cholesterol and lipid screening",
-      "keywords": [
-        "lipid panel",
-        "cholesterol",
-        "lipids",
-        "triglycerides",
-        "hdl",
-        "ldl",
-        "lipid profile"
-      ],
-      "eligible_genders": ["M", "F"],
-      "min_age": 20,
-      "max_age": null,
-      "frequency_years": 5,
-      "frequency_months": null,
-      "trigger_conditions": [],
-      "is_active": true
+      "description": "Cholesterol screening",
+      "keywords": ["lipid panel", "cholesterol", "lipids", "hdl", "ldl", "triglycerides"],
+      "eligibility": {
+        "gender": "any",
+        "min_age": 20,
+        "max_age": null
+      },
+      "frequency": {
+        "value": 60,
+        "unit": "months"
+      },
+      "trigger_conditions": ["hyperlipidemia", "diabetes", "cardiovascular disease"],
+      "status": "active"
     },
     {
-      "name": "A1C Test",
-      "description": "Diabetes screening and monitoring",
-      "keywords": [
-        "a1c",
-        "hba1c",
-        "hemoglobin a1c",
-        "glycated hemoglobin",
-        "diabetes screening",
-        "glucose control"
-      ],
-      "eligible_genders": ["M", "F"],
-      "min_age": 35,
-      "max_age": null,
-      "frequency_years": 3,
-      "frequency_months": null,
-      "trigger_conditions": [],
-      "is_active": true
-    },
-    {
-      "name": "A1C Test (Diabetic)",
-      "description": "Diabetes monitoring for diabetic patients",
-      "keywords": [
-        "a1c",
-        "hba1c",
-        "hemoglobin a1c",
-        "glycated hemoglobin",
-        "diabetes monitoring"
-      ],
-      "eligible_genders": ["M", "F"],
-      "min_age": 18,
-      "max_age": null,
-      "frequency_years": null,
-      "frequency_months": 3,
-      "trigger_conditions": [
-        "diabetes",
-        "diabetes mellitus",
-        "type 1 diabetes",
-        "type 2 diabetes"
-      ],
-      "is_active": true
+      "name": "A1C",
+      "description": "Diabetes monitoring and screening",
+      "keywords": ["a1c", "hba1c", "hemoglobin a1c", "glycated hemoglobin"],
+      "eligibility": {
+        "gender": "any",
+        "min_age": 35,
+        "max_age": null
+      },
+      "frequency": {
+        "value": 36,
+        "unit": "months"
+      },
+      "trigger_conditions": ["diabetes", "prediabetes"],
+      "status": "active"
     },
     {
       "name": "Blood Pressure Check",
       "description": "Hypertension screening",
-      "keywords": [
-        "blood pressure",
-        "bp check",
-        "hypertension screening",
-        "bp measurement"
-      ],
-      "eligible_genders": ["M", "F"],
-      "min_age": 18,
-      "max_age": null,
-      "frequency_years": 1,
-      "frequency_months": null,
-      "trigger_conditions": [],
-      "is_active": true
+      "keywords": ["blood pressure", "bp check", "hypertension screening"],
+      "eligibility": {
+        "gender": "any",
+        "min_age": 18,
+        "max_age": null
+      },
+      "frequency": {
+        "value": 12,
+        "unit": "months"
+      },
+      "trigger_conditions": ["hypertension"],
+      "status": "active"
     },
     {
       "name": "Eye Exam",
       "description": "Comprehensive eye examination",
-      "keywords": [
-        "eye exam",
-        "ophthalmology",
-        "retinal exam",
-        "vision screening",
-        "eye examination"
-      ],
-      "eligible_genders": ["M", "F"],
-      "min_age": 40,
-      "max_age": null,
-      "frequency_years": 2,
-      "frequency_months": null,
-      "trigger_conditions": [],
-      "is_active": true
-    },
-    {
-      "name": "Diabetic Eye Exam",
-      "description": "Annual eye examination for diabetic patients",
-      "keywords": [
-        "diabetic eye exam",
-        "diabetic retinopathy",
-        "ophthalmology",
-        "retinal exam",
-        "diabetic retinal screening"
-      ],
-      "eligible_genders": ["M", "F"],
-      "min_age": 18,
-      "max_age": null,
-      "frequency_years": 1,
-      "frequency_months": null,
-      "trigger_conditions": [
-        "diabetes",
-        "diabetes mellitus",
-        "type 1 diabetes",
-        "type 2 diabetes"
-      ],
-      "is_active": true
-    },
-    {
-      "name": "Skin Cancer Screening",
-      "description": "Dermatological skin examination",
-      "keywords": [
-        "skin exam",
-        "dermatology",
-        "skin cancer screening",
-        "mole check",
-        "dermatologic examination"
-      ],
-      "eligible_genders": ["M", "F"],
-      "min_age": 18,
-      "max_age": null,
-      "frequency_years": 1,
-      "frequency_months": null,
-      "trigger_conditions": [],
-      "is_active": true
-    },
-    {
-      "name": "Prostate Screening",
-      "description": "Prostate cancer screening",
-      "keywords": [
-        "psa",
-        "prostate specific antigen",
-        "prostate screening",
-        "prostate cancer screening",
-        "digital rectal exam"
-      ],
-      "eligible_genders": ["M"],
-      "min_age": 50,
-      "max_age": 70,
-      "frequency_years": 1,
-      "frequency_months": null,
-      "trigger_conditions": [],
-      "is_active": true
+      "keywords": ["eye exam", "ophthalmology", "vision screening", "retinal exam"],
+      "eligibility": {
+        "gender": "any",
+        "min_age": 40,
+        "max_age": null
+      },
+      "frequency": {
+        "value": 24,
+        "unit": "months"
+      },
+      "trigger_conditions": ["diabetes", "hypertension", "glaucoma"],
+      "status": "active"
     }
   ]
 }

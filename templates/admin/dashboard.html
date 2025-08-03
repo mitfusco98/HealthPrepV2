@@ -1,232 +1,149 @@
-{% extends 'base_admin.html' %}
+{% extends 'admin/base.html' %}
 
 {% block title %}HealthPrep Admin - Dashboard{% endblock %}
 
 {% block content %}
-<div class="admin-header text-center">
-    <h1><i class="fas fa-tachometer-alt me-3"></i>System Dashboard</h1>
-    <p class="lead mb-0">Real-time monitoring and system overview</p>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-tachometer-alt me-2"></i>System Dashboard</h1>
+    <div>
+        <button class="btn btn-outline-primary btn-sm" onclick="location.reload()">
+            <i class="fas fa-sync me-1"></i>Refresh
+        </button>
+    </div>
 </div>
 
-<!-- Quick Stats Cards -->
+<!-- System Overview Cards -->
 <div class="row mb-4">
-    <div class="col-lg-3 col-md-6 mb-3">
+    <div class="col-md-3">
         <div class="card stat-card">
             <div class="card-body text-center">
-                <i class="fas fa-users fa-2x mb-3"></i>
-                <h3>{{ stats.overview.total_patients or 0 }}</h3>
-                <p class="mb-0">Total Patients</p>
-                <small>+{{ stats.overview.new_patients_month or 0 }} this month</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card stat-card">
-            <div class="card-body text-center">
-                <i class="fas fa-file-medical fa-2x mb-3"></i>
-                <h3>{{ stats.overview.total_documents or 0 }}</h3>
-                <p class="mb-0">Documents Processed</p>
-                <small>+{{ stats.overview.new_documents_month or 0 }} this month</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card stat-card">
-            <div class="card-body text-center">
-                <i class="fas fa-list-check fa-2x mb-3"></i>
-                <h3>{{ stats.overview.total_screenings or 0 }}</h3>
-                <p class="mb-0">Active Screenings</p>
-                <small>{{ stats.overview.total_screening_types or 0 }} types configured</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card stat-card">
-            <div class="card-body text-center">
-                <i class="fas fa-clock fa-2x mb-3"></i>
-                <h3>{{ "%.1f"|format(stats.performance_metrics.avg_processing_time or 0) }}s</h3>
-                <p class="mb-0">Avg Processing Time</p>
-                <small>{{ "%.1f"|format(stats.performance_metrics.system_uptime or 0) }}% uptime</small>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Main Dashboard Content -->
-<div class="row">
-    <!-- Screening Status Overview -->
-    <div class="col-lg-6 mb-4">
-        <div class="card admin-table">
-            <div class="card-header">
-                <h5><i class="fas fa-chart-pie me-2"></i>Screening Status Distribution</h5>
-            </div>
-            <div class="card-body">
-                <canvas id="screeningStatusChart" height="200"></canvas>
-                
-                <div class="mt-3">
-                    <div class="row text-center">
-                        <div class="col-4">
-                            <span class="badge bg-success">{{ stats.screening_stats.status_distribution.get('Complete', 0) }}</span>
-                            <br><small>Complete</small>
-                        </div>
-                        <div class="col-4">
-                            <span class="badge bg-warning text-dark">{{ stats.screening_stats.status_distribution.get('Due Soon', 0) }}</span>
-                            <br><small>Due Soon</small>
-                        </div>
-                        <div class="col-4">
-                            <span class="badge bg-danger">{{ stats.screening_stats.status_distribution.get('Due', 0) }}</span>
-                            <br><small>Overdue</small>
-                        </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h3 class="mb-0">{{ stats.total_patients }}</h3>
+                        <small>Total Patients</small>
                     </div>
+                    <i class="fas fa-users stat-icon"></i>
                 </div>
             </div>
         </div>
     </div>
-    
-    <!-- Document Processing Stats -->
-    <div class="col-lg-6 mb-4">
-        <div class="card admin-table">
-            <div class="card-header">
-                <h5><i class="fas fa-file-medical me-2"></i>Document Processing Quality</h5>
-            </div>
-            <div class="card-body">
-                <canvas id="confidenceChart" height="200"></canvas>
-                
-                <div class="mt-3">
-                    <div class="progress mb-2">
-                        <div class="progress-bar bg-success" role="progressbar" 
-                             style="width: {{ (stats.document_stats.confidence_distribution.high / (stats.document_stats.total_documents or 1) * 100)|round(1) }}%">
-                            High ({{ stats.document_stats.confidence_distribution.high or 0 }})
-                        </div>
-                        <div class="progress-bar bg-warning" role="progressbar" 
-                             style="width: {{ (stats.document_stats.confidence_distribution.medium / (stats.document_stats.total_documents or 1) * 100)|round(1) }}%">
-                            Medium ({{ stats.document_stats.confidence_distribution.medium or 0 }})
-                        </div>
-                        <div class="progress-bar bg-danger" role="progressbar" 
-                             style="width: {{ (stats.document_stats.confidence_distribution.low / (stats.document_stats.total_documents or 1) * 100)|round(1) }}%">
-                            Low ({{ stats.document_stats.confidence_distribution.low or 0 }})
-                        </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body text-center">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h3 class="mb-0">{{ stats.total_screenings }}</h3>
+                        <small>Total Screenings</small>
                     </div>
-                    <p class="text-center mb-0">
-                        <strong>Average Confidence: {{ "%.1f"|format(stats.document_stats.average_confidence * 100 or 0) }}%</strong>
-                    </p>
+                    <i class="fas fa-stethoscope stat-icon"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body text-center">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h3 class="mb-0 text-warning">{{ stats.due_screenings }}</h3>
+                        <small>Due Screenings</small>
+                    </div>
+                    <i class="fas fa-exclamation-triangle stat-icon"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body text-center">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h3 class="mb-0">{{ stats.total_documents }}</h3>
+                        <small>Documents</small>
+                    </div>
+                    <i class="fas fa-file-text stat-icon"></i>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- System Performance and ROI Metrics -->
-<div class="row">
-    <div class="col-lg-4 mb-4">
-        <div class="card admin-table">
-            <div class="card-header">
-                <h5><i class="fas fa-chart-line me-2"></i>Performance Metrics</h5>
-            </div>
+<!-- Performance Metrics -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card metric-card">
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <span>Processing Accuracy</span>
-                    <span class="badge bg-success">{{ "%.1f"|format(stats.performance_metrics.document_accuracy_rate or 0) }}%</span>
-                </div>
-                <div class="progress mb-3">
-                    <div class="progress-bar bg-success" 
-                         style="width: {{ stats.performance_metrics.document_accuracy_rate or 0 }}%"></div>
-                </div>
-                
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <span>Screening Completion</span>
-                    <span class="badge bg-info">{{ "%.1f"|format(stats.performance_metrics.screening_completion_efficiency or 0) }}%</span>
-                </div>
-                <div class="progress mb-3">
-                    <div class="progress-bar bg-info" 
-                         style="width: {{ stats.performance_metrics.screening_completion_efficiency or 0 }}%"></div>
-                </div>
-                
-                <div class="d-flex justify-content-between align-items-center">
-                    <span>System Uptime</span>
-                    <span class="badge bg-primary">{{ "%.2f"|format(stats.performance_metrics.system_uptime or 0) }}%</span>
-                </div>
-                <div class="progress">
-                    <div class="progress-bar bg-primary" 
-                         style="width: {{ stats.performance_metrics.system_uptime or 0 }}%"></div>
-                </div>
+                <h6 class="card-title">
+                    <i class="fas fa-clock me-2"></i>
+                    Time Savings
+                </h6>
+                <h3 class="text-primary">{{ "%.1f"|format(stats.hours_saved) }} hours</h3>
+                <small class="text-muted">Estimated hours saved this month</small>
             </div>
         </div>
     </div>
-    
-    <div class="col-lg-4 mb-4">
-        <div class="card admin-table">
-            <div class="card-header">
-                <h5><i class="fas fa-dollar-sign me-2"></i>ROI Metrics</h5>
-            </div>
+    <div class="col-md-4">
+        <div class="card metric-card">
             <div class="card-body">
-                {% set roi_stats = stats.get('roi_metrics', {}) %}
-                <div class="text-center mb-3">
-                    <h3 class="text-success">{{ roi_stats.get('total_hours_saved', 0) }}</h3>
-                    <p class="mb-0">Hours Saved</p>
-                    <small class="text-muted">Through automation</small>
-                </div>
-                
-                <hr>
-                
-                <div class="d-flex justify-content-between mb-2">
-                    <span>Prep Sheets Generated</span>
-                    <strong>{{ roi_stats.get('total_prep_sheets_generated', 0) }}</strong>
-                </div>
-                
-                <div class="d-flex justify-content-between mb-2">
-                    <span>Documents Automated</span>
-                    <strong>{{ roi_stats.get('automated_documents_processed', 0) }}</strong>
-                </div>
-                
-                <div class="d-flex justify-content-between mb-2">
-                    <span>Screening Gaps Closed</span>
-                    <strong>{{ roi_stats.get('screening_gaps_closed', 0) }}</strong>
-                </div>
-                
-                <hr>
-                
-                <div class="d-flex justify-content-between">
-                    <span><strong>Est. Cost Savings</strong></span>
-                    <strong class="text-success">${{ "%.2f"|format(roi_stats.get('estimated_cost_savings', 0)) }}</strong>
-                </div>
+                <h6 class="card-title">
+                    <i class="fas fa-file-search me-2"></i>
+                    OCR Processing
+                </h6>
+                <h3 class="text-success">{{ stats.ocr_processed }}</h3>
+                <small class="text-muted">Documents processed automatically</small>
             </div>
         </div>
     </div>
-    
-    <div class="col-lg-4 mb-4">
-        <div class="card admin-table">
+    <div class="col-md-4">
+        <div class="card metric-card">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-chart-line me-2"></i>
+                    Processing Rate
+                </h6>
+                <h3 class="text-info">{{ "%.1f"|format((stats.ocr_processed / stats.total_documents * 100) if stats.total_documents > 0 else 0) }}%</h3>
+                <small class="text-muted">Document processing success rate</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
             <div class="card-header">
-                <h5><i class="fas fa-shield-alt me-2"></i>HIPAA Compliance</h5>
+                <h5 class="mb-0">
+                    <i class="fas fa-bolt me-2"></i>
+                    Quick Actions
+                </h5>
             </div>
             <div class="card-body">
-                {% set compliance_stats = stats.get('compliance_metrics', {}) %}
-                <div class="text-center mb-3">
-                    <h3 class="text-primary">{{ "%.1f"|format(compliance_stats.get('compliance_score', 0)) }}%</h3>
-                    <p class="mb-0">Compliance Score</p>
-                    <small class="text-muted">Overall system compliance</small>
-                </div>
-                
-                <hr>
-                
-                <div class="d-flex justify-content-between mb-2">
-                    <span>PHI Filtered Documents</span>
-                    <strong>{{ compliance_stats.get('total_phi_filtered_documents', 0) }}</strong>
-                </div>
-                
-                <div class="d-flex justify-content-between mb-2">
-                    <span>Audit Log Entries</span>
-                    <strong>{{ compliance_stats.get('audit_log_entries', 0) }}</strong>
-                </div>
-                
-                <div class="d-flex justify-content-between mb-2">
-                    <span>Security Events</span>
-                    <strong>{{ compliance_stats.get('security_events_logged', 0) }}</strong>
-                </div>
-                
-                <div class="d-flex justify-content-between align-items-center">
-                    <span>PHI Compliance Rate</span>
-                    <span class="badge bg-success">{{ "%.1f"|format(compliance_stats.get('phi_compliance_rate', 0)) }}%</span>
+                <div class="row">
+                    <div class="col-md-3">
+                        <a href="{{ url_for('admin_ocr_dashboard') }}" class="btn btn-outline-primary w-100 mb-2">
+                            <i class="fas fa-file-text me-2"></i>
+                            Monitor OCR
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('admin_phi_settings') }}" class="btn btn-outline-warning w-100 mb-2">
+                            <i class="fas fa-user-shield me-2"></i>
+                            PHI Settings
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{{ url_for('checklist_settings') }}" class="btn btn-outline-info w-100 mb-2">
+                            <i class="fas fa-cog me-2"></i>
+                            Prep Settings
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-success w-100 mb-2" onclick="refreshAllScreenings()">
+                            <i class="fas fa-sync me-2"></i>
+                            Refresh Screenings
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -235,46 +152,61 @@
 
 <!-- Recent Activity -->
 <div class="row">
-    <div class="col-lg-8 mb-4">
-        <div class="card admin-table">
+    <div class="col-md-12">
+        <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5><i class="fas fa-clock me-2"></i>Recent System Activity</h5>
-                <a href="{{ url_for('admin.logs') }}" class="btn btn-sm btn-outline-primary">
-                    <i class="fas fa-list me-1"></i>View All Logs
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>
+                    Recent Activity
+                </h5>
+                <a href="{{ url_for('admin_logs') }}" class="btn btn-sm btn-outline-primary">
+                    View All Logs
                 </a>
             </div>
             <div class="card-body">
                 {% if recent_logs %}
                     <div class="table-responsive">
-                        <table class="table table-sm">
+                        <table class="table table-hover">
                             <thead>
                                 <tr>
                                     <th>Time</th>
                                     <th>User</th>
                                     <th>Action</th>
+                                    <th>Resource</th>
                                     <th>Details</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for log in recent_logs[:10] %}
+                                {% for log in recent_logs %}
                                 <tr>
                                     <td>
-                                        <small>{{ log.timestamp.strftime('%m/%d %H:%M') }}</small>
+                                        <small class="text-muted">
+                                            {{ log.timestamp.strftime('%H:%M:%S') }}
+                                        </small>
                                     </td>
                                     <td>
-                                        {% if log.user %}
-                                            <span class="badge bg-secondary">{{ log.user.username }}</span>
+                                        <span class="badge bg-secondary">
+                                            {{ log.user.username if log.user else 'System' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ log.action }}</span>
+                                    </td>
+                                    <td>
+                                        {% if log.resource_type %}
+                                            <small class="text-muted">{{ log.resource_type }}</small>
                                         {% else %}
-                                            <span class="badge bg-dark">System</span>
+                                            <small class="text-muted">-</small>
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <small>{{ log.action }}</small>
-                                    </td>
-                                    <td>
-                                        <small class="text-muted">
-                                            {{ log.details[:50] }}{% if log.details and log.details|length > 50 %}...{% endif %}
-                                        </small>
+                                        {% if log.details %}
+                                            <small class="text-muted">
+                                                {{ log.details|truncate(50) }}
+                                            </small>
+                                        {% else %}
+                                            <small class="text-muted">-</small>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -283,143 +215,59 @@
                     </div>
                 {% else %}
                     <div class="text-center text-muted py-4">
-                        <i class="fas fa-inbox fa-2x mb-2"></i>
+                        <i class="fas fa-history fa-2x mb-2"></i>
                         <p>No recent activity to display</p>
                     </div>
                 {% endif %}
             </div>
         </div>
     </div>
-    
-    <div class="col-lg-4 mb-4">
-        <div class="card admin-table">
-            <div class="card-header">
-                <h5><i class="fas fa-tasks me-2"></i>Quick Actions</h5>
-            </div>
-            <div class="card-body">
-                <div class="d-grid gap-2">
-                    <a href="{{ url_for('admin.ocr_dashboard') }}" class="btn btn-outline-primary">
-                        <i class="fas fa-file-medical me-2"></i>OCR Monitor
-                    </a>
-                    <a href="{{ url_for('admin.phi_settings') }}" class="btn btn-outline-warning">
-                        <i class="fas fa-shield-alt me-2"></i>PHI Settings
-                    </a>
-                    <a href="{{ url_for('admin.prep_settings') }}" class="btn btn-outline-info">
-                        <i class="fas fa-sliders-h me-2"></i>Prep Sheet Settings
-                    </a>
-                    <a href="{{ url_for('screening.screening_types') }}" class="btn btn-outline-success">
-                        <i class="fas fa-stethoscope me-2"></i>Manage Screenings
-                    </a>
-                    <a href="{{ url_for('admin.export_logs') }}" class="btn btn-outline-secondary">
-                        <i class="fas fa-download me-2"></i>Export Logs
-                    </a>
-                </div>
-                
-                <!-- System Status -->
-                <div class="mt-4 p-3" style="background: rgba(40, 167, 69, 0.1); border-radius: 0.375rem;">
-                    <h6 class="text-success"><i class="fas fa-check-circle me-2"></i>System Status</h6>
-                    <ul class="list-unstyled mb-0">
-                        <li><small><i class="fas fa-circle text-success me-1"></i>Database: Online</small></li>
-                        <li><small><i class="fas fa-circle text-success me-1"></i>OCR Service: Active</small></li>
-                        <li><small><i class="fas fa-circle text-success me-1"></i>PHI Filter: Enabled</small></li>
-                        <li><small><i class="fas fa-circle text-success me-1"></i>Audit Logging: Active</small></li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
-{% endblock %}
 
-{% block extra_js %}
+<!-- System Alerts -->
+{% if stats.due_screenings > 50 %}
+<div class="alert alert-admin mt-4">
+    <i class="fas fa-exclamation-triangle me-2"></i>
+    <strong>High number of due screenings detected:</strong> {{ stats.due_screenings }} screenings are currently due. 
+    Consider reviewing screening protocols or running batch updates.
+</div>
+{% endif %}
+
+{% if (stats.ocr_processed / stats.total_documents * 100) < 90 if stats.total_documents > 0 else false %}
+<div class="alert alert-admin mt-4">
+    <i class="fas fa-file-text me-2"></i>
+    <strong>OCR processing rate is below optimal:</strong> 
+    Only {{ "%.1f"|format((stats.ocr_processed / stats.total_documents * 100) if stats.total_documents > 0 else 0) }}% 
+    of documents have been processed. Check the OCR monitor for details.
+</div>
+{% endif %}
+
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Screening Status Pie Chart
-    const statusCtx = document.getElementById('screeningStatusChart').getContext('2d');
-    new Chart(statusCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Complete', 'Due Soon', 'Overdue'],
-            datasets: [{
-                data: [
-                    {{ stats.screening_stats.status_distribution.get('Complete', 0) }},
-                    {{ stats.screening_stats.status_distribution.get('Due Soon', 0) }},
-                    {{ stats.screening_stats.status_distribution.get('Due', 0) }}
-                ],
-                backgroundColor: ['#198754', '#ffc107', '#dc3545'],
-                borderWidth: 2,
-                borderColor: '#495057'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        color: '#ffffff',
-                        padding: 20
-                    }
-                }
+function refreshAllScreenings() {
+    if (confirm('Refresh all screening calculations? This may take a few minutes for large patient populations.')) {
+        showLoading('Refreshing all screenings...');
+        
+        fetch('{{ url_for("refresh_screenings") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
             }
-        }
-    });
-    
-    // Document Confidence Chart
-    const confCtx = document.getElementById('confidenceChart').getContext('2d');
-    new Chart(confCtx, {
-        type: 'bar',
-        data: {
-            labels: ['High Confidence', 'Medium Confidence', 'Low Confidence'],
-            datasets: [{
-                label: 'Documents',
-                data: [
-                    {{ stats.document_stats.confidence_distribution.high or 0 }},
-                    {{ stats.document_stats.confidence_distribution.medium or 0 }},
-                    {{ stats.document_stats.confidence_distribution.low or 0 }}
-                ],
-                backgroundColor: ['#198754', '#ffc107', '#dc3545'],
-                borderColor: ['#198754', '#ffc107', '#dc3545'],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        color: '#ffffff'
-                    },
-                    grid: {
-                        color: '#495057'
-                    }
-                },
-                x: {
-                    ticks: {
-                        color: '#ffffff'
-                    },
-                    grid: {
-                        color: '#495057'
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: false
-                }
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.success) {
+                alert(`Successfully updated ${data.updated_count} screenings`);
+                location.reload();
+            } else {
+                alert(`Error: ${data.message}`);
             }
-        }
-    });
-    
-    // Auto-refresh dashboard every 30 seconds
-    setInterval(function() {
-        if (document.visibilityState === 'visible') {
-            location.reload();
-        }
-    }, 30000);
-});
+        })
+        .catch(error => {
+            hideLoading();
+            alert('Error refreshing screenings: ' + error.message);
+        });
+    }
+}
 </script>
 {% endblock %}

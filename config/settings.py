@@ -1,288 +1,171 @@
 """
-Global constants and settings
-Application-wide configuration and default values
+Global constants and settings for the application
+Centralized configuration management
 """
-
 import os
 from datetime import timedelta
 
-class Config:
-    """Base configuration class"""
-    
-    # Flask settings
-    SECRET_KEY = os.environ.get('SESSION_SECRET')
-    
-    # Database settings
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_pre_ping': True,
-        'pool_recycle': 300,
-        'pool_size': 10,
-        'max_overflow': 20
-    }
-    
-    # OCR settings
-    TESSERACT_CMD = os.environ.get('TESSERACT_CMD', '/usr/bin/tesseract')
-    UPLOAD_FOLDER = 'uploads'
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
-    ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png', 'tiff', 'tif'}
-    
-    # FHIR settings
-    FHIR_BASE_URL = os.environ.get('FHIR_BASE_URL', 'https://fhir.epic.com/interconnect-fhir-oauth')
-    FHIR_CLIENT_ID = os.environ.get('FHIR_CLIENT_ID', 'demo_client')
-    FHIR_CLIENT_SECRET = os.environ.get('FHIR_CLIENT_SECRET', 'demo_secret')
-    FHIR_SCOPES = ['patient/Patient.read', 'patient/DocumentReference.read', 'patient/Condition.read', 'patient/Observation.read']
-    
-    # Session settings
-    PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
-    SESSION_COOKIE_SECURE = True
-    SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE = 'Lax'
-    
-    # Security settings
-    WTF_CSRF_ENABLED = True
-    WTF_CSRF_TIME_LIMIT = 3600  # 1 hour
-    
-    # Pagination settings
-    ITEMS_PER_PAGE = 25
-    MAX_ITEMS_PER_PAGE = 100
+# Flask Configuration
+SECRET_KEY = os.environ.get("SESSION_SECRET")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
-class DevelopmentConfig(Config):
-    """Development configuration"""
-    DEBUG = True
-    TESTING = False
-    SESSION_COOKIE_SECURE = False
+# FHIR Configuration
+FHIR_BASE_URL = os.environ.get("FHIR_BASE_URL", "https://fhir.epic.com/interconnect-fhir-oauth")
+FHIR_CLIENT_ID = os.environ.get("FHIR_CLIENT_ID", "")
+FHIR_CLIENT_SECRET = os.environ.get("FHIR_CLIENT_SECRET", "")
 
-class ProductionConfig(Config):
-    """Production configuration"""
-    DEBUG = False
-    TESTING = False
+# OCR Configuration
+TESSERACT_PATH = os.environ.get("TESSERACT_PATH", "/usr/bin/tesseract")
+OCR_CONFIDENCE_THRESHOLD = float(os.environ.get("OCR_CONFIDENCE_THRESHOLD", "0.6"))
+MAX_DOCUMENT_SIZE_MB = int(os.environ.get("MAX_DOCUMENT_SIZE_MB", "50"))
 
-class TestingConfig(Config):
-    """Testing configuration"""
-    DEBUG = True
-    TESTING = True
-    WTF_CSRF_ENABLED = False
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+# File Upload Configuration
+UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "uploads")
+ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png', 'tiff', 'bmp'}
+MAX_CONTENT_LENGTH = MAX_DOCUMENT_SIZE_MB * 1024 * 1024  # Convert to bytes
 
-# Healthcare-specific constants
-class HealthcareConstants:
-    """Healthcare-specific constants and settings"""
-    
-    # Standard document types
-    DOCUMENT_TYPES = {
-        'lab': 'Laboratory Results',
-        'imaging': 'Imaging Studies',
-        'consult': 'Specialist Consultations',
-        'hospital': 'Hospital Records',
-        'screening': 'Screening Tests',
-        'other': 'Other Documents'
-    }
-    
-    # Standard screening statuses
-    SCREENING_STATUSES = ['Due', 'Due Soon', 'Complete', 'Overdue']
-    
-    # Status colors for UI
-    STATUS_COLORS = {
-        'Due': 'warning',
-        'Due Soon': 'info',
-        'Complete': 'success',
-        'Overdue': 'danger'
-    }
-    
-    # Gender options
-    GENDER_OPTIONS = ['M', 'F', 'Other']
-    
-    # Common medical file extensions
-    MEDICAL_FILE_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.tiff', '.tif', '.dcm']
-    
-    # OCR confidence thresholds
-    OCR_CONFIDENCE_THRESHOLDS = {
-        'high': 80,
-        'medium': 60,
-        'low': 40
-    }
-    
-    # Default cutoff periods (in months)
-    DEFAULT_CUTOFFS = {
-        'lab_cutoff_months': 12,
-        'imaging_cutoff_months': 24,
-        'consult_cutoff_months': 12,
-        'hospital_cutoff_months': 24
-    }
-    
-    # PHI filter patterns
-    PHI_PATTERNS = {
-        'ssn': r'\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b',
-        'phone': r'\b(?:\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})\b',
-        'mrn': r'\b(?:MRN|Medical\s+Record|Patient\s+ID|ID)\s*[:#]?\s*([A-Z0-9]{6,12})\b',
-        'email': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
-        'date': r'\b(?:\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4}|\d{4}[/\-]\d{1,2}[/\-]\d{1,2})\b'
-    }
-    
-    # Medical terminology preservation list
-    MEDICAL_TERMS = [
-        'glucose', 'cholesterol', 'triglycerides', 'hdl', 'ldl', 'a1c', 'hba1c',
-        'creatinine', 'bun', 'gfr', 'hemoglobin', 'hematocrit', 'wbc', 'rbc',
-        'platelet', 'inr', 'pt', 'ptt', 'tsh', 'free t4', 'vitamin d',
-        'mg/dl', 'mmol/l', 'ng/ml', 'pg/ml', 'iu/ml', 'u/l', 'g/dl',
-        'mmhg', 'bpm', 'kg', 'lbs', 'cm', 'inches', 'ft',
-        'mammogram', 'colonoscopy', 'endoscopy', 'biopsy', 'ultrasound',
-        'ct scan', 'mri', 'xray', 'x-ray', 'ecg', 'ekg', 'echo',
-        'heart', 'lung', 'liver', 'kidney', 'brain', 'spine', 'chest',
-        'abdomen', 'pelvis', 'extremities', 'skin', 'eye', 'ear'
-    ]
+# Session Configuration
+PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
+SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
 
-class SystemDefaults:
-    """System default values and configurations"""
-    
-    # Default user roles
-    USER_ROLES = ['admin', 'user', 'nurse', 'ma']
-    
-    # Default admin user (for initial setup)
-    DEFAULT_ADMIN = {
-        'username': 'admin',
-        'email': 'admin@healthprep.local',
-        'first_name': 'System',
-        'last_name': 'Administrator',
-        'role': 'admin'
-    }
-    
-    # Default screening types (basic set)
-    DEFAULT_SCREENING_TYPES = [
-        {
-            'name': 'Annual Physical',
-            'description': 'Annual comprehensive physical examination',
-            'keywords': ['physical', 'annual exam', 'wellness visit'],
-            'eligible_genders': ['M', 'F'],
-            'min_age': 18,
-            'max_age': None,
-            'frequency_years': 1,
-            'frequency_months': None,
-            'trigger_conditions': [],
-            'is_active': True
+# Logging Configuration
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+LOG_FILE = os.environ.get("LOG_FILE", "healthprep.log")
+
+# Screening Engine Configuration
+DEFAULT_SCREENING_FREQUENCY_MONTHS = 12
+SCREENING_DUE_SOON_DAYS = 30
+MAX_DOCUMENTS_PER_SCREENING = 100
+
+# PHI Filtering Configuration
+PHI_FILTERING_ENABLED = os.environ.get("PHI_FILTERING_ENABLED", "true").lower() == "true"
+PRESERVE_MEDICAL_TERMS = True
+
+# Prep Sheet Configuration
+DEFAULT_PREP_SHEET_CUTOFFS = {
+    'labs': 12,      # months
+    'imaging': 24,   # months
+    'consults': 12,  # months
+    'hospital': 12   # months
+}
+
+# Performance Configuration
+BATCH_PROCESSING_SIZE = int(os.environ.get("BATCH_PROCESSING_SIZE", "50"))
+OCR_PROCESSING_TIMEOUT = int(os.environ.get("OCR_PROCESSING_TIMEOUT", "300"))  # seconds
+DATABASE_POOL_SIZE = int(os.environ.get("DATABASE_POOL_SIZE", "10"))
+
+# HIPAA Compliance Settings
+AUDIT_LOG_RETENTION_DAYS = int(os.environ.get("AUDIT_LOG_RETENTION_DAYS", "2555"))  # 7 years
+SESSION_TIMEOUT_MINUTES = int(os.environ.get("SESSION_TIMEOUT_MINUTES", "480"))  # 8 hours
+PASSWORD_MIN_LENGTH = int(os.environ.get("PASSWORD_MIN_LENGTH", "8"))
+
+# Medical Terminology Settings
+FUZZY_MATCH_THRESHOLD = float(os.environ.get("FUZZY_MATCH_THRESHOLD", "0.8"))
+MEDICAL_ALIAS_EXPANSION = True
+
+# Admin Dashboard Settings
+DASHBOARD_REFRESH_INTERVAL = int(os.environ.get("DASHBOARD_REFRESH_INTERVAL", "300"))  # seconds
+MAX_RECENT_LOGS = int(os.environ.get("MAX_RECENT_LOGS", "100"))
+
+# Email Configuration (if needed for notifications)
+MAIL_SERVER = os.environ.get("MAIL_SERVER")
+MAIL_PORT = int(os.environ.get("MAIL_PORT", "587"))
+MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS", "true").lower() == "true"
+MAIL_USERNAME = os.environ.get("MAIL_USERNAME")
+MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
+
+# API Rate Limiting
+API_RATE_LIMIT = os.environ.get("API_RATE_LIMIT", "100/hour")
+FHIR_API_TIMEOUT = int(os.environ.get("FHIR_API_TIMEOUT", "30"))  # seconds
+
+# Development/Production Settings
+DEBUG = os.environ.get("FLASK_ENV") == "development"
+TESTING = os.environ.get("TESTING", "false").lower() == "true"
+
+# Feature Flags
+ENABLE_FHIR_INTEGRATION = os.environ.get("ENABLE_FHIR_INTEGRATION", "true").lower() == "true"
+ENABLE_OCR_PROCESSING = os.environ.get("ENABLE_OCR_PROCESSING", "true").lower() == "true"
+ENABLE_PHI_FILTERING = PHI_FILTERING_ENABLED
+ENABLE_ANALYTICS = os.environ.get("ENABLE_ANALYTICS", "true").lower() == "true"
+
+# Security Headers
+SECURITY_HEADERS = {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'X-XSS-Protection': '1; mode=block',
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com; font-src 'self' cdnjs.cloudflare.com; img-src 'self' data:;"
+}
+
+# Cache Settings
+CACHE_TYPE = os.environ.get("CACHE_TYPE", "simple")
+CACHE_DEFAULT_TIMEOUT = int(os.environ.get("CACHE_DEFAULT_TIMEOUT", "300"))
+
+# Backup and Recovery
+AUTO_BACKUP_ENABLED = os.environ.get("AUTO_BACKUP_ENABLED", "false").lower() == "true"
+BACKUP_RETENTION_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "30"))
+
+def get_database_config():
+    """Get database configuration based on environment"""
+    return {
+        'SQLALCHEMY_DATABASE_URI': DATABASE_URL,
+        'SQLALCHEMY_ENGINE_OPTIONS': {
+            'pool_size': DATABASE_POOL_SIZE,
+            'pool_recycle': 300,
+            'pool_pre_ping': True,
+            'pool_timeout': 20,
+            'max_overflow': 20
         },
-        {
-            'name': 'Blood Pressure Check',
-            'description': 'Blood pressure screening',
-            'keywords': ['blood pressure', 'bp', 'hypertension'],
-            'eligible_genders': ['M', 'F'],
-            'min_age': 18,
-            'max_age': None,
-            'frequency_years': 1,
-            'frequency_months': None,
-            'trigger_conditions': [],
-            'is_active': True
-        }
+        'SQLALCHEMY_TRACK_MODIFICATIONS': False
+    }
+
+def get_security_config():
+    """Get security configuration"""
+    return {
+        'SECRET_KEY': SECRET_KEY,
+        'SESSION_COOKIE_SECURE': SESSION_COOKIE_SECURE,
+        'SESSION_COOKIE_HTTPONLY': SESSION_COOKIE_HTTPONLY,
+        'SESSION_COOKIE_SAMESITE': SESSION_COOKIE_SAMESITE,
+        'PERMANENT_SESSION_LIFETIME': PERMANENT_SESSION_LIFETIME,
+        'PASSWORD_MIN_LENGTH': PASSWORD_MIN_LENGTH,
+        'SESSION_TIMEOUT_MINUTES': SESSION_TIMEOUT_MINUTES
+    }
+
+def get_ocr_config():
+    """Get OCR processing configuration"""
+    return {
+        'TESSERACT_PATH': TESSERACT_PATH,
+        'CONFIDENCE_THRESHOLD': OCR_CONFIDENCE_THRESHOLD,
+        'MAX_DOCUMENT_SIZE_MB': MAX_DOCUMENT_SIZE_MB,
+        'PROCESSING_TIMEOUT': OCR_PROCESSING_TIMEOUT,
+        'ALLOWED_EXTENSIONS': ALLOWED_EXTENSIONS
+    }
+
+def get_fhir_config():
+    """Get FHIR integration configuration"""
+    return {
+        'BASE_URL': FHIR_BASE_URL,
+        'CLIENT_ID': FHIR_CLIENT_ID,
+        'CLIENT_SECRET': FHIR_CLIENT_SECRET,
+        'API_TIMEOUT': FHIR_API_TIMEOUT,
+        'ENABLED': ENABLE_FHIR_INTEGRATION
+    }
+
+def validate_required_settings():
+    """Validate that all required settings are present"""
+    required_settings = [
+        ('SECRET_KEY', SECRET_KEY),
+        ('DATABASE_URL', DATABASE_URL)
     ]
     
-    # Default checklist settings
-    DEFAULT_CHECKLIST_SETTINGS = {
-        'name': 'Default Prep Sheet Settings',
-        'lab_cutoff_months': 12,
-        'imaging_cutoff_months': 24,
-        'consult_cutoff_months': 12,
-        'hospital_cutoff_months': 24,
-        'default_prep_items': [
-            'Review recent lab results',
-            'Check imaging studies',
-            'Review specialist consultations',
-            'Verify screening compliance',
-            'Update medication list',
-            'Review allergies'
-        ],
-        'status_options': ['Due', 'Due Soon', 'Complete', 'Overdue'],
-        'is_active': True
-    }
+    missing_settings = []
+    for setting_name, setting_value in required_settings:
+        if not setting_value:
+            missing_settings.append(setting_name)
     
-    # Default PHI filter settings
-    DEFAULT_PHI_SETTINGS = {
-        'is_enabled': True,
-        'filter_ssn': True,
-        'filter_phone': True,
-        'filter_mrn': True,
-        'filter_insurance': True,
-        'filter_addresses': True,
-        'filter_names': False,
-        'filter_dates': False,
-        'preserve_medical_terms': True,
-        'confidence_threshold': 80.0
-    }
-
-def initialize_default_data():
-    """Initialize default data for new installations"""
-    from models import User, ChecklistSettings, PHIFilterSettings, ScreeningType
-    from werkzeug.security import generate_password_hash
-    from app import db
-    import logging
+    if missing_settings:
+        raise ValueError(f"Missing required environment variables: {', '.join(missing_settings)}")
     
-    logger = logging.getLogger(__name__)
-    
-    try:
-        # Check if admin user exists
-        admin_user = User.query.filter_by(username=SystemDefaults.DEFAULT_ADMIN['username']).first()
-        if not admin_user:
-            # Create default admin user
-            admin_user = User(
-                username=SystemDefaults.DEFAULT_ADMIN['username'],
-                email=SystemDefaults.DEFAULT_ADMIN['email'],
-                first_name=SystemDefaults.DEFAULT_ADMIN['first_name'],
-                last_name=SystemDefaults.DEFAULT_ADMIN['last_name'],
-                role=SystemDefaults.DEFAULT_ADMIN['role'],
-                is_active=True
-            )
-            admin_user.set_password('admin123')  # Should be changed on first login
-            
-            from app import db
-            db.session.add(admin_user)
-            logger.info("Created default admin user")
-        
-        # Check if checklist settings exist
-        checklist_settings = ChecklistSettings.query.filter_by(is_active=True).first()
-        if not checklist_settings:
-            checklist_settings = ChecklistSettings(**SystemDefaults.DEFAULT_CHECKLIST_SETTINGS)
-            db.session.add(checklist_settings)
-            logger.info("Created default checklist settings")
-        
-        # Check if PHI settings exist
-        phi_settings = PHIFilterSettings.query.first()
-        if not phi_settings:
-            phi_settings = PHIFilterSettings(**SystemDefaults.DEFAULT_PHI_SETTINGS)
-            db.session.add(phi_settings)
-            logger.info("Created default PHI filter settings")
-        
-        # Check if screening types exist
-        existing_screening_count = ScreeningType.query.count()
-        if existing_screening_count == 0:
-            for screening_data in SystemDefaults.DEFAULT_SCREENING_TYPES:
-                screening_type = ScreeningType(**screening_data)
-                db.session.add(screening_type)
-            logger.info(f"Created {len(SystemDefaults.DEFAULT_SCREENING_TYPES)} default screening types")
-        
-        db.session.commit()
-        logger.info("Default data initialization completed")
-        
-    except Exception as e:
-        logger.error(f"Error initializing default data: {str(e)}")
-        db.session.rollback()
-
-# Configuration factory
-def get_config():
-    """Get configuration based on environment"""
-    env = os.environ.get('FLASK_ENV', 'development').lower()
-    
-    if env == 'production':
-        return ProductionConfig
-    elif env == 'testing':
-        return TestingConfig
-    else:
-        return DevelopmentConfig
-
-# Application constants that can be imported throughout the app
-DOCUMENT_TYPES = HealthcareConstants.DOCUMENT_TYPES
-SCREENING_STATUSES = HealthcareConstants.SCREENING_STATUSES
-STATUS_COLORS = HealthcareConstants.STATUS_COLORS
-GENDER_OPTIONS = HealthcareConstants.GENDER_OPTIONS
-OCR_CONFIDENCE_THRESHOLDS = HealthcareConstants.OCR_CONFIDENCE_THRESHOLDS
-DEFAULT_CUTOFFS = HealthcareConstants.DEFAULT_CUTOFFS
+    return True

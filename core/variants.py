@@ -1,244 +1,182 @@
 """
-Handles screening type variants
-Manages different screening protocols based on patient trigger conditions
+Handles screening type variants based on patient conditions
+Allows different protocols for the same screening based on trigger conditions
 """
-
-from models import ScreeningVariant, Condition
+from datetime import datetime, timedelta
 import logging
 
-class VariantProcessor:
-    """Handles screening type variants based on patient conditions"""
+logger = logging.getLogger(__name__)
+
+class VariantHandler:
+    """Manages screening type variants for different patient populations"""
     
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        # Define condition-specific variants
+        self.variants = {
+            'a1c': {
+                'diabetes': {
+                    'frequency_value': 3,
+                    'frequency_unit': 'months',
+                    'description': 'More frequent monitoring for diabetic patients'
+                },
+                'prediabetes': {
+                    'frequency_value': 6,
+                    'frequency_unit': 'months',
+                    'description': 'Semi-annual monitoring for prediabetic patients'
+                }
+            },
+            'lipid panel': {
+                'hyperlipidemia': {
+                    'frequency_value': 6,
+                    'frequency_unit': 'months',
+                    'description': 'More frequent monitoring for patients with dyslipidemia'
+                },
+                'diabetes': {
+                    'frequency_value': 12,
+                    'frequency_unit': 'months',
+                    'description': 'Annual monitoring for diabetic patients'
+                }
+            },
+            'microalbumin': {
+                'diabetes': {
+                    'frequency_value': 12,
+                    'frequency_unit': 'months',
+                    'description': 'Annual screening for diabetic nephropathy'
+                },
+                'hypertension': {
+                    'frequency_value': 12,
+                    'frequency_unit': 'months',
+                    'description': 'Annual screening for hypertensive patients'
+                }
+            },
+            'eye exam': {
+                'diabetes': {
+                    'frequency_value': 12,
+                    'frequency_unit': 'months',
+                    'description': 'Annual diabetic eye exam'
+                }
+            },
+            'foot exam': {
+                'diabetes': {
+                    'frequency_value': 6,
+                    'frequency_unit': 'months',
+                    'description': 'Semi-annual diabetic foot exam'
+                }
+            }
+        }
     
-    def get_applicable_variant(self, patient, screening_type):
-        """Get the most applicable variant for a patient and screening type"""
-        try:
-            # Get all active variants for this screening type
-            variants = ScreeningVariant.query.filter_by(
-                screening_type_id=screening_type.id,
-                is_active=True
-            ).all()
-            
-            if not variants:
-                return None
-            
-            # Get patient's active conditions
-            patient_conditions = Condition.query.filter_by(
-                patient_id=patient.id,
-                status='active'
-            ).all()
-            
-            patient_condition_names = [
-                condition.condition_name.lower().strip()
-                for condition in patient_conditions
-            ]
-            
-            # Find the best matching variant
-            best_variant = None
-            best_match_count = 0
-            
-            for variant in variants:
-                if not variant.trigger_conditions:
-                    continue
-                
-                match_count = self._count_condition_matches(
-                    variant.trigger_conditions, 
-                    patient_condition_names
-                )
-                
-                if match_count > best_match_count:
-                    best_variant = variant
-                    best_match_count = match_count
-            
-            if best_variant:
-                self.logger.debug(f"Found variant {best_variant.name} for patient {patient.mrn} "
-                               f"and screening {screening_type.name}")
-            
-            return best_variant
-            
-        except Exception as e:
-            self.logger.error(f"Error getting applicable variant: {str(e)}")
-            return None
+    def get_variant_for_patient(self, patient, screening_type):
+        """Get the appropriate screening variant for a patient"""
+        from models import Condition
+        
+        screening_name = screening_type.name.lower()
+        
+        if screening_name not in self.variants:
+            return self.get_default_frequency(screening_type)
+        
+        # Get patient's active conditions
+        patient_conditions = Condition.query.filter_by(
+            patient_id=patient.id,
+            status='active'
+        ).all()
+        
+        condition_names = [self.normalize_condition_name(c.condition_name) for c in patient_conditions]
+        
+        # Check for matching variants (prioritize by order)
+        for condition_name in condition_names:
+            if condition_name in self.variants[screening_name]:
+                variant = self.variants[screening_name][condition_name]
+                return {
+                    'frequency_value': variant['frequency_value'],
+                    'frequency_unit': variant['frequency_unit'],
+                    'description': variant['description'],
+                    'is_variant': True,
+                    'trigger_condition': condition_name
+                }
+        
+        return self.get_default_frequency(screening_type)
     
-    def _count_condition_matches(self, variant_conditions, patient_conditions):
-        """Count how many variant conditions match patient conditions"""
-        if not variant_conditions or not isinstance(variant_conditions, list):
-            return 0
-        
-        match_count = 0
-        
-        for variant_condition in variant_conditions:
-            variant_condition_lower = variant_condition.lower().strip()
-            
-            for patient_condition in patient_conditions:
-                if self._conditions_match(variant_condition_lower, patient_condition):
-                    match_count += 1
-                    break  # Count each variant condition only once
-        
-        return match_count
+    def get_default_frequency(self, screening_type):
+        """Get the default frequency for a screening type"""
+        return {
+            'frequency_value': screening_type.frequency_value,
+            'frequency_unit': screening_type.frequency_unit,
+            'description': 'Standard frequency',
+            'is_variant': False,
+            'trigger_condition': None
+        }
     
-    def _conditions_match(self, variant_condition, patient_condition):
-        """Check if a variant condition matches a patient condition"""
-        # Exact match
-        if variant_condition == patient_condition:
-            return True
+    def normalize_condition_name(self, condition_name):
+        """Normalize condition names for matching"""
+        condition_name = condition_name.lower().strip()
         
-        # Partial match (either contains the other)
-        if (variant_condition in patient_condition or 
-            patient_condition in variant_condition):
-            return True
+        # Common condition mappings
+        mappings = {
+            'diabetes mellitus': 'diabetes',
+            'type 1 diabetes': 'diabetes',
+            'type 2 diabetes': 'diabetes',
+            'dm': 'diabetes',
+            'diabetic': 'diabetes',
+            'pre-diabetes': 'prediabetes',
+            'impaired glucose tolerance': 'prediabetes',
+            'high cholesterol': 'hyperlipidemia',
+            'dyslipidemia': 'hyperlipidemia',
+            'elevated cholesterol': 'hyperlipidemia',
+            'high blood pressure': 'hypertension',
+            'htn': 'hypertension',
+            'elevated bp': 'hypertension'
+        }
         
-        # Check for common condition synonyms
-        synonyms = self._get_condition_synonyms()
-        
-        for synonym_group in synonyms:
-            if (variant_condition in synonym_group and 
-                patient_condition in synonym_group):
-                return True
-        
-        return False
+        return mappings.get(condition_name, condition_name)
     
-    def _get_condition_synonyms(self):
-        """Get groups of condition synonyms for matching"""
-        return [
-            ['diabetes', 'diabetes mellitus', 'dm', 'diabetic'],
-            ['hypertension', 'high blood pressure', 'htn'],
-            ['hyperlipidemia', 'high cholesterol', 'dyslipidemia'],
-            ['coronary artery disease', 'cad', 'heart disease', 'cardiac disease'],
-            ['chronic kidney disease', 'ckd', 'kidney disease', 'renal disease'],
-            ['copd', 'chronic obstructive pulmonary disease', 'emphysema'],
-            ['depression', 'major depressive disorder', 'mdd'],
-            ['anxiety', 'anxiety disorder', 'generalized anxiety'],
-            ['osteoporosis', 'bone loss', 'low bone density'],
-            ['arthritis', 'osteoarthritis', 'rheumatoid arthritis'],
-        ]
+    def calculate_next_due_date(self, last_completed, frequency_config):
+        """Calculate the next due date based on frequency configuration"""
+        if not last_completed:
+            return datetime.utcnow()  # Due now if never completed
+        
+        frequency_value = frequency_config['frequency_value']
+        frequency_unit = frequency_config['frequency_unit']
+        
+        if frequency_unit == 'months':
+            next_due = last_completed + timedelta(days=frequency_value * 30)
+        elif frequency_unit == 'years':
+            next_due = last_completed + timedelta(days=frequency_value * 365)
+        else:
+            # Default to months if unit is unclear
+            next_due = last_completed + timedelta(days=frequency_value * 30)
+        
+        return next_due
     
-    def create_variant(self, screening_type_id, variant_data):
-        """Create a new screening variant"""
-        try:
-            variant = ScreeningVariant(
-                screening_type_id=screening_type_id,
-                name=variant_data['name'],
-                description=variant_data.get('description'),
-                trigger_conditions=variant_data.get('trigger_conditions', []),
-                frequency_years=variant_data.get('frequency_years'),
-                frequency_months=variant_data.get('frequency_months'),
-                keywords=variant_data.get('keywords', []),
-                is_active=variant_data.get('is_active', True)
-            )
-            
-            from app import db
-            db.session.add(variant)
-            db.session.commit()
-            
-            self.logger.info(f"Created variant {variant.name} for screening type {screening_type_id}")
-            return variant
-            
-        except Exception as e:
-            self.logger.error(f"Error creating variant: {str(e)}")
-            raise
-    
-    def update_variant(self, variant_id, variant_data):
-        """Update an existing screening variant"""
-        try:
-            variant = ScreeningVariant.query.get(variant_id)
-            if not variant:
-                raise ValueError(f"Variant {variant_id} not found")
-            
-            # Update fields
-            for field in ['name', 'description', 'trigger_conditions', 
-                         'frequency_years', 'frequency_months', 'keywords', 'is_active']:
-                if field in variant_data:
-                    setattr(variant, field, variant_data[field])
-            
-            from app import db
-            db.session.commit()
-            
-            self.logger.info(f"Updated variant {variant.name}")
-            return variant
-            
-        except Exception as e:
-            self.logger.error(f"Error updating variant {variant_id}: {str(e)}")
-            raise
-    
-    def delete_variant(self, variant_id):
-        """Delete a screening variant"""
-        try:
-            variant = ScreeningVariant.query.get(variant_id)
-            if not variant:
-                raise ValueError(f"Variant {variant_id} not found")
-            
-            variant_name = variant.name
-            
-            from app import db
-            db.session.delete(variant)
-            db.session.commit()
-            
-            self.logger.info(f"Deleted variant {variant_name}")
-            
-        except Exception as e:
-            self.logger.error(f"Error deleting variant {variant_id}: {str(e)}")
-            raise
-    
-    def get_variants_for_screening_type(self, screening_type_id):
-        """Get all variants for a screening type"""
-        return ScreeningVariant.query.filter_by(
-            screening_type_id=screening_type_id
-        ).order_by(ScreeningVariant.name).all()
-    
-    def validate_variant_data(self, variant_data):
-        """Validate variant data for consistency"""
-        errors = []
+    def get_all_variants_for_screening(self, screening_name):
+        """Get all available variants for a screening type"""
+        screening_name = screening_name.lower()
         
-        # Check required fields
-        if not variant_data.get('name'):
-            errors.append("Variant name is required")
-        
-        # Check frequency validity
-        freq_years = variant_data.get('frequency_years', 0) or 0
-        freq_months = variant_data.get('frequency_months', 0) or 0
-        
-        if freq_years == 0 and freq_months == 0:
-            errors.append("Variant frequency must be specified (years or months)")
-        
-        if freq_years > 10:
-            errors.append("Frequency in years should not exceed 10")
-        
-        if freq_months > 60:
-            errors.append("Frequency in months should not exceed 60")
-        
-        # Check trigger conditions
-        trigger_conditions = variant_data.get('trigger_conditions')
-        if trigger_conditions and not isinstance(trigger_conditions, list):
-            errors.append("Trigger conditions must be a list")
-        
-        # Check keywords
-        keywords = variant_data.get('keywords')
-        if keywords and not isinstance(keywords, list):
-            errors.append("Keywords must be a list")
-        
-        return errors
-    
-    def get_patient_applicable_variants(self, patient):
-        """Get all variants that apply to a patient across all screening types"""
-        try:
-            from models import ScreeningType
-            
-            applicable_variants = []
-            screening_types = ScreeningType.query.filter_by(is_active=True).all()
-            
-            for screening_type in screening_types:
-                variant = self.get_applicable_variant(patient, screening_type)
-                if variant:
-                    applicable_variants.append({
-                        'screening_type': screening_type,
-                        'variant': variant
-                    })
-            
-            return applicable_variants
-            
-        except Exception as e:
-            self.logger.error(f"Error getting patient applicable variants: {str(e)}")
+        if screening_name not in self.variants:
             return []
+        
+        variants = []
+        for condition, config in self.variants[screening_name].items():
+            variants.append({
+                'condition': condition,
+                'frequency_value': config['frequency_value'],
+                'frequency_unit': config['frequency_unit'],
+                'description': config['description']
+            })
+        
+        return variants
+    
+    def add_custom_variant(self, screening_name, condition, frequency_value, frequency_unit, description):
+        """Add a custom variant for a screening type"""
+        screening_name = screening_name.lower()
+        condition = self.normalize_condition_name(condition)
+        
+        if screening_name not in self.variants:
+            self.variants[screening_name] = {}
+        
+        self.variants[screening_name][condition] = {
+            'frequency_value': frequency_value,
+            'frequency_unit': frequency_unit,
+            'description': description
+        }
+        
+        logger.info(f"Added custom variant for {screening_name} with condition {condition}")

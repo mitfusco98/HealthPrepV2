@@ -1,6 +1,6 @@
-{% extends 'base_demo.html' %}
+{% extends 'base_user.html' %}
 
-{% block title %}HealthPrep - Screening Management{% endblock %}
+{% block title %}HealthPrep - Screening List{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -60,13 +60,46 @@
     padding: 0.25rem 0.5rem;
 }
 
-/* Keywords display styling */
+/* Modal styling */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1050;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    outline: 0;
+}
+
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1040;
+    width: 100vw;
+    height: 100vh;
+    background-color: #000;
+}
+
+.modal-backdrop.fade {
+    opacity: 0;
+}
+
+.modal-backdrop.show {
+    opacity: 0.5;
+}
+
 .keywords-list {
     min-height: 60px;
 }
 
 .min-height-100 {
     min-height: 100px;
+}
+
+.btn-close-white {
+    filter: invert(1) grayscale(100%) brightness(200%);
 }
 
 .keywords-badges-container {
@@ -78,317 +111,367 @@
     margin-bottom: 2px;
 }
 
-/* Tab styling */
 .nav-tabs .nav-link {
-    color: #6c757d;
+    color: var(--bs-gray-300);
+    border-color: transparent;
 }
 
 .nav-tabs .nav-link.active {
-    color: #fff;
-    background-color: #0d6efd;
-    border-color: #0d6efd;
+    color: var(--bs-primary);
+    border-color: var(--bs-primary);
+    background-color: transparent;
+}
+
+.tab-content {
+    border: 1px solid var(--bs-border-color);
+    border-top: 0;
+    border-radius: 0 0 0.375rem 0.375rem;
+    padding: 1.5rem;
 }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <!-- Page Header -->
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <div>
-                    <h1 class="h3 mb-0">
-                        <i class="fas fa-clipboard-check me-2"></i>
-                        Screening Management
-                    </h1>
-                    <p class="text-muted mb-0">Manage patient screenings and screening types</p>
-                </div>
-                <div>
-                    <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-primary">
-                        <i class="fas fa-plus me-1"></i>Add Screening Type
-                    </a>
-                    <button type="button" class="btn btn-outline-primary" onclick="refreshScreenings(event, 'list')">
-                        <i class="fas fa-sync-alt me-1"></i>Refresh All
-                    </button>
-                </div>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="display-6">
+        <i class="fas fa-list-check me-3 text-primary"></i>
+        Screening Management
+    </h1>
+    <div class="btn-group" role="group">
+        <button type="button" class="btn btn-success" onclick="location.href='{{ url_for('add_screening_type') }}'">
+            <i class="fas fa-plus me-2"></i>Add Screening Type
+        </button>
+        <button type="button" class="btn btn-primary" onclick="refreshScreenings(event, 'list')">
+            <i class="fas fa-sync-alt me-2"></i>Refresh
+        </button>
+    </div>
+</div>
+
+<!-- Tab Navigation -->
+<ul class="nav nav-tabs" id="screeningTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="list-tab" data-bs-toggle="tab" data-bs-target="#list" type="button" role="tab">
+            <i class="fas fa-list me-2"></i>Screening List
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="types-tab" data-bs-toggle="tab" data-bs-target="#types" type="button" role="tab">
+            <i class="fas fa-cogs me-2"></i>Screening Types
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settings" type="button" role="tab">
+            <i class="fas fa-sliders-h me-2"></i>Checklist Settings
+        </button>
+    </li>
+</ul>
+
+<!-- Tab Content -->
+<div class="tab-content" id="screeningTabContent">
+    <!-- Screening List Tab -->
+    <div class="tab-pane fade show active" id="list" role="tabpanel">
+        <!-- Filters -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <label for="patientFilter" class="form-label">Filter by Patient</label>
+                <select class="form-select" id="patientFilter">
+                    <option value="">All Patients</option>
+                    {% for patient in patients %}
+                    <option value="{{ patient.id }}">{{ patient.full_name }}</option>
+                    {% endfor %}
+                </select>
             </div>
-
-            <!-- Navigation Tabs -->
-            <ul class="nav nav-tabs mb-4" id="screeningTabs" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="list-tab" data-bs-toggle="tab" data-bs-target="#list-pane" type="button" role="tab">
-                        <i class="fas fa-list me-1"></i>Screening List
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="types-tab" data-bs-toggle="tab" data-bs-target="#types-pane" type="button" role="tab">
-                        <i class="fas fa-cogs me-1"></i>Screening Types
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settings-pane" type="button" role="tab">
-                        <i class="fas fa-sliders-h me-1"></i>Settings
-                    </button>
-                </li>
-            </ul>
-
-            <!-- Tab Content -->
-            <div class="tab-content" id="screeningTabContent">
-                <!-- Screening List Tab -->
-                <div class="tab-pane fade show active" id="list-pane" role="tabpanel">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">
-                                <i class="fas fa-clipboard-list me-2"></i>
-                                Patient Screenings
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <!-- Confidence Legend -->
-                            <div class="confidence-legend">
-                                <strong>Document Confidence:</strong>
-                                <span class="badge confidence-high">High (90%+)</span>
-                                <span class="badge confidence-medium">Medium (70-89%)</span>
-                                <span class="badge confidence-low">Low (50-69%)</span>
-                                <span class="badge bg-dark">Very Low (<50%)</span>
-                            </div>
-
-                            <!-- Screening Table -->
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Patient</th>
-                                            <th>Screening Type</th>
-                                            <th>Status</th>
-                                            <th>Last Completed</th>
-                                            <th>Frequency</th>
-                                            <th>Matched Documents</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for item in screening_data %}
-                                        <tr>
-                                            <td>
-                                                <strong>{{ item.patient.full_name }}</strong><br>
-                                                <small class="text-muted">MRN: {{ item.patient.mrn }}</small>
-                                            </td>
-                                            <td>{{ item.screening_type.name }}</td>
-                                            <td>
-                                                {% set status_info = item.screening.status | format_screening_status %}
-                                                <span class="{{ status_info.class }}">{{ status_info.text }}</span>
-                                            </td>
-                                            <td>
-                                                {% if item.screening.last_completed_date %}
-                                                    {{ item.screening.last_completed_date.strftime('%m/%d/%Y') }}
-                                                {% else %}
-                                                    <span class="text-muted">N/A</span>
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                Every {{ item.screening_type.frequency_value }} {{ item.screening_type.frequency_unit }}
-                                            </td>
-                                            <td>
-                                                {% if item.screening.document_matches %}
-                                                    {% for match in item.screening.document_matches %}
-                                                        {% set confidence_info = match.match_confidence | format_confidence_level %}
-                                                        <a href="#" class="badge text-decoration-none confidence-{{ confidence_info.level }} me-1 mb-1" 
-                                                           title="Confidence: {{ (match.match_confidence * 100) | round(1) }}%">
-                                                            {{ match.document.original_filename or match.document.filename }}
-                                                        </a>
-                                                    {% endfor %}
-                                                {% else %}
-                                                    <span class="text-muted">No matches</span>
-                                                {% endif %}
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {% if not screening_data %}
-                            <div class="text-center py-5">
-                                <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
-                                <h5 class="text-muted">No Patient Screenings Found</h5>
-                                <p class="text-muted">Patient screenings will appear here once screening types are configured and patients are added.</p>
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Screening Types Tab -->
-                <div class="tab-pane fade" id="types-pane" role="tabpanel">
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="card-title mb-0">
-                                <i class="fas fa-cogs me-2"></i>
-                                Screening Types
-                            </h5>
-                            <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-sm btn-primary">
-                                <i class="fas fa-plus me-1"></i>Add New Type
-                            </a>
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Name</th>
-                                            <th>Description</th>
-                                            <th>Eligibility</th>
-                                            <th>Frequency</th>
-                                            <th>Keywords</th>
-                                            <th>Status</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for screening_type in screening_types %}
-                                        <tr>
-                                            <td><strong>{{ screening_type.name }}</strong></td>
-                                            <td>
-                                                <small>{{ screening_type.description or 'No description' }}</small>
-                                            </td>
-                                            <td>
-                                                <small>
-                                                    {{ screening_type.gender_eligibility.title() }}
-                                                    {% if screening_type.min_age or screening_type.max_age %}
-                                                        <br>Age: 
-                                                        {% if screening_type.min_age %}{{ screening_type.min_age }}+{% endif %}
-                                                        {% if screening_type.max_age %} to {{ screening_type.max_age }}{% endif %}
-                                                    {% endif %}
-                                                </small>
-                                            </td>
-                                            <td>
-                                                <small>
-                                                    Every {{ screening_type.frequency_value }} {{ screening_type.frequency_unit }}
-                                                </small>
-                                            </td>
-                                            <td>
-                                                <div class="keywords-badges-container" id="keywords-display-{{ screening_type.id }}">
-                                                    <small class="text-muted">Loading...</small>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                {% if screening_type.is_active %}
-                                                    <span class="badge bg-success">Active</span>
-                                                {% else %}
-                                                    <span class="badge bg-secondary">Inactive</span>
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                <div class="btn-group btn-group-sm" role="group">
-                                                    <a href="{{ url_for('screening.edit_screening_type', screening_type_id=screening_type.id) }}" 
-                                                       class="btn btn-outline-primary" title="Edit">
-                                                        <i class="fas fa-edit"></i>
-                                                    </a>
-                                                    <a href="{{ url_for('screening.toggle_screening_type', screening_type_id=screening_type.id) }}" 
-                                                       class="btn btn-outline-warning" title="Toggle Status">
-                                                        <i class="fas fa-power-off"></i>
-                                                    </a>
-                                                    <a href="{{ url_for('screening.delete_screening_type', screening_type_id=screening_type.id) }}" 
-                                                       class="btn btn-outline-danger" title="Delete"
-                                                       onclick="return confirm('Are you sure you want to delete this screening type?')">
-                                                        <i class="fas fa-trash"></i>
-                                                    </a>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {% if not screening_types %}
-                            <div class="text-center py-5">
-                                <i class="fas fa-cogs fa-3x text-muted mb-3"></i>
-                                <h5 class="text-muted">No Screening Types Configured</h5>
-                                <p class="text-muted">Add screening types to begin automated screening management.</p>
-                                <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-primary">
-                                    <i class="fas fa-plus me-1"></i>Add First Screening Type
-                                </a>
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Settings Tab -->
-                <div class="tab-pane fade" id="settings-pane" role="tabpanel">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">
-                                <i class="fas fa-sliders-h me-2"></i>
-                                Checklist Settings
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <form method="POST" action="{{ url_for('screening.checklist_settings') }}">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <h6 class="text-primary">Document Cutoff Settings</h6>
-                                        <p class="text-muted small">Configure how far back to look for medical documents.</p>
-                                        
-                                        <div class="mb-3">
-                                            <label for="lab_cutoff_months" class="form-label">Lab Results (months)</label>
-                                            <input type="number" class="form-control" id="lab_cutoff_months" 
-                                                   name="lab_cutoff_months" value="{{ settings.lab_cutoff_months }}" min="1" max="120">
-                                        </div>
-                                        
-                                        <div class="mb-3">
-                                            <label for="imaging_cutoff_months" class="form-label">Imaging Studies (months)</label>
-                                            <input type="number" class="form-control" id="imaging_cutoff_months" 
-                                                   name="imaging_cutoff_months" value="{{ settings.imaging_cutoff_months }}" min="1" max="120">
-                                        </div>
-                                        
-                                        <div class="mb-3">
-                                            <label for="consult_cutoff_months" class="form-label">Consults (months)</label>
-                                            <input type="number" class="form-control" id="consult_cutoff_months" 
-                                                   name="consult_cutoff_months" value="{{ settings.consult_cutoff_months }}" min="1" max="120">
-                                        </div>
-                                        
-                                        <div class="mb-3">
-                                            <label for="hospital_cutoff_months" class="form-label">Hospital Visits (months)</label>
-                                            <input type="number" class="form-control" id="hospital_cutoff_months" 
-                                                   name="hospital_cutoff_months" value="{{ settings.hospital_cutoff_months }}" min="1" max="120">
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="col-md-6">
-                                        <h6 class="text-primary">Default Checklist Items</h6>
-                                        <p class="text-muted small">Default items to include in prep sheet checklists.</p>
-                                        
-                                        <div class="mb-3">
-                                            <label for="default_items" class="form-label">Default Items (one per line)</label>
-                                            <textarea class="form-control" id="default_items" name="default_items" rows="6"
-                                                      placeholder="Review medications&#10;Update allergies&#10;Verify contact information">{% if settings.default_items %}{{ settings.default_items | join('\n') }}{% endif %}</textarea>
-                                        </div>
-                                        
-                                        <h6 class="text-primary">Status Options</h6>
-                                        <p class="text-muted small">Available status options for prep sheet items.</p>
-                                        
-                                        <div class="mb-3">
-                                            <label for="status_options" class="form-label">Status Options (one per line)</label>
-                                            <textarea class="form-control" id="status_options" name="status_options" rows="4"
-                                                      placeholder="Complete&#10;Pending&#10;Not Applicable">{% if settings.status_options %}{{ settings.status_options | join('\n') }}{% endif %}</textarea>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="d-flex justify-content-end">
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-save me-1"></i>Save Settings
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
+            <div class="col-md-4">
+                <label for="statusFilter" class="form-label">Filter by Status</label>
+                <select class="form-select" id="statusFilter">
+                    <option value="">All Statuses</option>
+                    <option value="Due">Due</option>
+                    <option value="Due Soon">Due Soon</option>
+                    <option value="Complete">Complete</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="typeFilter" class="form-label">Filter by Screening Type</label>
+                <select class="form-select" id="typeFilter">
+                    <option value="">All Types</option>
+                    {% for screening_type in screening_types %}
+                    <option value="{{ screening_type.id }}">{{ screening_type.name }}</option>
+                    {% endfor %}
+                </select>
             </div>
         </div>
+
+        <!-- Document Confidence Legend -->
+        <div class="confidence-legend mb-3">
+            <strong>Document Confidence:</strong>
+            <span class="badge confidence-high">High (80%+)</span>
+            <span class="badge confidence-medium">Medium (60-79%)</span>
+            <span class="badge confidence-low">Low (<60%)</span>
+        </div>
+
+        <!-- Screening Table -->
+        <div class="table-responsive">
+            <table class="table table-hover" id="screeningTable">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Patient</th>
+                        <th>Screening Type</th>
+                        <th>Status</th>
+                        <th>Last Completed</th>
+                        <th>Frequency</th>
+                        <th>Matched Documents</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for screening in screenings %}
+                    <tr data-patient-id="{{ screening.patient.id }}" 
+                        data-status="{{ screening.status }}" 
+                        data-type-id="{{ screening.screening_type.id }}">
+                        <td>
+                            <strong>{{ screening.patient.full_name }}</strong>
+                            <br>
+                            <small class="text-muted">MRN: {{ screening.patient.mrn }}</small>
+                        </td>
+                        <td>{{ screening.screening_type.name }}</td>
+                        <td>
+                            <span class="badge bg-{{ 'danger' if screening.status == 'Due' else 'warning' if screening.status == 'Due Soon' else 'success' }}">
+                                {{ screening.status }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if screening.last_completed_date %}
+                                {{ screening.last_completed_date.strftime('%m/%d/%Y') }}
+                            {% else %}
+                                <em class="text-muted">Never</em>
+                            {% endif %}
+                        </td>
+                        <td>{{ screening.screening_type.frequency_display }}</td>
+                        <td>
+                            {% if screening.document_matches %}
+                                {% for match in screening.document_matches %}
+                                    <a href="#" class="badge confidence-{{ 'high' if match.match_confidence >= 0.8 else 'medium' if match.match_confidence >= 0.6 else 'low' }} me-1 mb-1 text-decoration-none"
+                                       title="Confidence: {{ "%.0f"|format(match.match_confidence * 100) }}% - {{ match.document.original_filename }}">
+                                        {{ match.document.original_filename[:20] }}{% if match.document.original_filename|length > 20 %}...{% endif %}
+                                    </a>
+                                {% endfor %}
+                            {% else %}
+                                <em class="text-muted">No documents</em>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-primary btn-sm" 
+                                        onclick="viewScreeningDetails({{ screening.id }})">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <a href="{{ url_for('prep_sheet', patient_id=screening.patient.id) }}" 
+                                   class="btn btn-outline-success btn-sm">
+                                    <i class="fas fa-file-medical"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if not screenings %}
+        <div class="text-center py-5">
+            <i class="fas fa-clipboard-list fa-4x text-muted mb-3"></i>
+            <h4 class="text-muted">No Screenings Found</h4>
+            <p class="text-muted">Start by adding patients and screening types to see screening data here.</p>
+            <button type="button" class="btn btn-primary" onclick="location.href='{{ url_for('add_screening_type') }}'">
+                <i class="fas fa-plus me-2"></i>Add Your First Screening Type
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Screening Types Tab -->
+    <div class="tab-pane fade" id="types" role="tabpanel">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4>Manage Screening Types</h4>
+            <button type="button" class="btn btn-success" onclick="location.href='{{ url_for('add_screening_type') }}'">
+                <i class="fas fa-plus me-2"></i>Add New Type
+            </button>
+        </div>
+
+        <div class="row">
+            {% for screening_type in screening_types %}
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100 {{ 'border-success' if screening_type.is_active else 'border-secondary' }}">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="card-title mb-0">{{ screening_type.name }}</h6>
+                        <span class="badge bg-{{ 'success' if screening_type.is_active else 'secondary' }}">
+                            {{ 'Active' if screening_type.is_active else 'Inactive' }}
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text small">{{ screening_type.description or 'No description provided' }}</p>
+                        
+                        <div class="mb-2">
+                            <strong>Frequency:</strong> {{ screening_type.frequency_display }}
+                        </div>
+                        
+                        <div class="mb-2">
+                            <strong>Eligible:</strong>
+                            {% if screening_type.eligible_genders %}
+                                {{ screening_type.eligible_genders|join(', ') }}
+                            {% else %}
+                                All genders
+                            {% endif %}
+                            {% if screening_type.min_age or screening_type.max_age %}
+                                <br>Ages: 
+                                {% if screening_type.min_age %}{{ screening_type.min_age }}+{% endif %}
+                                {% if screening_type.min_age and screening_type.max_age %} - {% endif %}
+                                {% if screening_type.max_age %}{{ screening_type.max_age }}{% endif %}
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <strong>Keywords:</strong>
+                            <div id="keywords-display-{{ screening_type.id }}" class="keywords-badges-container">
+                                <span class="badge bg-secondary">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="btn-group w-100" role="group">
+                            <button type="button" class="btn btn-outline-primary btn-sm" 
+                                    onclick="editScreeningType({{ screening_type.id }})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-{{ 'warning' if screening_type.is_active else 'success' }} btn-sm"
+                                    onclick="toggleScreeningType({{ screening_type.id }}, {{ screening_type.is_active|lower }})">
+                                <i class="fas fa-{{ 'pause' if screening_type.is_active else 'play' }}"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-danger btn-sm"
+                                    onclick="deleteScreeningType({{ screening_type.id }})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if not screening_types %}
+        <div class="text-center py-5">
+            <i class="fas fa-cogs fa-4x text-muted mb-3"></i>
+            <h4 class="text-muted">No Screening Types Configured</h4>
+            <p class="text-muted">Create screening types to define what medical screenings to track for your patients.</p>
+            <button type="button" class="btn btn-primary" onclick="location.href='{{ url_for('add_screening_type') }}'">
+                <i class="fas fa-plus me-2"></i>Create Your First Screening Type
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Checklist Settings Tab -->
+    <div class="tab-pane fade" id="settings" role="tabpanel">
+        <h4 class="mb-4">Prep Sheet Settings</h4>
+        <p class="text-muted mb-4">Configure how far back to look for medical data when generating prep sheets.</p>
+
+        <form id="checklistSettingsForm" action="{{ url_for('screening_list') }}" method="POST">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">Medical Data Cutoffs</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="labsCutoff" class="form-label">Laboratory Results</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="labsCutoff" name="labs_cutoff_months" 
+                                           value="12" min="1" max="60">
+                                    <span class="input-group-text">months</span>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="imagingCutoff" class="form-label">Imaging Studies</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="imagingCutoff" name="imaging_cutoff_months" 
+                                           value="12" min="1" max="60">
+                                    <span class="input-group-text">months</span>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="consultsCutoff" class="form-label">Specialist Consults</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="consultsCutoff" name="consults_cutoff_months" 
+                                           value="12" min="1" max="60">
+                                    <span class="input-group-text">months</span>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="hospitalCutoff" class="form-label">Hospital Visits</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="hospitalCutoff" name="hospital_cutoff_months" 
+                                           value="12" min="1" max="60">
+                                    <span class="input-group-text">months</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">Default Status Options</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small">Configure the status options available for screenings.</p>
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="statusDue" checked disabled>
+                                    <label class="form-check-label" for="statusDue">Due</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="statusDueSoon" checked disabled>
+                                    <label class="form-check-label" for="statusDueSoon">Due Soon</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="statusComplete" checked disabled>
+                                    <label class="form-check-label" for="statusComplete">Complete</label>
+                                </div>
+                            </div>
+                            <small class="text-muted">Core status options cannot be disabled.</small>
+                        </div>
+                    </div>
+                    
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">Current Settings Summary</h6>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-unstyled mb-0">
+                                <li><strong>Labs:</strong> Last 12 months</li>
+                                <li><strong>Imaging:</strong> Last 12 months</li>
+                                <li><strong>Consults:</strong> Last 12 months</li>
+                                <li><strong>Hospital:</strong> Last 12 months</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-end mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save me-2"></i>Save Settings
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="resetSettings()">
+                    <i class="fas fa-undo me-2"></i>Reset to Defaults
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 {% endblock %}
@@ -404,11 +487,11 @@
 function loadKeywordsAsBadges() {
     const keywordContainers = document.querySelectorAll('.keywords-badges-container');
     console.log(`loadKeywordsAsBadges: Found ${keywordContainers.length} keyword containers to load`);
-    
+
     keywordContainers.forEach(container => {
         const screeningTypeId = container.id.replace('keywords-display-', '');
         console.log(`loadKeywordsAsBadges: Loading keywords for screening ${screeningTypeId}`);
-        
+
         fetch(`/api/screening-keywords/${screeningTypeId}`)
             .then(response => {
                 console.log(`loadKeywordsAsBadges: API response status for screening ${screeningTypeId}: ${response.status}`);
@@ -421,7 +504,7 @@ function loadKeywordsAsBadges() {
                 console.log(`Received keywords data for screening ${screeningTypeId}:`, data);
                 if (data.success && data.keywords && Array.isArray(data.keywords) && data.keywords.length > 0) {
                     // Display keywords as badges
-                    const keywordsHtml = data.keywords.map(keyword => 
+                    const keywordsHtml = data.keywords.map(keyword =>
                         `<span class="badge bg-primary me-1 mb-1">${keyword}</span>`
                     ).join('');
                     container.innerHTML = keywordsHtml;
@@ -439,58 +522,15 @@ function loadKeywordsAsBadges() {
     });
 }
 
-// Enhanced refresh functionality
-function refreshScreenings(event, tab) {
-    event.preventDefault();
-    
-    const button = event.target.closest('a');
-    const originalText = button.innerHTML;
-    const confirmMessage = tab === 'types' 
-        ? 'Refresh all automated screenings using the current parsing rules from this tab? This will update document matches immediately.'
-        : 'Refresh all patient screenings? This may take a few moments.';
-    
-    if (!confirm(confirmMessage)) {
-        return;
-    }
-    
-    // Show loading state
-    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Refreshing...';
-    button.disabled = true;
-    
-    // Submit refresh request
-    fetch('/screening/refresh', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        }
-    })
-    .then(response => {
-        if (response.ok) {
-            window.location.reload();
-        } else {
-            throw new Error('Refresh failed');
-        }
-    })
-    .catch(error => {
-        console.error('Error refreshing screenings:', error);
-        alert('Error refreshing screenings. Please try again.');
-        button.innerHTML = originalText;
-        button.disabled = false;
-    });
-}
-
 // Initialize keyword display when page loads
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM Content Loaded - checking for keyword containers...');
-    
     // Check if keyword containers exist
     const hasKeywordContainers = document.querySelectorAll('.keywords-badges-container').length > 0;
-    
     if (hasKeywordContainers) {
         console.log('Loading keywords for display...');
         // Load keywords immediately
         loadKeywordsAsBadges();
-        
         // Also load after a delay to ensure DOM is fully ready
         setTimeout(() => {
             loadKeywordsAsBadges();
@@ -498,7 +538,134 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
         console.log('No keyword containers found - skipping keyword loading');
     }
+
+    // Initialize filters
+    initializeFilters();
+    
+    // Show keywords when switching to types tab
+    const typesTab = document.getElementById('types-tab');
+    if (typesTab) {
+        typesTab.addEventListener('shown.bs.tab', function() {
+            setTimeout(loadKeywordsAsBadges, 100);
+        });
+    }
 });
+
+// Enhanced refresh functionality that works across all tabs
+function refreshScreenings(event, tab) {
+    // Prevent default link behavior
+    event.preventDefault();
+    const button = event.target.closest('a') || event.target.closest('button');
+    const originalText = button.innerHTML;
+    const confirmMessage = tab === 'types'
+        ? 'Refresh all automated screenings using the current parsing rules from this tab? This will update document matches immediately.'
+        : 'Refresh the screening list to check for updates?';
+
+    if (confirm(confirmMessage)) {
+        // Show loading state
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Refreshing...';
+        button.disabled = true;
+        
+        // Make refresh request
+        fetch('/api/refresh-screenings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Reload the page to show updated data
+                location.reload();
+            } else {
+                alert('Error refreshing screenings: ' + (data.message || 'Unknown error'));
+                button.innerHTML = originalText;
+                button.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error refreshing screenings. Please try again.');
+            button.innerHTML = originalText;
+            button.disabled = false;
+        });
+    }
+}
+
+// Filter functionality
+function initializeFilters() {
+    const patientFilter = document.getElementById('patientFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const typeFilter = document.getElementById('typeFilter');
+    const table = document.getElementById('screeningTable');
+
+    if (!table) return;
+
+    function applyFilters() {
+        const patientId = patientFilter.value;
+        const status = statusFilter.value;
+        const typeId = typeFilter.value;
+        const rows = table.querySelectorAll('tbody tr');
+
+        rows.forEach(row => {
+            const rowPatientId = row.dataset.patientId;
+            const rowStatus = row.dataset.status;
+            const rowTypeId = row.dataset.typeId;
+
+            const matchesPatient = !patientId || rowPatientId === patientId;
+            const matchesStatus = !status || rowStatus === status;
+            const matchesType = !typeId || rowTypeId === typeId;
+
+            if (matchesPatient && matchesStatus && matchesType) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    [patientFilter, statusFilter, typeFilter].forEach(filter => {
+        if (filter) {
+            filter.addEventListener('change', applyFilters);
+        }
+    });
+}
+
+// Screening type management functions
+function editScreeningType(id) {
+    // Redirect to edit page (would be implemented)
+    alert('Edit functionality would be implemented here');
+}
+
+function toggleScreeningType(id, isActive) {
+    const action = isActive ? 'deactivate' : 'activate';
+    if (confirm(`Are you sure you want to ${action} this screening type?`)) {
+        // Implementation would go here
+        alert(`${action} functionality would be implemented here`);
+    }
+}
+
+function deleteScreeningType(id) {
+    if (confirm('Are you sure you want to delete this screening type? This action cannot be undone.')) {
+        // Implementation would go here
+        alert('Delete functionality would be implemented here');
+    }
+}
+
+function viewScreeningDetails(id) {
+    // Implementation would show screening details modal
+    alert('Screening details modal would be implemented here');
+}
+
+function resetSettings() {
+    if (confirm('Reset all settings to default values?')) {
+        document.getElementById('labsCutoff').value = 12;
+        document.getElementById('imagingCutoff').value = 12;
+        document.getElementById('consultsCutoff').value = 12;
+        document.getElementById('hospitalCutoff').value = 12;
+    }
+}
 </script>
 {% endblock %}
-

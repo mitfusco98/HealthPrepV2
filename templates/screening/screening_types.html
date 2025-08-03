@@ -1,381 +1,525 @@
-<!-- Screening Types Management -->
-<div class="row">
-    <div class="col-12">
-        <!-- Header and Actions -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h5 class="mb-1">
-                    <i class="fas fa-cogs text-primary me-2"></i>
-                    Screening Type Management
-                </h5>
-                <p class="text-muted mb-0">Configure screening criteria, keywords, and eligibility rules</p>
-            </div>
-            <div class="btn-group" role="group">
-                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addScreeningTypeModal">
-                    <i class="fas fa-plus me-1"></i>Add Screening Type
-                </button>
-                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#importPresetModal">
-                    <i class="fas fa-download me-1"></i>Import Preset
-                </button>
-            </div>
-        </div>
+{% extends 'base_user.html' %}
 
-        <!-- Statistics Cards -->
-        <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="card bg-primary text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="card-title">Total Types</h6>
-                                <h3 class="mb-0">{{ total_types or 0 }}</h3>
-                            </div>
-                            <div class="align-self-center">
-                                <i class="fas fa-list-ul fa-2x opacity-75"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card bg-success text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="card-title">Active Types</h6>
-                                <h3 class="mb-0">{{ active_types or 0 }}</h3>
-                            </div>
-                            <div class="align-self-center">
-                                <i class="fas fa-check-circle fa-2x opacity-75"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card bg-warning text-dark">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="card-title">Inactive Types</h6>
-                                <h3 class="mb-0">{{ (total_types or 0) - (active_types or 0) }}</h3>
-                            </div>
-                            <div class="align-self-center">
-                                <i class="fas fa-pause-circle fa-2x opacity-75"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card bg-info text-white">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="card-title">Available Presets</h6>
-                                <h3 class="mb-0">{{ available_presets|length if available_presets else 0 }}</h3>
-                            </div>
-                            <div class="align-self-center">
-                                <i class="fas fa-archive fa-2x opacity-75"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+{% block title %}HealthPrep - Screening Types{% endblock %}
 
-        <!-- Screening Types List -->
-        {% if screening_types %}
-            <div class="row g-3">
-                {% for screening_type in screening_types %}
-                    <div class="col-lg-6">
-                        <div class="card {{ 'border-success' if screening_type.is_active else 'border-warning' }}">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <div class="d-flex align-items-center">
-                                    <span class="badge {{ 'bg-success' if screening_type.is_active else 'bg-warning text-dark' }} me-2">
-                                        {{ 'Active' if screening_type.is_active else 'Inactive' }}
-                                    </span>
-                                    <h6 class="mb-0">{{ screening_type.name }}</h6>
-                                </div>
-                                <div class="btn-group btn-group-sm" role="group">
-                                    <button type="button" class="btn btn-outline-primary" onclick="editScreeningType({{ screening_type.id }})">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-outline-info" onclick="refreshScreeningType({{ screening_type.id }})">
-                                        <i class="fas fa-sync"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-outline-{{ 'warning' if screening_type.is_active else 'success' }}" 
-                                            onclick="toggleScreeningType({{ screening_type.id }}, {{ 'false' if screening_type.is_active else 'true' }})">
-                                        <i class="fas fa-{{ 'pause' if screening_type.is_active else 'play' }}"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="card-body">
-                                {% if screening_type.description %}
-                                    <p class="card-text text-muted">{{ screening_type.description }}</p>
-                                {% endif %}
-                                
-                                <div class="row mb-3">
-                                    <div class="col-6">
-                                        <small class="text-muted">Gender Criteria:</small><br>
-                                        <span class="badge bg-secondary">{{ screening_type.gender_criteria }}</span>
-                                    </div>
-                                    <div class="col-6">
-                                        <small class="text-muted">Age Range:</small><br>
-                                        <span class="fw-bold">
-                                            {{ screening_type.min_age or 'No min' }} - {{ screening_type.max_age or 'No max' }} years
-                                        </span>
-                                    </div>
-                                </div>
-                                
-                                <div class="row mb-3">
-                                    <div class="col-12">
-                                        <small class="text-muted">Frequency:</small><br>
-                                        <span class="fw-bold">
-                                            Every {{ screening_type.frequency_number }} {{ screening_type.frequency_unit }}
-                                        </span>
-                                    </div>
-                                </div>
-                                
-                                <!-- Keywords Display -->
-                                <div class="mb-3">
-                                    <small class="text-muted d-block mb-1">Keywords:</small>
-                                    <div class="keywords-badges-container" id="keywords-display-{{ screening_type.id }}">
-                                        <small class="text-muted">Loading keywords...</small>
-                                    </div>
-                                </div>
-                                
-                                <!-- Trigger Conditions -->
-                                {% if screening_type.trigger_conditions_list %}
-                                    <div class="mb-3">
-                                        <small class="text-muted d-block mb-1">Trigger Conditions:</small>
-                                        <div>
-                                            {% for condition in screening_type.trigger_conditions_list %}
-                                                <span class="badge bg-info me-1 mb-1">{{ condition }}</span>
-                                            {% endfor %}
-                                        </div>
-                                    </div>
-                                {% endif %}
-                                
-                                <div class="text-muted small">
-                                    <i class="fas fa-clock me-1"></i>
-                                    Updated: {{ screening_type.updated_at.strftime('%m/%d/%Y %I:%M %p') if screening_type.updated_at else 'Never' }}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <!-- Empty State -->
-            <div class="text-center py-5">
-                <div class="mb-4">
-                    <i class="fas fa-cogs text-muted" style="font-size: 4rem;"></i>
-                </div>
-                <h4 class="text-muted">No screening types configured</h4>
-                <p class="text-muted">
-                    Get started by adding a screening type or importing a preset configuration.
-                </p>
-                <div class="btn-group" role="group">
-                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addScreeningTypeModal">
-                        <i class="fas fa-plus me-1"></i>Add Screening Type
-                    </button>
-                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#importPresetModal">
-                        <i class="fas fa-download me-1"></i>Import Preset
-                    </button>
-                </div>
-            </div>
-        {% endif %}
+{% block extra_css %}
+<style>
+.screening-type-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border: none;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.screening-type-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.screening-type-card.inactive {
+    opacity: 0.7;
+}
+
+.keywords-display {
+    max-height: 80px;
+    overflow-y: auto;
+}
+
+.criteria-section {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.stats-badge {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 10;
+}
+
+.preset-modal .modal-body {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.preset-item {
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.preset-item:hover {
+    background-color: rgba(13, 110, 253, 0.1);
+    border-color: #0d6efd;
+}
+
+.preset-item.selected {
+    background-color: rgba(13, 110, 253, 0.2);
+    border-color: #0d6efd;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="display-6 mb-2">
+            <i class="fas fa-cogs me-3 text-primary"></i>
+            Screening Types
+        </h1>
+        <p class="text-muted mb-0">Configure and manage screening protocols for your practice</p>
+    </div>
+    <div class="btn-group" role="group">
+        <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#presetsModal">
+            <i class="fas fa-download me-2"></i>Import Presets
+        </button>
+        <button type="button" class="btn btn-success" onclick="location.href='{{ url_for('add_screening_type') }}'">
+            <i class="fas fa-plus me-2"></i>Add New Type
+        </button>
     </div>
 </div>
 
-<!-- Add Screening Type Modal -->
-<div class="modal fade" id="addScreeningTypeModal" tabindex="-1">
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h4 class="mb-0">{{ screening_types|length }}</h4>
+                        <p class="mb-0">Total Types</p>
+                    </div>
+                    <i class="fas fa-list-alt fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h4 class="mb-0">{{ screening_types|selectattr('is_active')|list|length }}</h4>
+                        <p class="mb-0">Active</p>
+                    </div>
+                    <i class="fas fa-check-circle fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h4 class="mb-0">{{ screening_types|rejectattr('is_active')|list|length }}</h4>
+                        <p class="mb-0">Inactive</p>
+                    </div>
+                    <i class="fas fa-pause-circle fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h4 class="mb-0">{{ screening_types|map(attribute='keywords')|select|map('length')|sum or 0 }}</h4>
+                        <p class="mb-0">Total Keywords</p>
+                    </div>
+                    <i class="fas fa-tags fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Screening Types Grid -->
+<div class="row">
+    {% for screening_type in screening_types %}
+    <div class="col-lg-6 col-xl-4 mb-4">
+        <div class="card screening-type-card {{ 'inactive' if not screening_type.is_active else '' }} h-100">
+            <!-- Status Badge -->
+            <span class="badge bg-{{ 'success' if screening_type.is_active else 'secondary' }} stats-badge">
+                {{ 'Active' if screening_type.is_active else 'Inactive' }}
+            </span>
+            
+            <div class="card-header">
+                <h5 class="card-title mb-1">{{ screening_type.name }}</h5>
+                <p class="card-subtitle text-muted mb-0">
+                    {{ screening_type.description or 'No description provided' }}
+                </p>
+            </div>
+            
+            <div class="card-body">
+                <!-- Frequency Information -->
+                <div class="criteria-section">
+                    <h6 class="text-primary mb-2">
+                        <i class="fas fa-clock me-2"></i>Frequency
+                    </h6>
+                    <p class="mb-0">Every {{ screening_type.frequency_display }}</p>
+                </div>
+
+                <!-- Eligibility Criteria -->
+                <div class="criteria-section">
+                    <h6 class="text-primary mb-2">
+                        <i class="fas fa-users me-2"></i>Eligibility
+                    </h6>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <strong>Gender:</strong><br>
+                            {% if screening_type.eligible_genders %}
+                                <span class="badge bg-secondary">{{ screening_type.eligible_genders|join(', ') }}</span>
+                            {% else %}
+                                <span class="text-muted">All</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-6">
+                            <strong>Age:</strong><br>
+                            {% if screening_type.min_age or screening_type.max_age %}
+                                <span class="badge bg-secondary">
+                                    {% if screening_type.min_age %}{{ screening_type.min_age }}+{% endif %}
+                                    {% if screening_type.min_age and screening_type.max_age %} to {% endif %}
+                                    {% if screening_type.max_age %}{{ screening_type.max_age }}{% endif %}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">All ages</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Keywords -->
+                <div class="criteria-section">
+                    <h6 class="text-primary mb-2">
+                        <i class="fas fa-tags me-2"></i>Keywords
+                        <span class="badge bg-info ms-2">{{ screening_type.keywords|length if screening_type.keywords else 0 }}</span>
+                    </h6>
+                    <div class="keywords-display">
+                        {% if screening_type.keywords %}
+                            {% for keyword in screening_type.keywords %}
+                                <span class="badge bg-light text-dark me-1 mb-1">{{ keyword }}</span>
+                            {% endfor %}
+                        {% else %}
+                            <span class="text-muted">No keywords defined</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Trigger Conditions -->
+                {% if screening_type.trigger_conditions %}
+                <div class="criteria-section">
+                    <h6 class="text-primary mb-2">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Trigger Conditions
+                    </h6>
+                    <div>
+                        {% for condition in screening_type.trigger_conditions %}
+                            <span class="badge bg-warning text-dark me-1 mb-1">{{ condition }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="card-footer">
+                <div class="row g-2">
+                    <div class="col-6">
+                        <button type="button" class="btn btn-outline-primary btn-sm w-100" 
+                                onclick="editScreeningType({{ screening_type.id }})">
+                            <i class="fas fa-edit me-1"></i>Edit
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <div class="btn-group w-100" role="group">
+                            <button type="button" class="btn btn-outline-{{ 'warning' if screening_type.is_active else 'success' }} btn-sm"
+                                    onclick="toggleScreeningType({{ screening_type.id }}, {{ screening_type.is_active|lower }})"
+                                    title="{{ 'Deactivate' if screening_type.is_active else 'Activate' }}">
+                                <i class="fas fa-{{ 'pause' if screening_type.is_active else 'play' }}"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-danger btn-sm"
+                                    onclick="deleteScreeningType({{ screening_type.id }})"
+                                    title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if not screening_types %}
+<!-- Empty State -->
+<div class="text-center py-5">
+    <i class="fas fa-cogs fa-5x text-muted mb-4"></i>
+    <h3 class="text-muted mb-3">No Screening Types Configured</h3>
+    <p class="text-muted mb-4">
+        Create screening types to define what medical screenings to track for your patients.
+        You can also import preset configurations for common specialties.
+    </p>
+    <div class="d-flex justify-content-center gap-3">
+        <button type="button" class="btn btn-primary" onclick="location.href='{{ url_for('add_screening_type') }}'">
+            <i class="fas fa-plus me-2"></i>Create Your First Screening Type
+        </button>
+        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#presetsModal">
+            <i class="fas fa-download me-2"></i>Import Presets
+        </button>
+    </div>
+</div>
+{% endif %}
+
+<!-- Presets Modal -->
+<div class="modal fade preset-modal" id="presetsModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
-                    <i class="fas fa-plus text-success me-2"></i>Add New Screening Type
+                    <i class="fas fa-download me-2"></i>Import Screening Type Presets
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form id="addScreeningTypeForm" method="POST" action="#">
-                <div class="modal-body">
-                    {{ csrf_token() }}
-                    
-                    <div class="row">
-                        <div class="col-md-8">
-                            <div class="mb-3">
-                                <label for="name" class="form-label">Screening Name *</label>
-                                <input type="text" class="form-control" id="name" name="name" required>
+            <div class="modal-body">
+                <p class="text-muted mb-4">
+                    Select preset configurations for common medical specialties. 
+                    These will add standardized screening types to your system.
+                </p>
+                
+                <div id="presetsList">
+                    <div class="preset-item" data-preset="primary_care">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-2">Primary Care</h6>
+                                <p class="text-muted mb-2">
+                                    Essential screenings for primary care practice including mammograms, 
+                                    colonoscopies, Pap smears, and basic laboratory screenings.
+                                </p>
+                                <small class="text-info">
+                                    <i class="fas fa-list me-1"></i>12 screening types
+                                </small>
                             </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label for="is_active" class="form-label">Status</label>
-                                <select class="form-select" id="is_active" name="is_active">
-                                    <option value="true" selected>Active</option>
-                                    <option value="false">Inactive</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="description" class="form-label">Description</label>
-                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="keywords" class="form-label">Keywords (one per line) *</label>
-                        <textarea class="form-control" id="keywords" name="keywords" rows="4" required 
-                                  placeholder="mammogram&#10;mammography&#10;breast imaging"></textarea>
-                        <div class="form-text">Enter keywords that will be used to match documents</div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label for="gender_criteria" class="form-label">Gender Criteria</label>
-                                <select class="form-select" id="gender_criteria" name="gender_criteria">
-                                    <option value="Both" selected>Both</option>
-                                    <option value="M">Male Only</option>
-                                    <option value="F">Female Only</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label for="min_age" class="form-label">Minimum Age</label>
-                                <input type="number" class="form-control" id="min_age" name="min_age" min="0" max="150">
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label for="max_age" class="form-label">Maximum Age</label>
-                                <input type="number" class="form-control" id="max_age" name="max_age" min="0" max="150">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="primary_care" name="presets">
                             </div>
                         </div>
                     </div>
                     
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="frequency_number" class="form-label">Frequency Number *</label>
-                                <input type="number" class="form-control" id="frequency_number" name="frequency_number" value="1" min="1" required>
+                    <div class="preset-item" data-preset="cardiology">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-2">Cardiology</h6>
+                                <p class="text-muted mb-2">
+                                    Cardiovascular screenings including ECGs, echocardiograms, 
+                                    stress tests, and cardiac biomarkers.
+                                </p>
+                                <small class="text-info">
+                                    <i class="fas fa-list me-1"></i>8 screening types
+                                </small>
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="frequency_unit" class="form-label">Frequency Unit *</label>
-                                <select class="form-select" id="frequency_unit" name="frequency_unit" required>
-                                    <option value="years" selected>Years</option>
-                                    <option value="months">Months</option>
-                                    <option value="weeks">Weeks</option>
-                                    <option value="days">Days</option>
-                                </select>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="cardiology" name="presets">
                             </div>
                         </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <label for="trigger_conditions" class="form-label">Trigger Conditions (one per line)</label>
-                        <textarea class="form-control" id="trigger_conditions" name="trigger_conditions" rows="3"
-                                  placeholder="diabetes&#10;hypertension"></textarea>
-                        <div class="form-text">Medical conditions that modify this screening frequency</div>
+                    <div class="preset-item" data-preset="women_health">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-2">Women's Health</h6>
+                                <p class="text-muted mb-2">
+                                    Specialized screenings for women's health including breast cancer screening, 
+                                    cervical cancer screening, and bone density tests.
+                                </p>
+                                <small class="text-info">
+                                    <i class="fas fa-list me-1"></i>6 screening types
+                                </small>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="women_health" name="presets">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="preset-item" data-preset="geriatrics">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-2">Geriatrics</h6>
+                                <p class="text-muted mb-2">
+                                    Age-appropriate screenings for older adults including cognitive assessments, 
+                                    fall risk evaluations, and preventive care.
+                                </p>
+                                <small class="text-info">
+                                    <i class="fas fa-list me-1"></i>10 screening types
+                                </small>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="geriatrics" name="presets">
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-success">
-                        <i class="fas fa-save me-1"></i>Save Screening Type
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Import Preset Modal -->
-<div class="modal fade" id="importPresetModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-download text-primary me-2"></i>Import Screening Preset
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" action="{{ url_for('admin.import_preset') }}">
-                <div class="modal-body">
-                    {{ csrf_token() }}
-                    
-                    <div class="mb-3">
-                        <label for="preset_filename" class="form-label">Select Preset</label>
-                        <select class="form-select" id="preset_filename" name="preset_filename" required>
-                            <option value="">Choose a preset...</option>
-                            {% for preset in available_presets %}
-                                <option value="{{ preset.filename }}">
-                                    {{ preset.name }} ({{ preset.screening_count }} types)
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="overwrite" name="overwrite">
-                        <label class="form-check-label" for="overwrite">
-                            Overwrite existing screening types with same name
-                        </label>
-                    </div>
-                    
-                    <div class="alert alert-info mt-3">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Importing a preset will add the screening types to your system. 
-                        Existing types will be preserved unless overwrite is enabled.
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-download me-1"></i>Import Preset
-                    </button>
-                </div>
-            </form>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="importSelectedPresets()">
+                    <i class="fas fa-download me-2"></i>Import Selected
+                </button>
+            </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
-function editScreeningType(screeningTypeId) {
-    // TODO: Implement edit functionality
-    alert('Edit functionality will be implemented in a future update');
-}
+document.addEventListener('DOMContentLoaded', function() {
+    // Make preset items clickable
+    const presetItems = document.querySelectorAll('.preset-item');
+    presetItems.forEach(item => {
+        item.addEventListener('click', function(e) {
+            if (e.target.type !== 'checkbox') {
+                const checkbox = this.querySelector('input[type="checkbox"]');
+                checkbox.checked = !checkbox.checked;
+                togglePresetSelection(this, checkbox.checked);
+            }
+        });
+        
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        checkbox.addEventListener('change', function() {
+            togglePresetSelection(item, this.checked);
+        });
+    });
+});
 
-function refreshScreeningType(screeningTypeId) {
-    if (confirm('Refresh this screening type? This will update all related screenings.')) {
-        showLoading('Refreshing screening type...');
-        
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = `{{ url_for("ui.refresh_screening_type", screening_type_id=0) }}`.replace('0', screeningTypeId);
-        
-        const csrfToken = document.createElement('input');
-        csrfToken.type = 'hidden';
-        csrfToken.name = 'csrf_token';
-        csrfToken.value = '{{ csrf_token() }}';
-        form.appendChild(csrfToken);
-        
-        document.body.appendChild(form);
-        form.submit();
+function togglePresetSelection(item, selected) {
+    if (selected) {
+        item.classList.add('selected');
+    } else {
+        item.classList.remove('selected');
     }
 }
 
-function toggleScreeningType(screeningTypeId, newStatus) {
-    const action = newStatus === 'true' ? 'activate' : 'deactivate';
-    if (confirm(`Are you sure you want to ${action} this screening type?`)) {
-        // TODO: Implement toggle functionality
-        alert('Toggle functionality will be implemented in a future update');
+function editScreeningType(id) {
+    // In a real implementation, this would redirect to edit form
+    window.location.href = `/screening-types/${id}/edit`;
+}
+
+function toggleScreeningType(id, isActive) {
+    const action = isActive ? 'deactivate' : 'activate';
+    const confirmMessage = `Are you sure you want to ${action} this screening type?\n\n` +
+                          (isActive ? 'This will stop generating screenings for this type.' : 
+                                    'This will resume generating screenings for this type.');
+    
+    if (confirm(confirmMessage)) {
+        showLoading(`${action.charAt(0).toUpperCase() + action.slice(1)}ing screening type...`);
+        
+        // Make API call to toggle status
+        fetch(`/api/screening-types/${id}/toggle`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + (data.message || 'Unknown error occurred'));
+            }
+        })
+        .catch(error => {
+            hideLoading();
+            console.error('Error:', error);
+            alert('Error occurred while updating screening type');
+        });
+    }
+}
+
+function deleteScreeningType(id) {
+    const confirmMessage = 'Are you sure you want to delete this screening type?\n\n' +
+                          'This action cannot be undone and will remove all associated screening data.';
+    
+    if (confirm(confirmMessage)) {
+        showLoading('Deleting screening type...');
+        
+        // Make API call to delete
+        fetch(`/api/screening-types/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + (data.message || 'Unknown error occurred'));
+            }
+        })
+        .catch(error => {
+            hideLoading();
+            console.error('Error:', error);
+            alert('Error occurred while deleting screening type');
+        });
+    }
+}
+
+function importSelectedPresets() {
+    const selectedPresets = [];
+    const checkboxes = document.querySelectorAll('input[name="presets"]:checked');
+    
+    checkboxes.forEach(checkbox => {
+        selectedPresets.push(checkbox.value);
+    });
+    
+    if (selectedPresets.length === 0) {
+        alert('Please select at least one preset to import.');
+        return;
+    }
+    
+    const confirmMessage = `Import ${selectedPresets.length} preset(s)?\n\n` +
+                          'This will add new screening types to your system.';
+    
+    if (confirm(confirmMessage)) {
+        showLoading('Importing presets...');
+        
+        // Make API call to import presets
+        fetch('/api/import-presets', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({ presets: selectedPresets })
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.success) {
+                alert(`Successfully imported ${data.imported_count} screening types.`);
+                location.reload();
+            } else {
+                alert('Error: ' + (data.message || 'Unknown error occurred'));
+            }
+        })
+        .catch(error => {
+            hideLoading();
+            console.error('Error:', error);
+            alert('Error occurred while importing presets');
+        });
     }
 }
 </script>
+{% endblock %}

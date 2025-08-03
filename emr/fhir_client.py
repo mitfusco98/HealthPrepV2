@@ -1,327 +1,203 @@
 """
-SMART on FHIR API client
-Handles FHIR data retrieval and authentication
+SMART on FHIR API client for EMR integration
+Handles authentication and data retrieval from FHIR-compliant EMRs
 """
-
 import requests
 import json
-from datetime import datetime, timedelta
-from urllib.parse import urljoin
 import logging
+from datetime import datetime
+from config.settings import FHIR_BASE_URL, FHIR_CLIENT_ID, FHIR_CLIENT_SECRET
+
+logger = logging.getLogger(__name__)
 
 class FHIRClient:
-    """FHIR client for EMR integration"""
+    """Client for connecting to FHIR-compliant EMR systems"""
     
     def __init__(self, base_url=None, client_id=None, client_secret=None):
-        self.base_url = base_url
-        self.client_id = client_id
-        self.client_secret = client_secret
+        self.base_url = base_url or FHIR_BASE_URL
+        self.client_id = client_id or FHIR_CLIENT_ID
+        self.client_secret = client_secret or FHIR_CLIENT_SECRET
         self.access_token = None
         self.token_expires = None
-        self.logger = logging.getLogger(__name__)
-    
-    def authenticate(self, username=None, password=None):
-        """Authenticate with FHIR server"""
+        
+    def authenticate(self):
+        """Authenticate with the FHIR server using OAuth2"""
+        auth_url = f"{self.base_url}/auth/token"
+        
+        data = {
+            'grant_type': 'client_credentials',
+            'client_id': self.client_id,
+            'client_secret': self.client_secret,
+            'scope': 'patient/*.read'
+        }
+        
         try:
-            # For demo purposes, simulate authentication
-            # In production, this would use OAuth2 flow
-            self.access_token = "demo_access_token"
-            self.token_expires = datetime.now() + timedelta(hours=1)
+            response = requests.post(auth_url, data=data)
+            response.raise_for_status()
             
-            self.logger.info("FHIR authentication successful")
+            token_data = response.json()
+            self.access_token = token_data['access_token']
+            self.token_expires = datetime.utcnow().timestamp() + token_data.get('expires_in', 3600)
+            
+            logger.info("Successfully authenticated with FHIR server")
             return True
             
-        except Exception as e:
-            self.logger.error(f"FHIR authentication failed: {str(e)}")
+        except requests.RequestException as e:
+            logger.error(f"FHIR authentication failed: {e}")
             return False
     
-    def get_patient(self, patient_id):
-        """Get patient resource by ID"""
-        try:
-            if not self._is_authenticated():
-                if not self.authenticate():
-                    return None
-            
-            url = urljoin(self.base_url, f"Patient/{patient_id}")
-            headers = self._get_headers()
-            
-            # For demo purposes, return mock data
-            # In production, this would make actual FHIR API call
-            response = self._mock_patient_response(patient_id)
-            
-            self.logger.info(f"Retrieved patient {patient_id}")
-            return response
-            
-        except Exception as e:
-            self.logger.error(f"Error retrieving patient {patient_id}: {str(e)}")
-            return None
-    
-    def search_patients(self, search_params):
-        """Search for patients based on parameters"""
-        try:
-            if not self._is_authenticated():
-                if not self.authenticate():
-                    return None
-            
-            url = urljoin(self.base_url, "Patient")
-            headers = self._get_headers()
-            
-            # For demo purposes, return mock data
-            response = self._mock_patient_search_response(search_params)
-            
-            self.logger.info(f"Patient search completed with {len(response.get('entry', []))} results")
-            return response
-            
-        except Exception as e:
-            self.logger.error(f"Error searching patients: {str(e)}")
-            return None
-    
-    def get_documents(self, patient_id):
-        """Get DocumentReference resources for a patient"""
-        try:
-            if not self._is_authenticated():
-                if not self.authenticate():
-                    return None
-            
-            url = urljoin(self.base_url, "DocumentReference")
-            headers = self._get_headers()
-            params = {"patient": patient_id}
-            
-            # For demo purposes, return mock data
-            response = self._mock_documents_response(patient_id)
-            
-            self.logger.info(f"Retrieved documents for patient {patient_id}")
-            return response
-            
-        except Exception as e:
-            self.logger.error(f"Error retrieving documents for patient {patient_id}: {str(e)}")
-            return None
-    
-    def get_observations(self, patient_id, category=None):
-        """Get Observation resources for a patient"""
-        try:
-            if not self._is_authenticated():
-                if not self.authenticate():
-                    return None
-            
-            url = urljoin(self.base_url, "Observation")
-            headers = self._get_headers()
-            params = {"patient": patient_id}
-            
-            if category:
-                params["category"] = category
-            
-            # For demo purposes, return mock data
-            response = self._mock_observations_response(patient_id, category)
-            
-            self.logger.info(f"Retrieved observations for patient {patient_id}")
-            return response
-            
-        except Exception as e:
-            self.logger.error(f"Error retrieving observations for patient {patient_id}: {str(e)}")
-            return None
-    
-    def get_conditions(self, patient_id):
-        """Get Condition resources for a patient"""
-        try:
-            if not self._is_authenticated():
-                if not self.authenticate():
-                    return None
-            
-            url = urljoin(self.base_url, "Condition")
-            headers = self._get_headers()
-            params = {"patient": patient_id}
-            
-            # For demo purposes, return mock data
-            response = self._mock_conditions_response(patient_id)
-            
-            self.logger.info(f"Retrieved conditions for patient {patient_id}")
-            return response
-            
-        except Exception as e:
-            self.logger.error(f"Error retrieving conditions for patient {patient_id}: {str(e)}")
-            return None
-    
-    def _is_authenticated(self):
-        """Check if client is authenticated and token is valid"""
-        if not self.access_token:
+    def is_token_valid(self):
+        """Check if the current access token is still valid"""
+        if not self.access_token or not self.token_expires:
             return False
         
-        if self.token_expires and datetime.now() >= self.token_expires:
-            return False
-        
+        return datetime.utcnow().timestamp() < self.token_expires
+    
+    def ensure_authenticated(self):
+        """Ensure we have a valid access token"""
+        if not self.is_token_valid():
+            return self.authenticate()
         return True
     
-    def _get_headers(self):
+    def get_headers(self):
         """Get HTTP headers for FHIR requests"""
+        if not self.ensure_authenticated():
+            raise Exception("Failed to authenticate with FHIR server")
+        
         return {
             'Authorization': f'Bearer {self.access_token}',
             'Accept': 'application/fhir+json',
             'Content-Type': 'application/fhir+json'
         }
     
-    def _mock_patient_response(self, patient_id):
-        """Mock patient response for demo purposes"""
-        return {
-            "resourceType": "Patient",
-            "id": patient_id,
-            "identifier": [
-                {
-                    "use": "usual",
-                    "type": {
-                        "coding": [
-                            {
-                                "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
-                                "code": "MR"
-                            }
-                        ]
-                    },
-                    "value": f"MRN-{patient_id}"
-                }
-            ],
-            "name": [
-                {
-                    "use": "official",
-                    "family": "Demo",
-                    "given": ["Patient"]
-                }
-            ],
-            "gender": "male",
-            "birthDate": "1980-01-01",
-            "telecom": [
-                {
-                    "system": "phone",
-                    "value": "555-1234",
-                    "use": "home"
-                }
-            ]
-        }
+    def get_patient(self, patient_id):
+        """Get patient resource by ID"""
+        url = f"{self.base_url}/Patient/{patient_id}"
+        
+        try:
+            response = requests.get(url, headers=self.get_headers())
+            response.raise_for_status()
+            return response.json()
+            
+        except requests.RequestException as e:
+            logger.error(f"Failed to fetch patient {patient_id}: {e}")
+            return None
     
-    def _mock_patient_search_response(self, search_params):
-        """Mock patient search response"""
-        return {
-            "resourceType": "Bundle",
-            "id": "search-results",
-            "type": "searchset",
-            "total": 1,
-            "entry": [
-                {
-                    "resource": self._mock_patient_response("demo-patient-1")
-                }
-            ]
-        }
+    def search_patients(self, family_name=None, given_name=None, identifier=None):
+        """Search for patients"""
+        url = f"{self.base_url}/Patient"
+        params = {}
+        
+        if family_name:
+            params['family'] = family_name
+        if given_name:
+            params['given'] = given_name
+        if identifier:
+            params['identifier'] = identifier
+        
+        try:
+            response = requests.get(url, headers=self.get_headers(), params=params)
+            response.raise_for_status()
+            return response.json()
+            
+        except requests.RequestException as e:
+            logger.error(f"Patient search failed: {e}")
+            return None
     
-    def _mock_documents_response(self, patient_id):
-        """Mock documents response"""
-        return {
-            "resourceType": "Bundle",
-            "id": "documents-bundle",
-            "type": "searchset",
-            "total": 2,
-            "entry": [
-                {
-                    "resource": {
-                        "resourceType": "DocumentReference",
-                        "id": "doc-1",
-                        "subject": {"reference": f"Patient/{patient_id}"},
-                        "type": {
-                            "coding": [
-                                {
-                                    "system": "http://loinc.org",
-                                    "code": "11502-2",
-                                    "display": "Laboratory report"
-                                }
-                            ]
-                        },
-                        "date": "2024-01-15T10:30:00Z",
-                        "description": "Lab Results - Lipid Panel"
-                    }
-                },
-                {
-                    "resource": {
-                        "resourceType": "DocumentReference",
-                        "id": "doc-2",
-                        "subject": {"reference": f"Patient/{patient_id}"},
-                        "type": {
-                            "coding": [
-                                {
-                                    "system": "http://loinc.org",
-                                    "code": "18748-4",
-                                    "display": "Diagnostic imaging study"
-                                }
-                            ]
-                        },
-                        "date": "2024-02-20T14:15:00Z",
-                        "description": "Chest X-Ray"
-                    }
-                }
-            ]
-        }
+    def get_patient_documents(self, patient_id):
+        """Get all DocumentReference resources for a patient"""
+        url = f"{self.base_url}/DocumentReference"
+        params = {'patient': patient_id}
+        
+        try:
+            response = requests.get(url, headers=self.get_headers(), params=params)
+            response.raise_for_status()
+            return response.json()
+            
+        except requests.RequestException as e:
+            logger.error(f"Failed to fetch documents for patient {patient_id}: {e}")
+            return None
     
-    def _mock_observations_response(self, patient_id, category):
-        """Mock observations response"""
-        return {
-            "resourceType": "Bundle",
-            "id": "observations-bundle",
-            "type": "searchset",
-            "total": 1,
-            "entry": [
-                {
-                    "resource": {
-                        "resourceType": "Observation",
-                        "id": "obs-1",
-                        "subject": {"reference": f"Patient/{patient_id}"},
-                        "code": {
-                            "coding": [
-                                {
-                                    "system": "http://loinc.org",
-                                    "code": "33747-0",
-                                    "display": "Cholesterol"
-                                }
-                            ]
-                        },
-                        "valueQuantity": {
-                            "value": 180,
-                            "unit": "mg/dL"
-                        },
-                        "effectiveDateTime": "2024-01-15T10:30:00Z"
-                    }
-                }
-            ]
-        }
+    def get_patient_observations(self, patient_id, category=None):
+        """Get Observation resources for a patient"""
+        url = f"{self.base_url}/Observation"
+        params = {'patient': patient_id}
+        
+        if category:
+            params['category'] = category
+        
+        try:
+            response = requests.get(url, headers=self.get_headers(), params=params)
+            response.raise_for_status()
+            return response.json()
+            
+        except requests.RequestException as e:
+            logger.error(f"Failed to fetch observations for patient {patient_id}: {e}")
+            return None
     
-    def _mock_conditions_response(self, patient_id):
-        """Mock conditions response"""
-        return {
-            "resourceType": "Bundle",
-            "id": "conditions-bundle",
-            "type": "searchset",
-            "total": 1,
-            "entry": [
-                {
-                    "resource": {
-                        "resourceType": "Condition",
-                        "id": "cond-1",
-                        "subject": {"reference": f"Patient/{patient_id}"},
-                        "code": {
-                            "coding": [
-                                {
-                                    "system": "http://snomed.info/sct",
-                                    "code": "73211009",
-                                    "display": "Diabetes mellitus"
-                                }
-                            ]
-                        },
-                        "clinicalStatus": {
-                            "coding": [
-                                {
-                                    "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
-                                    "code": "active"
-                                }
-                            ]
-                        },
-                        "onsetDateTime": "2020-01-15"
-                    }
+    def get_patient_conditions(self, patient_id):
+        """Get Condition resources for a patient"""
+        url = f"{self.base_url}/Condition"
+        params = {'patient': patient_id}
+        
+        try:
+            response = requests.get(url, headers=self.get_headers(), params=params)
+            response.raise_for_status()
+            return response.json()
+            
+        except requests.RequestException as e:
+            logger.error(f"Failed to fetch conditions for patient {patient_id}: {e}")
+            return None
+    
+    def get_patient_encounters(self, patient_id):
+        """Get Encounter resources for a patient"""
+        url = f"{self.base_url}/Encounter"
+        params = {'patient': patient_id}
+        
+        try:
+            response = requests.get(url, headers=self.get_headers(), params=params)
+            response.raise_for_status()
+            return response.json()
+            
+        except requests.RequestException as e:
+            logger.error(f"Failed to fetch encounters for patient {patient_id}: {e}")
+            return None
+    
+    def download_document(self, document_url):
+        """Download a document from a FHIR DocumentReference"""
+        try:
+            response = requests.get(document_url, headers=self.get_headers())
+            response.raise_for_status()
+            return response.content
+            
+        except requests.RequestException as e:
+            logger.error(f"Failed to download document from {document_url}: {e}")
+            return None
+    
+    def create_document_reference(self, patient_id, document_data):
+        """Create a new DocumentReference resource"""
+        url = f"{self.base_url}/DocumentReference"
+        
+        fhir_document = {
+            "resourceType": "DocumentReference",
+            "status": "current",
+            "subject": {
+                "reference": f"Patient/{patient_id}"
+            },
+            "content": [{
+                "attachment": {
+                    "contentType": document_data.get('content_type', 'application/pdf'),
+                    "title": document_data.get('title', 'Uploaded Document'),
+                    "creation": document_data.get('creation_date', datetime.utcnow().isoformat())
                 }
-            ]
+            }]
         }
+        
+        try:
+            response = requests.post(url, headers=self.get_headers(), json=fhir_document)
+            response.raise_for_status()
+            return response.json()
+            
+        except requests.RequestException as e:
+            logger.error(f"Failed to create document reference: {e}")
+            return None

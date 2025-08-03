@@ -1,417 +1,300 @@
-{% extends 'base_admin.html' %}
+{% extends 'admin/base.html' %}
 
-{% block title %}HealthPrep Admin - PHI Filter Settings{% endblock %}
+{% block title %}HealthPrep Admin - PHI Settings{% endblock %}
 
 {% block content %}
-<div class="admin-header text-center">
-    <h1><i class="fas fa-shield-alt me-3"></i>PHI Filter Settings</h1>
-    <p class="lead mb-0">Configure HIPAA-compliant Protected Health Information filtering</p>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-user-shield me-2"></i>PHI Filtering Settings</h1>
+    <div>
+        <button class="btn btn-success btn-sm" onclick="testPHIFilter()">
+            <i class="fas fa-test-tube me-1"></i>Test Filter
+        </button>
+    </div>
 </div>
 
-<div class="row justify-content-center">
-    <div class="col-lg-8">
-        <!-- Security Warning -->
-        <div class="alert admin-alert mb-4" role="alert">
-            <div class="d-flex align-items-center">
-                <i class="fas fa-exclamation-triangle fa-2x me-3 text-warning"></i>
-                <div>
-                    <h5 class="alert-heading">HIPAA Compliance Notice</h5>
-                    <p class="mb-0">
-                        These settings control the automatic redaction of Protected Health Information (PHI) 
-                        from OCR-processed documents. Changes to these settings affect HIPAA compliance and 
-                        should be made carefully in consultation with your compliance officer.
-                    </p>
+<div class="alert alert-info mb-4">
+    <i class="fas fa-info-circle me-2"></i>
+    <strong>HIPAA Compliance:</strong> These settings control how personally identifiable information (PHI) 
+    is filtered from OCR-processed documents to ensure HIPAA compliance.
+</div>
+
+<form method="POST" action="{{ url_for('admin_phi_settings') }}">
+    <div class="row">
+        <!-- Master Toggle -->
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-power-off me-2"></i>
+                        Master Controls
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="phi_filtering_enabled" 
+                               name="phi_filtering_enabled" 
+                               {{ 'checked' if settings.phi_filtering_enabled else '' }}>
+                        <label class="form-check-label fw-bold" for="phi_filtering_enabled">
+                            Enable PHI Filtering System-Wide
+                        </label>
+                        <div class="form-text">
+                            When disabled, no PHI filtering will be applied to any documents. 
+                            <strong class="text-danger">Use with extreme caution.</strong>
+                        </div>
+                    </div>
+                    
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="preserve_medical_terms" 
+                               name="preserve_medical_terms" 
+                               {{ 'checked' if settings.preserve_medical_terms else '' }}>
+                        <label class="form-check-label fw-bold" for="preserve_medical_terms">
+                            Preserve Medical Terminology
+                        </label>
+                        <div class="form-text">
+                            Protects medical values, measurements, and clinical terms from being filtered.
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- PHI Filter Configuration Form -->
-        <div class="card admin-table">
-            <div class="card-header">
-                <h5><i class="fas fa-cogs me-2"></i>Filter Configuration</h5>
-            </div>
-            <div class="card-body">
-                <form method="POST">
-                    {{ form.hidden_tag() }}
+        <!-- PHI Type Controls -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-id-card me-2"></i>
+                        Personal Identifiers
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="filter_ssn" 
+                               name="filter_ssn" 
+                               {{ 'checked' if settings.filter_ssn else '' }}>
+                        <label class="form-check-label" for="filter_ssn">
+                            <strong>Social Security Numbers</strong>
+                        </label>
+                        <div class="form-text">Filters XXX-XX-XXXX patterns</div>
+                    </div>
                     
-                    <!-- Master Enable/Disable -->
-                    <div class="form-section mb-4">
-                        <div class="form-check form-switch">
-                            {{ form.enabled(class="form-check-input", id="phiEnabled") }}
-                            <label class="form-check-label" for="phiEnabled">
-                                <strong>Enable PHI Filtering</strong>
-                            </label>
-                        </div>
-                        <small class="text-muted">
-                            Master switch for all PHI filtering functionality. When disabled, no PHI redaction will occur.
-                        </small>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="filter_phone" 
+                               name="filter_phone" 
+                               {{ 'checked' if settings.filter_phone else '' }}>
+                        <label class="form-check-label" for="filter_phone">
+                            <strong>Phone Numbers</strong>
+                        </label>
+                        <div class="form-text">Filters (XXX) XXX-XXXX patterns</div>
                     </div>
+                    
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="filter_names" 
+                               name="filter_names" 
+                               {{ 'checked' if settings.filter_names else '' }}>
+                        <label class="form-check-label" for="filter_names">
+                            <strong>Patient Names</strong>
+                        </label>
+                        <div class="form-text">Filters identifiable patient names</div>
+                    </div>
+                    
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="filter_addresses" 
+                               name="filter_addresses" 
+                               {{ 'checked' if settings.filter_addresses else '' }}>
+                        <label class="form-check-label" for="filter_addresses">
+                            <strong>Street Addresses</strong>
+                        </label>
+                        <div class="form-text">Filters street addresses and ZIP codes</div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-                    <div id="filterOptions">
-                        <!-- Personal Identifiers -->
-                        <div class="form-section mb-4">
-                            <h6><i class="fas fa-id-card me-2"></i>Personal Identifiers</h6>
-                            
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <div class="form-check">
-                                        {{ form.filter_ssn(class="form-check-input") }}
-                                        <label class="form-check-label" for="{{ form.filter_ssn.id }}">
-                                            Social Security Numbers
-                                        </label>
-                                    </div>
-                                    <small class="text-muted">Patterns: XXX-XX-XXXX, XXXXXXXXX</small>
-                                </div>
-                                
-                                <div class="col-md-6 mb-3">
-                                    <div class="form-check">
-                                        {{ form.filter_phone(class="form-check-input") }}
-                                        <label class="form-check-label" for="{{ form.filter_phone.id }}">
-                                            Phone Numbers
-                                        </label>
-                                    </div>
-                                    <small class="text-muted">Patterns: (XXX) XXX-XXXX, XXX-XXX-XXXX</small>
-                                </div>
-                                
-                                <div class="col-md-6 mb-3">
-                                    <div class="form-check">
-                                        {{ form.filter_names(class="form-check-input") }}
-                                        <label class="form-check-label" for="{{ form.filter_names.id }}">
-                                            Patient Names
-                                        </label>
-                                    </div>
-                                    <small class="text-muted">Contextual name detection</small>
-                                </div>
-                                
-                                <div class="col-md-6 mb-3">
-                                    <div class="form-check">
-                                        {{ form.filter_addresses(class="form-check-input") }}
-                                        <label class="form-check-label" for="{{ form.filter_addresses.id }}">
-                                            Street Addresses
-                                        </label>
-                                    </div>
-                                    <small class="text-muted">Street addresses and ZIP codes</small>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Medical Identifiers -->
-                        <div class="form-section mb-4">
-                            <h6><i class="fas fa-hospital me-2"></i>Medical Identifiers</h6>
-                            
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <div class="form-check">
-                                        {{ form.filter_mrn(class="form-check-input") }}
-                                        <label class="form-check-label" for="{{ form.filter_mrn.id }}">
-                                            Medical Record Numbers
-                                        </label>
-                                    </div>
-                                    <small class="text-muted">MRN patterns and medical IDs</small>
-                                </div>
-                                
-                                <div class="col-md-6 mb-3">
-                                    <div class="form-check">
-                                        {{ form.filter_insurance(class="form-check-input") }}
-                                        <label class="form-check-label" for="{{ form.filter_insurance.id }}">
-                                            Insurance Information
-                                        </label>
-                                    </div>
-                                    <small class="text-muted">Policy numbers and member IDs</small>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Temporal Information -->
-                        <div class="form-section mb-4">
-                            <h6><i class="fas fa-calendar me-2"></i>Temporal Information</h6>
-                            
-                            <div class="col-md-12 mb-3">
-                                <div class="form-check">
-                                    {{ form.filter_dates(class="form-check-input") }}
-                                    <label class="form-check-label" for="{{ form.filter_dates.id }}">
-                                        Dates (Smart Filtering)
-                                    </label>
-                                </div>
-                                <small class="text-muted">
-                                    Filters personal dates while preserving medical values (lab dates, appointment dates, etc.)
-                                </small>
-                            </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar-alt me-2"></i>
+                        Medical & Temporal Data
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="filter_mrn" 
+                               name="filter_mrn" 
+                               {{ 'checked' if settings.filter_mrn else '' }}>
+                        <label class="form-check-label" for="filter_mrn">
+                            <strong>Medical Record Numbers</strong>
+                        </label>
+                        <div class="form-text">Filters MRN and chart numbers</div>
+                    </div>
+                    
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="filter_insurance" 
+                               name="filter_insurance" 
+                               {{ 'checked' if settings.filter_insurance else '' }}>
+                        <label class="form-check-label" for="filter_insurance">
+                            <strong>Insurance Information</strong>
+                        </label>
+                        <div class="form-text">Filters policy and member IDs</div>
+                    </div>
+                    
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="filter_dates" 
+                               name="filter_dates" 
+                               {{ 'checked' if settings.filter_dates else '' }}>
+                        <label class="form-check-label" for="filter_dates">
+                            <strong>Dates</strong>
+                        </label>
+                        <div class="form-text">
+                            Filters date patterns while preserving medical values
+                            <small class="text-warning d-block">
+                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                Use carefully - may affect clinical data
+                            </small>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                    <!-- Form Actions -->
-                    <div class="d-flex justify-content-between">
+    <!-- Action Buttons -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <button type="button" class="btn btn-outline-info me-2" onclick="testPHIFilter()">
-                                <i class="fas fa-vial me-1"></i>Test Filter
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="exportConfiguration()">
-                                <i class="fas fa-download me-1"></i>Export Config
-                            </button>
+                            <small class="text-muted">
+                                <i class="fas fa-clock me-1"></i>
+                                Last updated: {{ settings.updated_at.strftime('%m/%d/%Y %H:%M') if settings.updated_at else 'Never' }}
+                            </small>
                         </div>
                         <div>
-                            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary me-2">
-                                <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
-                            </a>
+                            <button type="button" class="btn btn-outline-secondary me-2" onclick="location.reload()">
+                                <i class="fas fa-undo me-1"></i>Reset
+                            </button>
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-save me-1"></i>Save Settings
                             </button>
                         </div>
                     </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- PHI Filter Statistics -->
-        <div class="card admin-table mt-4">
-            <div class="card-header">
-                <h5><i class="fas fa-chart-bar me-2"></i>PHI Filter Statistics</h5>
-            </div>
-            <div class="card-body">
-                <div class="row text-center">
-                    <div class="col-md-3">
-                        <h4 class="text-primary">{{ settings.get('documents_processed', 0) }}</h4>
-                        <small class="text-muted">Documents Processed</small>
-                    </div>
-                    <div class="col-md-3">
-                        <h4 class="text-success">{{ settings.get('phi_instances_found', 0) }}</h4>
-                        <small class="text-muted">PHI Instances Found</small>
-                    </div>
-                    <div class="col-md-3">
-                        <h4 class="text-info">{{ settings.get('phi_instances_redacted', 0) }}</h4>
-                        <small class="text-muted">PHI Instances Redacted</small>
-                    </div>
-                    <div class="col-md-3">
-                        <h4 class="text-warning">{{ "%.1f"|format(settings.get('compliance_rate', 0)) }}%</h4>
-                        <small class="text-muted">Compliance Rate</small>
-                    </div>
-                </div>
-                
-                <hr>
-                
-                <!-- PHI Type Breakdown -->
-                <h6>PHI Detection Breakdown (Last 30 Days)</h6>
-                <div class="row">
-                    <div class="col-md-6">
-                        <ul class="list-unstyled">
-                            <li class="d-flex justify-content-between">
-                                <span>SSN Patterns:</span>
-                                <span class="badge bg-secondary">{{ settings.get('ssn_count', 0) }}</span>
-                            </li>
-                            <li class="d-flex justify-content-between">
-                                <span>Phone Numbers:</span>
-                                <span class="badge bg-secondary">{{ settings.get('phone_count', 0) }}</span>
-                            </li>
-                            <li class="d-flex justify-content-between">
-                                <span>Names:</span>
-                                <span class="badge bg-secondary">{{ settings.get('name_count', 0) }}</span>
-                            </li>
-                        </ul>
-                    </div>
-                    <div class="col-md-6">
-                        <ul class="list-unstyled">
-                            <li class="d-flex justify-content-between">
-                                <span>MRN Patterns:</span>
-                                <span class="badge bg-secondary">{{ settings.get('mrn_count', 0) }}</span>
-                            </li>
-                            <li class="d-flex justify-content-between">
-                                <span>Insurance IDs:</span>
-                                <span class="badge bg-secondary">{{ settings.get('insurance_count', 0) }}</span>
-                            </li>
-                            <li class="d-flex justify-content-between">
-                                <span>Addresses:</span>
-                                <span class="badge bg-secondary">{{ settings.get('address_count', 0) }}</span>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Filter Testing Section -->
-        <div class="card admin-table mt-4">
-            <div class="card-header">
-                <h5><i class="fas fa-vial me-2"></i>PHI Filter Testing</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <label for="testInput" class="form-label">Test Input:</label>
-                        <textarea class="form-control" id="testInput" rows="6" 
-                                  placeholder="Enter text containing PHI to test filtering...
-Example:
-Patient: John Doe
-SSN: 123-45-6789
-Phone: (555) 123-4567
-MRN: MR123456
-Address: 123 Main St, Anytown, NY 12345"></textarea>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="testOutput" class="form-label">Filtered Output:</label>
-                        <textarea class="form-control" id="testOutput" rows="6" readonly 
-                                  placeholder="Filtered text will appear here..."></textarea>
-                    </div>
-                </div>
-                <div class="mt-3">
-                    <button type="button" class="btn btn-outline-primary" onclick="runPHITest()">
-                        <i class="fas fa-play me-1"></i>Run Test
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary ms-2" onclick="clearTest()">
-                        <i class="fas fa-eraser me-1"></i>Clear
-                    </button>
                 </div>
             </div>
         </div>
     </div>
+</form>
+
+<!-- PHI Filter Test Modal -->
+<div class="modal fade" id="phiTestModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-test-tube me-2"></i>
+                    PHI Filter Test
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="testText" class="form-label">Enter text to test PHI filtering:</label>
+                    <textarea class="form-control" id="testText" rows="5" 
+                              placeholder="Patient John Doe, SSN: 123-45-6789, Phone: (555) 123-4567, born 01/15/1980..."></textarea>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Original Text:</h6>
+                        <div id="originalText" class="border p-3 bg-light text-dark" style="min-height: 100px; white-space: pre-wrap;"></div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Filtered Text:</h6>
+                        <div id="filteredText" class="border p-3 bg-light text-dark" style="min-height: 100px; white-space: pre-wrap;"></div>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <h6>Filter Statistics:</h6>
+                    <div id="filterStats" class="alert alert-info"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="runPHITest()">
+                    <i class="fas fa-play me-1"></i>Run Test
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
-{% endblock %}
 
-{% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const phiEnabledCheckbox = document.getElementById('phiEnabled');
-    const filterOptions = document.getElementById('filterOptions');
-    
-    // Toggle filter options based on master switch
-    function toggleFilterOptions() {
-        if (phiEnabledCheckbox.checked) {
-            filterOptions.style.display = 'block';
-            filterOptions.style.opacity = '1';
-        } else {
-            filterOptions.style.display = 'none';
-            filterOptions.style.opacity = '0.5';
-        }
-    }
-    
-    phiEnabledCheckbox.addEventListener('change', toggleFilterOptions);
-    toggleFilterOptions(); // Initial state
-    
-    // Show warning when disabling PHI filtering
-    phiEnabledCheckbox.addEventListener('change', function() {
-        if (!this.checked) {
-            if (!confirm('WARNING: Disabling PHI filtering will stop all automatic redaction of protected health information. This may impact HIPAA compliance. Are you sure you want to continue?')) {
-                this.checked = true;
-                toggleFilterOptions();
-            }
-        }
-    });
-});
-
 function testPHIFilter() {
-    const testText = `
-Test Document for PHI Detection:
-
-Patient Information:
-Name: John Doe
-SSN: 123-45-6789
-Phone: (555) 123-4567
-DOB: 01/15/1980
-Address: 123 Main Street, Anytown, NY 12345
-
-Medical Information:
-MRN: MR123456
-Policy Number: POL987654321
-Lab Results Date: 03/15/2024
-Blood Pressure: 120/80 mmHg
-Glucose: 95 mg/dL
-`;
-    
-    document.getElementById('testInput').value = testText;
-    runPHITest();
+    const modal = new bootstrap.Modal(document.getElementById('phiTestModal'));
+    modal.show();
 }
 
 function runPHITest() {
-    const input = document.getElementById('testInput').value;
-    const output = document.getElementById('testOutput');
-    
-    if (!input.trim()) {
-        alert('Please enter some test text first.');
+    const testText = document.getElementById('testText').value;
+    if (!testText.trim()) {
+        alert('Please enter some text to test');
         return;
     }
     
-    // Simulate PHI filtering (in real implementation, this would call the server)
-    let filtered = input;
+    // Display original text
+    document.getElementById('originalText').textContent = testText;
     
-    // Simple client-side simulation of PHI filtering
-    const phiEnabledCheckbox = document.getElementById('phiEnabled');
-    if (phiEnabledCheckbox.checked) {
-        // SSN filtering
-        if (document.getElementById('{{ form.filter_ssn.id }}').checked) {
-            filtered = filtered.replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[SSN REDACTED]');
+    // Simulate PHI filtering (in real implementation, this would call the API)
+    showLoading('Running PHI filter test...');
+    
+    setTimeout(() => {
+        hideLoading();
+        
+        // Simulated filtered result
+        let filtered = testText;
+        let stats = {
+            ssn_found: 0,
+            phone_found: 0,
+            names_found: 0,
+            total_redactions: 0
+        };
+        
+        // Simple simulation of filtering
+        if (filtered.match(/\d{3}-\d{2}-\d{4}/g)) {
+            filtered = filtered.replace(/\d{3}-\d{2}-\d{4}/g, '[SSN REDACTED]');
+            stats.ssn_found++;
+            stats.total_redactions++;
         }
         
-        // Phone filtering
-        if (document.getElementById('{{ form.filter_phone.id }}').checked) {
+        if (filtered.match(/\(\d{3}\)\s*\d{3}-\d{4}/g)) {
             filtered = filtered.replace(/\(\d{3}\)\s*\d{3}-\d{4}/g, '[PHONE REDACTED]');
+            stats.phone_found++;
+            stats.total_redactions++;
         }
         
-        // Name filtering
-        if (document.getElementById('{{ form.filter_names.id }}').checked) {
-            filtered = filtered.replace(/Name:\s*[A-Z][a-z]+\s+[A-Z][a-z]+/g, 'Name: [NAME REDACTED]');
-        }
-        
-        // MRN filtering
-        if (document.getElementById('{{ form.filter_mrn.id }}').checked) {
-            filtered = filtered.replace(/MRN:\s*[A-Z0-9]+/g, 'MRN: [REDACTED]');
-        }
-        
-        // Address filtering
-        if (document.getElementById('{{ form.filter_addresses.id }}').checked) {
-            filtered = filtered.replace(/\d+\s+[A-Za-z\s]+Street,\s*[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5}/g, '[ADDRESS REDACTED]');
-        }
-        
-        // Insurance filtering
-        if (document.getElementById('{{ form.filter_insurance.id }}').checked) {
-            filtered = filtered.replace(/Policy\s+Number:\s*[A-Z0-9]+/g, 'Policy Number: [REDACTED]');
-        }
-        
-        // Date filtering (preserve medical dates)
-        if (document.getElementById('{{ form.filter_dates.id }}').checked) {
-            filtered = filtered.replace(/DOB:\s*\d{2}\/\d{2}\/\d{4}/g, 'DOB: [DATE REDACTED]');
-        }
-    }
-    
-    output.value = filtered;
-    
-    // Show differences
-    if (input !== filtered) {
-        const changes = filtered.split('\n').filter(line => line.includes('[') && line.includes('REDACTED')).length;
-        alert(`PHI filtering complete. ${changes} potential PHI instances were redacted.`);
-    } else {
-        alert('No PHI patterns detected in the test text.');
-    }
+        // Display results
+        document.getElementById('filteredText').textContent = filtered;
+        document.getElementById('filterStats').innerHTML = `
+            <strong>Redactions Applied:</strong><br>
+            • SSN patterns found: ${stats.ssn_found}<br>
+            • Phone patterns found: ${stats.phone_found}<br>
+            • Total redactions: ${stats.total_redactions}
+        `;
+    }, 1500);
 }
 
-function clearTest() {
-    document.getElementById('testInput').value = '';
-    document.getElementById('testOutput').value = '';
-}
-
-function exportConfiguration() {
-    const config = {
-        timestamp: new Date().toISOString(),
-        phi_filter_settings: {
-            enabled: document.getElementById('phiEnabled').checked,
-            filter_ssn: document.getElementById('{{ form.filter_ssn.id }}').checked,
-            filter_phone: document.getElementById('{{ form.filter_phone.id }}').checked,
-            filter_mrn: document.getElementById('{{ form.filter_mrn.id }}').checked,
-            filter_insurance: document.getElementById('{{ form.filter_insurance.id }}').checked,
-            filter_addresses: document.getElementById('{{ form.filter_addresses.id }}').checked,
-            filter_names: document.getElementById('{{ form.filter_names.id }}').checked,
-            filter_dates: document.getElementById('{{ form.filter_dates.id }}').checked
-        }
-    };
+// Validate settings before submission
+document.querySelector('form').addEventListener('submit', function(e) {
+    const phiEnabled = document.getElementById('phi_filtering_enabled').checked;
     
-    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `phi_filter_config_${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
+    if (!phiEnabled) {
+        if (!confirm('⚠️ WARNING: Disabling PHI filtering may violate HIPAA compliance requirements. Are you sure you want to continue?')) {
+            e.preventDefault();
+        }
+    }
+});
 </script>
 {% endblock %}

@@ -1,84 +1,70 @@
 """
 Screening eligibility and frequency logic
-Handles determining patient eligibility for screening types
+Handles patient eligibility for different screening types
 """
-
-from datetime import date
-from dateutil.relativedelta import relativedelta
+from datetime import datetime, date
 from models import Condition
 import logging
 
+logger = logging.getLogger(__name__)
+
 class EligibilityCriteria:
-    """Handles screening eligibility logic for patients"""
+    """Handles eligibility criteria for screenings"""
     
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        pass
     
-    def is_patient_eligible(self, patient, screening_type):
-        """Check if a patient is eligible for a specific screening type"""
-        try:
-            # Check gender eligibility
-            if not self._check_gender_eligibility(patient, screening_type):
-                return False
-            
-            # Check age eligibility
-            if not self._check_age_eligibility(patient, screening_type):
-                return False
-            
-            # Check trigger conditions if specified
-            if not self._check_trigger_conditions(patient, screening_type):
-                return False
-            
+    def is_eligible(self, patient, screening_type):
+        """Check if a patient is eligible for a screening type"""
+        criteria = screening_type.eligibility_criteria or {}
+        
+        # Check gender eligibility
+        if not self.check_gender_eligibility(patient, criteria):
+            return False
+        
+        # Check age eligibility
+        if not self.check_age_eligibility(patient, criteria):
+            return False
+        
+        # Check trigger conditions if specified
+        if not self.check_trigger_conditions(patient, screening_type):
+            return False
+        
+        return True
+    
+    def check_gender_eligibility(self, patient, criteria):
+        """Check if patient gender meets criteria"""
+        required_gender = criteria.get('gender', 'any')
+        
+        if required_gender == 'any':
             return True
-            
-        except Exception as e:
-            self.logger.error(f"Error checking eligibility for {patient.mrn} and {screening_type.name}: {str(e)}")
-            return False
+        
+        return patient.gender == required_gender
     
-    def _check_gender_eligibility(self, patient, screening_type):
-        """Check if patient's gender matches screening eligibility"""
-        if not screening_type.eligible_genders:
-            return True  # No gender restriction
+    def check_age_eligibility(self, patient, criteria):
+        """Check if patient age meets criteria"""
+        min_age = criteria.get('min_age')
+        max_age = criteria.get('max_age')
         
-        # Handle different formats of gender eligibility
-        eligible_genders = screening_type.eligible_genders
+        if min_age is None and max_age is None:
+            return True
         
-        # If it's a list, check if patient gender is in the list
-        if isinstance(eligible_genders, list):
-            return patient.gender in eligible_genders
+        patient_age = self.calculate_age(patient.date_of_birth)
         
-        # If it's a string, check direct match or 'all'
-        if isinstance(eligible_genders, str):
-            return eligible_genders.lower() == 'all' or patient.gender == eligible_genders
-        
-        return True
-    
-    def _check_age_eligibility(self, patient, screening_type):
-        """Check if patient's age falls within screening age range"""
-        if patient.age is None:
-            return True  # Can't determine age, assume eligible
-        
-        # Check minimum age
-        if screening_type.min_age is not None and patient.age < screening_type.min_age:
+        if min_age is not None and patient_age < min_age:
             return False
         
-        # Check maximum age
-        if screening_type.max_age is not None and patient.age > screening_type.max_age:
+        if max_age is not None and patient_age > max_age:
             return False
         
         return True
     
-    def _check_trigger_conditions(self, patient, screening_type):
+    def check_trigger_conditions(self, patient, screening_type):
         """Check if patient has required trigger conditions"""
-        if not screening_type.trigger_conditions:
-            return True  # No trigger conditions required
+        trigger_conditions = screening_type.trigger_conditions or []
         
-        trigger_conditions = screening_type.trigger_conditions
-        if not isinstance(trigger_conditions, list):
-            return True
-        
-        if not trigger_conditions:  # Empty list
-            return True
+        if not trigger_conditions:
+            return True  # No specific conditions required
         
         # Get patient's active conditions
         patient_conditions = Condition.query.filter_by(
@@ -86,139 +72,80 @@ class EligibilityCriteria:
             status='active'
         ).all()
         
-        patient_condition_names = [
-            condition.condition_name.lower() 
-            for condition in patient_conditions
-        ]
+        patient_condition_names = [c.condition_name.lower() for c in patient_conditions]
         
-        # Check if any trigger condition matches patient conditions
-        for trigger_condition in trigger_conditions:
-            trigger_condition_lower = trigger_condition.lower().strip()
-            
-            # Direct match
-            if trigger_condition_lower in patient_condition_names:
+        # Check if patient has any of the trigger conditions
+        for trigger in trigger_conditions:
+            if self.fuzzy_condition_match(trigger.lower().strip(), patient_condition_names):
                 return True
-            
-            # Partial match (for flexibility)
-            for patient_condition in patient_condition_names:
-                if (trigger_condition_lower in patient_condition or 
-                    patient_condition in trigger_condition_lower):
-                    return True
         
         return False
     
-    def get_frequency_for_patient(self, patient, screening_type):
-        """Get the appropriate frequency for a patient based on conditions"""
-        # Default frequency from screening type
-        default_years = screening_type.frequency_years or 0
-        default_months = screening_type.frequency_months or 0
-        
-        # Check for variants based on patient conditions
-        from core.variants import VariantProcessor
-        variant_processor = VariantProcessor()
-        variant = variant_processor.get_applicable_variant(patient, screening_type)
-        
-        if variant:
-            variant_years = variant.frequency_years or 0
-            variant_months = variant.frequency_months or 0
-            return variant_years, variant_months
-        
-        return default_years, default_months
-    
-    def calculate_next_due_date(self, patient, screening_type, last_completed_date=None):
-        """Calculate when a screening is next due for a patient"""
-        if not last_completed_date:
-            # If never completed, use current date
-            last_completed_date = date.today()
-        
-        frequency_years, frequency_months = self.get_frequency_for_patient(patient, screening_type)
-        
-        next_due = last_completed_date
-        if frequency_years > 0:
-            next_due = next_due + relativedelta(years=frequency_years)
-        if frequency_months > 0:
-            next_due = next_due + relativedelta(months=frequency_months)
-        
-        return next_due
-    
-    def determine_screening_status(self, patient, screening_type, last_completed_date=None):
-        """Determine the current status of a screening"""
-        if not last_completed_date:
-            return 'Due'
-        
-        next_due_date = self.calculate_next_due_date(patient, screening_type, last_completed_date)
-        today = date.today()
-        
-        if today < next_due_date:
-            # Check if due soon (within 30 days)
-            days_until_due = (next_due_date - today).days
-            if days_until_due <= 30:
-                return 'Due Soon'
-            else:
-                return 'Complete'
-        else:
-            # Overdue
-            return 'Overdue'
-    
-    def get_eligibility_summary(self, patient, screening_type):
-        """Get a summary of eligibility factors for a patient and screening"""
-        summary = {
-            'eligible': self.is_patient_eligible(patient, screening_type),
-            'gender_eligible': self._check_gender_eligibility(patient, screening_type),
-            'age_eligible': self._check_age_eligibility(patient, screening_type),
-            'conditions_met': self._check_trigger_conditions(patient, screening_type),
-            'patient_age': patient.age,
-            'patient_gender': patient.gender,
-            'required_gender': screening_type.eligible_genders,
-            'age_range': f"{screening_type.min_age or 'any'}-{screening_type.max_age or 'any'}",
-            'trigger_conditions': screening_type.trigger_conditions or []
+    def fuzzy_condition_match(self, trigger_condition, patient_conditions):
+        """Fuzzy match trigger condition against patient conditions"""
+        # Common condition aliases
+        condition_aliases = {
+            'diabetes': ['diabetes mellitus', 'dm', 'diabetic', 'type 1 diabetes', 'type 2 diabetes'],
+            'hypertension': ['high blood pressure', 'htn', 'elevated bp'],
+            'hyperlipidemia': ['high cholesterol', 'dyslipidemia', 'elevated cholesterol'],
+            'copd': ['chronic obstructive pulmonary disease', 'emphysema', 'chronic bronchitis'],
+            'cad': ['coronary artery disease', 'coronary heart disease', 'ischemic heart disease'],
+            'ckd': ['chronic kidney disease', 'chronic renal disease', 'kidney disease']
         }
         
-        return summary
+        # Direct match
+        if trigger_condition in patient_conditions:
+            return True
+        
+        # Check aliases
+        if trigger_condition in condition_aliases:
+            for alias in condition_aliases[trigger_condition]:
+                if alias in patient_conditions:
+                    return True
+        
+        # Check if trigger is an alias
+        for main_condition, aliases in condition_aliases.items():
+            if trigger_condition in aliases:
+                if main_condition in patient_conditions:
+                    return True
+                for alias in aliases:
+                    if alias in patient_conditions:
+                        return True
+        
+        # Fuzzy string matching
+        for patient_condition in patient_conditions:
+            if trigger_condition in patient_condition or patient_condition in trigger_condition:
+                return True
+        
+        return False
     
-    def get_patients_eligible_for_screening(self, screening_type):
-        """Get all patients eligible for a specific screening type"""
-        from models import Patient
-        
-        patients = Patient.query.all()
-        eligible_patients = []
-        
-        for patient in patients:
-            if self.is_patient_eligible(patient, screening_type):
-                eligible_patients.append(patient)
-        
-        return eligible_patients
+    def calculate_age(self, birth_date):
+        """Calculate current age from birth date"""
+        today = date.today()
+        return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
     
-    def validate_screening_criteria(self, screening_type_data):
-        """Validate screening type criteria for consistency"""
-        errors = []
+    def get_variant_for_patient(self, patient, screening_type):
+        """Get the appropriate screening variant for a patient"""
+        # This would handle different screening protocols based on patient conditions
+        # For example, diabetics might need A1C every 3 months vs 6 months for others
         
-        # Check age range consistency
-        min_age = screening_type_data.get('min_age')
-        max_age = screening_type_data.get('max_age')
+        base_frequency = {
+            'value': screening_type.frequency_value,
+            'unit': screening_type.frequency_unit
+        }
         
-        if min_age is not None and max_age is not None:
-            if min_age > max_age:
-                errors.append("Minimum age cannot be greater than maximum age")
+        # Check for condition-specific variants
+        if screening_type.trigger_conditions:
+            patient_conditions = Condition.query.filter_by(
+                patient_id=patient.id,
+                status='active'
+            ).all()
+            
+            condition_names = [c.condition_name.lower() for c in patient_conditions]
+            
+            # Example: More frequent A1C for diabetics
+            if screening_type.name.lower() in ['a1c', 'hemoglobin a1c']:
+                if self.fuzzy_condition_match('diabetes', condition_names):
+                    return {'value': 3, 'unit': 'months'}  # Every 3 months for diabetics
         
-        # Check frequency validity
-        freq_years = screening_type_data.get('frequency_years', 0) or 0
-        freq_months = screening_type_data.get('frequency_months', 0) or 0
-        
-        if freq_years == 0 and freq_months == 0:
-            errors.append("Screening frequency must be specified (years or months)")
-        
-        if freq_years > 10:
-            errors.append("Frequency in years should not exceed 10")
-        
-        if freq_months > 60:
-            errors.append("Frequency in months should not exceed 60")
-        
-        # Check gender eligibility format
-        eligible_genders = screening_type_data.get('eligible_genders')
-        if eligible_genders and isinstance(eligible_genders, str):
-            valid_genders = ['all', 'M', 'F', 'Other']
-            if eligible_genders not in valid_genders:
-                errors.append(f"Invalid gender specification: {eligible_genders}")
-        
-        return errors
+        return base_frequency

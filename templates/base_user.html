@@ -4,17 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}HealthPrep - Patient Visit Preparation{% endblock %}</title>
-    <meta name="csrf-token" content="{{ csrf_token() }}">
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    
     <!-- Custom CSS -->
-    <link href="{{ url_for('static', filename='css/medical_styles.css') }}" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/confidence_indicators.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/custom.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/medical_terminology_ui.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/loading-states.css') }}" rel="stylesheet">
     
     {% block extra_css %}{% endblock %}
 </head>
@@ -35,56 +33,52 @@
                 <ul class="navbar-nav me-auto">
                     {% if current_user.is_authenticated %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('screening.screening_list') }}">
+                            <a class="nav-link" href="{{ url_for('screening_list') }}">
                                 <i class="fas fa-list-check me-1"></i>
-                                Screenings
+                                Screening List
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('patient.patient_list') }}">
-                                <i class="fas fa-users me-1"></i>
-                                Patients
+                            <a class="nav-link" href="{{ url_for('screening_types') }}">
+                                <i class="fas fa-stethoscope me-1"></i>
+                                Screening Types
                             </a>
                         </li>
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                                <i class="fas fa-cog me-1"></i>
-                                Manage
-                            </a>
-                            <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="{{ url_for('screening.screening_types') }}">
-                                    <i class="fas fa-stethoscope me-2"></i>Screening Types
-                                </a></li>
-                                <li><a class="dropdown-item" href="{{ url_for('patient.add_patient') }}">
-                                    <i class="fas fa-user-plus me-2"></i>Add Patient
-                                </a></li>
-                            </ul>
-                        </li>
+                        {% if current_user.role == 'admin' %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('checklist_settings') }}">
+                                    <i class="fas fa-cog me-1"></i>
+                                    Settings
+                                </a>
+                            </li>
+                        {% endif %}
                     {% endif %}
                 </ul>
                 
                 <ul class="navbar-nav">
                     {% if current_user.is_authenticated %}
+                        {% if current_user.role == 'admin' %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('admin_dashboard') }}">
+                                    <i class="fas fa-tachometer-alt me-1"></i>
+                                    Admin Dashboard
+                                </a>
+                            </li>
+                        {% endif %}
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                                <i class="fas fa-user-circle me-1"></i>
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-user me-1"></i>
                                 {{ current_user.username }}
                             </a>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                {% if current_user.is_admin %}
-                                    <li><a class="dropdown-item" href="{{ url_for('admin.dashboard') }}">
-                                        <i class="fas fa-tachometer-alt me-2"></i>Admin Dashboard
-                                    </a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                {% endif %}
-                                <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">
-                                    <i class="fas fa-sign-out-alt me-2"></i>Logout
-                                </a></li>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#"><i class="fas fa-user-edit me-2"></i>Profile</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
                             </ul>
                         </li>
                     {% else %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('auth.login') }}">
+                            <a class="nav-link" href="{{ url_for('login') }}">
                                 <i class="fas fa-sign-in-alt me-1"></i>
                                 Login
                             </a>
@@ -101,15 +95,7 @@
             <div class="container">
                 {% for category, message in messages %}
                     <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
-                        {% if category == 'success' %}
-                            <i class="fas fa-check-circle me-2"></i>
-                        {% elif category == 'error' %}
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                        {% elif category == 'warning' %}
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                        {% else %}
-                            <i class="fas fa-info-circle me-2"></i>
-                        {% endif %}
+                        <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'info-circle' if category == 'info' else 'check-circle' }} me-2"></i>
                         {{ message }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
@@ -119,68 +105,98 @@
     {% endwith %}
 
     <!-- Main Content -->
-    <main class="container">
+    <main>
         {% block content %}{% endblock %}
     </main>
 
     <!-- Footer -->
-    <footer class="bg-dark text-light mt-5 py-4">
+    <footer class="bg-dark text-light py-4 mt-5">
         <div class="container">
             <div class="row">
                 <div class="col-md-6">
                     <h5><i class="fas fa-heartbeat me-2"></i>HealthPrep</h5>
                     <p class="mb-0">HIPAA-compliant patient visit preparation system</p>
                 </div>
-                <div class="col-md-6 text-md-end">
-                    <small class="text-muted">
-                        <i class="fas fa-shield-alt me-1"></i>
-                        Secure • Compliant • Efficient
-                    </small>
+                <div class="col-md-6 text-end">
+                    <p class="mb-0">
+                        <small>
+                            <i class="fas fa-shield-alt me-1"></i>
+                            Secure • Compliant • Efficient
+                        </small>
+                    </p>
                 </div>
             </div>
         </div>
     </footer>
 
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay d-none">
+        <div class="loading-spinner">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <div class="mt-2">Processing...</div>
+        </div>
+    </div>
+
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Medical terminology support -->
+    <!-- Medical Terminology JS -->
     <script src="{{ url_for('static', filename='js/medical_terminology.js') }}"></script>
     
-    {% block extra_js %}{% endblock %}
-    
+    <!-- Global JavaScript -->
     <script>
-        // Session activity tracking
-        let lastActivityTime = Date.now();
-        
-        function updateActivityTime() {
-            lastActivityTime = Date.now();
+        // Show loading overlay
+        function showLoading(message = 'Processing...') {
+            const overlay = document.getElementById('loadingOverlay');
+            const messageEl = overlay.querySelector('.mt-2');
+            messageEl.textContent = message;
+            overlay.classList.remove('d-none');
         }
         
-        // Track user activity
-        document.addEventListener('click', updateActivityTime);
-        document.addEventListener('keypress', updateActivityTime);
-        document.addEventListener('scroll', updateActivityTime);
-        
-        // Check session timeout every 5 minutes
-        setInterval(function() {
-            const inactiveTime = Date.now() - lastActivityTime;
-            const timeoutThreshold = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
-            
-            if (inactiveTime > timeoutThreshold) {
-                alert('Your session has expired due to inactivity. You will be redirected to the login page.');
-                window.location.href = "{{ url_for('auth.login') }}";
-            }
-        }, 5 * 60 * 1000); // Check every 5 minutes
+        // Hide loading overlay
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.add('d-none');
+        }
         
         // Auto-hide alerts after 5 seconds
-        setTimeout(function() {
-            const alerts = document.querySelectorAll('.alert:not(.alert-persistent)');
-            alerts.forEach(function(alert) {
-                const bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerts = document.querySelectorAll('.alert:not(.alert-danger)');
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                }, 5000);
             });
-        }, 5000);
+        });
+        
+        // Form validation helper
+        function validateForm(formId) {
+            const form = document.getElementById(formId);
+            if (!form) return false;
+            
+            form.classList.add('was-validated');
+            return form.checkValidity();
+        }
+        
+        // Session timeout warning
+        let sessionWarningShown = false;
+        function checkSessionTimeout() {
+            // Warn user 5 minutes before session expires
+            if (!sessionWarningShown) {
+                sessionWarningShown = true;
+                if (confirm('Your session will expire in 5 minutes. Click OK to extend your session.')) {
+                    // Make a simple request to extend session
+                    fetch('{{ url_for("index") }}', {method: 'HEAD'});
+                    sessionWarningShown = false;
+                }
+            }
+        }
+        
+        // Check session timeout every 5 minutes
+        setInterval(checkSessionTimeout, 5 * 60 * 1000);
     </script>
+    
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

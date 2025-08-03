@@ -1,571 +1,252 @@
-{% extends 'base_admin.html' %}
+{% extends 'admin/base.html' %}
 
-{% block title %}HealthPrep Admin - Audit Logs{% endblock %}
+{% block title %}HealthPrep Admin - Activity Logs{% endblock %}
 
 {% block content %}
-<div class="admin-header text-center">
-    <h1><i class="fas fa-clipboard-list me-3"></i>Audit Logs</h1>
-    <p class="lead mb-0">HIPAA-compliant system activity monitoring and compliance tracking</p>
-</div>
-
-<!-- Filter and Search Controls -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card admin-table">
-            <div class="card-header">
-                <h5><i class="fas fa-filter me-2"></i>Log Filters</h5>
-            </div>
-            <div class="card-body">
-                <form method="GET" action="{{ url_for('admin.logs') }}" id="logFilterForm">
-                    <div class="row g-3">
-                        <div class="col-md-3">
-                            <label for="event_type" class="form-label">Event Type</label>
-                            <select class="form-select" id="event_type" name="event_type">
-                                <option value="">All Events</option>
-                                {% for event_type in event_types %}
-                                    <option value="{{ event_type }}" {{ 'selected' if event_type == current_event_type }}>
-                                        {{ event_type }}
-                                    </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="user_filter" class="form-label">User</label>
-                            <input type="text" class="form-control" id="user_filter" name="user" 
-                                   placeholder="Username" value="{{ request.args.get('user', '') }}">
-                        </div>
-                        <div class="col-md-2">
-                            <label for="start_date" class="form-label">Start Date</label>
-                            <input type="date" class="form-control" id="start_date" name="start_date" 
-                                   value="{{ request.args.get('start_date', '') }}">
-                        </div>
-                        <div class="col-md-2">
-                            <label for="end_date" class="form-label">End Date</label>
-                            <input type="date" class="form-control" id="end_date" name="end_date" 
-                                   value="{{ request.args.get('end_date', '') }}">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">&nbsp;</label>
-                            <div class="d-grid">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-search me-1"></i>Filter
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-list-ul me-2"></i>Activity Logs</h1>
+    <div>
+        <button class="btn btn-outline-success btn-sm me-2" onclick="exportLogs()">
+            <i class="fas fa-download me-1"></i>Export
+        </button>
+        <button class="btn btn-outline-primary btn-sm" onclick="location.reload()">
+            <i class="fas fa-sync me-1"></i>Refresh
+        </button>
     </div>
 </div>
 
-<!-- Quick Actions -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center">
-            <div class="btn-group" role="group">
-                <button type="button" class="btn btn-outline-info" onclick="refreshLogs()">
-                    <i class="fas fa-sync-alt me-1"></i>Refresh
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-filter me-2"></i>
+            Filter Logs
+        </h5>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('admin_logs') }}" class="row g-3">
+            <div class="col-md-4">
+                <label for="action" class="form-label">Action Type</label>
+                <select class="form-select" id="action" name="action">
+                    <option value="">All Actions</option>
+                    <option value="create" {{ 'selected' if current_filters.action == 'create' }}>Create</option>
+                    <option value="update" {{ 'selected' if current_filters.action == 'update' }}>Update</option>
+                    <option value="delete" {{ 'selected' if current_filters.action == 'delete' }}>Delete</option>
+                    <option value="login" {{ 'selected' if current_filters.action == 'login' }}>Login</option>
+                    <option value="logout" {{ 'selected' if current_filters.action == 'logout' }}>Logout</option>
+                    <option value="refresh" {{ 'selected' if current_filters.action == 'refresh' }}>Refresh</option>
+                    <option value="load_preset" {{ 'selected' if current_filters.action == 'load_preset' }}>Load Preset</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="user" class="form-label">User</label>
+                <input type="text" class="form-control" id="user" name="user" 
+                       value="{{ current_filters.user or '' }}" placeholder="Username">
+            </div>
+            <div class="col-md-4">
+                <label for="date_range" class="form-label">Date Range</label>
+                <select class="form-select" id="date_range" name="date_range">
+                    <option value="today">Today</option>
+                    <option value="week" selected>Last 7 Days</option>
+                    <option value="month">Last 30 Days</option>
+                    <option value="all">All Time</option>
+                </select>
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search me-1"></i>Apply Filters
                 </button>
-                <a href="{{ url_for('admin.export_logs') }}" class="btn btn-outline-success" target="_blank">
-                    <i class="fas fa-download me-1"></i>Export JSON
+                <a href="{{ url_for('admin_logs') }}" class="btn btn-outline-secondary ms-2">
+                    <i class="fas fa-times me-1"></i>Clear Filters
                 </a>
-                <button type="button" class="btn btn-outline-warning" onclick="exportFilteredLogs()">
-                    <i class="fas fa-file-export me-1"></i>Export Filtered
-                </button>
             </div>
-            
-            <div class="text-muted">
-                <small>
-                    <i class="fas fa-clock me-1"></i>
-                    Auto-refresh: <span id="refreshCountdown">30</span>s
-                </small>
-            </div>
-        </div>
+        </form>
     </div>
 </div>
 
-<!-- Log Statistics -->
-<div class="row mb-4">
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card stat-card">
-            <div class="card-body text-center">
-                <i class="fas fa-list-alt fa-2x mb-3"></i>
-                <h4>{{ logs.total if logs else 0 }}</h4>
-                <p class="mb-0">Total Entries</p>
-                <small>Current filter</small>
-            </div>
-        </div>
+<!-- Logs Table -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Activity History</h5>
+        <small class="text-muted">
+            Page {{ logs.page }} of {{ logs.pages }} 
+            ({{ logs.total }} total entries)
+        </small>
     </div>
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card stat-card">
-            <div class="card-body text-center">
-                <i class="fas fa-shield-alt fa-2x mb-3"></i>
-                <h4 id="securityEventsCount">0</h4>
-                <p class="mb-0">Security Events</p>
-                <small>Last 24 hours</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card stat-card">
-            <div class="card-body text-center">
-                <i class="fas fa-users fa-2x mb-3"></i>
-                <h4 id="activeUsersCount">0</h4>
-                <p class="mb-0">Active Users</p>
-                <small>Last 24 hours</small>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card stat-card">
-            <div class="card-body text-center">
-                <i class="fas fa-eye fa-2x mb-3"></i>
-                <h4 id="phiAccessCount">0</h4>
-                <p class="mb-0">PHI Access</p>
-                <small>Last 24 hours</small>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Audit Log Table -->
-<div class="row">
-    <div class="col-12">
-        <div class="card admin-table">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5><i class="fas fa-table me-2"></i>Audit Log Entries</h5>
-                <div class="btn-group btn-group-sm">
-                    <button type="button" class="btn btn-outline-primary" onclick="toggleDetails()">
-                        <i class="fas fa-eye me-1"></i>Toggle Details
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary" onclick="clearFilters()">
-                        <i class="fas fa-times me-1"></i>Clear Filters
-                    </button>
-                </div>
-            </div>
-            <div class="card-body">
-                {% if logs and logs.items %}
-                    <div class="table-responsive">
-                        <table class="table table-hover table-sm" id="logsTable">
-                            <thead>
-                                <tr>
-                                    <th>Timestamp</th>
-                                    <th>User</th>
-                                    <th>Action</th>
-                                    <th>IP Address</th>
-                                    <th class="details-column">Details</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for log in logs.items %}
-                                <tr class="log-entry" data-event-type="{{ log.action }}" data-severity="{{ 'high' if 'error' in log.action.lower() or 'fail' in log.action.lower() else 'normal' }}">
-                                    <td>
-                                        <div class="d-flex flex-column">
-                                            <span class="fw-bold">{{ log.timestamp.strftime('%m/%d/%Y') }}</span>
-                                            <small class="text-muted">{{ log.timestamp.strftime('%H:%M:%S') }}</small>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        {% if log.user %}
-                                            <div class="d-flex align-items-center">
-                                                <i class="fas fa-user-circle me-2 text-primary"></i>
-                                                <div>
-                                                    <span class="fw-bold">{{ log.user.username }}</span>
-                                                    {% if log.user.is_admin %}
-                                                        <br><span class="badge bg-danger">Admin</span>
-                                                    {% endif %}
-                                                </div>
-                                            </div>
-                                        {% else %}
-                                            <div class="d-flex align-items-center">
-                                                <i class="fas fa-cogs me-2 text-secondary"></i>
-                                                <span class="badge bg-dark">System</span>
-                                            </div>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            {% if 'login' in log.action.lower() %}
-                                                <i class="fas fa-sign-in-alt me-2 text-success"></i>
-                                            {% elif 'logout' in log.action.lower() %}
-                                                <i class="fas fa-sign-out-alt me-2 text-info"></i>
-                                            {% elif 'created' in log.action.lower() %}
-                                                <i class="fas fa-plus me-2 text-success"></i>
-                                            {% elif 'updated' in log.action.lower() %}
-                                                <i class="fas fa-edit me-2 text-warning"></i>
-                                            {% elif 'deleted' in log.action.lower() %}
-                                                <i class="fas fa-trash me-2 text-danger"></i>
-                                            {% elif 'phi' in log.action.lower() %}
-                                                <i class="fas fa-shield-alt me-2 text-warning"></i>
-                                            {% elif 'security' in log.action.lower() %}
-                                                <i class="fas fa-exclamation-triangle me-2 text-danger"></i>
-                                            {% else %}
-                                                <i class="fas fa-info-circle me-2 text-primary"></i>
-                                            {% endif %}
-                                            <span class="fw-bold">{{ log.action }}</span>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        {% if log.ip_address %}
-                                            <span class="badge bg-secondary">{{ log.ip_address }}</span>
-                                        {% else %}
-                                            <span class="text-muted">N/A</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="details-column">
-                                        {% if log.details %}
-                                            <div class="log-details" data-full-details="{{ log.details }}">
-                                                <span class="details-preview">
-                                                    {{ log.details[:100] }}{% if log.details|length > 100 %}...{% endif %}
-                                                </span>
-                                                {% if log.details|length > 100 %}
-                                                    <button type="button" class="btn btn-link btn-sm p-0 ms-2" onclick="toggleLogDetails(this)">
-                                                        <i class="fas fa-expand-alt"></i>
-                                                    </button>
-                                                {% endif %}
-                                            </div>
-                                        {% else %}
-                                            <span class="text-muted">No details</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="btn-group btn-group-sm">
-                                            <button type="button" class="btn btn-outline-primary" onclick="viewLogDetails({{ log.id }})">
-                                                <i class="fas fa-eye"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-outline-secondary" onclick="copyLogEntry({{ log.id }})">
-                                                <i class="fas fa-copy"></i>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Pagination -->
-                    {% if logs.pages > 1 %}
-                        <nav aria-label="Log pagination" class="mt-4">
-                            <ul class="pagination justify-content-center">
-                                {% if logs.has_prev %}
-                                    <li class="page-item">
-                                        <a class="page-link" href="{{ url_for('admin.logs', page=logs.prev_num, **request.args) }}">
-                                            <i class="fas fa-chevron-left"></i>
-                                        </a>
-                                    </li>
-                                {% endif %}
-                                
-                                {% for page_num in logs.iter_pages() %}
-                                    {% if page_num %}
-                                        {% if page_num != logs.page %}
-                                            <li class="page-item">
-                                                <a class="page-link" href="{{ url_for('admin.logs', page=page_num, **request.args) }}">{{ page_num }}</a>
-                                            </li>
-                                        {% else %}
-                                            <li class="page-item active">
-                                                <span class="page-link">{{ page_num }}</span>
-                                            </li>
-                                        {% endif %}
-                                    {% else %}
-                                        <li class="page-item disabled">
-                                            <span class="page-link">…</span>
-                                        </li>
+    <div class="card-body p-0">
+        {% if logs.items %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>User</th>
+                            <th>Action</th>
+                            <th>Resource</th>
+                            <th>IP Address</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs.items %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold">{{ log.timestamp.strftime('%m/%d/%Y') }}</div>
+                                <small class="text-muted">{{ log.timestamp.strftime('%H:%M:%S') }}</small>
+                            </td>
+                            <td>
+                                {% if log.user %}
+                                    <span class="badge bg-secondary">{{ log.user.username }}</span>
+                                    {% if log.user.role == 'admin' %}
+                                        <i class="fas fa-crown text-warning ms-1" title="Admin"></i>
                                     {% endif %}
-                                {% endfor %}
-                                
-                                {% if logs.has_next %}
-                                    <li class="page-item">
-                                        <a class="page-link" href="{{ url_for('admin.logs', page=logs.next_num, **request.args) }}">
-                                            <i class="fas fa-chevron-right"></i>
-                                        </a>
-                                    </li>
+                                {% else %}
+                                    <span class="badge bg-dark">System</span>
                                 {% endif %}
-                            </ul>
-                        </nav>
-                        
-                        <div class="text-center text-muted">
-                            <small>
-                                Showing {{ logs.per_page * (logs.page - 1) + 1 }} to 
-                                {{ logs.per_page * logs.page if logs.page < logs.pages else logs.total }} 
-                                of {{ logs.total }} entries
-                            </small>
-                        </div>
-                    {% endif %}
-                {% else %}
-                    <div class="text-center py-5">
-                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                        <h5 class="text-muted">No Log Entries Found</h5>
-                        <p class="text-muted">No audit log entries match your current filters.</p>
-                        <button type="button" class="btn btn-outline-primary" onclick="clearFilters()">
-                            <i class="fas fa-times me-1"></i>Clear Filters
-                        </button>
-                    </div>
-                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-{{ 
+                                    'success' if log.action in ['create', 'login'] else
+                                    'warning' if log.action in ['update', 'refresh'] else
+                                    'danger' if log.action in ['delete', 'logout'] else
+                                    'info'
+                                }}">
+                                    {{ log.action }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if log.resource_type %}
+                                    <div class="fw-bold">{{ log.resource_type }}</div>
+                                    {% if log.resource_id %}
+                                        <small class="text-muted">ID: {{ log.resource_id }}</small>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.ip_address %}
+                                    <code class="small">{{ log.ip_address }}</code>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.details %}
+                                    <button class="btn btn-sm btn-outline-info" type="button" 
+                                            data-bs-toggle="collapse" data-bs-target="#details-{{ log.id }}">
+                                        <i class="fas fa-info-circle"></i>
+                                    </button>
+                                    <div class="collapse mt-2" id="details-{{ log.id }}">
+                                        <div class="card card-body">
+                                            <pre class="mb-0"><code>{{ log.details|tojson(indent=2) }}</code></pre>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-        </div>
+        {% else %}
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-search fa-2x mb-3"></i>
+                <h5>No logs found</h5>
+                <p>No activity logs match your current filters.</p>
+                <a href="{{ url_for('admin_logs') }}" class="btn btn-outline-primary">
+                    <i class="fas fa-refresh me-1"></i>Clear Filters
+                </a>
+            </div>
+        {% endif %}
     </div>
 </div>
 
-<!-- Log Details Modal -->
-<div class="modal fade" id="logDetailsModal" tabindex="-1" aria-labelledby="logDetailsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="logDetailsModalLabel">
-                    <i class="fas fa-info-circle me-2"></i>Log Entry Details
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body" id="logDetailsContent">
-                <!-- Content will be loaded dynamically -->
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" onclick="copyModalContent()">
-                    <i class="fas fa-copy me-1"></i>Copy Details
-                </button>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize statistics
-    updateLogStatistics();
-    
-    // Auto-refresh countdown
-    let refreshInterval = 30;
-    const countdown = setInterval(function() {
-        refreshInterval--;
-        document.getElementById('refreshCountdown').textContent = refreshInterval;
+<!-- Pagination -->
+{% if logs.pages > 1 %}
+<nav aria-label="Log pagination" class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if logs.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('admin_logs', page=logs.prev_num, **current_filters) }}">
+                    <i class="fas fa-chevron-left"></i> Previous
+                </a>
+            </li>
+        {% endif %}
         
-        if (refreshInterval <= 0) {
-            if (document.visibilityState === 'visible') {
-                location.reload();
-            }
-            refreshInterval = 30;
-        }
-    }, 1000);
-    
-    // Pause countdown when page is not visible
-    document.addEventListener('visibilitychange', function() {
-        if (document.visibilityState === 'hidden') {
-            clearInterval(countdown);
-        }
-    });
-    
-    // Enhanced row highlighting for security events
-    const logEntries = document.querySelectorAll('.log-entry');
-    logEntries.forEach(function(row) {
-        const severity = row.dataset.severity;
-        if (severity === 'high') {
-            row.style.borderLeft = '4px solid #dc3545';
-            row.style.backgroundColor = 'rgba(220, 53, 69, 0.1)';
-        }
-    });
-});
+        {% for page_num in logs.iter_pages() %}
+            {% if page_num %}
+                {% if page_num != logs.page %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('admin_logs', page=page_num, **current_filters) }}">
+                            {{ page_num }}
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_num }}</span>
+                    </li>
+                {% endif %}
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+            {% endif %}
+        {% endfor %}
+        
+        {% if logs.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('admin_logs', page=logs.next_num, **current_filters) }}">
+                    Next <i class="fas fa-chevron-right"></i>
+                </a>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
 
-function updateLogStatistics() {
-    // Count security events in last 24 hours
-    const securityEvents = document.querySelectorAll('[data-event-type*="Security"], [data-event-type*="Login"], [data-event-type*="PHI"]').length;
-    document.getElementById('securityEventsCount').textContent = securityEvents;
-    
-    // Count unique users
-    const userElements = document.querySelectorAll('.log-entry .fw-bold');
-    const uniqueUsers = new Set();
-    userElements.forEach(el => {
-        if (el.textContent !== 'System') {
-            uniqueUsers.add(el.textContent);
-        }
-    });
-    document.getElementById('activeUsersCount').textContent = uniqueUsers.size;
-    
-    // Count PHI access events
-    const phiEvents = document.querySelectorAll('[data-event-type*="PHI"]').length;
-    document.getElementById('phiAccessCount').textContent = phiEvents;
-}
+<!-- Security Events Alert -->
+{% if logs.items %}
+    {% set security_events = logs.items|selectattr('action', 'in', ['login', 'logout', 'password_change', 'role_change'])|list %}
+    {% if security_events|length > 0 %}
+        <div class="alert alert-info mt-4">
+            <i class="fas fa-shield-alt me-2"></i>
+            <strong>Security Events:</strong> {{ security_events|length }} security-related events found in current view.
+            <a href="{{ url_for('admin_logs', action='login') }}" class="alert-link">View security logs</a>
+        </div>
+    {% endif %}
+{% endif %}
 
-function refreshLogs() {
-    const button = event.target.closest('button');
-    const originalText = button.innerHTML;
-    
-    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Refreshing...';
-    button.disabled = true;
-    
-    // Preserve current filters when refreshing
-    const form = document.getElementById('logFilterForm');
-    const formData = new FormData(form);
-    const params = new URLSearchParams(formData);
-    
-    // Reload with current parameters
-    window.location.href = window.location.pathname + '?' + params.toString();
-}
-
-function toggleDetails() {
-    const detailsColumns = document.querySelectorAll('.details-column');
-    const isVisible = detailsColumns[0].style.display !== 'none';
-    
-    detailsColumns.forEach(column => {
-        column.style.display = isVisible ? 'none' : 'table-cell';
-    });
-    
-    const button = event.target.closest('button');
-    const icon = button.querySelector('i');
-    icon.className = isVisible ? 'fas fa-eye-slash me-1' : 'fas fa-eye me-1';
-}
-
-function toggleLogDetails(button) {
-    const detailsDiv = button.closest('.log-details');
-    const preview = detailsDiv.querySelector('.details-preview');
-    const fullDetails = detailsDiv.dataset.fullDetails;
-    const icon = button.querySelector('i');
-    
-    if (icon.classList.contains('fa-expand-alt')) {
-        preview.textContent = fullDetails;
-        icon.className = 'fas fa-compress-alt';
-    } else {
-        preview.textContent = fullDetails.substring(0, 100) + (fullDetails.length > 100 ? '...' : '');
-        icon.className = 'fas fa-expand-alt';
+<script>
+function exportLogs() {
+    if (confirm('Export activity logs to JSON file? This may take a few moments for large datasets.')) {
+        showLoading('Preparing log export...');
+        
+        // Build export URL with current filters
+        const params = new URLSearchParams(window.location.search);
+        params.set('export', 'json');
+        
+        const exportUrl = `{{ url_for('admin_logs') }}?${params.toString()}`;
+        
+        // Create download link
+        const link = document.createElement('a');
+        link.href = exportUrl;
+        link.download = `healthprep_logs_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        hideLoading();
     }
 }
 
-function viewLogDetails(logId) {
-    // In a real implementation, this would fetch log details from the server
-    const row = document.querySelector(`[onclick="viewLogDetails(${logId})"]`).closest('tr');
-    const timestamp = row.cells[0].textContent.trim();
-    const user = row.cells[1].textContent.trim();
-    const action = row.cells[2].textContent.trim();
-    const ip = row.cells[3].textContent.trim();
-    const details = row.querySelector('.log-details')?.dataset.fullDetails || 'No details available';
-    
-    const content = `
-        <div class="row">
-            <div class="col-md-6">
-                <h6>Basic Information</h6>
-                <table class="table table-sm">
-                    <tr><td><strong>Log ID:</strong></td><td>${logId}</td></tr>
-                    <tr><td><strong>Timestamp:</strong></td><td>${timestamp}</td></tr>
-                    <tr><td><strong>User:</strong></td><td>${user}</td></tr>
-                    <tr><td><strong>Action:</strong></td><td>${action}</td></tr>
-                    <tr><td><strong>IP Address:</strong></td><td>${ip}</td></tr>
-                </table>
-            </div>
-            <div class="col-md-6">
-                <h6>Details</h6>
-                <div class="p-3" style="background: var(--bs-dark); border-radius: 0.375rem; max-height: 200px; overflow-y: auto;">
-                    <pre style="margin: 0; white-space: pre-wrap;">${details}</pre>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.getElementById('logDetailsContent').innerHTML = content;
-    const modal = new bootstrap.Modal(document.getElementById('logDetailsModal'));
-    modal.show();
-}
-
-function copyLogEntry(logId) {
-    const row = document.querySelector(`[onclick="copyLogEntry(${logId})"]`).closest('tr');
-    const timestamp = row.cells[0].textContent.trim();
-    const user = row.cells[1].textContent.trim();
-    const action = row.cells[2].textContent.trim();
-    const ip = row.cells[3].textContent.trim();
-    const details = row.querySelector('.log-details')?.dataset.fullDetails || 'No details';
-    
-    const logText = `Log ID: ${logId}
-Timestamp: ${timestamp}
-User: ${user}
-Action: ${action}
-IP Address: ${ip}
-Details: ${details}`;
-    
-    navigator.clipboard.writeText(logText).then(function() {
-        // Show success feedback
-        const button = event.target.closest('button');
-        const originalIcon = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-check text-success"></i>';
-        setTimeout(() => {
-            button.innerHTML = originalIcon;
-        }, 2000);
-    });
-}
-
-function copyModalContent() {
-    const content = document.getElementById('logDetailsContent').textContent;
-    navigator.clipboard.writeText(content).then(function() {
-        const button = event.target;
-        const originalText = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-check me-1"></i>Copied!';
-        button.classList.add('btn-success');
-        setTimeout(() => {
-            button.innerHTML = originalText;
-            button.classList.remove('btn-success');
-        }, 2000);
-    });
-}
-
-function exportFilteredLogs() {
-    const form = document.getElementById('logFilterForm');
-    const formData = new FormData(form);
-    
-    // Create export data
-    const exportData = {
-        timestamp: new Date().toISOString(),
-        filters: Object.fromEntries(formData),
-        logs: []
-    };
-    
-    // Collect visible log entries
-    const logRows = document.querySelectorAll('.log-entry');
-    logRows.forEach(row => {
-        const cells = row.cells;
-        exportData.logs.push({
-            timestamp: cells[0].textContent.trim(),
-            user: cells[1].textContent.trim(),
-            action: cells[2].textContent.trim(),
-            ip_address: cells[3].textContent.trim(),
-            details: row.querySelector('.log-details')?.dataset.fullDetails || ''
-        });
-    });
-    
-    // Download as JSON
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `filtered_logs_${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
-
-function clearFilters() {
-    window.location.href = "{{ url_for('admin.logs') }}";
-}
-
-// Real-time log highlighting for security events
-function highlightSecurityEvents() {
-    const securityKeywords = ['login', 'logout', 'fail', 'error', 'security', 'phi', 'access'];
-    const rows = document.querySelectorAll('.log-entry');
-    
-    rows.forEach(row => {
-        const action = row.cells[2].textContent.toLowerCase();
-        const isSecurityEvent = securityKeywords.some(keyword => action.includes(keyword));
-        
-        if (isSecurityEvent) {
-            row.style.borderLeft = '3px solid #ffc107';
-        }
-    });
-}
-
-// Initialize security event highlighting
-highlightSecurityEvents();
+// Auto-refresh logs every 30 seconds
+setInterval(() => {
+    if (document.visibilityState === 'visible') {
+        location.reload();
+    }
+}, 30000);
 </script>
 {% endblock %}

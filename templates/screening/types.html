@@ -1,438 +1,196 @@
-{% extends "base_user.html" %}
+{% extends 'base_user.html' %}
 
-{% block title %}Screening Types - HealthPrep{% endblock %}
-
-{% block extra_css %}
-<style>
-.screening-type-card {
-    border: none;
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    border-radius: 0.5rem;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.screening-type-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-}
-
-.keywords-display {
-    max-height: 100px;
-    overflow-y: auto;
-}
-
-.frequency-badge {
-    font-size: 0.875rem;
-    padding: 0.375rem 0.75rem;
-}
-
-.eligibility-info {
-    background-color: #f8f9fa;
-    border-radius: 0.375rem;
-    padding: 0.75rem;
-    margin-top: 0.5rem;
-}
-
-.add-type-card {
-    border: 2px dashed #dee2e6;
-    background-color: #f8f9fa;
-    transition: all 0.2s ease;
-    cursor: pointer;
-}
-
-.add-type-card:hover {
-    border-color: #007bff;
-    background-color: #e3f2fd;
-    transform: translateY(-2px);
-}
-
-.variant-indicator {
-    position: absolute;
-    top: 0.5rem;
-    right: 0.5rem;
-    font-size: 0.75rem;
-}
-
-.stats-summary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border-radius: 1rem;
-    padding: 1.5rem;
-    margin-bottom: 2rem;
-}
-
-.filter-controls {
-    background-color: #f8f9fa;
-    border-radius: 0.5rem;
-    padding: 1rem;
-    margin-bottom: 1.5rem;
-}
-</style>
-{% endblock %}
+{% block title %}HealthPrep - Screening Types{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>
-        <i class="fas fa-cogs me-2 text-primary"></i>
-        Screening Types Management
-    </h2>
-    <div>
-        <a href="{{ url_for('ui.add_screening_type') }}" class="btn btn-primary">
-            <i class="fas fa-plus me-2"></i>Add New Type
-        </a>
-        <a href="{{ url_for('admin.preset_management') }}" class="btn btn-outline-secondary ms-2">
-            <i class="fas fa-download me-2"></i>Import Presets
-        </a>
-    </div>
-</div>
-
-<!-- Statistics Summary -->
-<div class="stats-summary">
-    <div class="row text-center">
-        <div class="col-md-3">
-            <div class="h3 mb-0">{{ screening_types|length }}</div>
-            <div>Total Types</div>
-        </div>
-        <div class="col-md-3">
-            <div class="h3 mb-0">{{ screening_types|selectattr('is_active')|list|length }}</div>
-            <div>Active Types</div>
-        </div>
-        <div class="col-md-3">
-            <div class="h3 mb-0">
-                {% set total_keywords = screening_types|sum(attribute='keywords')|length if screening_types else 0 %}
-                {{ total_keywords }}
-            </div>
-            <div>Total Keywords</div>
-        </div>
-        <div class="col-md-3">
-            <div class="h3 mb-0">
-                {% set variants_count = screening_types|sum(attribute='variants')|length if screening_types else 0 %}
-                {{ variants_count }}
-            </div>
-            <div>Variants</div>
-        </div>
-    </div>
-</div>
-
-<!-- Filter Controls -->
-<div class="filter-controls">
-    <div class="row g-3">
-        <div class="col-md-4">
-            <input type="text" class="form-control" id="searchTypes" placeholder="Search screening types...">
-        </div>
-        <div class="col-md-3">
-            <select class="form-select" id="filterStatus">
-                <option value="">All Statuses</option>
-                <option value="active">Active Only</option>
-                <option value="inactive">Inactive Only</option>
-            </select>
-        </div>
-        <div class="col-md-3">
-            <select class="form-select" id="filterFrequency">
-                <option value="">All Frequencies</option>
-                <option value="years">Yearly</option>
-                <option value="months">Monthly</option>
-                <option value="weeks">Weekly</option>
-            </select>
-        </div>
-        <div class="col-md-2">
-            <button type="button" class="btn btn-outline-secondary w-100" onclick="clearFilters()">
-                <i class="fas fa-times me-1"></i>Clear
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- Screening Types Grid -->
-<div class="row" id="screeningTypesGrid">
-    <!-- Add New Type Card -->
-    <div class="col-lg-4 col-md-6 mb-4">
-        <div class="card add-type-card h-100" onclick="window.location.href='{{ url_for('ui.add_screening_type') }}'">
-            <div class="card-body text-center d-flex flex-column justify-content-center">
-                <div class="mb-3">
-                    <i class="fas fa-plus-circle fa-3x text-primary"></i>
-                </div>
-                <h5 class="card-title">Add New Screening Type</h5>
-                <p class="card-text text-muted">Create a new screening protocol with custom eligibility criteria and keywords.</p>
-            </div>
-        </div>
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-stethoscope me-2"></i>Screening Types</h1>
+        {% if current_user.role == 'admin' %}
+            <a href="{{ url_for('add_screening_type') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>Add New Type
+            </a>
+        {% endif %}
     </div>
 
-    <!-- Existing Screening Types -->
-    {% for st in screening_types %}
-        <div class="col-lg-4 col-md-6 mb-4 screening-type-item" 
-             data-status="{{ 'active' if st.is_active else 'inactive' }}"
-             data-frequency="{{ st.frequency_unit or '' }}"
-             data-name="{{ st.name.lower() }}">
-            <div class="card screening-type-card h-100 position-relative">
-                <!-- Status Indicator -->
-                <div class="variant-indicator">
-                    <span class="badge {{ 'bg-success' if st.is_active else 'bg-secondary' }}">
-                        {{ 'Active' if st.is_active else 'Inactive' }}
-                    </span>
-                    {% if st.variants %}
-                        <span class="badge bg-info ms-1" title="{{ st.variants|length }} variants">
-                            <i class="fas fa-code-branch"></i> {{ st.variants|length }}
+    {% if screening_types %}
+        <div class="row">
+            {% for screening_type in screening_types %}
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">{{ screening_type.name }}</h5>
+                        <span class="badge bg-{{ 'success' if screening_type.status == 'active' else 'secondary' }}">
+                            {{ screening_type.status|title }}
                         </span>
-                    {% endif %}
-                </div>
+                    </div>
+                    <div class="card-body">
+                        {% if screening_type.description %}
+                            <p class="card-text text-muted">{{ screening_type.description }}</p>
+                        {% endif %}
 
-                <div class="card-body">
-                    <h5 class="card-title">{{ st.name }}</h5>
-                    
-                    {% if st.description %}
-                        <p class="card-text text-muted mb-3">
-                            {{ st.description[:120] }}{% if st.description|length > 120 %}...{% endif %}
-                        </p>
-                    {% endif %}
-
-                    <!-- Frequency -->
-                    {% if st.frequency_value %}
-                        <div class="mb-3">
-                            <span class="frequency-badge badge bg-primary">
-                                <i class="fas fa-clock me-1"></i>
-                                Every {{ st.frequency_value }} {{ st.frequency_unit }}
-                            </span>
+                        <div class="row mb-3">
+                            <div class="col-sm-6">
+                                <strong>Frequency:</strong><br>
+                                <span class="badge bg-primary">
+                                    Every {{ screening_type.frequency_value }} {{ screening_type.frequency_unit }}
+                                </span>
+                            </div>
+                            <div class="col-sm-6">
+                                <strong>Gender:</strong><br>
+                                <span class="badge bg-secondary">
+                                    {{ screening_type.eligibility_criteria.gender|upper if screening_type.eligibility_criteria and screening_type.eligibility_criteria.gender != 'any' else 'Any' }}
+                                </span>
+                            </div>
                         </div>
-                    {% endif %}
 
-                    <!-- Keywords -->
-                    <div class="mb-3">
-                        <h6 class="text-muted small mb-2">KEYWORDS</h6>
-                        <div class="keywords-display">
-                            {% if st.keywords %}
-                                {% for keyword in st.keywords %}
-                                    <span class="badge bg-light text-dark me-1 mb-1">{{ keyword }}</span>
+                        {% if screening_type.eligibility_criteria and (screening_type.eligibility_criteria.min_age or screening_type.eligibility_criteria.max_age) %}
+                        <div class="mb-3">
+                            <strong>Age Range:</strong><br>
+                            {% set criteria = screening_type.eligibility_criteria %}
+                            {% if criteria.min_age and criteria.max_age %}
+                                {{ criteria.min_age }} - {{ criteria.max_age }} years
+                            {% elif criteria.min_age %}
+                                {{ criteria.min_age }}+ years
+                            {% elif criteria.max_age %}
+                                Up to {{ criteria.max_age }} years
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        {% if screening_type.keywords %}
+                        <div class="mb-3">
+                            <strong>Keywords:</strong><br>
+                            <div class="mt-1">
+                                {% for keyword in screening_type.keywords %}
+                                    <span class="badge bg-info me-1 mb-1">{{ keyword }}</span>
                                 {% endfor %}
-                            {% else %}
-                                <small class="text-muted">No keywords defined</small>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if screening_type.trigger_conditions %}
+                        <div class="mb-3">
+                            <strong>Trigger Conditions:</strong><br>
+                            <div class="mt-1">
+                                {% for condition in screening_type.trigger_conditions %}
+                                    <span class="badge bg-warning text-dark me-1 mb-1">{{ condition }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <div class="text-muted small">
+                            <i class="fas fa-calendar me-1"></i>
+                            Created: {{ screening_type.created_at.strftime('%m/%d/%Y') if screening_type.created_at else 'Unknown' }}
+                            {% if screening_type.updated_at != screening_type.created_at %}
+                                <br>
+                                <i class="fas fa-edit me-1"></i>
+                                Updated: {{ screening_type.updated_at.strftime('%m/%d/%Y') }}
                             {% endif %}
                         </div>
                     </div>
-
-                    <!-- Eligibility Criteria -->
-                    {% if st.eligibility_criteria %}
-                        <div class="eligibility-info">
-                            <h6 class="text-muted small mb-2">ELIGIBILITY</h6>
-                            {% set criteria = st.eligibility_criteria %}
-                            <div class="small">
-                                {% if criteria.get('min_age') or criteria.get('max_age') %}
-                                    <div>
-                                        <i class="fas fa-birthday-cake me-1"></i>
-                                        Age: 
-                                        {% if criteria.get('min_age') %}{{ criteria.min_age }}+{% endif %}
-                                        {% if criteria.get('max_age') and criteria.get('min_age') %} - {{ criteria.max_age }}{% elif criteria.get('max_age') %}Up to {{ criteria.max_age }}{% endif %}
-                                    </div>
-                                {% endif %}
-                                {% if criteria.get('gender') %}
-                                    <div>
-                                        <i class="fas fa-venus-mars me-1"></i>
-                                        Gender: {{ criteria.gender.title() }}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                    {% endif %}
-
-                    <!-- Trigger Conditions -->
-                    {% if st.trigger_conditions %}
-                        <div class="mt-3">
-                            <h6 class="text-muted small mb-2">TRIGGER CONDITIONS</h6>
-                            <div class="small">
-                                {% for condition in st.trigger_conditions[:3] %}
-                                    <span class="badge bg-warning text-dark me-1 mb-1">{{ condition }}</span>
-                                {% endfor %}
-                                {% if st.trigger_conditions|length > 3 %}
-                                    <span class="badge bg-secondary">+{{ st.trigger_conditions|length - 3 }} more</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                    {% endif %}
-                </div>
-
-                <div class="card-footer bg-transparent">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <small class="text-muted">
-                            <i class="fas fa-calendar me-1"></i>
-                            Created {{ st.created_at.strftime('%m/%d/%Y') }}
-                        </small>
-                        <div class="btn-group btn-group-sm">
-                            <a href="{{ url_for('ui.edit_screening_type', screening_type_id=st.id) }}" 
-                               class="btn btn-outline-primary" title="Edit">
-                                <i class="fas fa-edit"></i>
-                            </a>
-                            <button type="button" class="btn btn-outline-info" 
-                                    onclick="showTypeDetails({{ st.id }})" title="View Details">
-                                <i class="fas fa-eye"></i>
+                    
+                    {% if current_user.role == 'admin' %}
+                    <div class="card-footer">
+                        <div class="btn-group w-100" role="group">
+                            <button type="button" class="btn btn-outline-primary" onclick="editScreeningType({{ screening_type.id }})">
+                                <i class="fas fa-edit me-1"></i>Edit
                             </button>
-                            <form method="POST" action="{{ url_for('ui.delete_screening_type', screening_type_id=st.id) }}" 
-                                  class="d-inline">
-                                <button type="submit" class="btn btn-outline-danger" 
-                                        onclick="return confirmAction('Are you sure you want to delete {{ st.name }}? This action cannot be undone.')"
-                                        title="Delete">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </form>
+                            <button type="button" class="btn btn-outline-{{ 'warning' if screening_type.status == 'active' else 'success' }}" 
+                                    onclick="toggleScreeningType({{ screening_type.id }}, '{{ screening_type.status }}')">
+                                <i class="fas fa-{{ 'pause' if screening_type.status == 'active' else 'play' }} me-1"></i>
+                                {{ 'Deactivate' if screening_type.status == 'active' else 'Activate' }}
+                            </button>
+                            <button type="button" class="btn btn-outline-danger" onclick="deleteScreeningType({{ screening_type.id }}, '{{ screening_type.name }}')">
+                                <i class="fas fa-trash me-1"></i>Delete
+                            </button>
                         </div>
                     </div>
+                    {% endif %}
                 </div>
             </div>
+            {% endfor %}
         </div>
-    {% endfor %}
-</div>
-
-<!-- Empty State -->
-<div id="emptyState" class="text-center py-5" style="display: none;">
-    <i class="fas fa-search fa-3x text-muted mb-3"></i>
-    <h4>No Screening Types Found</h4>
-    <p class="text-muted">Try adjusting your filters or create a new screening type.</p>
-    <a href="{{ url_for('ui.add_screening_type') }}" class="btn btn-primary">
-        <i class="fas fa-plus me-2"></i>Add First Screening Type
-    </a>
-</div>
-
-<!-- Type Details Modal -->
-<div class="modal fade" id="typeDetailsModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-info-circle me-2"></i>
-                    Screening Type Details
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body" id="typeDetailsContent">
-                <!-- Content loaded dynamically -->
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" id="editTypeBtn">
-                    <i class="fas fa-edit me-2"></i>Edit Type
-                </button>
-            </div>
+    {% else %}
+        <div class="text-center text-muted py-5">
+            <i class="fas fa-stethoscope fa-4x mb-3"></i>
+            <h3>No Screening Types</h3>
+            <p class="lead">No screening types have been configured yet.</p>
+            {% if current_user.role == 'admin' %}
+                <a href="{{ url_for('add_screening_type') }}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-plus me-2"></i>Add First Screening Type
+                </a>
+            {% else %}
+                <p class="text-muted">Contact your administrator to set up screening types.</p>
+            {% endif %}
         </div>
-    </div>
+    {% endif %}
 </div>
-{% endblock %}
 
-{% block extra_js %}
+{% if current_user.role == 'admin' %}
 <script>
-// Filter functionality
-function filterScreeningTypes() {
-    const searchTerm = document.getElementById('searchTypes').value.toLowerCase();
-    const statusFilter = document.getElementById('filterStatus').value;
-    const frequencyFilter = document.getElementById('filterFrequency').value;
+function editScreeningType(id) {
+    // In a full implementation, this would open an edit modal or navigate to edit page
+    window.location.href = `/screening/types/${id}/edit`;
+}
+
+function toggleScreeningType(id, currentStatus) {
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    const action = currentStatus === 'active' ? 'deactivate' : 'activate';
     
-    const items = document.querySelectorAll('.screening-type-item');
-    let visibleCount = 0;
-    
-    items.forEach(item => {
-        const name = item.dataset.name;
-        const status = item.dataset.status;
-        const frequency = item.dataset.frequency;
+    if (confirm(`Are you sure you want to ${action} this screening type?`)) {
+        showLoading(`${action.charAt(0).toUpperCase() + action.slice(1)}ing screening type...`);
         
-        let visible = true;
-        
-        // Search filter
-        if (searchTerm && !name.includes(searchTerm)) {
-            visible = false;
-        }
-        
-        // Status filter
-        if (statusFilter && status !== statusFilter) {
-            visible = false;
-        }
-        
-        // Frequency filter
-        if (frequencyFilter && frequency !== frequencyFilter) {
-            visible = false;
-        }
-        
-        item.style.display = visible ? 'block' : 'none';
-        if (visible) visibleCount++;
-    });
-    
-    // Show/hide empty state
-    const emptyState = document.getElementById('emptyState');
-    if (visibleCount === 0) {
-        emptyState.style.display = 'block';
-    } else {
-        emptyState.style.display = 'none';
+        fetch(`/api/screening-types/${id}/toggle`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({status: newStatus})
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            hideLoading();
+            alert('Error: ' + error.message);
+        });
     }
 }
 
-// Clear filters
-function clearFilters() {
-    document.getElementById('searchTypes').value = '';
-    document.getElementById('filterStatus').value = '';
-    document.getElementById('filterFrequency').value = '';
-    filterScreeningTypes();
-}
-
-// Show type details modal
-function showTypeDetails(typeId) {
-    // In a real implementation, this would fetch detailed data
-    const modal = new bootstrap.Modal(document.getElementById('typeDetailsModal'));
-    const content = document.getElementById('typeDetailsContent');
-    
-    content.innerHTML = `
-        <div class="text-center">
-            <div class="spinner-border" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <p class="mt-2">Loading screening type details...</p>
-        </div>
-    `;
-    
-    modal.show();
-    
-    // Simulate loading details
-    setTimeout(() => {
-        content.innerHTML = `
-            <div class="alert alert-info">
-                <i class="fas fa-info-circle me-2"></i>
-                Detailed screening type information would be displayed here, including:
-                <ul class="mt-2 mb-0">
-                    <li>Complete eligibility criteria</li>
-                    <li>All keywords and synonyms</li>
-                    <li>Screening variants</li>
-                    <li>Usage statistics</li>
-                    <li>Associated patients</li>
-                </ul>
-            </div>
-        `;
+function deleteScreeningType(id, name) {
+    if (confirm(`Are you sure you want to permanently delete the screening type "${name}"?\n\nThis action cannot be undone and will affect all related screenings.`)) {
+        showLoading('Deleting screening type...');
         
-        document.getElementById('editTypeBtn').onclick = () => {
-            window.location.href = `/screening/types/${typeId}/edit`;
-        };
-    }, 1000);
+        fetch(`/api/screening-types/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.success) {
+                alert('Screening type deleted successfully');
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            hideLoading();
+            alert('Error: ' + error.message);
+        });
+    }
 }
-
-// Event listeners
-document.addEventListener('DOMContentLoaded', function() {
-    // Filter event listeners
-    document.getElementById('searchTypes').addEventListener('input', filterScreeningTypes);
-    document.getElementById('filterStatus').addEventListener('change', filterScreeningTypes);
-    document.getElementById('filterFrequency').addEventListener('change', filterScreeningTypes);
-    
-    // Initial filter
-    filterScreeningTypes();
-});
-
-// Keyboard shortcuts
-document.addEventListener('keydown', function(e) {
-    // Ctrl/Cmd + K to focus search
-    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        document.getElementById('searchTypes').focus();
-    }
-    
-    // Ctrl/Cmd + N to add new type
-    if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-        e.preventDefault();
-        window.location.href = '{{ url_for("ui.add_screening_type") }}';
-    }
-});
 </script>
+{% endif %}
 {% endblock %}
