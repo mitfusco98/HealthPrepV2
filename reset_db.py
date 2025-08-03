@@ -12,15 +12,54 @@ def reset_database():
     """Drop all tables and recreate with current schema"""
     with app.app_context():
         print("Dropping all tables...")
-        # Use raw SQL to drop tables with CASCADE to handle foreign key constraints
+        
+        # Use SQLAlchemy 2.0+ compatible syntax
         try:
-            db.engine.execute('DROP SCHEMA public CASCADE')
-            db.engine.execute('CREATE SCHEMA public')
-            db.engine.execute('GRANT ALL ON SCHEMA public TO postgres')
-            db.engine.execute('GRANT ALL ON SCHEMA public TO public')
+            # Try to drop all tables with proper CASCADE handling
+            with db.engine.begin() as conn:
+                # Drop all tables with CASCADE to handle foreign key constraints
+                conn.execute(db.text("DROP SCHEMA public CASCADE"))
+                conn.execute(db.text("CREATE SCHEMA public"))
+                conn.execute(db.text("GRANT ALL ON SCHEMA public TO postgres"))
+                conn.execute(db.text("GRANT ALL ON SCHEMA public TO public"))
+            print("Schema reset successful using CASCADE method")
         except Exception as e:
-            print(f"Note: Schema reset method failed, trying db.drop_all(): {e}")
-            db.drop_all()
+            print(f"Schema reset method failed: {e}")
+            try:
+                # Alternative: Drop tables individually in the right order
+                with db.engine.begin() as conn:
+                    # Drop tables that depend on others first
+                    tables_to_drop = [
+                        'admin_logs',
+                        'ocr_processing_stats', 
+                        'phi_filter_settings',
+                        'checklist_settings',
+                        'conditions',
+                        'visits',
+                        'medical_documents',
+                        'screenings',
+                        'screening_variants',
+                        'screening_types',
+                        'patients',
+                        'users'
+                    ]
+                    
+                    for table in tables_to_drop:
+                        try:
+                            conn.execute(db.text(f"DROP TABLE IF EXISTS {table} CASCADE"))
+                        except Exception as table_error:
+                            print(f"Warning: Could not drop table {table}: {table_error}")
+                            
+                print("Individual table drop completed")
+            except Exception as e2:
+                print(f"Individual table drop also failed: {e2}")
+                # Last resort: try db.drop_all() anyway
+                try:
+                    db.drop_all()
+                    print("db.drop_all() worked")
+                except Exception as e3:
+                    print(f"All drop methods failed: {e3}")
+                    return
         
         print("Creating all tables with current schema...")
         db.create_all()
@@ -55,33 +94,30 @@ def reset_database():
                 'name': 'Mammogram',
                 'description': 'Breast cancer screening',
                 'keywords': json.dumps(['mammogram', 'mammography', 'breast screening']),
-                'eligibility_gender': 'F',
-                'eligibility_min_age': 40,
-                'eligibility_max_age': 75,
-                'frequency_value': 1,
-                'frequency_unit': 'years',
+                'eligible_genders': json.dumps(['F']),
+                'min_age': 40,
+                'max_age': 75,
+                'frequency_years': 1,
                 'trigger_conditions': json.dumps([])
             },
             {
                 'name': 'Colonoscopy',
                 'description': 'Colorectal cancer screening',
                 'keywords': json.dumps(['colonoscopy', 'colon screening', 'colorectal']),
-                'eligibility_gender': None,
-                'eligibility_min_age': 50,
-                'eligibility_max_age': 75,
-                'frequency_value': 10,
-                'frequency_unit': 'years',
+                'eligible_genders': json.dumps(['M', 'F']),
+                'min_age': 50,
+                'max_age': 75,
+                'frequency_years': 10,
                 'trigger_conditions': json.dumps([])
             },
             {
                 'name': 'Pap Smear',
                 'description': 'Cervical cancer screening',
                 'keywords': json.dumps(['pap smear', 'cervical screening', 'cytology']),
-                'eligibility_gender': 'F',
-                'eligibility_min_age': 21,
-                'eligibility_max_age': 65,
-                'frequency_value': 3,
-                'frequency_unit': 'years',
+                'eligible_genders': json.dumps(['F']),
+                'min_age': 21,
+                'max_age': 65,
+                'frequency_years': 3,
                 'trigger_conditions': json.dumps([])
             }
         ]
