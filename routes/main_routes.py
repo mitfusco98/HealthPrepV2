@@ -19,6 +19,16 @@ main_bp = Blueprint('main', __name__)
 def index():
     """Main landing page"""
     try:
+        # Development bypass - auto-login as admin
+        import os
+        if os.getenv('DEBUG', 'False').lower() == 'true':
+            from models import User
+            from flask_login import login_user
+            admin_user = User.query.filter_by(username='admin').first()
+            if admin_user and not current_user.is_authenticated:
+                login_user(admin_user)
+                return redirect(url_for('main.dashboard'))
+        
         if current_user.is_authenticated:
             return redirect(url_for('main.dashboard'))
         else:

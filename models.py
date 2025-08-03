@@ -6,7 +6,7 @@ import json
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
@@ -16,9 +16,16 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
 
+    @property
+    def is_admin(self):
+        return self.role == 'admin'
+
+    def __repr__(self):
+        return f'<User {self.username}>'
+
 class Patient(db.Model):
     __tablename__ = 'patients'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     mrn = db.Column(db.String(50), unique=True, nullable=False)
     first_name = db.Column(db.String(100), nullable=False)
@@ -30,7 +37,7 @@ class Patient(db.Model):
     address = db.Column(Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relationships
     documents = db.relationship('MedicalDocument', backref='patient', lazy=True, cascade='all, delete-orphan')
     screenings = db.relationship('Screening', backref='patient', lazy=True, cascade='all, delete-orphan')
@@ -38,7 +45,7 @@ class Patient(db.Model):
 
 class ScreeningType(db.Model):
     __tablename__ = 'screening_types'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(Text)
@@ -52,7 +59,7 @@ class ScreeningType(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     def get_keywords_list(self):
         """Parse keywords JSON string into list"""
         if self.keywords:
@@ -61,14 +68,14 @@ class ScreeningType(db.Model):
             except (json.JSONDecodeError, TypeError):
                 return self.keywords.split(',') if self.keywords else []
         return []
-    
+
     def set_keywords_list(self, keywords_list):
         """Set keywords from list"""
         self.keywords = json.dumps(keywords_list) if keywords_list else None
 
 class MedicalDocument(db.Model):
     __tablename__ = 'medical_documents'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('patients.id'), nullable=False)
     filename = db.Column(db.String(255), nullable=False)
@@ -76,21 +83,21 @@ class MedicalDocument(db.Model):
     document_type = db.Column(db.String(100))  # 'lab', 'imaging', 'consult', 'hospital'
     document_date = db.Column(db.Date)
     upload_date = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     # OCR fields
     ocr_text = db.Column(Text)
     ocr_confidence = db.Column(db.Float)
     ocr_processed = db.Column(db.Boolean, default=False)
     ocr_processed_at = db.Column(db.DateTime)
-    
+
     # PHI filtering
     phi_filtered = db.Column(db.Boolean, default=False)
     original_text = db.Column(Text)  # Before PHI filtering
-    
+
     # Metadata
     file_size = db.Column(db.Integer)
     mime_type = db.Column(db.String(100))
-    
+
     # Indexes for performance
     __table_args__ = (
         Index('idx_document_patient_date', 'patient_id', 'document_date'),
@@ -100,7 +107,7 @@ class MedicalDocument(db.Model):
 
 class Screening(db.Model):
     __tablename__ = 'screenings'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('patients.id'), nullable=False)
     screening_type_id = db.Column(db.Integer, db.ForeignKey('screening_types.id'), nullable=False)
@@ -110,10 +117,10 @@ class Screening(db.Model):
     matched_documents = db.Column(Text)  # JSON string of document IDs
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relationships
     screening_type = db.relationship('ScreeningType', backref='screenings')
-    
+
     def get_matched_documents_list(self):
         """Parse matched documents JSON string into list"""
         if self.matched_documents:
@@ -125,7 +132,7 @@ class Screening(db.Model):
 
 class Appointment(db.Model):
     __tablename__ = 'appointments'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('patients.id'), nullable=False)
     appointment_date = db.Column(db.DateTime, nullable=False)
@@ -137,20 +144,20 @@ class Appointment(db.Model):
 
 class AdminLog(db.Model):
     __tablename__ = 'admin_logs'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     action = db.Column(db.String(200), nullable=False)
     details = db.Column(Text)
     ip_address = db.Column(db.String(45))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     # Relationship
     user = db.relationship('User', backref='admin_logs')
 
 class ChecklistSettings(db.Model):
     __tablename__ = 'checklist_settings'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     cutoff_labs = db.Column(db.Integer, default=12)  # months
     cutoff_imaging = db.Column(db.Integer, default=24)  # months
@@ -161,7 +168,7 @@ class ChecklistSettings(db.Model):
 
 class PHISettings(db.Model):
     __tablename__ = 'phi_settings'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     phi_filtering_enabled = db.Column(db.Boolean, default=True)
     filter_ssn = db.Column(db.Boolean, default=True)
