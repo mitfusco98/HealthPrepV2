@@ -6,15 +6,30 @@ Database reset script - drops and recreates all tables
 from app import app, db
 from models import User, Patient, ScreeningType, Screening, AdminLog
 from werkzeug.security import generate_password_hash
+from sqlalchemy import inspect
 import json
 
 def reset_database():
     """Drop and recreate the database with default data"""
     with app.app_context():
         try:
-            # Drop all tables
-            print("Dropping all tables...")
-            db.drop_all()
+            # Force drop all tables with CASCADE to handle foreign key constraints
+            print("Dropping all tables with CASCADE...")
+            
+            # Get all table names first
+            inspector = db.inspect(db.engine)
+            table_names = inspector.get_table_names()
+            
+            if table_names:
+                # Drop each table with CASCADE
+                with db.engine.connect() as conn:
+                    for table_name in table_names:
+                        try:
+                            conn.execute(db.text(f"DROP TABLE IF EXISTS {table_name} CASCADE"))
+                            print(f"Dropped table: {table_name}")
+                        except Exception as e:
+                            print(f"Warning: Could not drop table {table_name}: {e}")
+                    conn.commit()
             
             # Create all tables fresh
             print("Creating all tables...")
