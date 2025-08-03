@@ -18,4 +18,6 @@ dependencies = [
     "python-dateutil>=2.9.0.post0",
     "tesseract>=0.1.3",
     "pillow>=11.3.0",
+    "pytesseract>=0.3.13",
+    "pdf2image>=1.17.0",
 ]
