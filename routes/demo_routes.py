@@ -10,7 +10,7 @@ from flask_login import login_required, current_user
 from models import Patient, MedicalDocument, Screening, ChecklistSettings
 from prep_sheet.generator import PrepSheetGenerator
 from core.engine import ScreeningEngine
-from admin.analytics import Analytics
+from admin.analytics import HealthPrepAnalytics
 from app import db
 
 logger = logging.getLogger(__name__)
@@ -23,8 +23,9 @@ def index():
     """Main dashboard"""
     try:
         # Get recent statistics
-        analytics = Analytics()
-        stats = analytics.get_dashboard_statistics()
+        analytics = HealthPrepAnalytics()
+        # Use available method from HealthPrepAnalytics
+        stats = analytics.get_system_performance_metrics()
         
         # Get recent patients
         recent_patients = Patient.query.order_by(Patient.updated_at.desc()).limit(10).all()
@@ -239,14 +240,14 @@ def settings():
 def analytics():
     """Analytics dashboard"""
     try:
-        analytics = Analytics()
+        analytics = HealthPrepAnalytics()
         
         # Get comprehensive analytics
         data = {
-            'overview': analytics.get_dashboard_statistics(),
-            'screening_analytics': analytics.get_screening_analytics(),
-            'document_analytics': analytics.get_document_analytics(),
-            'patient_analytics': analytics.get_patient_analytics()
+            'overview': analytics.get_system_performance_metrics(),
+            'time_saved': analytics.calculate_time_saved(),
+            'compliance_gaps': analytics.analyze_compliance_gaps_closed(),
+            'roi_report': analytics.generate_roi_report()
         }
         
         return render_template('analytics.html', analytics_data=data)
