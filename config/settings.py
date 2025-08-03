@@ -1,6 +1,6 @@
 """
-Global constants and settings for the Health-Prep application.
-Centralized configuration management.
+Global constants and settings
+Application-wide configuration and default values
 """
 
 import os
@@ -10,15 +10,29 @@ class Config:
     """Base configuration class"""
     
     # Flask settings
-    SECRET_KEY = os.environ.get('SESSION_SECRET') or 'dev-secret-key-change-in-production'
+    SECRET_KEY = os.environ.get('SESSION_SECRET')
     
     # Database settings
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///health_prep.db'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_recycle': 300,
         'pool_pre_ping': True,
+        'pool_recycle': 300,
+        'pool_size': 10,
+        'max_overflow': 20
     }
+    
+    # OCR settings
+    TESSERACT_CMD = os.environ.get('TESSERACT_CMD', '/usr/bin/tesseract')
+    UPLOAD_FOLDER = 'uploads'
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
+    ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png', 'tiff', 'tif'}
+    
+    # FHIR settings
+    FHIR_BASE_URL = os.environ.get('FHIR_BASE_URL', 'https://fhir.epic.com/interconnect-fhir-oauth')
+    FHIR_CLIENT_ID = os.environ.get('FHIR_CLIENT_ID', 'demo_client')
+    FHIR_CLIENT_SECRET = os.environ.get('FHIR_CLIENT_SECRET', 'demo_secret')
+    FHIR_SCOPES = ['patient/Patient.read', 'patient/DocumentReference.read', 'patient/Condition.read', 'patient/Observation.read']
     
     # Session settings
     PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
@@ -26,214 +40,248 @@ class Config:
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
     
-    # File upload settings
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
-    UPLOAD_FOLDER = os.path.join(os.getcwd(), 'uploads')
-    ALLOWED_EXTENSIONS = {'pdf', 'txt', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'tiff', 'bmp'}
+    # Security settings
+    WTF_CSRF_ENABLED = True
+    WTF_CSRF_TIME_LIMIT = 3600  # 1 hour
     
-    # FHIR settings
-    FHIR_BASE_URL = os.environ.get('FHIR_BASE_URL', 'https://sandbox-api.va.gov/services/fhir/v0/r4')
-    FHIR_CLIENT_ID = os.environ.get('FHIR_CLIENT_ID', 'demo_client')
-    FHIR_CLIENT_SECRET = os.environ.get('FHIR_CLIENT_SECRET', 'demo_secret')
-    
-    # OCR settings
-    TESSERACT_CMD = os.environ.get('TESSERACT_CMD', 'tesseract')
-    OCR_LANGUAGE = 'eng'
-    OCR_CONFIG = '--oem 3 --psm 6'
-    
-    # Screening engine settings
-    FUZZY_MATCH_THRESHOLD = 0.8
-    DOCUMENT_RELEVANCE_THRESHOLD = 0.3
-    SCREENING_REFRESH_BATCH_SIZE = 100
-    
-    # Performance settings
-    PREP_SHEET_TIMEOUT = 30  # seconds
-    OCR_PROCESSING_TIMEOUT = 120  # seconds
-    BATCH_PROCESSING_SIZE = 50
-    
-    # Logging settings
-    LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
-    LOG_FILE = 'health_prep.log'
-    LOG_MAX_BYTES = 10 * 1024 * 1024  # 10MB
-    LOG_BACKUP_COUNT = 5
+    # Pagination settings
+    ITEMS_PER_PAGE = 25
+    MAX_ITEMS_PER_PAGE = 100
 
 class DevelopmentConfig(Config):
     """Development configuration"""
     DEBUG = True
     TESTING = False
-    
-    # Less restrictive settings for development
     SESSION_COOKIE_SECURE = False
-    
-    # Development database
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or 'sqlite:///health_prep_dev.db'
-
-class TestingConfig(Config):
-    """Testing configuration"""
-    TESTING = True
-    DEBUG = False
-    
-    # Use in-memory database for testing
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
-    
-    # Disable CSRF for testing
-    WTF_CSRF_ENABLED = False
-    
-    # Shorter session lifetime for testing
-    PERMANENT_SESSION_LIFETIME = timedelta(minutes=5)
 
 class ProductionConfig(Config):
     """Production configuration"""
     DEBUG = False
     TESTING = False
-    
-    # Production-specific settings
-    SESSION_COOKIE_SECURE = True
-    SESSION_COOKIE_HTTPONLY = True
-    
-    # Use production database URL
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
-    
-    # Production logging
-    LOG_LEVEL = 'WARNING'
 
-# Configuration mapping
-config_map = {
-    'development': DevelopmentConfig,
-    'testing': TestingConfig,
-    'production': ProductionConfig,
-    'default': DevelopmentConfig
-}
+class TestingConfig(Config):
+    """Testing configuration"""
+    DEBUG = True
+    TESTING = True
+    WTF_CSRF_ENABLED = False
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
 
-# Application constants
-class Constants:
-    """Application-wide constants"""
+# Healthcare-specific constants
+class HealthcareConstants:
+    """Healthcare-specific constants and settings"""
     
-    # Screening statuses
-    SCREENING_STATUS_COMPLETE = 'Complete'
-    SCREENING_STATUS_DUE = 'Due'
-    SCREENING_STATUS_DUE_SOON = 'Due Soon'
+    # Standard document types
+    DOCUMENT_TYPES = {
+        'lab': 'Laboratory Results',
+        'imaging': 'Imaging Studies',
+        'consult': 'Specialist Consultations',
+        'hospital': 'Hospital Records',
+        'screening': 'Screening Tests',
+        'other': 'Other Documents'
+    }
     
-    VALID_SCREENING_STATUSES = [
-        SCREENING_STATUS_COMPLETE,
-        SCREENING_STATUS_DUE,
-        SCREENING_STATUS_DUE_SOON
-    ]
+    # Standard screening statuses
+    SCREENING_STATUSES = ['Due', 'Due Soon', 'Complete', 'Overdue']
     
-    # Document types
-    DOCUMENT_TYPE_LAB = 'lab'
-    DOCUMENT_TYPE_IMAGING = 'imaging'
-    DOCUMENT_TYPE_CONSULT = 'consult'
-    DOCUMENT_TYPE_HOSPITAL = 'hospital'
-    
-    VALID_DOCUMENT_TYPES = [
-        DOCUMENT_TYPE_LAB,
-        DOCUMENT_TYPE_IMAGING,
-        DOCUMENT_TYPE_CONSULT,
-        DOCUMENT_TYPE_HOSPITAL
-    ]
+    # Status colors for UI
+    STATUS_COLORS = {
+        'Due': 'warning',
+        'Due Soon': 'info',
+        'Complete': 'success',
+        'Overdue': 'danger'
+    }
     
     # Gender options
-    GENDER_MALE = 'M'
-    GENDER_FEMALE = 'F'
-    GENDER_OTHER = 'Other'
+    GENDER_OPTIONS = ['M', 'F', 'Other']
     
-    VALID_GENDERS = [GENDER_MALE, GENDER_FEMALE, GENDER_OTHER]
+    # Common medical file extensions
+    MEDICAL_FILE_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.tiff', '.tif', '.dcm']
     
-    # Frequency units
-    FREQUENCY_UNIT_MONTHS = 'months'
-    FREQUENCY_UNIT_YEARS = 'years'
+    # OCR confidence thresholds
+    OCR_CONFIDENCE_THRESHOLDS = {
+        'high': 80,
+        'medium': 60,
+        'low': 40
+    }
     
-    VALID_FREQUENCY_UNITS = [FREQUENCY_UNIT_MONTHS, FREQUENCY_UNIT_YEARS]
-    
-    # OCR confidence levels
-    CONFIDENCE_HIGH_THRESHOLD = 0.8
-    CONFIDENCE_MEDIUM_THRESHOLD = 0.6
+    # Default cutoff periods (in months)
+    DEFAULT_CUTOFFS = {
+        'lab_cutoff_months': 12,
+        'imaging_cutoff_months': 24,
+        'consult_cutoff_months': 12,
+        'hospital_cutoff_months': 24
+    }
     
     # PHI filter patterns
-    PHI_REDACTION_PLACEHOLDER = '[REDACTED]'
-    
-    # Prep sheet defaults
-    DEFAULT_LAB_CUTOFF_MONTHS = 12
-    DEFAULT_IMAGING_CUTOFF_MONTHS = 24
-    DEFAULT_CONSULT_CUTOFF_MONTHS = 12
-    DEFAULT_HOSPITAL_CUTOFF_MONTHS = 24
-    
-    # Admin log actions
-    LOG_ACTION_LOGIN = 'User Login'
-    LOG_ACTION_LOGOUT = 'User Logout'
-    LOG_ACTION_SCREENING_CREATED = 'Screening Type Created'
-    LOG_ACTION_SCREENING_UPDATED = 'Screening Type Updated'
-    LOG_ACTION_SCREENING_DELETED = 'Screening Type Deleted'
-    LOG_ACTION_PATIENT_CREATED = 'Patient Created'
-    LOG_ACTION_DOCUMENT_UPLOADED = 'Document Uploaded'
-    LOG_ACTION_PREP_SHEET_GENERATED = 'Prep Sheet Generated'
-    LOG_ACTION_SETTINGS_UPDATED = 'Settings Updated'
-    
-    # Medical terminology
-    COMMON_MEDICAL_ABBREVIATIONS = {
-        'bp': 'blood pressure',
-        'hr': 'heart rate',
-        'rr': 'respiratory rate',
-        'temp': 'temperature',
-        'wbc': 'white blood cell',
-        'rbc': 'red blood cell',
-        'hgb': 'hemoglobin',
-        'hct': 'hematocrit',
-        'plt': 'platelets',
-        'bun': 'blood urea nitrogen',
-        'cr': 'creatinine',
-        'na': 'sodium',
-        'k': 'potassium',
-        'cl': 'chloride',
-        'co2': 'carbon dioxide',
-        'glu': 'glucose'
+    PHI_PATTERNS = {
+        'ssn': r'\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b',
+        'phone': r'\b(?:\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})\b',
+        'mrn': r'\b(?:MRN|Medical\s+Record|Patient\s+ID|ID)\s*[:#]?\s*([A-Z0-9]{6,12})\b',
+        'email': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+        'date': r'\b(?:\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4}|\d{4}[/\-]\d{1,2}[/\-]\d{1,2})\b'
     }
     
-    # Fuzzy matching synonyms for medical terms
-    MEDICAL_SYNONYMS = {
-        'mammogram': ['mammography', 'mammo', 'breast imaging'],
-        'colonoscopy': ['colon screening', 'colonogram', 'lower endoscopy'],
-        'dexa': ['dxa', 'bone density', 'osteoporosis scan'],
-        'pap': ['pap smear', 'pap test', 'cervical screening'],
-        'a1c': ['hba1c', 'hemoglobin a1c', 'glycated hemoglobin'],
-        'cholesterol': ['lipid panel', 'lipids', 'cholesterol panel'],
-        'ecg': ['ekg', 'electrocardiogram'],
-        'echo': ['echocardiogram', 'cardiac echo'],
-        'stress test': ['exercise stress test', 'cardiac stress test'],
-        'chest xray': ['chest x-ray', 'cxr', 'chest radiograph']
+    # Medical terminology preservation list
+    MEDICAL_TERMS = [
+        'glucose', 'cholesterol', 'triglycerides', 'hdl', 'ldl', 'a1c', 'hba1c',
+        'creatinine', 'bun', 'gfr', 'hemoglobin', 'hematocrit', 'wbc', 'rbc',
+        'platelet', 'inr', 'pt', 'ptt', 'tsh', 'free t4', 'vitamin d',
+        'mg/dl', 'mmol/l', 'ng/ml', 'pg/ml', 'iu/ml', 'u/l', 'g/dl',
+        'mmhg', 'bpm', 'kg', 'lbs', 'cm', 'inches', 'ft',
+        'mammogram', 'colonoscopy', 'endoscopy', 'biopsy', 'ultrasound',
+        'ct scan', 'mri', 'xray', 'x-ray', 'ecg', 'ekg', 'echo',
+        'heart', 'lung', 'liver', 'kidney', 'brain', 'spine', 'chest',
+        'abdomen', 'pelvis', 'extremities', 'skin', 'eye', 'ear'
+    ]
+
+class SystemDefaults:
+    """System default values and configurations"""
+    
+    # Default user roles
+    USER_ROLES = ['admin', 'user', 'nurse', 'ma']
+    
+    # Default admin user (for initial setup)
+    DEFAULT_ADMIN = {
+        'username': 'admin',
+        'email': 'admin@healthprep.local',
+        'first_name': 'System',
+        'last_name': 'Administrator',
+        'role': 'admin'
+    }
+    
+    # Default screening types (basic set)
+    DEFAULT_SCREENING_TYPES = [
+        {
+            'name': 'Annual Physical',
+            'description': 'Annual comprehensive physical examination',
+            'keywords': ['physical', 'annual exam', 'wellness visit'],
+            'eligible_genders': ['M', 'F'],
+            'min_age': 18,
+            'max_age': None,
+            'frequency_years': 1,
+            'frequency_months': None,
+            'trigger_conditions': [],
+            'is_active': True
+        },
+        {
+            'name': 'Blood Pressure Check',
+            'description': 'Blood pressure screening',
+            'keywords': ['blood pressure', 'bp', 'hypertension'],
+            'eligible_genders': ['M', 'F'],
+            'min_age': 18,
+            'max_age': None,
+            'frequency_years': 1,
+            'frequency_months': None,
+            'trigger_conditions': [],
+            'is_active': True
+        }
+    ]
+    
+    # Default checklist settings
+    DEFAULT_CHECKLIST_SETTINGS = {
+        'name': 'Default Prep Sheet Settings',
+        'lab_cutoff_months': 12,
+        'imaging_cutoff_months': 24,
+        'consult_cutoff_months': 12,
+        'hospital_cutoff_months': 24,
+        'default_prep_items': [
+            'Review recent lab results',
+            'Check imaging studies',
+            'Review specialist consultations',
+            'Verify screening compliance',
+            'Update medication list',
+            'Review allergies'
+        ],
+        'status_options': ['Due', 'Due Soon', 'Complete', 'Overdue'],
+        'is_active': True
+    }
+    
+    # Default PHI filter settings
+    DEFAULT_PHI_SETTINGS = {
+        'is_enabled': True,
+        'filter_ssn': True,
+        'filter_phone': True,
+        'filter_mrn': True,
+        'filter_insurance': True,
+        'filter_addresses': True,
+        'filter_names': False,
+        'filter_dates': False,
+        'preserve_medical_terms': True,
+        'confidence_threshold': 80.0
     }
 
-# Error messages
-class ErrorMessages:
-    """Standardized error messages"""
+def initialize_default_data():
+    """Initialize default data for new installations"""
+    from models import User, ChecklistSettings, PHIFilterSettings, ScreeningType
+    from werkzeug.security import generate_password_hash
+    import logging
     
-    INVALID_CREDENTIALS = "Invalid username or password"
-    ACCESS_DENIED = "Access denied. Admin privileges required."
-    PATIENT_NOT_FOUND = "Patient not found"
-    SCREENING_TYPE_NOT_FOUND = "Screening type not found"
-    DOCUMENT_NOT_FOUND = "Document not found"
-    INVALID_FILE_TYPE = "Invalid file type. Allowed types: {}"
-    FILE_TOO_LARGE = "File too large. Maximum size: 16MB"
-    PROCESSING_FAILED = "Document processing failed"
-    DATABASE_ERROR = "Database operation failed"
-    VALIDATION_ERROR = "Validation failed: {}"
-    UNAUTHORIZED_ACTION = "You are not authorized to perform this action"
-    SESSION_EXPIRED = "Your session has expired. Please log in again."
-    SYSTEM_ERROR = "An internal system error occurred"
-
-# Success messages
-class SuccessMessages:
-    """Standardized success messages"""
+    logger = logging.getLogger(__name__)
     
-    LOGIN_SUCCESS = "Successfully logged in"
-    LOGOUT_SUCCESS = "Successfully logged out"
-    PATIENT_CREATED = "Patient created successfully"
-    SCREENING_TYPE_CREATED = "Screening type created successfully"
-    SCREENING_TYPE_UPDATED = "Screening type updated successfully"
-    SCREENING_TYPE_DELETED = "Screening type deleted successfully"
-    DOCUMENT_UPLOADED = "Document uploaded successfully"
-    SETTINGS_UPDATED = "Settings updated successfully"
-    PREP_SHEET_GENERATED = "Prep sheet generated successfully"
-    SCREENINGS_REFRESHED = "Screenings refreshed successfully"
+    try:
+        # Check if admin user exists
+        admin_user = User.query.filter_by(username=SystemDefaults.DEFAULT_ADMIN['username']).first()
+        if not admin_user:
+            # Create default admin user
+            admin_user = User(
+                username=SystemDefaults.DEFAULT_ADMIN['username'],
+                email=SystemDefaults.DEFAULT_ADMIN['email'],
+                first_name=SystemDefaults.DEFAULT_ADMIN['first_name'],
+                last_name=SystemDefaults.DEFAULT_ADMIN['last_name'],
+                role=SystemDefaults.DEFAULT_ADMIN['role'],
+                is_active=True
+            )
+            admin_user.set_password('admin123')  # Should be changed on first login
+            
+            from app import db
+            db.session.add(admin_user)
+            logger.info("Created default admin user")
+        
+        # Check if checklist settings exist
+        checklist_settings = ChecklistSettings.query.filter_by(is_active=True).first()
+        if not checklist_settings:
+            checklist_settings = ChecklistSettings(**SystemDefaults.DEFAULT_CHECKLIST_SETTINGS)
+            db.session.add(checklist_settings)
+            logger.info("Created default checklist settings")
+        
+        # Check if PHI settings exist
+        phi_settings = PHIFilterSettings.query.first()
+        if not phi_settings:
+            phi_settings = PHIFilterSettings(**SystemDefaults.DEFAULT_PHI_SETTINGS)
+            db.session.add(phi_settings)
+            logger.info("Created default PHI filter settings")
+        
+        # Check if screening types exist
+        existing_screening_count = ScreeningType.query.count()
+        if existing_screening_count == 0:
+            for screening_data in SystemDefaults.DEFAULT_SCREENING_TYPES:
+                screening_type = ScreeningType(**screening_data)
+                db.session.add(screening_type)
+            logger.info(f"Created {len(SystemDefaults.DEFAULT_SCREENING_TYPES)} default screening types")
+        
+        db.session.commit()
+        logger.info("Default data initialization completed")
+        
+    except Exception as e:
+        logger.error(f"Error initializing default data: {str(e)}")
+        db.session.rollback()
 
+# Configuration factory
+def get_config():
+    """Get configuration based on environment"""
+    env = os.environ.get('FLASK_ENV', 'development').lower()
+    
+    if env == 'production':
+        return ProductionConfig
+    elif env == 'testing':
+        return TestingConfig
+    else:
+        return DevelopmentConfig
+
+# Application constants that can be imported throughout the app
+DOCUMENT_TYPES = HealthcareConstants.DOCUMENT_TYPES
+SCREENING_STATUSES = HealthcareConstants.SCREENING_STATUSES
+STATUS_COLORS = HealthcareConstants.STATUS_COLORS
+GENDER_OPTIONS = HealthcareConstants.GENDER_OPTIONS
+OCR_CONFIDENCE_THRESHOLDS = HealthcareConstants.OCR_CONFIDENCE_THRESHOLDS
+DEFAULT_CUTOFFS = HealthcareConstants.DEFAULT_CUTOFFS

@@ -1,211 +1,244 @@
 """
-Fuzzy keyword and document matching functionality
-Handles keyword matching between documents and screening types
+Fuzzy keyword + document matching
+Handles document content analysis and keyword matching for screening types
 """
 
 import re
-import logging
-from typing import List, Dict, Set
 from difflib import SequenceMatcher
-from models import MedicalDocument, ScreeningType
+from sqlalchemy import and_, or_
+from models import MedicalDocument
+import logging
 
-logger = logging.getLogger(__name__)
-
-class FuzzyMatcher:
-    """Handles fuzzy keyword matching for screening types and documents"""
-    
-    # Common medical term variations and standardizations
-    MEDICAL_TERM_VARIANTS = {
-        'dxa': ['dexa', 'dxa', 'bone density', 'bone scan'],
-        'mammogram': ['mammography', 'mammo', 'breast imaging'],
-        'colonoscopy': ['colon', 'colonoscopy', 'lower endoscopy'],
-        'pap': ['pap smear', 'cervical screening', 'pap test'],
-        'a1c': ['hemoglobin a1c', 'hba1c', 'glycated hemoglobin'],
-        'lipid': ['cholesterol', 'lipid panel', 'lipid profile'],
-        'cbc': ['complete blood count', 'full blood count'],
-        'bmp': ['basic metabolic panel', 'chem 7'],
-        'cmp': ['comprehensive metabolic panel', 'chem 14'],
-        'tsh': ['thyroid stimulating hormone', 'thyroid function'],
-        'psa': ['prostate specific antigen', 'prostate screening'],
-        'echo': ['echocardiogram', 'cardiac echo', 'heart ultrasound'],
-        'ekg': ['electrocardiogram', 'ecg', 'heart rhythm'],
-        'stress': ['stress test', 'cardiac stress', 'exercise test']
-    }
-    
-    # Common condition variations for trigger matching
-    CONDITION_VARIANTS = {
-        'diabetes': ['diabetes mellitus', 'dm', 'diabetic', 'type 1 diabetes', 'type 2 diabetes'],
-        'hypertension': ['high blood pressure', 'htn', 'elevated bp'],
-        'hyperlipidemia': ['high cholesterol', 'dyslipidemia', 'elevated lipids'],
-        'obesity': ['overweight', 'elevated bmi', 'weight management'],
-        'heart disease': ['coronary artery disease', 'cad', 'cardiac disease', 'heart condition'],
-        'copd': ['chronic obstructive pulmonary disease', 'emphysema', 'chronic bronchitis'],
-        'depression': ['major depression', 'depressive disorder', 'mood disorder'],
-        'anxiety': ['anxiety disorder', 'generalized anxiety', 'panic disorder']
-    }
+class DocumentMatcher:
+    """Handles fuzzy matching of documents to screening types based on keywords"""
     
     def __init__(self):
-        self.similarity_threshold = 0.8
-        self.partial_match_threshold = 0.6
+        self.logger = logging.getLogger(__name__)
+        
+        # Common medical term mappings for fuzzy matching
+        self.term_mappings = {
+            'mammogram': ['mammography', 'breast imaging', 'mammo'],
+            'colonoscopy': ['colonoscopy', 'colon scope', 'colonoscopic'],
+            'pap': ['pap smear', 'papanicolaou', 'cervical cytology'],
+            'dxa': ['dexa', 'bone density', 'dual energy'],
+            'a1c': ['hba1c', 'hemoglobin a1c', 'glycated hemoglobin'],
+            'lipid': ['cholesterol', 'lipid panel', 'lipids'],
+            'eye': ['ophthalmology', 'retinal', 'vision'],
+            'dermatology': ['skin', 'mole', 'dermatologic'],
+            'cardiac': ['heart', 'cardiology', 'ecg', 'ekg'],
+            'pulmonary': ['lung', 'chest', 'respiratory'],
+        }
+        
+        # Confidence thresholds
+        self.filename_match_threshold = 0.7
+        self.content_match_threshold = 0.6
+        self.fuzzy_match_threshold = 0.8
     
-    def matches_screening(self, document: MedicalDocument, screening_type: ScreeningType) -> bool:
-        """
-        Check if a document matches a screening type based on keywords
-        """
-        if not screening_type.keywords:
-            return False
-        
-        # Combine document text sources
-        text_sources = []
-        if document.filename:
-            text_sources.append(document.filename.lower())
-        if document.ocr_text:
-            text_sources.append(document.ocr_text.lower())
-        if document.phi_filtered_text:
-            text_sources.append(document.phi_filtered_text.lower())
-        if document.content:
-            text_sources.append(document.content.lower())
-        
-        combined_text = ' '.join(text_sources)
-        
-        # Check each keyword for matches
-        for keyword in screening_type.keywords:
-            if self._keyword_matches_text(keyword.lower(), combined_text):
-                return True
-        
-        return False
-    
-    def _keyword_matches_text(self, keyword: str, text: str) -> bool:
-        """Check if a keyword matches text using fuzzy matching"""
-        
-        # Direct substring match
-        if keyword in text:
-            return True
-        
-        # Check medical term variants
-        standardized_variants = self._get_medical_variants(keyword)
-        for variant in standardized_variants:
-            if variant in text:
-                return True
-        
-        # Fuzzy matching for individual words
-        keyword_words = keyword.split()
-        text_words = text.split()
-        
-        matched_words = 0
-        for kw_word in keyword_words:
-            if self._word_matches_in_text(kw_word, text_words):
-                matched_words += 1
-        
-        # Consider it a match if most words match
-        return matched_words >= len(keyword_words) * 0.7
-    
-    def _word_matches_in_text(self, word: str, text_words: List[str]) -> bool:
-        """Check if a word matches any word in text using fuzzy similarity"""
-        for text_word in text_words:
-            if len(word) > 3 and len(text_word) > 3:
-                similarity = SequenceMatcher(None, word, text_word).ratio()
-                if similarity >= self.similarity_threshold:
-                    return True
-            elif word == text_word:
-                return True
-        return False
-    
-    def _get_medical_variants(self, term: str) -> List[str]:
-        """Get medical term variants for a given term"""
-        variants = []
-        
-        # Check if term is a key in our variants dictionary
-        if term in self.MEDICAL_TERM_VARIANTS:
-            variants.extend(self.MEDICAL_TERM_VARIANTS[term])
-        
-        # Check if term appears as a variant of any key
-        for key, variant_list in self.MEDICAL_TERM_VARIANTS.items():
-            if term in variant_list and key not in variants:
-                variants.append(key)
-                variants.extend([v for v in variant_list if v != term])
-        
-        return variants
-    
-    def standardize_screening_name(self, name: str) -> str:
-        """Standardize screening name to avoid duplicates"""
-        name_lower = name.lower().strip()
-        
-        # Check for standard medical terms
-        for standard_term, variants in self.MEDICAL_TERM_VARIANTS.items():
-            if name_lower in variants or name_lower == standard_term:
-                return standard_term.title()
-        
-        return name.title()
-    
-    def find_condition_matches(self, patient_conditions: List[str], trigger_conditions: List[str]) -> bool:
-        """Check if patient conditions match any trigger conditions"""
-        if not trigger_conditions:
-            return True  # No specific conditions required
-        
-        patient_conditions_lower = [cond.lower() for cond in patient_conditions]
-        
-        for trigger in trigger_conditions:
-            trigger_lower = trigger.lower()
+    def find_matching_documents(self, patient, screening_type, variant=None):
+        """Find documents that match the screening type keywords"""
+        try:
+            # Get all keywords (from screening type and variant)
+            keywords = self._get_all_keywords(screening_type, variant)
             
-            # Direct match
-            if trigger_lower in patient_conditions_lower:
-                return True
+            if not keywords:
+                return []
             
-            # Check condition variants
-            condition_variants = self._get_condition_variants(trigger_lower)
-            for variant in condition_variants:
-                if any(variant in patient_cond for patient_cond in patient_conditions_lower):
-                    return True
-        
-        return False
+            # Get patient documents
+            documents = MedicalDocument.query.filter_by(
+                patient_id=patient.id,
+                is_processed=True
+            ).all()
+            
+            matched_documents = []
+            
+            for document in documents:
+                match_score = self._calculate_document_match_score(document, keywords)
+                
+                if match_score > 0:
+                    matched_documents.append({
+                        'document': document,
+                        'match_score': match_score
+                    })
+            
+            # Sort by match score (highest first)
+            matched_documents.sort(key=lambda x: x['match_score'], reverse=True)
+            
+            # Return document objects
+            return [match['document'] for match in matched_documents]
+            
+        except Exception as e:
+            self.logger.error(f"Error finding matching documents for {screening_type.name}: {str(e)}")
+            return []
     
-    def _get_condition_variants(self, condition: str) -> List[str]:
-        """Get condition variants for matching"""
-        variants = []
+    def _get_all_keywords(self, screening_type, variant=None):
+        """Get all keywords from screening type and variant"""
+        keywords = []
         
-        # Check if condition is a key in our variants dictionary
-        if condition in self.CONDITION_VARIANTS:
-            variants.extend(self.CONDITION_VARIANTS[condition])
+        # Add screening type keywords
+        if screening_type.keywords:
+            keywords.extend(screening_type.keywords)
         
-        # Check if condition appears as a variant of any key
-        for key, variant_list in self.CONDITION_VARIANTS.items():
-            if condition in variant_list and key not in variants:
-                variants.append(key)
-                variants.extend([v for v in variant_list if v != condition])
+        # Add variant keywords
+        if variant and variant.keywords:
+            keywords.extend(variant.keywords)
         
-        return variants
+        # Normalize keywords (lowercase, strip whitespace)
+        keywords = [keyword.lower().strip() for keyword in keywords if keyword.strip()]
+        
+        return list(set(keywords))  # Remove duplicates
     
-    def suggest_keywords(self, partial_keyword: str, limit: int = 10) -> List[str]:
-        """Suggest keywords based on partial input"""
-        suggestions = []
-        partial_lower = partial_keyword.lower()
+    def _calculate_document_match_score(self, document, keywords):
+        """Calculate how well a document matches the given keywords"""
+        filename_score = self._match_filename(document.filename, keywords)
+        content_score = self._match_content(document.ocr_text or '', keywords)
+        phi_content_score = self._match_content(document.phi_filtered_text or '', keywords)
         
-        # Get suggestions from medical terms
-        all_terms = set()
-        for term, variants in self.MEDICAL_TERM_VARIANTS.items():
-            all_terms.add(term)
-            all_terms.update(variants)
+        # Use the best content score
+        best_content_score = max(content_score, phi_content_score)
         
-        for term in all_terms:
-            if partial_lower in term or term.startswith(partial_lower):
-                suggestions.append(term.title())
+        # Weight filename matches higher than content matches
+        total_score = (filename_score * 0.7) + (best_content_score * 0.3)
         
-        return sorted(suggestions)[:limit]
+        return total_score
     
-    def suggest_conditions(self, partial_condition: str, limit: int = 10) -> List[str]:
-        """Suggest medical conditions based on partial input"""
-        suggestions = []
-        partial_lower = partial_condition.lower()
+    def _match_filename(self, filename, keywords):
+        """Match keywords against document filename"""
+        if not filename:
+            return 0
         
-        # Get suggestions from condition variants
-        all_conditions = set()
-        for condition, variants in self.CONDITION_VARIANTS.items():
-            all_conditions.add(condition)
-            all_conditions.update(variants)
+        filename_lower = filename.lower()
+        max_score = 0
         
-        for condition in all_conditions:
-            if partial_lower in condition or condition.startswith(partial_lower):
-                suggestions.append(condition.title())
+        for keyword in keywords:
+            # Direct substring match
+            if keyword in filename_lower:
+                max_score = max(max_score, 1.0)
+                continue
+            
+            # Fuzzy match
+            fuzzy_score = self._fuzzy_match_keyword(filename_lower, keyword)
+            if fuzzy_score >= self.filename_match_threshold:
+                max_score = max(max_score, fuzzy_score)
         
-        return sorted(suggestions)[:limit]
+        return max_score
+    
+    def _match_content(self, content, keywords):
+        """Match keywords against document content"""
+        if not content:
+            return 0
+        
+        content_lower = content.lower()
+        max_score = 0
+        
+        for keyword in keywords:
+            # Direct substring match
+            if keyword in content_lower:
+                max_score = max(max_score, 0.9)  # Slightly lower than filename match
+                continue
+            
+            # Fuzzy match
+            fuzzy_score = self._fuzzy_match_keyword(content_lower, keyword)
+            if fuzzy_score >= self.content_match_threshold:
+                max_score = max(max_score, fuzzy_score * 0.8)  # Reduce for content matches
+        
+        return max_score
+    
+    def _fuzzy_match_keyword(self, text, keyword):
+        """Perform fuzzy matching of keyword against text"""
+        # Check for expanded terms first
+        expanded_terms = self._get_expanded_terms(keyword)
+        
+        for term in expanded_terms:
+            if term in text:
+                return 0.95  # High score for expanded term matches
+        
+        # Check for partial matches using sequence matching
+        words = text.split()
+        max_similarity = 0
+        
+        for word in words:
+            similarity = SequenceMatcher(None, keyword, word).ratio()
+            max_similarity = max(max_similarity, similarity)
+            
+            # Also check if keyword is contained in word or vice versa
+            if keyword in word or word in keyword:
+                if len(keyword) >= 3 and len(word) >= 3:  # Avoid short word false positives
+                    max_similarity = max(max_similarity, 0.85)
+        
+        return max_similarity
+    
+    def _get_expanded_terms(self, keyword):
+        """Get expanded terms for a keyword using medical terminology mappings"""
+        expanded_terms = [keyword]  # Include original keyword
+        
+        # Check if keyword matches any mapped terms
+        for base_term, variations in self.term_mappings.items():
+            if keyword == base_term or keyword in variations:
+                expanded_terms.extend(variations)
+                if keyword != base_term:
+                    expanded_terms.append(base_term)
+        
+        return list(set(expanded_terms))
+    
+    def analyze_document_relevance(self, document, screening_types):
+        """Analyze which screening types a document might be relevant for"""
+        relevance_scores = {}
+        
+        for screening_type in screening_types:
+            keywords = self._get_all_keywords(screening_type)
+            if keywords:
+                score = self._calculate_document_match_score(document, keywords)
+                if score > 0:
+                    relevance_scores[screening_type.id] = {
+                        'screening_type': screening_type,
+                        'score': score,
+                        'confidence': self._score_to_confidence_level(score)
+                    }
+        
+        return relevance_scores
+    
+    def _score_to_confidence_level(self, score):
+        """Convert numeric score to confidence level"""
+        if score >= 0.8:
+            return 'high'
+        elif score >= 0.6:
+            return 'medium'
+        elif score >= 0.3:
+            return 'low'
+        else:
+            return 'very_low'
+    
+    def update_document_keywords(self, document_id):
+        """Update the keywords_matched field for a document"""
+        try:
+            document = MedicalDocument.query.get(document_id)
+            if not document:
+                return
+            
+            # Get all active screening types
+            from models import ScreeningType
+            screening_types = ScreeningType.query.filter_by(is_active=True).all()
+            
+            # Analyze relevance
+            relevance_scores = self.analyze_document_relevance(document, screening_types)
+            
+            # Update keywords_matched field
+            matched_keywords = []
+            for screening_id, data in relevance_scores.items():
+                if data['score'] > 0.3:  # Only include meaningful matches
+                    matched_keywords.append({
+                        'screening_type_id': screening_id,
+                        'screening_name': data['screening_type'].name,
+                        'score': data['score'],
+                        'confidence': data['confidence']
+                    })
+            
+            document.keywords_matched = matched_keywords
+            
+            from app import db
+            db.session.commit()
+            
+            self.logger.info(f"Updated keywords for document {document.filename}: {len(matched_keywords)} matches")
+            
+        except Exception as e:
+            self.logger.error(f"Error updating document keywords for {document_id}: {str(e)}")

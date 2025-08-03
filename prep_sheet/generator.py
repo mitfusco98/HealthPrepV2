@@ -1,352 +1,367 @@
 """
-Prep sheet generation and rendering
-Assembles patient data into formatted prep sheets
+Assembles content into prep sheet format
+Generates comprehensive medical preparation sheets for patient visits
 """
 
-import logging
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from dateutil.relativedelta import relativedelta
-from typing import Dict, List, Any, Optional
-from jinja2 import Template
-
-from models import Patient, Screening, MedicalDocument, PatientCondition, ChecklistSettings
-from prep_sheet.filters import PrepSheetFilters
+from sqlalchemy import and_, or_
 from app import db
-
-logger = logging.getLogger(__name__)
+from models import Patient, Screening, MedicalDocument, Visit, Condition, ChecklistSettings
+from prep_sheet.filters import PrepSheetFilters
+import logging
 
 class PrepSheetGenerator:
-    """Generates formatted prep sheets for patient visits"""
+    """Generates comprehensive prep sheets for patient visits"""
     
     def __init__(self):
+        self.logger = logging.getLogger(__name__)
         self.filters = PrepSheetFilters()
     
-    def generate_prep_sheet(self, patient_id: int, custom_settings: Dict[str, Any] = None) -> Dict[str, Any]:
-        """
-        Generate a complete prep sheet for a patient
-        """
+    def generate_prep_sheet(self, patient):
+        """Generate a complete prep sheet for a patient"""
         try:
-            # Get patient data
-            patient = Patient.query.get(patient_id)
-            if not patient:
-                return {'error': 'Patient not found'}
+            self.logger.info(f"Generating prep sheet for patient {patient.mrn}")
             
-            # Get settings
-            settings = self._get_prep_sheet_settings(custom_settings)
+            # Get checklist settings
+            settings = ChecklistSettings.query.filter_by(is_active=True).first()
+            if not settings:
+                settings = self._get_default_settings()
             
-            # Gather all prep sheet data
             prep_data = {
-                'patient_header': self._generate_patient_header(patient),
-                'patient_summary': self._generate_patient_summary(patient, settings),
-                'medical_data': self._generate_medical_data(patient, settings),
-                'quality_checklist': self._generate_quality_checklist(patient, settings),
-                'enhanced_data': self._generate_enhanced_data(patient, settings),
-                'generated_at': datetime.now(),
-                'settings': settings
+                'patient': self._get_patient_header(patient),
+                'summary': self._get_patient_summary(patient),
+                'medical_data': self._get_medical_data(patient, settings),
+                'quality_checklist': self._get_quality_checklist(patient),
+                'generation_info': {
+                    'generated_at': datetime.utcnow(),
+                    'settings_used': settings.name if settings else 'Default',
+                    'total_screenings': Screening.query.filter_by(patient_id=patient.id).count(),
+                    'total_documents': MedicalDocument.query.filter_by(patient_id=patient.id).count()
+                }
             }
             
-            return {
-                'success': True,
-                'patient_id': patient_id,
-                'prep_data': prep_data
-            }
+            self.logger.info(f"Successfully generated prep sheet for patient {patient.mrn}")
+            return prep_data
             
         except Exception as e:
-            logger.error(f"Error generating prep sheet for patient {patient_id}: {str(e)}")
-            return {'error': str(e)}
+            self.logger.error(f"Error generating prep sheet for patient {patient.mrn}: {str(e)}")
+            raise
     
-    def _generate_patient_header(self, patient: Patient) -> Dict[str, Any]:
+    def _get_patient_header(self, patient):
         """Generate patient header information"""
-        age = None
-        if patient.date_of_birth:
-            today = date.today()
-            age = today.year - patient.date_of_birth.year
-            if today < date(today.year, patient.date_of_birth.month, patient.date_of_birth.day):
-                age -= 1
-        
-        # Get last visit (most recent document date as proxy)
-        last_visit = None
-        latest_doc = MedicalDocument.query.filter_by(patient_id=patient.id)\
-            .filter(MedicalDocument.date_created.isnot(None))\
-            .order_by(MedicalDocument.date_created.desc()).first()
-        if latest_doc:
-            last_visit = latest_doc.date_created
+        # Get last visit
+        last_visit = Visit.query.filter_by(patient_id=patient.id).order_by(Visit.visit_date.desc()).first()
         
         return {
-            'name': patient.name,
+            'name': patient.full_name,
             'mrn': patient.mrn,
             'date_of_birth': patient.date_of_birth,
-            'age': age,
-            'gender': self._format_gender(patient.gender),
-            'prep_date': date.today(),
-            'last_visit': last_visit
+            'age': patient.age,
+            'gender': patient.gender,
+            'phone': patient.phone,
+            'email': patient.email,
+            'address': patient.address,
+            'primary_physician': patient.primary_physician,
+            'last_visit_date': last_visit.visit_date if last_visit else None,
+            'prep_date': date.today()
         }
     
-    def _generate_patient_summary(self, patient: Patient, settings: Dict[str, Any]) -> Dict[str, Any]:
+    def _get_patient_summary(self, patient):
         """Generate patient summary section"""
-        # Get recent appointments (using documents as proxy for visits)
-        recent_visits = MedicalDocument.query.filter_by(patient_id=patient.id)\
-            .filter(MedicalDocument.date_created >= self.filters.get_cutoff_date(12, 'months'))\
-            .order_by(MedicalDocument.date_created.desc()).limit(5).all()
+        # Recent visits
+        recent_visits = Visit.query.filter_by(patient_id=patient.id).order_by(
+            Visit.visit_date.desc()
+        ).limit(5).all()
         
-        visit_history = []
-        for doc in recent_visits:
-            visit_history.append({
-                'date': doc.date_created,
-                'type': doc.document_type.title(),
-                'description': doc.filename or 'Medical Visit'
-            })
-        
-        # Get active conditions
-        active_conditions = PatientCondition.query.filter_by(
+        # Active conditions
+        active_conditions = Condition.query.filter_by(
             patient_id=patient.id,
             status='active'
-        ).order_by(PatientCondition.onset_date.desc()).all()
-        
-        conditions_list = []
-        for condition in active_conditions:
-            conditions_list.append({
-                'name': condition.condition_name,
-                'onset_date': condition.onset_date,
-                'code': condition.condition_code
-            })
+        ).order_by(Condition.diagnosis_date.desc()).all()
         
         return {
-            'recent_visits': visit_history,
-            'active_conditions': conditions_list,
-            'total_visits_period': len(recent_visits),
-            'total_active_conditions': len(conditions_list)
+            'recent_visits': [
+                {
+                    'date': visit.visit_date,
+                    'type': visit.visit_type,
+                    'provider': visit.provider,
+                    'chief_complaint': visit.chief_complaint,
+                    'diagnosis': visit.diagnosis
+                }
+                for visit in recent_visits
+            ],
+            'active_conditions': [
+                {
+                    'name': condition.condition_name,
+                    'diagnosis_date': condition.diagnosis_date,
+                    'icd10_code': condition.icd10_code,
+                    'status': condition.status,
+                    'severity': condition.severity
+                }
+                for condition in active_conditions
+            ]
         }
     
-    def _generate_medical_data(self, patient: Patient, settings: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate recent medical data sections"""
+    def _get_medical_data(self, patient, settings):
+        """Get filtered medical data based on cutoff settings"""
+        # Calculate cutoff dates
         cutoff_dates = {
-            'lab': self.filters.get_cutoff_date(settings.get('lab_cutoff_months', 12), 'months'),
-            'imaging': self.filters.get_cutoff_date(settings.get('imaging_cutoff_months', 24), 'months'),
-            'consult': self.filters.get_cutoff_date(settings.get('consult_cutoff_months', 12), 'months'),
-            'hospital': self.filters.get_cutoff_date(settings.get('hospital_cutoff_months', 24), 'months')
+            'labs': date.today() - relativedelta(months=settings.lab_cutoff_months),
+            'imaging': date.today() - relativedelta(months=settings.imaging_cutoff_months),
+            'consults': date.today() - relativedelta(months=settings.consult_cutoff_months),
+            'hospital': date.today() - relativedelta(months=settings.hospital_cutoff_months)
         }
         
         medical_data = {}
         
-        for data_type, cutoff_date in cutoff_dates.items():
-            documents = MedicalDocument.query.filter_by(
-                patient_id=patient.id,
-                document_type=data_type
-            ).filter(
-                MedicalDocument.date_created >= cutoff_date
-            ).order_by(MedicalDocument.date_created.desc()).all()
+        # Get documents by type within cutoff periods
+        for doc_type, cutoff_date in cutoff_dates.items():
+            documents = MedicalDocument.query.filter(
+                and_(
+                    MedicalDocument.patient_id == patient.id,
+                    MedicalDocument.document_type == doc_type.rstrip('s'),  # Remove 's' from plural
+                    MedicalDocument.document_date >= cutoff_date,
+                    MedicalDocument.is_processed == True
+                )
+            ).order_by(MedicalDocument.document_date.desc()).all()
             
-            formatted_docs = []
-            for doc in documents:
-                formatted_docs.append({
+            medical_data[doc_type] = [
+                {
                     'id': doc.id,
                     'filename': doc.filename,
-                    'date': doc.date_created,
-                    'confidence': doc.ocr_confidence,
-                    'has_ocr': doc.ocr_text is not None,
-                    'summary': self._generate_document_summary(doc)
-                })
-            
-            medical_data[data_type] = {
-                'documents': formatted_docs,
-                'count': len(formatted_docs),
-                'cutoff_date': cutoff_date,
-                'period_months': settings.get(f'{data_type}_cutoff_months', 12)
-            }
+                    'document_date': doc.document_date,
+                    'document_type': doc.document_type,
+                    'content_summary': doc.content_summary,
+                    'ocr_confidence': doc.ocr_confidence,
+                    'keywords_matched': doc.keywords_matched or []
+                }
+                for doc in documents
+            ]
         
         return medical_data
     
-    def _generate_quality_checklist(self, patient: Patient, settings: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate quality checklist section with screening status"""
-        screenings = Screening.query.filter_by(patient_id=patient.id)\
-            .join(Screening.screening_type)\
-            .filter_by(is_active=True)\
-            .order_by(Screening.status, Screening.next_due_date).all()
+    def _get_quality_checklist(self, patient):
+        """Generate quality checklist with screening information"""
+        screenings = Screening.query.filter_by(patient_id=patient.id).all()
         
-        screening_list = []
-        status_counts = {'Due': 0, 'Due Soon': 0, 'Complete': 0}
+        checklist_items = []
         
         for screening in screenings:
-            # Get matched documents
+            # Get matched documents for this screening
             matched_docs = []
             if screening.matched_documents:
-                docs = MedicalDocument.query.filter(
-                    MedicalDocument.id.in_(screening.matched_documents)
-                ).all()
-                
-                for doc in docs:
-                    matched_docs.append({
+                doc_ids = screening.matched_documents
+                matched_docs = MedicalDocument.query.filter(
+                    MedicalDocument.id.in_(doc_ids)
+                ).order_by(MedicalDocument.document_date.desc()).all()
+            
+            # Determine status color and priority
+            status_info = self._get_status_info(screening.status)
+            
+            checklist_item = {
+                'screening_name': screening.screening_type.name,
+                'status': screening.status,
+                'status_color': status_info['color'],
+                'priority': status_info['priority'],
+                'last_completed_date': screening.last_completed_date,
+                'next_due_date': screening.next_due_date,
+                'frequency': self._format_frequency(screening.screening_type),
+                'matched_documents': [
+                    {
                         'id': doc.id,
                         'filename': doc.filename,
-                        'date': doc.date_created,
-                        'confidence': doc.ocr_confidence
-                    })
-            
-            screening_item = {
-                'id': screening.id,
-                'name': screening.screening_type.name,
-                'status': screening.status,
-                'last_completed': screening.last_completed_date,
-                'next_due': screening.next_due_date,
-                'frequency': self._format_frequency(screening.screening_type),
-                'matched_documents': matched_docs,
-                'overdue_days': self._calculate_overdue_days(screening.next_due_date)
+                        'document_date': doc.document_date,
+                        'confidence': doc.ocr_confidence,
+                        'confidence_level': self._get_confidence_level(doc.ocr_confidence)
+                    }
+                    for doc in matched_docs
+                ],
+                'recommendations': self._get_screening_recommendations(screening)
             }
             
-            screening_list.append(screening_item)
-            status_counts[screening.status] = status_counts.get(screening.status, 0) + 1
+            checklist_items.append(checklist_item)
+        
+        # Sort by priority and status
+        checklist_items.sort(key=lambda x: (x['priority'], x['screening_name']))
         
         return {
-            'screenings': screening_list,
-            'status_summary': status_counts,
-            'total_screenings': len(screening_list),
-            'compliance_rate': self._calculate_compliance_rate(status_counts)
+            'items': checklist_items,
+            'summary': self._get_checklist_summary(checklist_items)
         }
     
-    def _generate_enhanced_data(self, patient: Patient, settings: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate enhanced medical data with document integration"""
-        # This section shows documents filtered by current screening cycles
-        enhanced_data = {}
-        
-        # Get all active screenings
-        screenings = Screening.query.filter_by(patient_id=patient.id)\
-            .join(Screening.screening_type)\
-            .filter_by(is_active=True).all()
-        
-        # Group documents by screening relevance
-        for screening in screenings:
-            if not screening.matched_documents:
-                continue
-            
-            relevant_docs = MedicalDocument.query.filter(
-                MedicalDocument.id.in_(screening.matched_documents)
-            ).filter(
-                self.filters.is_document_current(screening.screening_type)
-            ).all()
-            
-            if relevant_docs:
-                if screening.screening_type.name not in enhanced_data:
-                    enhanced_data[screening.screening_type.name] = []
-                
-                for doc in relevant_docs:
-                    enhanced_data[screening.screening_type.name].append({
-                        'id': doc.id,
-                        'filename': doc.filename,
-                        'date': doc.date_created,
-                        'type': doc.document_type,
-                        'confidence': doc.ocr_confidence,
-                        'is_recent': self.filters.is_document_recent(doc, 6)
-                    })
-        
-        return enhanced_data
-    
-    def _get_prep_sheet_settings(self, custom_settings: Dict[str, Any] = None) -> Dict[str, Any]:
-        """Get prep sheet generation settings"""
-        # Get default settings from database
-        db_settings = ChecklistSettings.query.first()
-        
-        default_settings = {
-            'lab_cutoff_months': 12,
-            'imaging_cutoff_months': 24,
-            'consult_cutoff_months': 12,
-            'hospital_cutoff_months': 24,
-            'default_items': []
+    def _get_status_info(self, status):
+        """Get status color and priority for screening status"""
+        status_mapping = {
+            'Overdue': {'color': 'danger', 'priority': 1},
+            'Due': {'color': 'warning', 'priority': 2},
+            'Due Soon': {'color': 'info', 'priority': 3},
+            'Complete': {'color': 'success', 'priority': 4}
         }
         
-        if db_settings:
-            default_settings.update({
-                'lab_cutoff_months': db_settings.lab_cutoff_months,
-                'imaging_cutoff_months': db_settings.imaging_cutoff_months,
-                'consult_cutoff_months': db_settings.consult_cutoff_months,
-                'hospital_cutoff_months': db_settings.hospital_cutoff_months,
-                'default_items': db_settings.default_items or []
-            })
+        return status_mapping.get(status, {'color': 'secondary', 'priority': 5})
+    
+    def _format_frequency(self, screening_type):
+        """Format screening frequency for display"""
+        frequency_parts = []
         
-        # Override with custom settings if provided
-        if custom_settings:
-            default_settings.update(custom_settings)
+        if screening_type.frequency_years:
+            frequency_parts.append(f"{screening_type.frequency_years} year{'s' if screening_type.frequency_years > 1 else ''}")
+        
+        if screening_type.frequency_months:
+            frequency_parts.append(f"{screening_type.frequency_months} month{'s' if screening_type.frequency_months > 1 else ''}")
+        
+        return ' '.join(frequency_parts) if frequency_parts else 'Not specified'
+    
+    def _get_confidence_level(self, confidence):
+        """Get confidence level category"""
+        if confidence is None:
+            return 'unknown'
+        elif confidence >= 80:
+            return 'high'
+        elif confidence >= 60:
+            return 'medium'
+        else:
+            return 'low'
+    
+    def _get_screening_recommendations(self, screening):
+        """Get recommendations for a screening based on its status"""
+        recommendations = []
+        
+        if screening.status == 'Overdue':
+            recommendations.append('Schedule immediately - screening is overdue')
+            recommendations.append('Review with patient during visit')
+        elif screening.status == 'Due':
+            recommendations.append('Schedule screening appointment')
+            recommendations.append('Discuss importance with patient')
+        elif screening.status == 'Due Soon':
+            recommendations.append('Consider scheduling in next 30 days')
+            recommendations.append('Mention upcoming need to patient')
+        elif screening.status == 'Complete':
+            if screening.next_due_date:
+                recommendations.append(f'Next screening due: {screening.next_due_date.strftime("%m/%d/%Y")}')
+        
+        # Add specific recommendations based on screening type
+        screening_specific = self._get_screening_specific_recommendations(screening)
+        recommendations.extend(screening_specific)
+        
+        return recommendations
+    
+    def _get_screening_specific_recommendations(self, screening):
+        """Get screening-type specific recommendations"""
+        screening_name = screening.screening_type.name.lower()
+        recommendations = []
+        
+        if 'mammogram' in screening_name:
+            recommendations.append('Coordinate with radiology department')
+            recommendations.append('Provide prep instructions if needed')
+        elif 'colonoscopy' in screening_name:
+            recommendations.append('Provide bowel prep instructions')
+            recommendations.append('Schedule pre-procedure consultation')
+        elif 'pap' in screening_name:
+            recommendations.append('Schedule with appropriate provider')
+            recommendations.append('Ensure patient preparation guidelines')
+        elif 'a1c' in screening_name and screening.status in ['Due', 'Overdue']:
+            recommendations.append('Can be done at this visit if lab available')
+            recommendations.append('Review diabetes management')
+        
+        return recommendations
+    
+    def _get_checklist_summary(self, checklist_items):
+        """Generate summary statistics for the checklist"""
+        total_items = len(checklist_items)
+        status_counts = {}
+        
+        for item in checklist_items:
+            status = item['status']
+            status_counts[status] = status_counts.get(status, 0) + 1
+        
+        overdue_count = status_counts.get('Overdue', 0)
+        due_count = status_counts.get('Due', 0)
+        due_soon_count = status_counts.get('Due Soon', 0)
+        complete_count = status_counts.get('Complete', 0)
+        
+        # Calculate compliance rate
+        compliant_count = complete_count + due_soon_count
+        compliance_rate = (compliant_count / total_items * 100) if total_items > 0 else 0
+        
+        return {
+            'total_screenings': total_items,
+            'overdue': overdue_count,
+            'due': due_count,
+            'due_soon': due_soon_count,
+            'complete': complete_count,
+            'compliance_rate': round(compliance_rate, 1),
+            'needs_attention': overdue_count + due_count,
+            'priority_actions': overdue_count > 0 or due_count > 0
+        }
+    
+    def _get_default_settings(self):
+        """Get default checklist settings"""
+        from models import ChecklistSettings
+        
+        default_settings = ChecklistSettings(
+            name='Default Settings',
+            lab_cutoff_months=12,
+            imaging_cutoff_months=24,
+            consult_cutoff_months=12,
+            hospital_cutoff_months=24
+        )
         
         return default_settings
     
-    def _format_gender(self, gender: str) -> str:
-        """Format gender for display"""
-        if not gender:
-            return 'Unknown'
-        
-        gender_map = {
-            'M': 'Male',
-            'F': 'Female',
-            'O': 'Other'
-        }
-        
-        return gender_map.get(gender.upper(), gender)
-    
-    def _format_frequency(self, screening_type) -> str:
-        """Format screening frequency for display"""
-        if not screening_type.frequency_number or not screening_type.frequency_unit:
-            return 'As needed'
-        
-        unit = screening_type.frequency_unit
-        number = screening_type.frequency_number
-        
-        if number == 1:
-            return f"Every {unit[:-1]}"  # Remove 's' from plural
-        else:
-            return f"Every {number} {unit}"
-    
-    def _calculate_overdue_days(self, next_due_date: Optional[date]) -> Optional[int]:
-        """Calculate how many days a screening is overdue"""
-        if not next_due_date:
-            return None
-        
-        today = date.today()
-        if next_due_date < today:
-            return (today - next_due_date).days
-        
-        return None
-    
-    def _calculate_compliance_rate(self, status_counts: Dict[str, int]) -> float:
-        """Calculate overall compliance rate"""
-        total = sum(status_counts.values())
-        if total == 0:
-            return 0.0
-        
-        compliant = status_counts.get('Complete', 0)
-        return round((compliant / total) * 100, 1)
-    
-    def _generate_document_summary(self, document: MedicalDocument) -> str:
-        """Generate a brief summary of document content"""
-        if document.ocr_text:
-            # Extract first meaningful sentence or important info
-            text = document.ocr_text.strip()
-            sentences = text.split('.')[:2]  # First two sentences
-            summary = '. '.join(sentences)
+    def generate_batch_prep_sheets(self, patient_ids):
+        """Generate prep sheets for multiple patients"""
+        try:
+            prep_sheets = {}
+            success_count = 0
+            error_count = 0
             
-            if len(summary) > 150:
-                summary = summary[:147] + '...'
+            for patient_id in patient_ids:
+                try:
+                    patient = Patient.query.get(patient_id)
+                    if patient:
+                        prep_data = self.generate_prep_sheet(patient)
+                        prep_sheets[patient_id] = prep_data
+                        success_count += 1
+                    else:
+                        prep_sheets[patient_id] = {'error': 'Patient not found'}
+                        error_count += 1
+                except Exception as e:
+                    prep_sheets[patient_id] = {'error': str(e)}
+                    error_count += 1
             
-            return summary
-        
-        return f"{document.document_type.title()} document from {document.date_created}"
+            self.logger.info(f"Batch prep sheet generation completed: {success_count} success, {error_count} errors")
+            
+            return {
+                'prep_sheets': prep_sheets,
+                'summary': {
+                    'total_requested': len(patient_ids),
+                    'successful': success_count,
+                    'errors': error_count,
+                    'generated_at': datetime.utcnow()
+                }
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error in batch prep sheet generation: {str(e)}")
+            raise
     
-    def export_prep_sheet_pdf(self, patient_id: int) -> bytes:
+    def export_prep_sheet_pdf(self, patient_id):
         """Export prep sheet as PDF (placeholder for future implementation)"""
         # This would integrate with a PDF generation library like ReportLab
-        prep_data = self.generate_prep_sheet(patient_id)
+        # For now, return the data that would be used for PDF generation
         
-        if not prep_data.get('success'):
-            raise ValueError("Failed to generate prep sheet data")
+        patient = Patient.query.get(patient_id)
+        if not patient:
+            raise ValueError(f"Patient {patient_id} not found")
         
-        # For now, return empty bytes - PDF generation would be implemented here
-        logger.warning("PDF export not yet implemented")
-        return b''
-    
-    def get_prep_sheet_template_data(self, patient_id: int) -> Dict[str, Any]:
-        """Get template-ready data for prep sheet rendering"""
-        prep_data = self.generate_prep_sheet(patient_id)
+        prep_data = self.generate_prep_sheet(patient)
         
-        if not prep_data.get('success'):
-            return {'error': prep_data.get('error', 'Unknown error')}
-        
-        return prep_data['prep_data']
+        return {
+            'format': 'pdf_data',
+            'patient_mrn': patient.mrn,
+            'prep_data': prep_data,
+            'export_timestamp': datetime.utcnow(),
+            'note': 'PDF generation would be implemented here'
+        }

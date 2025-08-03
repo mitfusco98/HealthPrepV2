@@ -1,819 +1,404 @@
 """
-Utility functions and helpers for the application.
-Common functionality used across different modules.
+Utility functions for prep sheet generation and caching
 """
-
-import os
-import re
-import json
 import logging
-from datetime import datetime, date, timedelta
-from typing import Dict, List, Any, Optional, Union, Tuple
-from werkzeug.utils import secure_filename
-from flask import current_app, request
+from datetime import datetime, timedelta
+from typing import Dict, List, Any, Optional
+from app import db
+from models import (Patient, PatientScreening, MedicalDocument, PatientCondition, 
+                   Appointment, ChecklistSettings, ScreeningDocumentMatch)
+import hashlib
+import json
 
-logger = logging.getLogger(__name__)
+def cache_timestamp():
+    """Generate cache-busting timestamp"""
+    return int(datetime.utcnow().timestamp())
 
-def format_date(date_obj: Union[date, datetime, str, None], format_string: str = '%Y-%m-%d') -> str:
-    """
-    Format date object to string
-    
-    Args:
-        date_obj: Date object to format
-        format_string: Format string for output
-        
-    Returns:
-        Formatted date string or empty string if None
-    """
-    if not date_obj:
-        return ''
-    
-    if isinstance(date_obj, str):
-        try:
-            date_obj = datetime.fromisoformat(date_obj).date()
-        except (ValueError, AttributeError):
-            return date_obj
-    
-    if isinstance(date_obj, datetime):
-        date_obj = date_obj.date()
-    
+def generate_prep_sheet_data(patient: Patient) -> Dict[str, Any]:
+    """Generate comprehensive prep sheet data for a patient"""
     try:
-        return date_obj.strftime(format_string)
-    except (AttributeError, ValueError):
-        return str(date_obj)
-
-def format_datetime(datetime_obj: Union[datetime, str, None], format_string: str = '%Y-%m-%d %H:%M:%S') -> str:
-    """
-    Format datetime object to string
-    
-    Args:
-        datetime_obj: Datetime object to format
-        format_string: Format string for output
+        logging.info(f"Generating prep sheet for patient {patient.mrn}")
         
-    Returns:
-        Formatted datetime string or empty string if None
-    """
-    if not datetime_obj:
-        return ''
-    
-    if isinstance(datetime_obj, str):
-        try:
-            datetime_obj = datetime.fromisoformat(datetime_obj)
-        except ValueError:
-            return datetime_obj
-    
-    try:
-        return datetime_obj.strftime(format_string)
-    except (AttributeError, ValueError):
-        return str(datetime_obj)
-
-def calculate_age(birth_date: Union[date, datetime, str]) -> Optional[int]:
-    """
-    Calculate age from birth date
-    
-    Args:
-        birth_date: Date of birth
+        # Import here to avoid circular imports
+        from prep_sheet.generator import PrepSheetGenerator
         
-    Returns:
-        Age in years or None if invalid date
-    """
+        generator = PrepSheetGenerator()
+        prep_data = generator.generate_prep_sheet(patient.id)
+        
+        return prep_data
+        
+    except Exception as e:
+        logging.error(f"Error generating prep sheet data for patient {patient.id}: {str(e)}")
+        raise
+
+def calculate_patient_age(birth_date: datetime) -> int:
+    """Calculate patient age from birth date"""
     if not birth_date:
-        return None
+        return 0
     
-    if isinstance(birth_date, str):
-        try:
-            birth_date = datetime.fromisoformat(birth_date).date()
-        except ValueError:
-            return None
+    today = datetime.now().date()
+    birth_date = birth_date.date() if isinstance(birth_date, datetime) else birth_date
     
-    if isinstance(birth_date, datetime):
-        birth_date = birth_date.date()
-    
-    try:
-        today = date.today()
-        age = today.year - birth_date.year
-        if today < date(today.year, birth_date.month, birth_date.day):
-            age -= 1
-        return age
-    except (AttributeError, ValueError):
-        return None
+    return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
 
-def parse_keywords(keywords_input: Union[str, List[str]]) -> List[str]:
-    """
-    Parse keywords from various input formats
-    
-    Args:
-        keywords_input: Keywords as string or list
-        
-    Returns:
-        List of cleaned keywords
-    """
-    if not keywords_input:
-        return []
-    
-    if isinstance(keywords_input, list):
-        return [kw.strip().lower() for kw in keywords_input if kw.strip()]
-    
-    if isinstance(keywords_input, str):
-        try:
-            # Try to parse as JSON first
-            parsed = json.loads(keywords_input)
-            if isinstance(parsed, list):
-                return [kw.strip().lower() for kw in parsed if kw.strip()]
-        except (json.JSONDecodeError, TypeError):
-            pass
-        
-        # Parse as comma-separated string
-        return [kw.strip().lower() for kw in keywords_input.split(',') if kw.strip()]
-    
-    return []
-
-def normalize_medical_term(term: str) -> str:
-    """
-    Normalize medical terminology for consistent matching
-    
-    Args:
-        term: Medical term to normalize
-        
-    Returns:
-        Normalized term
-    """
-    if not term:
-        return ''
-    
-    # Convert to lowercase
-    normalized = term.lower().strip()
-    
-    # Common medical term normalizations
-    normalizations = {
-        'hemoglobin a1c': 'a1c',
-        'hba1c': 'a1c',
-        'glycated hemoglobin': 'a1c',
-        'dual energy x-ray': 'dexa',
-        'dxa': 'dexa',
-        'electrocardiogram': 'ekg',
-        'ecg': 'ekg',
-        'complete blood count': 'cbc',
-        'blood pressure': 'bp'
+def format_screening_status(status: str) -> Dict[str, str]:
+    """Format screening status with appropriate styling"""
+    status_mapping = {
+        'due': {'class': 'badge bg-danger', 'text': 'Due'},
+        'due_soon': {'class': 'badge bg-warning', 'text': 'Due Soon'},
+        'complete': {'class': 'badge bg-success', 'text': 'Complete'},
+        'not_applicable': {'class': 'badge bg-secondary', 'text': 'N/A'}
     }
     
-    return normalizations.get(normalized, normalized)
+    return status_mapping.get(status, {'class': 'badge bg-secondary', 'text': status.title()})
 
-def validate_mrn(mrn: str) -> bool:
-    """
-    Validate Medical Record Number format
-    
-    Args:
-        mrn: MRN to validate
-        
-    Returns:
-        True if valid MRN format
-    """
-    if not mrn:
-        return False
-    
-    # MRN should be alphanumeric, typically 3-20 characters
-    pattern = re.compile(r'^[A-Z0-9]{3,20}$', re.IGNORECASE)
-    return bool(pattern.match(mrn.strip()))
-
-def sanitize_filename(filename: str) -> str:
-    """
-    Sanitize filename for safe storage
-    
-    Args:
-        filename: Original filename
-        
-    Returns:
-        Sanitized filename
-    """
-    if not filename:
-        return 'unnamed_file'
-    
-    # Use werkzeug's secure_filename and add timestamp
-    base_name = secure_filename(filename)
-    
-    # If secure_filename removes everything, use a default
-    if not base_name:
-        base_name = 'unnamed_file'
-    
-    # Add timestamp to prevent conflicts
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    name, ext = os.path.splitext(base_name)
-    
-    return f"{name}_{timestamp}{ext}"
-
-def get_file_extension(filename: str) -> str:
-    """
-    Get file extension from filename
-    
-    Args:
-        filename: Filename to analyze
-        
-    Returns:
-        File extension (lowercase, without dot)
-    """
-    if not filename or '.' not in filename:
-        return ''
-    
-    return filename.rsplit('.', 1)[1].lower()
-
-def is_allowed_file(filename: str, allowed_extensions: Optional[set] = None) -> bool:
-    """
-    Check if file extension is allowed
-    
-    Args:
-        filename: Filename to check
-        allowed_extensions: Set of allowed extensions (uses app config if None)
-        
-    Returns:
-        True if file extension is allowed
-    """
-    if not allowed_extensions:
-        allowed_extensions = current_app.config.get('ALLOWED_EXTENSIONS', set())
-    
-    extension = get_file_extension(filename)
-    return extension in allowed_extensions
-
-def format_file_size(size_bytes: int) -> str:
-    """
-    Format file size in human readable format
-    
-    Args:
-        size_bytes: Size in bytes
-        
-    Returns:
-        Formatted size string
-    """
-    if size_bytes == 0:
-        return "0 B"
-    
-    size_names = ["B", "KB", "MB", "GB", "TB"]
-    i = 0
-    
-    while size_bytes >= 1024 and i < len(size_names) - 1:
-        size_bytes /= 1024.0
-        i += 1
-    
-    return f"{size_bytes:.1f} {size_names[i]}"
-
-def get_confidence_level(confidence: Optional[float]) -> str:
-    """
-    Get confidence level category from confidence score
-    
-    Args:
-        confidence: Confidence score (0-100)
-        
-    Returns:
-        Confidence level string
-    """
+def format_confidence_level(confidence: Optional[float]) -> Dict[str, str]:
+    """Format OCR confidence level with color coding"""
     if confidence is None:
-        return 'unknown'
+        return {'class': 'badge bg-secondary', 'text': 'Unknown', 'level': 'unknown'}
     
-    if confidence >= 85:
-        return 'high'
-    elif confidence >= 70:
-        return 'medium'
-    elif confidence >= 50:
-        return 'low'
+    if confidence >= 0.9:
+        return {'class': 'badge bg-success', 'text': 'High', 'level': 'high'}
+    elif confidence >= 0.7:
+        return {'class': 'badge bg-warning', 'text': 'Medium', 'level': 'medium'}
+    elif confidence >= 0.5:
+        return {'class': 'badge bg-danger', 'text': 'Low', 'level': 'low'}
     else:
-        return 'very_low'
+        return {'class': 'badge bg-dark', 'text': 'Very Low', 'level': 'very_low'}
 
-def get_confidence_color(confidence: Optional[float]) -> str:
-    """
-    Get Bootstrap color class for confidence level
-    
-    Args:
-        confidence: Confidence score (0-100)
-        
-    Returns:
-        Bootstrap color class
-    """
-    level = get_confidence_level(confidence)
-    
-    color_map = {
-        'high': 'success',
-        'medium': 'warning',
-        'low': 'danger',
-        'very_low': 'dark',
-        'unknown': 'secondary'
+def get_document_icon(document_type: str) -> str:
+    """Get Font Awesome icon for document type"""
+    icon_mapping = {
+        'lab': 'fas fa-vial',
+        'imaging': 'fas fa-x-ray',
+        'consult': 'fas fa-stethoscope',
+        'hospital': 'fas fa-hospital',
+        'default': 'fas fa-file-medical'
     }
     
-    return color_map.get(level, 'secondary')
+    return icon_mapping.get(document_type, icon_mapping['default'])
 
-def parse_json_field(json_string: Union[str, dict, list, None]) -> Any:
-    """
-    Safely parse JSON field from database
+def format_document_date(doc_date: Optional[datetime]) -> str:
+    """Format document date for display"""
+    if not doc_date:
+        return 'Unknown'
     
-    Args:
-        json_string: JSON string or already parsed object
-        
-    Returns:
-        Parsed object or empty dict/list on error
-    """
-    if not json_string:
-        return {}
+    if isinstance(doc_date, str):
+        try:
+            doc_date = datetime.strptime(doc_date, '%Y-%m-%d').date()
+        except:
+            return doc_date
+    elif isinstance(doc_date, datetime):
+        doc_date = doc_date.date()
     
-    if isinstance(json_string, (dict, list)):
-        return json_string
-    
+    return doc_date.strftime('%m/%d/%Y')
+
+def calculate_screening_compliance_rate(patient_id: int) -> float:
+    """Calculate overall screening compliance rate for a patient"""
     try:
-        return json.loads(json_string)
-    except (json.JSONDecodeError, TypeError):
-        return {} if json_string.strip().startswith('{') else []
-
-def format_screening_frequency(frequency_value: int, frequency_unit: str) -> str:
-    """
-    Format screening frequency for display
-    
-    Args:
-        frequency_value: Frequency value
-        frequency_unit: Frequency unit ('months' or 'years')
+        total_screenings = PatientScreening.query.filter_by(patient_id=patient_id).count()
+        complete_screenings = PatientScreening.query.filter_by(
+            patient_id=patient_id,
+            status='complete'
+        ).count()
         
-    Returns:
-        Formatted frequency string
-    """
-    if not frequency_value or not frequency_unit:
-        return 'Not specified'
-    
-    unit_text = frequency_unit
+        if total_screenings == 0:
+            return 0.0
+        
+        return round((complete_screenings / total_screenings) * 100, 1)
+        
+    except Exception as e:
+        logging.error(f"Error calculating compliance rate for patient {patient_id}: {str(e)}")
+        return 0.0
+
+def get_overdue_screenings(patient_id: int) -> List[PatientScreening]:
+    """Get list of overdue screenings for a patient"""
+    try:
+        today = datetime.now().date()
+        
+        overdue_screenings = PatientScreening.query.filter_by(
+            patient_id=patient_id,
+            status='due'
+        ).filter(
+            PatientScreening.next_due_date < today
+        ).all()
+        
+        return overdue_screenings
+        
+    except Exception as e:
+        logging.error(f"Error getting overdue screenings for patient {patient_id}: {str(e)}")
+        return []
+
+def format_frequency_text(frequency_value: int, frequency_unit: str) -> str:
+    """Format screening frequency for display"""
     if frequency_value == 1:
-        unit_text = frequency_unit.rstrip('s')  # Remove 's' for singular
+        unit_text = frequency_unit.rstrip('s')  # Remove plural
+    else:
+        unit_text = frequency_unit
     
     return f"Every {frequency_value} {unit_text}"
 
-def get_status_badge_class(status: str) -> str:
-    """
-    Get Bootstrap badge class for screening status
+def generate_document_preview(document: MedicalDocument, max_length: int = 150) -> str:
+    """Generate a preview of document content"""
+    if not document.ocr_text:
+        return "No text content available"
     
-    Args:
-        status: Screening status
-        
-    Returns:
-        Bootstrap badge class
-    """
-    status_classes = {
-        'Complete': 'bg-success',
-        'Due Soon': 'bg-warning text-dark',
-        'Due': 'bg-danger',
-        'Overdue': 'bg-danger',
-        'Unknown': 'bg-secondary'
-    }
-    
-    return status_classes.get(status, 'bg-secondary')
-
-def truncate_text(text: str, max_length: int = 100, suffix: str = '...') -> str:
-    """
-    Truncate text to specified length
-    
-    Args:
-        text: Text to truncate
-        max_length: Maximum length
-        suffix: Suffix to add if truncated
-        
-    Returns:
-        Truncated text
-    """
-    if not text:
-        return ''
+    text = document.ocr_text.strip()
     
     if len(text) <= max_length:
         return text
     
-    return text[:max_length - len(suffix)] + suffix
+    # Try to find a sentence break
+    sentence_end = text[:max_length].rfind('.')
+    if sentence_end > max_length // 2:
+        return text[:sentence_end + 1]
+    
+    # Fall back to word boundary
+    space_index = text[:max_length].rfind(' ')
+    if space_index > max_length // 2:
+        return text[:space_index] + "..."
+    
+    return text[:max_length] + "..."
 
-def clean_text(text: str) -> str:
-    """
-    Clean text by removing extra whitespace and normalizing
-    
-    Args:
-        text: Text to clean
-        
-    Returns:
-        Cleaned text
-    """
-    if not text:
-        return ''
-    
-    # Remove extra whitespace
-    cleaned = re.sub(r'\s+', ' ', text.strip())
-    
-    # Remove common OCR artifacts
-    cleaned = re.sub(r'[^\w\s.,;:!?()\[\]{}/-]', '', cleaned)
-    
-    return cleaned
-
-def extract_medical_values(text: str) -> List[Dict[str, str]]:
-    """
-    Extract medical values and units from text
-    
-    Args:
-        text: Text to analyze
-        
-    Returns:
-        List of dictionaries with value and unit
-    """
-    if not text:
-        return []
-    
-    # Pattern for medical values with units
-    value_pattern = re.compile(
-        r'\b(\d+\.?\d*)\s*(mg/dL|mmol/L|ng/mL|pg/mL|IU/L|U/L|%|mmHg|bpm)\b',
-        re.IGNORECASE
-    )
-    
-    matches = value_pattern.findall(text)
-    
-    return [{'value': value, 'unit': unit} for value, unit in matches]
-
-def is_medical_document(filename: str, content: str = '') -> bool:
-    """
-    Determine if document appears to be medical based on filename and content
-    
-    Args:
-        filename: Document filename
-        content: Document content (optional)
-        
-    Returns:
-        True if appears to be medical document
-    """
-    if not filename:
-        return False
-    
-    filename_lower = filename.lower()
-    
-    # Medical keywords in filename
-    medical_keywords = [
-        'lab', 'test', 'result', 'report', 'imaging', 'xray', 'ct', 'mri',
-        'mammogram', 'ultrasound', 'blood', 'urine', 'pathology', 'biopsy',
-        'consult', 'discharge', 'admission', 'procedure', 'surgery'
-    ]
-    
-    if any(keyword in filename_lower for keyword in medical_keywords):
-        return True
-    
-    # Check content if provided
-    if content:
-        content_lower = content.lower()
-        medical_terms = [
-            'patient', 'diagnosis', 'treatment', 'medication', 'doctor',
-            'physician', 'hospital', 'clinic', 'medical', 'health'
-        ]
-        
-        if any(term in content_lower for term in medical_terms):
-            return True
-    
-    return False
-
-def get_user_timezone() -> str:
-    """
-    Get user timezone from request or default
-    
-    Returns:
-        Timezone string
-    """
-    # For now, return UTC. Could be enhanced to detect user timezone
-    return 'UTC'
-
-def convert_to_user_timezone(datetime_obj: datetime, timezone: str = None) -> datetime:
-    """
-    Convert datetime to user timezone
-    
-    Args:
-        datetime_obj: Datetime to convert
-        timezone: Target timezone (uses user timezone if None)
-        
-    Returns:
-        Converted datetime
-    """
-    # Placeholder implementation - would use pytz in production
-    return datetime_obj
-
-def log_user_action(action: str, description: str = None, level: str = 'INFO'):
-    """
-    Log user action with context
-    
-    Args:
-        action: Action being performed
-        description: Action description
-        level: Log level
-    """
+def get_screening_document_matches(screening_id: int) -> List[Dict[str, Any]]:
+    """Get formatted document matches for a screening"""
     try:
-        from flask_login import current_user
+        matches = ScreeningDocumentMatch.query.filter_by(screening_id=screening_id).all()
         
-        user_info = 'anonymous'
-        if current_user.is_authenticated:
-            user_info = current_user.username
+        formatted_matches = []
+        for match in matches:
+            doc = match.document
+            formatted_matches.append({
+                'document_id': doc.id,
+                'filename': doc.original_filename or doc.filename,
+                'date': format_document_date(doc.document_date),
+                'confidence': match.match_confidence,
+                'confidence_display': format_confidence_level(match.match_confidence),
+                'document_type': doc.document_type,
+                'icon': get_document_icon(doc.document_type),
+                'preview': generate_document_preview(doc, 100)
+            })
         
-        ip_address = request.remote_addr if request else 'unknown'
+        # Sort by confidence and date
+        formatted_matches.sort(key=lambda x: (x['confidence'] or 0, x['date']), reverse=True)
         
-        log_message = f"User {user_info} ({ip_address}): {action}"
-        if description:
-            log_message += f" - {description}"
+        return formatted_matches
         
-        if level.upper() == 'ERROR':
-            logger.error(log_message)
-        elif level.upper() == 'WARNING':
-            logger.warning(log_message)
-        else:
-            logger.info(log_message)
-            
     except Exception as e:
-        logger.error(f"Error logging user action: {str(e)}")
-
-def generate_unique_id(prefix: str = '') -> str:
-    """
-    Generate unique ID with optional prefix
-    
-    Args:
-        prefix: Prefix for the ID
-        
-    Returns:
-        Unique ID string
-    """
-    import uuid
-    
-    unique_id = str(uuid.uuid4())[:8]
-    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-    
-    if prefix:
-        return f"{prefix}_{timestamp}_{unique_id}"
-    else:
-        return f"{timestamp}_{unique_id}"
-
-def chunk_list(items: List[Any], chunk_size: int) -> List[List[Any]]:
-    """
-    Split list into chunks
-    
-    Args:
-        items: List to chunk
-        chunk_size: Size of each chunk
-        
-    Returns:
-        List of chunks
-    """
-    return [items[i:i + chunk_size] for i in range(0, len(items), chunk_size)]
-
-def merge_dicts(*dicts: Dict[Any, Any]) -> Dict[Any, Any]:
-    """
-    Merge multiple dictionaries
-    
-    Args:
-        *dicts: Dictionaries to merge
-        
-    Returns:
-        Merged dictionary
-    """
-    result = {}
-    for d in dicts:
-        if d:
-            result.update(d)
-    return result
-
-def safe_int(value: Any, default: int = 0) -> int:
-    """
-    Safely convert value to integer
-    
-    Args:
-        value: Value to convert
-        default: Default value if conversion fails
-        
-    Returns:
-        Integer value or default
-    """
-    try:
-        return int(value)
-    except (ValueError, TypeError):
-        return default
-
-def safe_float(value: Any, default: float = 0.0) -> float:
-    """
-    Safely convert value to float
-    
-    Args:
-        value: Value to convert
-        default: Default value if conversion fails
-        
-    Returns:
-        Float value or default
-    """
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return default
-
-def get_client_ip() -> str:
-    """
-    Get client IP address from request
-    
-    Returns:
-        Client IP address
-    """
-    try:
-        if request.environ.get('HTTP_X_FORWARDED_FOR'):
-            return request.environ['HTTP_X_FORWARDED_FOR'].split(',')[0].strip()
-        elif request.environ.get('HTTP_X_REAL_IP'):
-            return request.environ['HTTP_X_REAL_IP']
-        else:
-            return request.environ.get('REMOTE_ADDR', 'unknown')
-    except Exception:
-        return 'unknown'
-
-def is_safe_url(target: str) -> bool:
-    """
-    Check if URL is safe for redirects
-    
-    Args:
-        target: Target URL to check
-        
-    Returns:
-        True if URL is safe
-    """
-    if not target:
-        return False
-    
-    # Simple check - more sophisticated validation needed for production
-    return target.startswith('/') and not target.startswith('//')
-
-class MedicalTerminologyHelper:
-    """Helper class for medical terminology operations"""
-    
-    @staticmethod
-    def normalize_condition_name(condition: str) -> str:
-        """Normalize condition name for consistent matching"""
-        if not condition:
-            return ''
-        
-        condition_lower = condition.lower().strip()
-        
-        # Common condition normalizations
-        normalizations = {
-            'diabetes mellitus': 'diabetes',
-            'type 1 diabetes mellitus': 'type 1 diabetes',
-            'type 2 diabetes mellitus': 'type 2 diabetes',
-            'essential hypertension': 'hypertension',
-            'high blood pressure': 'hypertension',
-            'coronary artery disease': 'cad',
-            'chronic obstructive pulmonary disease': 'copd'
-        }
-        
-        return normalizations.get(condition_lower, condition_lower)
-    
-    @staticmethod
-    def get_condition_synonyms(condition: str) -> List[str]:
-        """Get list of synonyms for a medical condition"""
-        condition_lower = condition.lower().strip()
-        
-        synonyms_map = {
-            'diabetes': ['diabetes mellitus', 'dm', 'type 1 diabetes', 'type 2 diabetes'],
-            'hypertension': ['high blood pressure', 'htn', 'elevated blood pressure'],
-            'hyperlipidemia': ['high cholesterol', 'dyslipidemia', 'lipid disorder'],
-            'cad': ['coronary artery disease', 'heart disease', 'coronary heart disease'],
-            'copd': ['chronic obstructive pulmonary disease', 'emphysema']
-        }
-        
-        return synonyms_map.get(condition_lower, [])
-    
-    @staticmethod
-    def is_chronic_condition(condition: str) -> bool:
-        """Check if condition is typically chronic"""
-        condition_lower = condition.lower().strip()
-        
-        chronic_conditions = [
-            'diabetes', 'hypertension', 'hyperlipidemia', 'cad', 'copd',
-            'asthma', 'arthritis', 'osteoporosis', 'chronic kidney disease'
-        ]
-        
-        return any(chronic in condition_lower for chronic in chronic_conditions)
-
-class PrepSheetHelper:
-    """Helper class for prep sheet operations"""
-    
-    @staticmethod
-    def categorize_document_by_name(filename: str) -> str:
-        """Categorize document based on filename"""
-        if not filename:
-            return 'other'
-        
-        filename_lower = filename.lower()
-        
-        categories = {
-            'lab': ['lab', 'blood', 'urine', 'chemistry', 'hematology', 'microbiology'],
-            'imaging': ['xray', 'ct', 'mri', 'ultrasound', 'mammogram', 'scan', 'radiology'],
-            'consult': ['consult', 'specialist', 'referral', 'cardiology', 'endocrinology'],
-            'hospital': ['discharge', 'admission', 'inpatient', 'hospital', 'er', 'emergency'],
-            'screening': ['screening', 'mammogram', 'colonoscopy', 'dexa', 'pap']
-        }
-        
-        for category, keywords in categories.items():
-            if any(keyword in filename_lower for keyword in keywords):
-                return category
-        
-        return 'other'
-    
-    @staticmethod
-    def get_document_priority(document_type: str, document_date: date) -> int:
-        """Get document priority for sorting (lower number = higher priority)"""
-        priority_map = {
-            'lab': 1,
-            'screening': 2,
-            'imaging': 3,
-            'consult': 4,
-            'hospital': 5,
-            'other': 6
-        }
-        
-        base_priority = priority_map.get(document_type, 6)
-        
-        # Boost priority for recent documents
-        if document_date:
-            days_old = (date.today() - document_date).days
-            if days_old <= 7:
-                base_priority -= 1
-            elif days_old <= 30:
-                base_priority -= 0.5
-        
-        return base_priority
-"""
-Utility functions for the screening application
-"""
-
-import json
-import re
-from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta
-
-def parse_keywords(keywords_string):
-    """Parse comma-separated keywords string into a list"""
-    if not keywords_string:
+        logging.error(f"Error getting document matches for screening {screening_id}: {str(e)}")
         return []
-    
-    # Split by comma and clean up
-    keywords = [keyword.strip().lower() for keyword in keywords_string.split(',')]
-    return [kw for kw in keywords if kw]  # Remove empty strings
 
-def calculate_next_due_date(last_completed, frequency_value, frequency_unit):
-    """Calculate when the next screening is due"""
-    if not last_completed:
+def validate_date_string(date_string: str) -> Optional[datetime]:
+    """Validate and parse date string"""
+    if not date_string:
         return None
     
-    if frequency_unit == 'days':
-        return last_completed + timedelta(days=frequency_value)
-    elif frequency_unit == 'months':
-        return last_completed + relativedelta(months=frequency_value)
-    elif frequency_unit == 'years':
-        return last_completed + relativedelta(years=frequency_value)
+    date_formats = [
+        '%Y-%m-%d',
+        '%m/%d/%Y',
+        '%m-%d-%Y',
+        '%Y/%m/%d'
+    ]
+    
+    for fmt in date_formats:
+        try:
+            return datetime.strptime(date_string, fmt)
+        except ValueError:
+            continue
     
     return None
 
-def is_due_soon(next_due_date, days_threshold=30):
-    """Check if a screening is due soon (within threshold days)"""
-    if not next_due_date:
-        return False
+def sanitize_filename(filename: str) -> str:
+    """Sanitize filename for safe storage"""
+    import re
     
-    today = datetime.now().date()
-    threshold_date = today + timedelta(days=days_threshold)
+    # Remove or replace unsafe characters
+    filename = re.sub(r'[<>:"/\\|?*]', '_', filename)
     
-    return today <= next_due_date <= threshold_date
+    # Remove multiple consecutive underscores
+    filename = re.sub(r'_+', '_', filename)
+    
+    # Limit length
+    if len(filename) > 255:
+        name, ext = filename.rsplit('.', 1) if '.' in filename else (filename, '')
+        max_name_length = 255 - len(ext) - 1
+        filename = name[:max_name_length] + '.' + ext if ext else name[:255]
+    
+    return filename
 
-def determine_screening_status(last_completed, frequency_value, frequency_unit):
-    """Determine the current status of a screening"""
-    if not last_completed:
-        return 'due'
-    
-    next_due = calculate_next_due_date(last_completed, frequency_value, frequency_unit)
-    if not next_due:
-        return 'due'
-    
-    today = datetime.now().date()
-    
-    if next_due < today:
-        return 'due'
-    elif is_due_soon(next_due):
-        return 'due_soon'
-    else:
-        return 'complete'
-
-def format_frequency(frequency_value, frequency_unit):
-    """Format frequency for display"""
-    if frequency_value == 1:
-        unit_map = {'days': 'day', 'months': 'month', 'years': 'year'}
-        return f"Every {unit_map.get(frequency_unit, frequency_unit)}"
-    else:
-        return f"Every {frequency_value} {frequency_unit}"
-
-def safe_json_loads(json_string, default=None):
-    """Safely load JSON string, return default if invalid"""
-    if default is None:
-        default = []
-    
+def generate_patient_summary(patient: Patient) -> Dict[str, Any]:
+    """Generate patient summary statistics"""
     try:
-        return json.loads(json_string) if json_string else default
-    except (json.JSONDecodeError, TypeError):
-        return default
+        # Get screening statistics
+        total_screenings = PatientScreening.query.filter_by(patient_id=patient.id).count()
+        due_screenings = PatientScreening.query.filter_by(patient_id=patient.id, status='due').count()
+        complete_screenings = PatientScreening.query.filter_by(patient_id=patient.id, status='complete').count()
+        
+        # Get document statistics
+        total_documents = MedicalDocument.query.filter_by(patient_id=patient.id).count()
+        recent_documents = MedicalDocument.query.filter_by(patient_id=patient.id).filter(
+            MedicalDocument.created_at >= datetime.utcnow() - timedelta(days=30)
+        ).count()
+        
+        # Get condition count
+        active_conditions = PatientCondition.query.filter_by(
+            patient_id=patient.id,
+            status='active'
+        ).count()
+        
+        # Get last appointment
+        last_appointment = Appointment.query.filter_by(patient_id=patient.id).order_by(
+            Appointment.appointment_date.desc()
+        ).first()
+        
+        return {
+            'screenings': {
+                'total': total_screenings,
+                'due': due_screenings,
+                'complete': complete_screenings,
+                'compliance_rate': calculate_screening_compliance_rate(patient.id)
+            },
+            'documents': {
+                'total': total_documents,
+                'recent': recent_documents
+            },
+            'conditions': {
+                'active': active_conditions
+            },
+            'last_appointment': {
+                'date': last_appointment.appointment_date.strftime('%Y-%m-%d') if last_appointment else None,
+                'type': last_appointment.appointment_type if last_appointment else None
+            }
+        }
+        
+    except Exception as e:
+        logging.error(f"Error generating patient summary for {patient.id}: {str(e)}")
+        return {
+            'screenings': {'total': 0, 'due': 0, 'complete': 0, 'compliance_rate': 0},
+            'documents': {'total': 0, 'recent': 0},
+            'conditions': {'active': 0},
+            'last_appointment': {'date': None, 'type': None}
+        }
 
-def safe_json_dumps(data):
-    """Safely dump data to JSON string"""
+def get_system_health_status() -> Dict[str, Any]:
+    """Get system health status for monitoring"""
     try:
-        return json.dumps(data) if data else None
-    except (TypeError, ValueError):
-        return None
+        # Database connectivity
+        db_healthy = True
+        try:
+            db.session.execute(db.text('SELECT 1')).scalar()
+        except:
+            db_healthy = False
+        
+        # Get basic statistics
+        total_patients = Patient.query.count()
+        total_documents = MedicalDocument.query.count()
+        processed_documents = MedicalDocument.query.filter(
+            MedicalDocument.ocr_text.isnot(None)
+        ).count()
+        
+        # Calculate processing rate
+        processing_rate = (processed_documents / max(total_documents, 1)) * 100
+        
+        return {
+            'status': 'healthy' if db_healthy and processing_rate > 50 else 'warning',
+            'database_connected': db_healthy,
+            'total_patients': total_patients,
+            'total_documents': total_documents,
+            'processing_rate': round(processing_rate, 1),
+            'last_checked': datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logging.error(f"Error checking system health: {str(e)}")
+        return {
+            'status': 'error',
+            'error': str(e),
+            'last_checked': datetime.utcnow().isoformat()
+        }
+
+def create_audit_hash(data: Dict[str, Any]) -> str:
+    """Create audit hash for data integrity verification"""
+    # Convert data to JSON string and create hash
+    data_string = json.dumps(data, sort_keys=True, default=str)
+    return hashlib.sha256(data_string.encode()).hexdigest()
+
+def mask_phi_in_logs(message: str) -> str:
+    """Mask potential PHI in log messages"""
+    import re
+    
+    # Mask SSN patterns
+    message = re.sub(r'\b\d{3}-\d{2}-\d{4}\b', 'XXX-XX-XXXX', message)
+    
+    # Mask phone numbers
+    message = re.sub(r'\b\(\d{3}\)\s*\d{3}-\d{4}\b', '(XXX) XXX-XXXX', message)
+    message = re.sub(r'\b\d{3}-\d{3}-\d{4}\b', 'XXX-XXX-XXXX', message)
+    
+    # Mask potential MRN patterns
+    message = re.sub(r'\bMRN\s*:?\s*\d+\b', 'MRN: XXXXXXXX', message, flags=re.IGNORECASE)
+    
+    return message
+
+class PerformanceMonitor:
+    """Performance monitoring utilities"""
+    
+    @staticmethod
+    def log_performance_metric(operation: str, duration_seconds: float, details: Dict[str, Any] = None):
+        """Log performance metrics for monitoring"""
+        try:
+            from models import AdminLog
+            from app import db
+            
+            metric_details = {
+                'operation': operation,
+                'duration_seconds': duration_seconds,
+                'details': details or {}
+            }
+            
+            log_entry = AdminLog(
+                action='performance_metric',
+                details=json.dumps(metric_details),
+                ip_address='system',
+                user_agent='PerformanceMonitor'
+            )
+            db.session.add(log_entry)
+            db.session.commit()
+            
+        except Exception as e:
+            logging.error(f"Error logging performance metric: {str(e)}")
+    
+    @staticmethod
+    def time_operation(operation_name: str):
+        """Decorator to time operations"""
+        def decorator(func):
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                start_time = datetime.utcnow()
+                try:
+                    result = func(*args, **kwargs)
+                    end_time = datetime.utcnow()
+                    duration = (end_time - start_time).total_seconds()
+                    
+                    PerformanceMonitor.log_performance_metric(
+                        operation_name, 
+                        duration,
+                        {'success': True}
+                    )
+                    
+                    return result
+                    
+                except Exception as e:
+                    end_time = datetime.utcnow()
+                    duration = (end_time - start_time).total_seconds()
+                    
+                    PerformanceMonitor.log_performance_metric(
+                        operation_name,
+                        duration,
+                        {'success': False, 'error': str(e)}
+                    )
+                    
+                    raise
+            
+            return wrapper
+        return decorator
+

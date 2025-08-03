@@ -20,4 +20,7 @@ dependencies = [
     "pillow>=11.3.0",
     "pytesseract>=0.3.13",
     "pdf2image>=1.17.0",
+    "oauthlib>=3.3.1",
+    "pyjwt>=2.10.1",
+    "flask-dance>=7.1.0",
 ]

@@ -1,240 +1,361 @@
-<!-- Checklist Settings Tab Content -->
-<div class="row">
-    <div class="col-12">
-        <!-- Header -->
-        <div class="mb-4">
-            <h5 class="mb-1">
-                <i class="fas fa-sliders-h text-primary me-2"></i>
-                Preparation Sheet Settings
-            </h5>
-            <p class="text-muted mb-0">Configure data cutoff periods for medical information included in preparation sheets</p>
-        </div>
+{% extends 'base_demo.html' %}
 
-        <div class="row">
-            <div class="col-lg-8">
-                <!-- Settings Form -->
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="mb-0">
-                            <i class="fas fa-cog me-2"></i>Data Cutoff Configuration
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <form method="POST" action="{{ url_for('ui.update_checklist_settings') }}">
-                            {{ csrf_token() }}
-                            
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label for="lab_cutoff_months" class="form-label">
-                                        <i class="fas fa-vial text-info me-1"></i>Laboratory Results
-                                    </label>
-                                    <div class="input-group">
-                                        <input type="number" 
-                                               class="form-control" 
-                                               id="lab_cutoff_months" 
-                                               name="lab_cutoff_months" 
-                                               value="{{ settings.lab_cutoff_months if settings else 12 }}"
-                                               min="1" 
-                                               max="120" 
-                                               required>
-                                        <span class="input-group-text">months</span>
-                                    </div>
-                                    <div class="form-text">Include lab results from the last N months</div>
-                                </div>
-                                
-                                <div class="col-md-6">
-                                    <label for="imaging_cutoff_months" class="form-label">
-                                        <i class="fas fa-x-ray text-warning me-1"></i>Imaging Studies
-                                    </label>
-                                    <div class="input-group">
-                                        <input type="number" 
-                                               class="form-control" 
-                                               id="imaging_cutoff_months" 
-                                               name="imaging_cutoff_months" 
-                                               value="{{ settings.imaging_cutoff_months if settings else 24 }}"
-                                               min="1" 
-                                               max="120" 
-                                               required>
-                                        <span class="input-group-text">months</span>
-                                    </div>
-                                    <div class="form-text">Include imaging studies from the last N months</div>
-                                </div>
-                                
-                                <div class="col-md-6">
-                                    <label for="consult_cutoff_months" class="form-label">
-                                        <i class="fas fa-user-md text-success me-1"></i>Specialist Consults
-                                    </label>
-                                    <div class="input-group">
-                                        <input type="number" 
-                                               class="form-control" 
-                                               id="consult_cutoff_months" 
-                                               name="consult_cutoff_months" 
-                                               value="{{ settings.consult_cutoff_months if settings else 12 }}"
-                                               min="1" 
-                                               max="120" 
-                                               required>
-                                        <span class="input-group-text">months</span>
-                                    </div>
-                                    <div class="form-text">Include consultation notes from the last N months</div>
-                                </div>
-                                
-                                <div class="col-md-6">
-                                    <label for="hospital_cutoff_months" class="form-label">
-                                        <i class="fas fa-hospital text-danger me-1"></i>Hospital Records
-                                    </label>
-                                    <div class="input-group">
-                                        <input type="number" 
-                                               class="form-control" 
-                                               id="hospital_cutoff_months" 
-                                               name="hospital_cutoff_months" 
-                                               value="{{ settings.hospital_cutoff_months if settings else 24 }}"
-                                               min="1" 
-                                               max="120" 
-                                               required>
-                                        <span class="input-group-text">months</span>
-                                    </div>
-                                    <div class="form-text">Include hospital records from the last N months</div>
+{% block title %}Checklist Settings - HealthPrep{% endblock %}
+
+{% block extra_css %}
+<style>
+.settings-section {
+    background-color: #f8f9fa;
+    border-radius: 0.375rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.setting-item {
+    border-bottom: 1px solid #dee2e6;
+    padding: 1rem 0;
+}
+
+.setting-item:last-child {
+    border-bottom: none;
+}
+
+.setting-value {
+    font-weight: 600;
+    color: #0d6efd;
+}
+
+.cutoff-preview {
+    background-color: #e3f2fd;
+    border: 1px solid #bbdefb;
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.form-help {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- Page Header -->
+            <div class="d-flex align-items-center mb-4">
+                <a href="{{ url_for('screening.screening_list') }}" class="btn btn-outline-secondary me-3">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-sliders-h me-2"></i>
+                        Checklist Settings
+                    </h1>
+                    <p class="text-muted mb-0">Configure prep sheet and checklist generation settings</p>
+                </div>
+            </div>
+
+            <!-- Current Settings Summary -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Current Settings Summary
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary mb-3">Document Cutoff Periods</h6>
+                            <div class="setting-item">
+                                <div class="d-flex justify-content-between">
+                                    <span>Laboratory Results:</span>
+                                    <span class="setting-value">{{ settings.lab_cutoff_months }} months</span>
                                 </div>
                             </div>
-                            
-                            <hr class="my-4">
-                            
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    {% if settings and settings.updated_at %}
-                                        <small class="text-muted">
-                                            <i class="fas fa-clock me-1"></i>
-                                            Last updated: {{ last_updated }}
-                                        </small>
-                                    {% endif %}
-                                </div>
-                                <div class="btn-group" role="group">
-                                    <button type="button" class="btn btn-outline-secondary" onclick="resetToDefaults()">
-                                        <i class="fas fa-undo me-1"></i>Reset to Defaults
-                                    </button>
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-save me-1"></i>Save Settings
-                                    </button>
+                            <div class="setting-item">
+                                <div class="d-flex justify-content-between">
+                                    <span>Imaging Studies:</span>
+                                    <span class="setting-value">{{ settings.imaging_cutoff_months }} months</span>
                                 </div>
                             </div>
-                        </form>
+                            <div class="setting-item">
+                                <div class="d-flex justify-content-between">
+                                    <span>Specialist Consults:</span>
+                                    <span class="setting-value">{{ settings.consult_cutoff_months }} months</span>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="d-flex justify-content-between">
+                                    <span>Hospital Visits:</span>
+                                    <span class="setting-value">{{ settings.hospital_cutoff_months }} months</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-primary mb-3">Checklist Configuration</h6>
+                            <div class="setting-item">
+                                <div class="d-flex justify-content-between">
+                                    <span>Default Items:</span>
+                                    <span class="setting-value">
+                                        {% if settings.default_items %}
+                                            {{ (settings.default_items | from_json | length) if settings.default_items else 0 }} configured
+                                        {% else %}
+                                            0 configured
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <div class="d-flex justify-content-between">
+                                    <span>Status Options:</span>
+                                    <span class="setting-value">
+                                        {% if settings.status_options %}
+                                            {{ (settings.status_options | from_json | length) if settings.status_options else 0 }} configured
+                                        {% else %}
+                                            0 configured
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            
-            <div class="col-lg-4">
-                <!-- Settings Summary -->
-                <div class="card mb-3">
-                    <div class="card-header">
-                        <h6 class="mb-0">
-                            <i class="fas fa-info-circle me-2"></i>Current Settings Summary
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="setting-item mb-3">
-                            <div class="d-flex justify-content-between">
-                                <span class="text-muted">Laboratory Results:</span>
-                                <span class="fw-bold">{{ settings.lab_cutoff_months if settings else 12 }} months</span>
-                            </div>
-                        </div>
-                        <div class="setting-item mb-3">
-                            <div class="d-flex justify-content-between">
-                                <span class="text-muted">Imaging Studies:</span>
-                                <span class="fw-bold">{{ settings.imaging_cutoff_months if settings else 24 }} months</span>
-                            </div>
-                        </div>
-                        <div class="setting-item mb-3">
-                            <div class="d-flex justify-content-between">
-                                <span class="text-muted">Specialist Consults:</span>
-                                <span class="fw-bold">{{ settings.consult_cutoff_months if settings else 12 }} months</span>
-                            </div>
-                        </div>
-                        <div class="setting-item">
-                            <div class="d-flex justify-content-between">
-                                <span class="text-muted">Hospital Records:</span>
-                                <span class="fw-bold">{{ settings.hospital_cutoff_months if settings else 24 }} months</span>
-                            </div>
-                        </div>
-                    </div>
+
+            <!-- Settings Form -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-cog me-2"></i>
+                        Update Settings
+                    </h5>
                 </div>
-                
-                <!-- Guidelines -->
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="mb-0">
-                            <i class="fas fa-lightbulb me-2"></i>Configuration Guidelines
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="guidelines">
-                            <div class="guideline-item mb-3">
-                                <h6 class="text-primary mb-1">
-                                    <i class="fas fa-vial me-1"></i>Laboratory Results
-                                </h6>
-                                <small class="text-muted">
-                                    Typically 6-12 months. Include recent lab work for trending analysis.
-                                </small>
-                            </div>
-                            
-                            <div class="guideline-item mb-3">
-                                <h6 class="text-warning mb-1">
-                                    <i class="fas fa-x-ray me-1"></i>Imaging Studies
-                                </h6>
-                                <small class="text-muted">
-                                    Usually 12-24 months. Longer periods help track changes over time.
-                                </small>
-                            </div>
-                            
-                            <div class="guideline-item mb-3">
-                                <h6 class="text-success mb-1">
-                                    <i class="fas fa-user-md me-1"></i>Specialist Consults
-                                </h6>
-                                <small class="text-muted">
-                                    Generally 6-12 months. Include recent specialist recommendations.
-                                </small>
-                            </div>
-                            
-                            <div class="guideline-item">
-                                <h6 class="text-danger mb-1">
-                                    <i class="fas fa-hospital me-1"></i>Hospital Records
-                                </h6>
-                                <small class="text-muted">
-                                    Often 12-24 months. Important for understanding recent medical events.
-                                </small>
+                <div class="card-body">
+                    <form method="POST" id="checklistSettingsForm">
+                        {{ form.hidden_tag() }}
+
+                        <!-- Document Cutoff Settings -->
+                        <div class="settings-section">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-calendar-alt me-2"></i>
+                                Document Cutoff Settings
+                            </h6>
+                            <p class="text-muted mb-4">
+                                Configure how far back to look for medical documents when generating prep sheets.
+                                Documents older than these periods will be excluded from prep sheets.
+                            </p>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        {{ form.lab_cutoff_months.label(class="form-label") }}
+                                        {{ form.lab_cutoff_months(class="form-control", id="lab_cutoff") }}
+                                        <div class="form-help">
+                                            How far back to include laboratory results
+                                        </div>
+                                        <div class="cutoff-preview" id="lab_preview">
+                                            Documents from the last {{ settings.lab_cutoff_months }} months will be included
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        {{ form.imaging_cutoff_months.label(class="form-label") }}
+                                        {{ form.imaging_cutoff_months(class="form-control", id="imaging_cutoff") }}
+                                        <div class="form-help">
+                                            How far back to include imaging studies
+                                        </div>
+                                        <div class="cutoff-preview" id="imaging_preview">
+                                            Documents from the last {{ settings.imaging_cutoff_months }} months will be included
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        {{ form.consult_cutoff_months.label(class="form-label") }}
+                                        {{ form.consult_cutoff_months(class="form-control", id="consult_cutoff") }}
+                                        <div class="form-help">
+                                            How far back to include specialist consults
+                                        </div>
+                                        <div class="cutoff-preview" id="consult_preview">
+                                            Documents from the last {{ settings.consult_cutoff_months }} months will be included
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        {{ form.hospital_cutoff_months.label(class="form-label") }}
+                                        {{ form.hospital_cutoff_months(class="form-control", id="hospital_cutoff") }}
+                                        <div class="form-help">
+                                            How far back to include hospital visits
+                                        </div>
+                                        <div class="cutoff-preview" id="hospital_preview">
+                                            Documents from the last {{ settings.hospital_cutoff_months }} months will be included
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
+
+                        <!-- Default Checklist Items -->
+                        <div class="settings-section">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-list-check me-2"></i>
+                                Default Checklist Items
+                            </h6>
+                            <p class="text-muted mb-3">
+                                Define default items that will be included in all prep sheet checklists.
+                                Enter one item per line.
+                            </p>
+
+                            <div class="mb-3">
+                                {{ form.default_items.label(class="form-label") }}
+                                {{ form.default_items(class="form-control", rows="6") }}
+                                <div class="form-help">
+                                    Common examples: "Review current medications", "Update allergy list", "Verify insurance information"
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Status Options -->
+                        <div class="settings-section">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-tags me-2"></i>
+                                Checklist Status Options
+                            </h6>
+                            <p class="text-muted mb-3">
+                                Define available status options for checklist items.
+                                Enter one status per line.
+                            </p>
+
+                            <div class="mb-3">
+                                {{ form.status_options.label(class="form-label") }}
+                                {{ form.status_options(class="form-control", rows="4") }}
+                                <div class="form-help">
+                                    Common examples: "Complete", "Pending", "Not Applicable", "In Progress"
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('screening.screening_list') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Cancel
+                            </a>
+                            <div>
+                                <button type="button" class="btn btn-outline-info me-2" onclick="resetToDefaults()">
+                                    <i class="fas fa-undo me-1"></i>Reset to Defaults
+                                </button>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-1"></i>Save Settings
+                                </button>
+                            </div>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
-function resetToDefaults() {
-    if (confirm('Reset all settings to default values? This will set lab/consult cutoffs to 12 months and imaging/hospital cutoffs to 24 months.')) {
-        document.getElementById('lab_cutoff_months').value = 12;
-        document.getElementById('imaging_cutoff_months').value = 24;
-        document.getElementById('consult_cutoff_months').value = 12;
-        document.getElementById('hospital_cutoff_months').value = 24;
-    }
-}
-
-// Real-time validation
 document.addEventListener('DOMContentLoaded', function() {
-    const inputs = document.querySelectorAll('input[type="number"]');
-    
-    inputs.forEach(input => {
-        input.addEventListener('input', function() {
-            const value = parseInt(this.value);
-            
-            if (value < 1 || value > 120) {
-                this.classList.add('is-invalid');
+    // Update cutoff previews
+    function updateCutoffPreview(fieldId, previewId) {
+        const field = document.getElementById(fieldId);
+        const preview = document.getElementById(previewId);
+        
+        field.addEventListener('input', function() {
+            const months = parseInt(this.value) || 0;
+            if (months > 0) {
+                preview.textContent = `Documents from the last ${months} month${months !== 1 ? 's' : ''} will be included`;
             } else {
-                this.classList.remove('is-invalid');
-                this.classList.add('is-valid');
+                preview.textContent = 'Please enter a valid number of months';
+                preview.style.color = '#dc3545';
+                return;
+            }
+            preview.style.color = '#0d6efd';
+        });
+    }
+    
+    // Set up preview updates
+    updateCutoffPreview('lab_cutoff', 'lab_preview');
+    updateCutoffPreview('imaging_cutoff', 'imaging_preview');
+    updateCutoffPreview('consult_cutoff', 'consult_preview');
+    updateCutoffPreview('hospital_cutoff', 'hospital_preview');
+    
+    // Form validation
+    document.getElementById('checklistSettingsForm').addEventListener('submit', function(e) {
+        const cutoffFields = ['lab_cutoff_months', 'imaging_cutoff_months', 'consult_cutoff_months', 'hospital_cutoff_months'];
+        let hasErrors = false;
+        
+        cutoffFields.forEach(fieldName => {
+            const field = document.getElementById(fieldName.replace('_months', ''));
+            const value = parseInt(field.value);
+            
+            if (!value || value < 1 || value > 120) {
+                field.classList.add('is-invalid');
+                hasErrors = true;
+            } else {
+                field.classList.remove('is-invalid');
             }
         });
+        
+        if (hasErrors) {
+            e.preventDefault();
+            alert('Please ensure all cutoff values are between 1 and 120 months.');
+            return false;
+        }
+        
+        return true;
     });
 });
+
+function resetToDefaults() {
+    if (confirm('Reset all settings to default values? This will overwrite your current configuration.')) {
+        // Set default cutoff values
+        document.getElementById('lab_cutoff').value = '12';
+        document.getElementById('imaging_cutoff').value = '24';
+        document.getElementById('consult_cutoff').value = '12';
+        document.getElementById('hospital_cutoff').value = '24';
+        
+        // Set default checklist items
+        const defaultItems = [
+            'Review current medications',
+            'Update allergy information',
+            'Verify contact and insurance information',
+            'Confirm appointment time and location',
+            'Prepare list of questions for provider'
+        ].join('\n');
+        document.getElementById('default_items').value = defaultItems;
+        
+        // Set default status options
+        const defaultStatuses = [
+            'Complete',
+            'Pending',
+            'Not Applicable',
+            'In Progress'
+        ].join('\n');
+        document.getElementById('status_options').value = defaultStatuses;
+        
+        // Trigger preview updates
+        document.getElementById('lab_cutoff').dispatchEvent(new Event('input'));
+        document.getElementById('imaging_cutoff').dispatchEvent(new Event('input'));
+        document.getElementById('consult_cutoff').dispatchEvent(new Event('input'));
+        document.getElementById('hospital_cutoff').dispatchEvent(new Event('input'));
+    }
+}
 </script>
+{% endblock %}
+

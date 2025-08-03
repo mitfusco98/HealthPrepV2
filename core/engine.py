@@ -1,212 +1,221 @@
 """
 Core screening engine orchestration
-Implements the main screening logic and coordination between components
+Implements the main logic for processing patient screenings based on eligibility criteria
 """
 
-import logging
 from datetime import datetime, date, timedelta
 from dateutil.relativedelta import relativedelta
-from typing import List, Dict, Any, Optional
 from sqlalchemy import and_, or_
-
 from app import db
-from models import Patient, ScreeningType, Screening, MedicalDocument, PatientCondition
-from core.matcher import FuzzyMatcher
+from models import Patient, ScreeningType, Screening, MedicalDocument, Condition
+from core.matcher import DocumentMatcher
 from core.criteria import EligibilityCriteria
-from core.variants import ScreeningVariants
-
-logger = logging.getLogger(__name__)
+from core.variants import VariantProcessor
+import logging
 
 class ScreeningEngine:
-    """Main screening engine that orchestrates all screening logic"""
+    """Main screening engine for processing patient eligibility and document matching"""
     
     def __init__(self):
-        self.matcher = FuzzyMatcher()
+        self.matcher = DocumentMatcher()
         self.criteria = EligibilityCriteria()
-        self.variants = ScreeningVariants()
+        self.variant_processor = VariantProcessor()
+        self.logger = logging.getLogger(__name__)
     
-    def run_screening_analysis(self, patient_id: int = None) -> Dict[str, Any]:
-        """
-        Run complete screening analysis for a patient or all patients
-        """
+    def process_patient_screenings(self, patient):
+        """Process all screenings for a specific patient"""
         try:
-            if patient_id:
-                patients = [Patient.query.get(patient_id)]
-            else:
-                patients = Patient.query.all()
+            self.logger.info(f"Processing screenings for patient {patient.mrn}")
             
-            results = {
-                'processed_patients': 0,
-                'total_screenings': 0,
-                'updated_screenings': 0,
-                'errors': []
-            }
+            # Get active screening types
+            active_screening_types = ScreeningType.query.filter_by(is_active=True).all()
             
-            for patient in patients:
-                if not patient:
-                    continue
-                
-                try:
-                    patient_results = self._process_patient_screenings(patient)
-                    results['processed_patients'] += 1
-                    results['total_screenings'] += patient_results['total_screenings']
-                    results['updated_screenings'] += patient_results['updated_screenings']
-                    
-                except Exception as e:
-                    error_msg = f"Error processing patient {patient.id}: {str(e)}"
-                    logger.error(error_msg)
-                    results['errors'].append(error_msg)
+            for screening_type in active_screening_types:
+                self._process_patient_screening_type(patient, screening_type)
             
-            return results
+            db.session.commit()
+            self.logger.info(f"Completed processing screenings for patient {patient.mrn}")
             
         except Exception as e:
-            logger.error(f"Screening engine error: {str(e)}")
-            return {'error': str(e)}
+            self.logger.error(f"Error processing screenings for patient {patient.mrn}: {str(e)}")
+            db.session.rollback()
+            raise
     
-    def _process_patient_screenings(self, patient: Patient) -> Dict[str, int]:
-        """Process all screenings for a single patient"""
-        results = {'total_screenings': 0, 'updated_screenings': 0}
-        
-        # Get all active screening types
-        screening_types = ScreeningType.query.filter_by(is_active=True).all()
-        
-        for screening_type in screening_types:
-            results['total_screenings'] += 1
-            
-            # Check eligibility
-            if not self.criteria.is_eligible(patient, screening_type):
-                continue
-            
-            # Get or create screening record
-            screening = Screening.query.filter_by(
+    def _process_patient_screening_type(self, patient, screening_type):
+        """Process a specific screening type for a patient"""
+        # Check eligibility
+        if not self.criteria.is_patient_eligible(patient, screening_type):
+            # Remove screening if it exists and patient is no longer eligible
+            existing_screening = Screening.query.filter_by(
                 patient_id=patient.id,
                 screening_type_id=screening_type.id
             ).first()
             
-            if not screening:
-                screening = Screening(
-                    patient_id=patient.id,
-                    screening_type_id=screening_type.id
-                )
-                db.session.add(screening)
+            if existing_screening:
+                db.session.delete(existing_screening)
+                self.logger.info(f"Removed screening {screening_type.name} for patient {patient.mrn} - no longer eligible")
             
-            # Find matching documents
-            matched_docs = self._find_matching_documents(patient, screening_type)
-            
-            # Update screening status
-            old_status = screening.status
-            screening.matched_documents = [doc.id for doc in matched_docs]
-            screening.status = self._determine_status(screening_type, matched_docs)
-            screening.last_completed_date = self._get_latest_document_date(matched_docs)
-            screening.next_due_date = self._calculate_next_due_date(
-                screening_type, screening.last_completed_date
+            return
+        
+        # Check for variants based on patient conditions
+        applicable_variant = self.variant_processor.get_applicable_variant(patient, screening_type)
+        
+        # Get or create screening record
+        screening = Screening.query.filter_by(
+            patient_id=patient.id,
+            screening_type_id=screening_type.id
+        ).first()
+        
+        if not screening:
+            screening = Screening(
+                patient_id=patient.id,
+                screening_type_id=screening_type.id
             )
-            screening.updated_at = datetime.utcnow()
-            
-            if old_status != screening.status:
-                results['updated_screenings'] += 1
+            db.session.add(screening)
         
-        db.session.commit()
-        return results
+        # Find matching documents
+        matched_documents = self.matcher.find_matching_documents(
+            patient, screening_type, applicable_variant
+        )
+        
+        # Update screening with matched documents
+        screening.matched_documents = [doc.id for doc in matched_documents]
+        
+        # Determine screening status and dates
+        self._update_screening_status(screening, screening_type, applicable_variant, matched_documents)
+        
+        self.logger.debug(f"Updated screening {screening_type.name} for patient {patient.mrn} - status: {screening.status}")
     
-    def _find_matching_documents(self, patient: Patient, screening_type: ScreeningType) -> List[MedicalDocument]:
-        """Find documents that match screening type keywords"""
-        matched_docs = []
-        
-        # Get patient documents
-        documents = MedicalDocument.query.filter_by(patient_id=patient.id).all()
-        
-        for document in documents:
-            if self.matcher.matches_screening(document, screening_type):
-                matched_docs.append(document)
-        
-        return matched_docs
-    
-    def _determine_status(self, screening_type: ScreeningType, matched_docs: List[MedicalDocument]) -> str:
-        """Determine screening status based on matched documents and frequency"""
-        if not matched_docs:
-            return 'Due'
-        
-        latest_date = self._get_latest_document_date(matched_docs)
-        if not latest_date:
-            return 'Due'
-        
-        # Calculate if screening is current based on frequency
-        if screening_type.frequency_unit == 'years':
-            due_date = latest_date + relativedelta(years=screening_type.frequency_number)
-        elif screening_type.frequency_unit == 'months':
-            due_date = latest_date + relativedelta(months=screening_type.frequency_number)
-        else:  # days
-            due_date = latest_date + timedelta(days=screening_type.frequency_number)
-        
-        today = date.today()
-        days_until_due = (due_date - today).days
-        
-        if days_until_due > 30:
-            return 'Complete'
-        elif days_until_due > 0:
-            return 'Due Soon'
+    def _update_screening_status(self, screening, screening_type, variant, matched_documents):
+        """Update screening status based on matched documents and frequency"""
+        # Get frequency from variant or screening type
+        if variant:
+            frequency_years = variant.frequency_years or 0
+            frequency_months = variant.frequency_months or 0
         else:
-            return 'Due'
+            frequency_years = screening_type.frequency_years or 0
+            frequency_months = screening_type.frequency_months or 0
+        
+        # Find most recent relevant document
+        most_recent_doc = None
+        most_recent_date = None
+        
+        for doc in matched_documents:
+            if doc.document_date and (not most_recent_date or doc.document_date > most_recent_date):
+                most_recent_doc = doc
+                most_recent_date = doc.document_date
+        
+        if most_recent_doc:
+            screening.last_completed_date = most_recent_date
+            
+            # Calculate next due date
+            next_due = most_recent_date
+            if frequency_years > 0:
+                next_due = next_due + relativedelta(years=frequency_years)
+            if frequency_months > 0:
+                next_due = next_due + relativedelta(months=frequency_months)
+            
+            screening.next_due_date = next_due
+            
+            # Determine status based on current date
+            today = date.today()
+            if today < next_due:
+                # Check if due soon (within 30 days)
+                if (next_due - today).days <= 30:
+                    screening.status = 'Due Soon'
+                else:
+                    screening.status = 'Complete'
+            else:
+                # Overdue
+                screening.status = 'Overdue'
+        else:
+            # No matching documents found
+            screening.last_completed_date = None
+            screening.status = 'Due'
+            
+            # Set next due date based on patient age or default
+            if frequency_years > 0 or frequency_months > 0:
+                today = date.today()
+                screening.next_due_date = today  # Due now
     
-    def _get_latest_document_date(self, documents: List[MedicalDocument]) -> Optional[date]:
-        """Get the latest date from a list of documents"""
-        if not documents:
-            return None
-        
-        dates = [doc.date_created for doc in documents if doc.date_created]
-        return max(dates) if dates else None
+    def refresh_all_screenings(self):
+        """Refresh screenings for all patients"""
+        try:
+            self.logger.info("Starting full screening refresh")
+            
+            patients = Patient.query.all()
+            total_patients = len(patients)
+            
+            for i, patient in enumerate(patients):
+                self.logger.info(f"Processing patient {i+1}/{total_patients}: {patient.mrn}")
+                self.process_patient_screenings(patient)
+            
+            self.logger.info(f"Completed full screening refresh for {total_patients} patients")
+            
+        except Exception as e:
+            self.logger.error(f"Error during full screening refresh: {str(e)}")
+            raise
     
-    def _calculate_next_due_date(self, screening_type: ScreeningType, last_completed: Optional[date]) -> Optional[date]:
-        """Calculate when the next screening is due"""
-        if not last_completed:
-            return date.today()  # Due now if never completed
-        
-        if screening_type.frequency_unit == 'years':
-            return last_completed + relativedelta(years=screening_type.frequency_number)
-        elif screening_type.frequency_unit == 'months':
-            return last_completed + relativedelta(months=screening_type.frequency_number)
-        else:  # days
-            return last_completed + timedelta(days=screening_type.frequency_number)
+    def refresh_screening_type(self, screening_type_id):
+        """Refresh screenings for a specific screening type across all patients"""
+        try:
+            screening_type = ScreeningType.query.get(screening_type_id)
+            if not screening_type:
+                raise ValueError(f"Screening type {screening_type_id} not found")
+            
+            self.logger.info(f"Refreshing screening type: {screening_type.name}")
+            
+            patients = Patient.query.all()
+            
+            for patient in patients:
+                self._process_patient_screening_type(patient, screening_type)
+            
+            db.session.commit()
+            self.logger.info(f"Completed refresh for screening type: {screening_type.name}")
+            
+        except Exception as e:
+            self.logger.error(f"Error refreshing screening type {screening_type_id}: {str(e)}")
+            db.session.rollback()
+            raise
     
-    def refresh_selective(self, changes: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Selectively refresh only affected screenings based on changes
-        """
-        affected_patients = set()
-        affected_screening_types = set()
-        
-        # Determine what needs to be refreshed based on changes
-        if 'screening_types' in changes:
-            affected_screening_types.update(changes['screening_types'])
-        
-        if 'documents' in changes:
-            # Get patients affected by document changes
-            doc_ids = changes['documents']
-            docs = MedicalDocument.query.filter(MedicalDocument.id.in_(doc_ids)).all()
-            affected_patients.update([doc.patient_id for doc in docs])
-        
-        if 'patients' in changes:
-            affected_patients.update(changes['patients'])
-        
-        # Run analysis only on affected items
-        results = {'updated_screenings': 0, 'errors': []}
-        
-        if affected_screening_types:
-            # Refresh all screenings for affected screening types
-            for st_id in affected_screening_types:
-                screenings = Screening.query.filter_by(screening_type_id=st_id).all()
-                for screening in screenings:
-                    affected_patients.add(screening.patient_id)
-        
-        # Process affected patients
-        for patient_id in affected_patients:
-            try:
-                patient_results = self._process_patient_screenings(Patient.query.get(patient_id))
-                results['updated_screenings'] += patient_results['updated_screenings']
-            except Exception as e:
-                error_msg = f"Error refreshing patient {patient_id}: {str(e)}"
-                logger.error(error_msg)
-                results['errors'].append(error_msg)
-        
-        return results
+    def refresh_patient_documents(self, patient_id):
+        """Refresh screenings after new documents are added for a patient"""
+        try:
+            patient = Patient.query.get(patient_id)
+            if not patient:
+                raise ValueError(f"Patient {patient_id} not found")
+            
+            self.logger.info(f"Refreshing screenings after document update for patient {patient.mrn}")
+            
+            self.process_patient_screenings(patient)
+            
+        except Exception as e:
+            self.logger.error(f"Error refreshing patient documents for {patient_id}: {str(e)}")
+            raise
+    
+    def get_screening_statistics(self):
+        """Get overall screening statistics"""
+        try:
+            stats = {
+                'total_screenings': Screening.query.count(),
+                'due_screenings': Screening.query.filter_by(status='Due').count(),
+                'due_soon_screenings': Screening.query.filter_by(status='Due Soon').count(),
+                'complete_screenings': Screening.query.filter_by(status='Complete').count(),
+                'overdue_screenings': Screening.query.filter_by(status='Overdue').count(),
+                'total_patients': Patient.query.count(),
+                'total_screening_types': ScreeningType.query.filter_by(is_active=True).count()
+            }
+            
+            # Calculate compliance rate
+            total_applicable = stats['total_screenings']
+            if total_applicable > 0:
+                compliant = stats['complete_screenings'] + stats['due_soon_screenings']
+                stats['compliance_rate'] = round((compliant / total_applicable) * 100, 1)
+            else:
+                stats['compliance_rate'] = 0
+            
+            return stats
+            
+        except Exception as e:
+            self.logger.error(f"Error getting screening statistics: {str(e)}")
+            return {}
