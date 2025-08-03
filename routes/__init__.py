@@ -59,10 +59,16 @@ def register_blueprints(app):
     @app.route('/')
     def index():
         from flask import render_template
+        import os
         try:
-            return render_template('base.html')
+            # Check if template exists
+            template_path = os.path.join(app.template_folder, 'base.html')
+            if os.path.exists(template_path):
+                return render_template('base.html')
+            else:
+                return f'<h1>HealthPrep Medical Screening System</h1><p>Template base.html not found at: {template_path}</p><p><a href="/demo">Try Demo Routes</a></p>'
         except Exception as e:
-            return f'<h1>HealthPrep Medical Screening System</h1><p>Please log in to continue.</p><p>Debug: {str(e)}</p>'
+            return f'<h1>HealthPrep Medical Screening System</h1><p>Template error: {str(e)}</p><p><a href="/demo">Try Demo Routes</a></p>'
     
     # Add /home route that redirects to index
     @app.route('/home')
