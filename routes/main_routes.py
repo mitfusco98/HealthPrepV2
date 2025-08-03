@@ -6,7 +6,7 @@ from flask_login import login_required, current_user
 from datetime import datetime
 import logging
 
-from models import Patient, Screening, Document, ScreeningType
+from models import Patient, Screening, MedicalDocument, ScreeningType
 from core.engine import ScreeningEngine
 from prep_sheet.generator import PrepSheetGenerator
 
@@ -35,8 +35,8 @@ def dashboard():
         total_patients = Patient.query.count()
         total_screenings = Screening.query.count()
         due_screenings = Screening.query.filter_by(status='Due').count()
-        recent_documents = Document.query.filter(
-            Document.created_at >= datetime.now().replace(day=1)
+        recent_documents = MedicalDocument.query.filter(
+            MedicalDocument.upload_date >= datetime.now().replace(day=1)
         ).count()
         
         # Get recent activity
@@ -105,9 +105,9 @@ def patient_detail(patient_id):
         ).join(ScreeningType).filter_by(is_active=True).all()
         
         # Get recent documents
-        recent_docs = Document.query.filter_by(
+        recent_docs = MedicalDocument.query.filter_by(
             patient_id=patient_id
-        ).order_by(Document.created_at.desc()).limit(10).all()
+        ).order_by(MedicalDocument.upload_date.desc()).limit(10).all()
         
         return render_template('patients/detail.html',
                              patient=patient,
@@ -209,9 +209,9 @@ def search():
         
         # Search documents
         if search_type in ['all', 'documents']:
-            results['documents'] = Document.query.filter(
-                Document.filename.contains(query) |
-                Document.ocr_text.contains(query)
+            results['documents'] = MedicalDocument.query.filter(
+                MedicalDocument.filename.contains(query) |
+                MedicalDocument.ocr_text.contains(query)
             ).limit(10).all()
         
         # Search screening types
@@ -265,8 +265,9 @@ def upload_document():
         # Process document upload (this would typically involve OCR processing)
         # For now, just create the database record
         from datetime import datetime, date
+        from app import db
         
-        document = Document(
+        document = MedicalDocument(
             patient_id=patient_id,
             filename=file.filename,
             document_type=document_type,
