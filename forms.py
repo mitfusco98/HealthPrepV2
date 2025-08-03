@@ -4,6 +4,21 @@ from wtforms import SelectField, StringField, DateField, BooleanField, SubmitFie
 from wtforms.validators import DataRequired, Optional, NumberRange
 from datetime import date
 
+class PatientForm(FlaskForm):
+    mrn = StringField('Medical Record Number', validators=[DataRequired()])
+    first_name = StringField('First Name', validators=[DataRequired()])
+    last_name = StringField('Last Name', validators=[DataRequired()])
+    date_of_birth = DateField('Date of Birth', validators=[DataRequired()])
+    gender = SelectField('Gender', choices=[
+        ('M', 'Male'),
+        ('F', 'Female'),
+        ('Other', 'Other')
+    ], validators=[DataRequired()])
+    phone = StringField('Phone Number', validators=[Optional()])
+    email = StringField('Email', validators=[Optional()])
+    address = TextAreaField('Address', validators=[Optional()])
+    submit = SubmitField('Save Patient')
+
 class DocumentUploadForm(FlaskForm):
     patient_id = SelectField('Patient', coerce=int, validators=[DataRequired()], choices=[])
     file = FileField('Document File', validators=[
