@@ -9,7 +9,7 @@ import logging
 
 from models import User, AdminLog, PHISettings, ChecklistSettings
 from admin.logs import AdminLogManager
-from admin.analytics import AdminAnalytics
+from admin.analytics import HealthPrepAnalytics
 from admin.config import AdminConfigManager
 from ocr.monitor import OCRMonitor
 from ocr.phi_filter import PHIFilter
@@ -33,11 +33,11 @@ def admin_required(f):
 def dashboard():
     """Main admin dashboard"""
     try:
-        analytics = AdminAnalytics()
+        analytics = HealthPrepAnalytics()
         log_manager = AdminLogManager()
 
         # Get dashboard statistics
-        dashboard_stats = analytics.get_dashboard_stats()
+        dashboard_stats = analytics.get_system_performance_metrics()
 
         # Get recent activity
         recent_logs = log_manager.get_recent_logs(limit=10)
@@ -338,10 +338,15 @@ def settings():
 def analytics():
     """Advanced analytics dashboard"""
     try:
-        analytics = AdminAnalytics()
+        analytics = HealthPrepAnalytics()
 
         # Get comprehensive analytics
-        analytics_data = analytics.get_comprehensive_analytics()
+        analytics_data = {
+            'system_performance': analytics.get_system_performance_metrics(),
+            'time_saved': analytics.calculate_time_saved(),
+            'compliance_gaps': analytics.analyze_compliance_gaps_closed(),
+            'roi_report': analytics.generate_roi_report()
+        }
 
         return render_template('admin/analytics.html',
                              analytics=analytics_data)
@@ -357,9 +362,9 @@ def analytics():
 def system_health():
     """System health monitoring"""
     try:
-        analytics = AdminAnalytics()
+        analytics = HealthPrepAnalytics()
 
-        health_data = analytics.get_detailed_system_health()
+        health_data = analytics.get_system_performance_metrics()
 
         return jsonify(health_data)
 
