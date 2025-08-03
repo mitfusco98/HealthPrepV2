@@ -9,6 +9,30 @@ from presets.loader import PresetLoader
 
 logger = logging.getLogger(__name__)
 
+class AdminConfig:
+    """Simple wrapper class for admin configuration functionality"""
+    
+    def __init__(self):
+        self.config_manager = AdminConfigManager()
+    
+    def get_app_info(self):
+        """Get application information"""
+        return {
+            'version': '1.0.0',
+            'environment': 'development',
+            'database_url': 'configured',
+            'debug_mode': True
+        }
+    
+    def get_security_info(self):
+        """Get security configuration information"""
+        return {
+            'csrf_protection': True,
+            'session_security': True,
+            'phi_filtering': True,
+            'admin_logging': True
+        }
+
 class AdminConfigManager:
     """Manages administrative configurations and settings"""
     
