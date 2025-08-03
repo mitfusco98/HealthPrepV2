@@ -19,15 +19,22 @@ csrf = CSRFProtect()
 
 # Create the app
 app = Flask(__name__)
-app.secret_key = os.environ.get("SESSION_SECRET")
+app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key-change-in-production")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # Configure the database
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
+database_url = os.environ.get("DATABASE_URL")
+if not database_url:
+    # Fallback to SQLite for development
+    database_url = "sqlite:///app.db"
+    logging.warning("No DATABASE_URL found, using SQLite fallback")
+
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
     "pool_pre_ping": True,
 }
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Initialize extensions
 db.init_app(app)
@@ -44,10 +51,7 @@ def load_user(user_id):
     from models import User
     return User.query.get(int(user_id))
 
-# Import models to ensure tables are created
-with app.app_context():
-    import models
-    db.create_all()
+# Models will be imported when needed to avoid circular imports
 
 # Register blueprints
 from routes.auth_routes import auth_bp

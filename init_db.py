@@ -11,8 +11,16 @@ import json
 def init_database():
     """Initialize the database with default data"""
     with app.app_context():
-        # Create all tables
-        db.create_all()
+        try:
+            # Import models first
+            import models
+            
+            # Create all tables
+            db.create_all()
+            print("Database tables created successfully")
+        except Exception as e:
+            print(f"Error creating database tables: {e}")
+            return
         
         # Create default admin user if it doesn't exist
         admin_user = User.query.filter_by(username='admin').first()
