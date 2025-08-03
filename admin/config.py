@@ -3,7 +3,7 @@ Admin configurations and presets management.
 Handles system configuration and screening presets.
 """
 
-from models import ScreeningType, PrepSheetSettings, PHIFilterSettings
+from models import ScreeningType, ChecklistSettings, PHIFilterSettings
 from app import db
 from admin.logs import log_admin_action
 import json
@@ -276,9 +276,9 @@ class SystemConfigManager:
         """Reset settings to default values"""
         try:
             if setting_type == 'prep_sheet':
-                settings = PrepSheetSettings.query.first()
+                settings = ChecklistSettings.query.first()
                 if not settings:
-                    settings = PrepSheetSettings()
+                    settings = ChecklistSettings()
                     db.session.add(settings)
                 
                 defaults = self.get_prep_sheet_defaults()
@@ -325,7 +325,7 @@ class SystemConfigManager:
             }
             
             # Backup prep sheet settings
-            prep_settings = PrepSheetSettings.query.first()
+            prep_settings = ChecklistSettings.query.first()
             if prep_settings:
                 backup_data['prep_sheet_settings'] = {
                     'lab_cutoff_months': prep_settings.lab_cutoff_months,
