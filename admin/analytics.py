@@ -10,6 +10,51 @@ from models import Patient, Screening, Document, AdminLog
 
 logger = logging.getLogger(__name__)
 
+class AdminAnalytics:
+    """Main analytics class for admin dashboard"""
+    
+    def __init__(self):
+        self.healthcare_analytics = HealthcareAnalytics()
+    
+    def get_dashboard_stats(self):
+        """Get comprehensive dashboard statistics"""
+        efficiency_metrics = self.healthcare_analytics.get_efficiency_metrics()
+        roi_metrics = self.healthcare_analytics.calculate_roi_metrics()
+        compliance_metrics = self.healthcare_analytics.get_compliance_metrics()
+        
+        return {
+            'efficiency': efficiency_metrics,
+            'roi': roi_metrics,
+            'compliance': compliance_metrics,
+            'hours_saved': roi_metrics['hours_saved']
+        }
+    
+    def get_system_health(self):
+        """Get system health information"""
+        utilization_metrics = self.healthcare_analytics.get_system_utilization_metrics()
+        
+        return {
+            'status': 'healthy',
+            'utilization': utilization_metrics,
+            'last_check': datetime.utcnow().isoformat()
+        }
+    
+    def get_database_info(self):
+        """Get database information"""
+        total_patients = Patient.query.count()
+        total_documents = Document.query.count()
+        total_screenings = Screening.query.count()
+        
+        return {
+            'total_patients': total_patients,
+            'total_documents': total_documents,
+            'total_screenings': total_screenings
+        }
+    
+    def get_performance_metrics(self):
+        """Get performance metrics"""
+        return self.healthcare_analytics.get_efficiency_metrics()
+
 def calculate_hours_saved(days=30):
     """Calculate estimated hours saved by the system"""
     cutoff_date = datetime.utcnow() - timedelta(days=days)
