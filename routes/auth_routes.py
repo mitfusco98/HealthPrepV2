@@ -5,48 +5,35 @@ Authentication routes for user login and session management
 import logging
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from flask_login import login_user, logout_user, login_required, current_user
-from werkzeug.security import check_password_hash
-
-from models import User
-from forms import LoginForm
-from admin.logs import AdminLogger
+from werkzeug.security import check_password_hash, generate_password_hash
 
 logger = logging.getLogger(__name__)
 auth_bp = Blueprint('auth', __name__)
-admin_logger = AdminLogger()
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     """User login page"""
     if current_user.is_authenticated:
         return redirect(url_for('index'))
-    
+
+    from forms import LoginForm
     form = LoginForm()
-    
+
     if form.validate_on_submit():
+        from models import User
         user = User.query.filter_by(username=form.username.data).first()
-        
+
         if user and check_password_hash(user.password_hash, form.password.data):
             login_user(user)
-            
-            # Log successful login
-            admin_logger.log_action(
-                user_id=user.id,
-                action='user_login',
-                resource_type='auth',
-                details={'username': user.username},
-                ip_address=request.remote_addr,
-                user_agent=request.user_agent.string
-            )
-            
+
             # Update last login
             from datetime import datetime
             user.last_login = datetime.utcnow()
             from app import db
             db.session.commit()
-            
+
             flash('Login successful!', 'success')
-            
+
             # Redirect to next page or dashboard
             next_page = request.args.get('next')
             if next_page:
@@ -56,34 +43,14 @@ def login():
             else:
                 return redirect(url_for('index'))
         else:
-            # Log failed login attempt
-            admin_logger.log_action(
-                user_id=None,
-                action='login_failed',
-                resource_type='auth',
-                details={'username': form.username.data, 'reason': 'invalid_credentials'},
-                ip_address=request.remote_addr,
-                user_agent=request.user_agent.string
-            )
-            
             flash('Invalid username or password.', 'error')
-    
+
     return render_template('auth/login.html', form=form)
 
 @auth_bp.route('/logout')
 @login_required
 def logout():
     """User logout"""
-    # Log logout
-    admin_logger.log_action(
-        user_id=current_user.id,
-        action='user_logout',
-        resource_type='auth',
-        details={'username': current_user.username},
-        ip_address=request.remote_addr,
-        user_agent=request.user_agent.string
-    )
-    
     logout_user()
     flash('You have been logged out.', 'info')
     return redirect(url_for('auth.login'))
@@ -112,6 +79,8 @@ def change_password():
             db.session.commit()
             
             # Log password change
+            from admin.logs import AdminLogger
+            admin_logger = AdminLogger()
             admin_logger.log_action(
                 user_id=current_user.id,
                 action='password_changed',

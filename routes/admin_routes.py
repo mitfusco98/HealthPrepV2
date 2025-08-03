@@ -392,3 +392,55 @@ def api_health_check():
         'health': health,
         'timestamp': datetime.now().isoformat()
     })
+"""
+Admin panel routes
+"""
+
+from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask_login import login_required, current_user
+
+admin_bp = Blueprint('admin', __name__)
+
+def admin_required(f):
+    """Decorator to require admin access"""
+    from functools import wraps
+    
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_admin:
+            flash('Administrator access required.', 'error')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    
+    return decorated_function
+
+@admin_bp.route('/dashboard')
+@login_required
+@admin_required
+def dashboard():
+    """Admin dashboard"""
+    return render_template('admin/dashboard.html')
+
+@admin_bp.route('/logs')
+@login_required
+@admin_required
+def logs():
+    """View admin logs"""
+    from models import AdminLog
+    logs = AdminLog.query.order_by(AdminLog.timestamp.desc()).limit(100).all()
+    return render_template('admin/logs.html', logs=logs)
+</admin_bp_route>
+
+@admin_bp.route('/ocr')
+@login_required
+@admin_required
+def ocr_dashboard():
+    """OCR management dashboard"""
+    return render_template('admin/ocr_dashboard.html')
+
+@admin_bp.route('/phi')
+@login_required
+@admin_required
+def phi_settings():
+    """PHI filter settings"""
+    return render_template('admin/phi_settings.html')

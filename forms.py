@@ -68,3 +68,28 @@ class PHIFilterForm(FlaskForm):
     filter_addresses = BooleanField('Filter Addresses', default=True)
     filter_names = BooleanField('Filter Patient Names', default=True)
     filter_dates = BooleanField('Filter Dates (preserve medical values)', default=True)
+from flask_wtf import FlaskForm
+from wtforms import StringField, PasswordField, SubmitField, SelectField, TextAreaField, IntegerField
+from wtforms.validators import DataRequired, Length, Email, Optional, NumberRange
+
+class LoginForm(FlaskForm):
+    username = StringField('Username', validators=[DataRequired(), Length(min=4, max=25)])
+    password = PasswordField('Password', validators=[DataRequired()])
+    submit = SubmitField('Sign In')
+
+class ChangePasswordForm(FlaskForm):
+    current_password = PasswordField('Current Password', validators=[DataRequired()])
+    new_password = PasswordField('New Password', validators=[DataRequired(), Length(min=6)])
+    confirm_password = PasswordField('Confirm New Password', validators=[DataRequired()])
+    submit = SubmitField('Change Password')
+
+class ScreeningTypeForm(FlaskForm):
+    name = StringField('Screening Name', validators=[DataRequired(), Length(max=100)])
+    description = TextAreaField('Description', validators=[Optional(), Length(max=500)])
+    keywords = TextAreaField('Keywords (comma-separated)', validators=[DataRequired()])
+    eligibility_gender = SelectField('Gender', choices=[('', 'Any'), ('M', 'Male'), ('F', 'Female')], validators=[Optional()])
+    eligibility_min_age = IntegerField('Minimum Age', validators=[Optional(), NumberRange(min=0, max=120)])
+    eligibility_max_age = IntegerField('Maximum Age', validators=[Optional(), NumberRange(min=0, max=120)])
+    frequency_value = IntegerField('Frequency Value', validators=[DataRequired(), NumberRange(min=1)])
+    frequency_unit = SelectField('Frequency Unit', choices=[('days', 'Days'), ('months', 'Months'), ('years', 'Years')], validators=[DataRequired()])
+    submit = SubmitField('Save Screening Type')

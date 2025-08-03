@@ -733,3 +733,87 @@ class PrepSheetHelper:
                 base_priority -= 0.5
         
         return base_priority
+"""
+Utility functions for the screening application
+"""
+
+import json
+import re
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
+
+def parse_keywords(keywords_string):
+    """Parse comma-separated keywords string into a list"""
+    if not keywords_string:
+        return []
+    
+    # Split by comma and clean up
+    keywords = [keyword.strip().lower() for keyword in keywords_string.split(',')]
+    return [kw for kw in keywords if kw]  # Remove empty strings
+
+def calculate_next_due_date(last_completed, frequency_value, frequency_unit):
+    """Calculate when the next screening is due"""
+    if not last_completed:
+        return None
+    
+    if frequency_unit == 'days':
+        return last_completed + timedelta(days=frequency_value)
+    elif frequency_unit == 'months':
+        return last_completed + relativedelta(months=frequency_value)
+    elif frequency_unit == 'years':
+        return last_completed + relativedelta(years=frequency_value)
+    
+    return None
+
+def is_due_soon(next_due_date, days_threshold=30):
+    """Check if a screening is due soon (within threshold days)"""
+    if not next_due_date:
+        return False
+    
+    today = datetime.now().date()
+    threshold_date = today + timedelta(days=days_threshold)
+    
+    return today <= next_due_date <= threshold_date
+
+def determine_screening_status(last_completed, frequency_value, frequency_unit):
+    """Determine the current status of a screening"""
+    if not last_completed:
+        return 'due'
+    
+    next_due = calculate_next_due_date(last_completed, frequency_value, frequency_unit)
+    if not next_due:
+        return 'due'
+    
+    today = datetime.now().date()
+    
+    if next_due < today:
+        return 'due'
+    elif is_due_soon(next_due):
+        return 'due_soon'
+    else:
+        return 'complete'
+
+def format_frequency(frequency_value, frequency_unit):
+    """Format frequency for display"""
+    if frequency_value == 1:
+        unit_map = {'days': 'day', 'months': 'month', 'years': 'year'}
+        return f"Every {unit_map.get(frequency_unit, frequency_unit)}"
+    else:
+        return f"Every {frequency_value} {frequency_unit}"
+
+def safe_json_loads(json_string, default=None):
+    """Safely load JSON string, return default if invalid"""
+    if default is None:
+        default = []
+    
+    try:
+        return json.loads(json_string) if json_string else default
+    except (json.JSONDecodeError, TypeError):
+        return default
+
+def safe_json_dumps(data):
+    """Safely dump data to JSON string"""
+    try:
+        return json.dumps(data) if data else None
+    except (TypeError, ValueError):
+        return None

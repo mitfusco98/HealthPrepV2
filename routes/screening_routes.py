@@ -369,3 +369,55 @@ def get_screening_status(screening_id):
             'matched_documents': len(screening.matched_documents) if screening.matched_documents else 0
         }
     })
+"""
+Screening management routes
+"""
+
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask_login import login_required, current_user
+
+screening_bp = Blueprint('screening', __name__)
+
+@screening_bp.route('/')
+@login_required
+def screening_list():
+    """Display screening list"""
+    return render_template('screening/screening_list.html')
+
+@screening_bp.route('/types')
+@login_required
+def screening_types():
+    """Manage screening types"""
+    from models import ScreeningType
+    types = ScreeningType.query.filter_by(is_active=True).all()
+    return render_template('screening/screening_types.html', screening_types=types)
+
+@screening_bp.route('/types/add', methods=['GET', 'POST'])
+@login_required
+def add_screening_type():
+    """Add new screening type"""
+    from forms import ScreeningTypeForm
+    form = ScreeningTypeForm()
+    
+    if form.validate_on_submit():
+        from models import ScreeningType
+        from app import db
+        
+        screening_type = ScreeningType(
+            name=form.name.data,
+            description=form.description.data,
+            keywords=form.keywords.data,
+            eligibility_gender=form.eligibility_gender.data or None,
+            eligibility_min_age=form.eligibility_min_age.data,
+            eligibility_max_age=form.eligibility_max_age.data,
+            frequency_value=form.frequency_value.data,
+            frequency_unit=form.frequency_unit.data
+        )
+        
+        db.session.add(screening_type)
+        db.session.commit()
+        
+        flash('Screening type added successfully!', 'success')
+        return redirect(url_for('screening.screening_types'))
+    
+    return render_template('screening/add_screening_type.html', form=form)

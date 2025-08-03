@@ -315,3 +315,25 @@ def api_document_details(document_id):
             'patient_name': document.patient.name if document.patient else None
         }
     })
+"""
+Prep sheet generation routes
+"""
+
+from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask_login import login_required
+
+prep_sheet_bp = Blueprint('prep_sheet', __name__)
+
+@prep_sheet_bp.route('/generate/<int:patient_id>')
+@login_required
+def generate_prep_sheet(patient_id):
+    """Generate prep sheet for a patient"""
+    from models import Patient
+    patient = Patient.query.get_or_404(patient_id)
+    return render_template('prep_sheet/prep_sheet.html', patient=patient)
+
+@prep_sheet_bp.route('/settings')
+@login_required
+def settings():
+    """Prep sheet settings"""
+    return render_template('settings/checklist_settings.html')
