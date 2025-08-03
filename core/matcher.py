@@ -9,6 +9,53 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+class FuzzyMatcher:
+    """Handles fuzzy matching for keywords and medical terms"""
+    
+    def __init__(self):
+        # Common medical term variations
+        self.medical_terms = {
+            'mammogram': ['mammography', 'breast imaging', 'breast screen'],
+            'colonoscopy': ['colono', 'colon screening', 'colorectal'],
+            'pap smear': ['pap', 'cervical screening', 'papanicolaou'],
+            'a1c': ['hba1c', 'hemoglobin a1c', 'glycated hemoglobin'],
+            'dxa': ['dexa', 'bone density', 'bone scan'],
+            'ekg': ['ecg', 'electrocardiogram'],
+            'echo': ['echocardiogram', 'cardiac echo']
+        }
+    
+    def suggest_keywords(self, partial, limit=10):
+        """Suggest keywords based on partial input"""
+        suggestions = []
+        partial_lower = partial.lower()
+        
+        # Search through medical terms
+        for term, aliases in self.medical_terms.items():
+            if partial_lower in term:
+                suggestions.append(term)
+            for alias in aliases:
+                if partial_lower in alias and alias not in suggestions:
+                    suggestions.append(alias)
+        
+        return suggestions[:limit]
+    
+    def suggest_conditions(self, partial, limit=10):
+        """Suggest medical conditions based on partial input"""
+        common_conditions = [
+            'diabetes', 'hypertension', 'obesity', 'heart disease',
+            'cancer', 'osteoporosis', 'kidney disease', 'liver disease',
+            'thyroid disorder', 'depression', 'anxiety', 'copd'
+        ]
+        
+        suggestions = []
+        partial_lower = partial.lower()
+        
+        for condition in common_conditions:
+            if partial_lower in condition.lower():
+                suggestions.append(condition)
+        
+        return suggestions[:limit]
+
 class DocumentMatcher:
     """Handles fuzzy matching of documents to screening types"""
     
