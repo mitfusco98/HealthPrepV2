@@ -333,3 +333,39 @@ class OCRProcessor:
             return 'confidence-medium'
         else:
             return 'confidence-low'
+
+
+# Standalone function for backward compatibility
+def process_document(document_id: int, file_path: str = None) -> Dict[str, any]:
+    """
+    Process a document for OCR text extraction
+    This is a standalone function that wraps the OCRProcessor class
+    """
+    try:
+        from models import MedicalDocument
+        
+        # Get the document
+        document = MedicalDocument.query.get(document_id)
+        if not document:
+            raise ValueError(f"Document with ID {document_id} not found")
+        
+        # Read file content if file path is provided
+        file_content = None
+        if file_path and os.path.exists(file_path):
+            with open(file_path, 'rb') as f:
+                file_content = f.read()
+        
+        # Create OCR processor and process the document
+        processor = OCRProcessor()
+        result = processor.process_document(document, file_content)
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error in standalone process_document function: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e),
+            'confidence': 0.0,
+            'processing_time': 0.0
+        }
