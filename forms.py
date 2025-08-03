@@ -1,7 +1,7 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired, FileAllowed
-from wtforms import SelectField, StringField, DateField, BooleanField, SubmitField
-from wtforms.validators import DataRequired, Optional
+from wtforms import SelectField, StringField, DateField, BooleanField, SubmitField, IntegerField, TextAreaField
+from wtforms.validators import DataRequired, Optional, NumberRange
 from datetime import date
 
 class DocumentUploadForm(FlaskForm):
@@ -39,3 +39,34 @@ class ScreeningTypeForm(FlaskForm):
     min_age = SelectField('Min Age', coerce=int, choices=[(i, str(i)) for i in range(0, 101)])
     max_age = SelectField('Max Age', coerce=int, choices=[(i, str(i)) for i in range(0, 101)])
     submit = SubmitField('Save Screening Type')
+
+class PHIFilterForm(FlaskForm):
+    is_enabled = BooleanField('Enable PHI Filtering System-Wide', default=True)
+    filter_ssn = BooleanField('Filter Social Security Numbers', default=True)
+    filter_phone = BooleanField('Filter Phone Numbers', default=True)
+    filter_mrn = BooleanField('Filter Medical Record Numbers', default=True)
+    filter_insurance = BooleanField('Filter Insurance Information', default=True)
+    filter_addresses = BooleanField('Filter Street Addresses', default=True)
+    filter_names = BooleanField('Filter Patient Names', default=True)
+    filter_dates = BooleanField('Filter Date Information', default=True)
+    preserve_medical_terms = BooleanField('Preserve Medical Terminology', default=True)
+    confidence_threshold = IntegerField('Confidence Threshold (%)', 
+                                      validators=[NumberRange(min=0, max=100)], 
+                                      default=85)
+    submit = SubmitField('Save PHI Settings')
+
+class ChecklistSettingsForm(FlaskForm):
+    labs_cutoff_months = IntegerField('Labs Cutoff (months)', 
+                                    validators=[DataRequired(), NumberRange(min=1, max=60)],
+                                    default=12)
+    imaging_cutoff_months = IntegerField('Imaging Cutoff (months)', 
+                                       validators=[DataRequired(), NumberRange(min=1, max=60)],
+                                       default=24)
+    consults_cutoff_months = IntegerField('Consults Cutoff (months)', 
+                                        validators=[DataRequired(), NumberRange(min=1, max=60)],
+                                        default=12)
+    hospital_cutoff_months = IntegerField('Hospital Records Cutoff (months)', 
+                                        validators=[DataRequired(), NumberRange(min=1, max=60)],
+                                        default=12)
+    default_items = TextAreaField('Default Checklist Items (JSON)')
+    submit = SubmitField('Save Checklist Settings')
