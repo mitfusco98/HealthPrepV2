@@ -383,4 +383,3 @@ def backup_data():
         logger.error(f"Error creating backup: {str(e)}")
         flash('Error creating backup', 'error')
         return redirect(url_for('admin.dashboard'))
-`
