@@ -89,7 +89,7 @@
         </div>
         
         <div class="card-body p-4">
-            <form method="POST">
+            <form method="POST" action="{{ url_for('auth.login') }}">
                 {{ form.hidden_tag() }}
                 
                 <!-- Username field -->
