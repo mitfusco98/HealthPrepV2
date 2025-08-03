@@ -8,7 +8,7 @@ from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
 import json
 
-from models import Patient, ScreeningType, Screening, MedicalDocument, PatientCondition
+from models import Patient, ScreeningType, Screening, MedicalDocument
 from core.engine import ScreeningEngine
 from core.matcher import FuzzyMatcher
 from core.criteria import EligibilityCriteria
