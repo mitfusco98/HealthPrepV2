@@ -45,3 +45,14 @@ class ChecklistSettingsForm(FlaskForm):
     hospital_cutoff_months = IntegerField('Hospital Visits Cutoff (months)',
                                         validators=[DataRequired(), NumberRange(min=1, max=60)],
                                         default=12)
+
+class PHIFilterForm(FlaskForm):
+    is_enabled = BooleanField('Enable PHI Filtering', default=True)
+    filter_ssn = BooleanField('Filter Social Security Numbers', default=True)
+    filter_phone = BooleanField('Filter Phone Numbers', default=True)
+    filter_mrn = BooleanField('Filter Medical Record Numbers', default=True)
+    filter_insurance = BooleanField('Filter Insurance IDs', default=True)
+    filter_addresses = BooleanField('Filter Addresses', default=True)
+    filter_names = BooleanField('Filter Names', default=True)
+    filter_dates = BooleanField('Filter Dates', default=True)
+    preserve_medical_terms = BooleanField('Preserve Medical Terms', default=True)
