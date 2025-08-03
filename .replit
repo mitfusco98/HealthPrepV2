@@ -27,7 +27,7 @@ mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python init_db.py"
+args = "python reset_db.py"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
