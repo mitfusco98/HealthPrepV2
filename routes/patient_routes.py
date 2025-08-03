@@ -4,7 +4,7 @@ from models import Patient, Document, Condition, Screening
 from forms import PatientForm, DocumentUploadForm
 from app import db
 from admin.logs import log_admin_action
-from ocr.processor import process_document
+from ocr.processor import OCRProcessor
 from core.engine import ScreeningEngine
 import os
 from werkzeug.utils import secure_filename
@@ -130,7 +130,8 @@ def upload_document(patient_id):
             
             # Process document with OCR
             try:
-                process_document(document.id, file_path)
+                ocr_processor = OCRProcessor()
+                ocr_processor.process_document(document.id)
                 
                 # Refresh screenings for this patient
                 engine = ScreeningEngine()
