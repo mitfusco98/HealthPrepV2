@@ -10,6 +10,13 @@ from models import AdminLog, User
 
 logger = logging.getLogger(__name__)
 
+class AdminLogger:
+    """Simple wrapper class for admin logging functionality"""
+    
+    def log_action(self, user_id, action, resource_type=None, resource_id=None, details=None, ip_address=None):
+        """Log an admin action - wrapper for log_admin_action function"""
+        return log_admin_action(user_id, action, resource_type, resource_id, details, ip_address)
+
 def log_admin_action(user_id, action, resource_type=None, resource_id=None, details=None, ip_address=None):
     """Log an admin action to the database"""
     try:
