@@ -1,158 +1,160 @@
 """
-Internal representations of EMR data structures
+Internal EMR data models
+Represents EMR data in our internal format after FHIR parsing
 """
-from dataclasses import dataclass, field
+
+from dataclasses import dataclass
 from datetime import date, datetime
 from typing import List, Optional, Dict, Any
 
 @dataclass
-class PatientInfo:
-    """Internal patient representation"""
-    fhir_id: Optional[str] = None
-    mrn: str = ""
-    first_name: str = ""
-    last_name: str = ""
-    date_of_birth: Optional[date] = None
-    gender: str = ""
-    phone: str = ""
-    email: str = ""
-    created_at: Optional[datetime] = None
+class EMRPatient:
+    """Internal representation of patient data from EMR"""
+    fhir_id: str
+    mrn: str
+    name: str
+    date_of_birth: Optional[date]
+    gender: Optional[str]
+    conditions: List['EMRCondition'] = None
+    documents: List['EMRDocument'] = None
+    observations: List['EMRObservation'] = None
     
-    @property
-    def full_name(self) -> str:
-        return f"{self.first_name} {self.last_name}".strip()
+    def __post_init__(self):
+        if self.conditions is None:
+            self.conditions = []
+        if self.documents is None:
+            self.documents = []
+        if self.observations is None:
+            self.observations = []
     
     @property
     def age(self) -> Optional[int]:
+        """Calculate patient age"""
         if not self.date_of_birth:
             return None
-        today = date.today()
-        return today.year - self.date_of_birth.year - ((today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day))
-
-@dataclass
-class DocumentInfo:
-    """Internal document representation"""
-    fhir_id: Optional[str] = None
-    filename: str = ""
-    document_type: str = ""
-    document_date: Optional[date] = None
-    content_type: str = ""
-    description: str = ""
-    file_path: str = ""
-    ocr_text: str = ""
-    ocr_confidence: float = 0.0
-    phi_filtered: bool = False
-    raw_fhir: str = ""
-
-@dataclass
-class ConditionInfo:
-    """Internal condition representation"""
-    fhir_id: Optional[str] = None
-    condition_code: str = ""
-    condition_name: str = ""
-    diagnosis_date: Optional[date] = None
-    is_active: bool = True
-
-@dataclass
-class ObservationInfo:
-    """Internal observation representation"""
-    fhir_id: Optional[str] = None
-    code_text: str = ""
-    value_text: str = ""
-    observation_date: Optional[date] = None
-    category: str = ""
-    raw_fhir: str = ""
-
-@dataclass
-class DiagnosticReportInfo:
-    """Internal diagnostic report representation"""
-    fhir_id: Optional[str] = None
-    category: str = ""
-    code_text: str = ""
-    report_date: Optional[date] = None
-    conclusion: str = ""
-    status: str = ""
-    raw_fhir: str = ""
-
-@dataclass
-class ScreeningResult:
-    """Internal screening result representation"""
-    screening_id: Optional[int] = None
-    patient_name: str = ""
-    screening_type: str = ""
-    status: str = "Due"  # Due, Due Soon, Complete, Overdue
-    last_completed_date: Optional[date] = None
-    next_due_date: Optional[date] = None
-    frequency: str = ""
-    matched_documents: List[DocumentInfo] = field(default_factory=list)
-    eligibility_met: bool = True
-    notes: str = ""
-    confidence_score: float = 0.0
-
-@dataclass
-class PrepSheetData:
-    """Internal prep sheet data representation"""
-    patient: PatientInfo = field(default_factory=PatientInfo)
-    prep_date: date = field(default_factory=date.today)
-    last_visit_date: Optional[date] = None
-    
-    # Medical data sections
-    recent_labs: List[ObservationInfo] = field(default_factory=list)
-    recent_imaging: List[DiagnosticReportInfo] = field(default_factory=list)
-    recent_consults: List[DocumentInfo] = field(default_factory=list)
-    recent_hospital_stays: List[DocumentInfo] = field(default_factory=list)
-    
-    # Screening checklist
-    screenings: List[ScreeningResult] = field(default_factory=list)
-    
-    # Active conditions
-    active_conditions: List[ConditionInfo] = field(default_factory=list)
-    
-    # Document summaries
-    lab_documents: List[DocumentInfo] = field(default_factory=list)
-    imaging_documents: List[DocumentInfo] = field(default_factory=list)
-    consult_documents: List[DocumentInfo] = field(default_factory=list)
-    hospital_documents: List[DocumentInfo] = field(default_factory=list)
-
-@dataclass
-class EMRSyncStatus:
-    """EMR synchronization status"""
-    last_sync_time: Optional[datetime] = None
-    patients_synced: int = 0
-    documents_synced: int = 0
-    errors_encountered: int = 0
-    sync_duration_seconds: float = 0.0
-    error_details: List[str] = field(default_factory=list)
-    success: bool = False
-
-@dataclass
-class FHIRResource:
-    """Generic FHIR resource wrapper"""
-    resource_type: str = ""
-    resource_id: str = ""
-    resource_data: Dict[str, Any] = field(default_factory=dict)
-    patient_id: str = ""
-    last_updated: Optional[datetime] = None
-    
-    def get_display_name(self) -> str:
-        """Get human-readable display name for the resource"""
-        if self.resource_type == "Patient":
-            names = self.resource_data.get('name', [])
-            if names:
-                name = names[0]
-                given = ' '.join(name.get('given', []))
-                family = name.get('family', '')
-                return f"{given} {family}".strip()
-        elif self.resource_type == "DocumentReference":
-            return self.resource_data.get('description', 'Document')
-        elif self.resource_type == "DiagnosticReport":
-            code = self.resource_data.get('code', {})
-            return code.get('text', 'Diagnostic Report')
-        elif self.resource_type == "Condition":
-            code = self.resource_data.get('code', {})
-            return code.get('text', 'Condition')
-        elif self.resource_type == "Observation":
-            code = self.resource_data.get('code', {})
-            return code.get('text', 'Observation')
         
-        return f"{self.resource_type} {self.resource_id}"
+        today = date.today()
+        age = today.year - self.date_of_birth.year
+        
+        # Adjust if birthday hasn't occurred this year
+        if today < date(today.year, self.date_of_birth.month, self.date_of_birth.day):
+            age -= 1
+        
+        return age
+    
+    def has_condition(self, condition_code: str) -> bool:
+        """Check if patient has a specific condition"""
+        return any(
+            cond.condition_code == condition_code or condition_code.lower() in cond.condition_name.lower()
+            for cond in self.conditions
+            if cond.condition_name and cond.status == 'active'
+        )
+    
+    def get_active_conditions(self) -> List['EMRCondition']:
+        """Get all active conditions"""
+        return [cond for cond in self.conditions if cond.status == 'active']
+
+@dataclass
+class EMRCondition:
+    """Internal representation of patient condition from EMR"""
+    fhir_id: str
+    condition_code: Optional[str]
+    condition_name: Optional[str]
+    status: str
+    onset_date: Optional[date]
+    
+    def is_active(self) -> bool:
+        """Check if condition is currently active"""
+        return self.status.lower() == 'active'
+
+@dataclass
+class EMRDocument:
+    """Internal representation of medical document from EMR"""
+    fhir_id: str
+    document_type: str
+    filename: str
+    date_created: Optional[date]
+    content_url: Optional[str]
+    content: Optional[str] = None
+    ocr_text: Optional[str] = None
+    ocr_confidence: Optional[float] = None
+    
+    def get_searchable_text(self) -> str:
+        """Get all searchable text from document"""
+        text_parts = []
+        
+        if self.filename:
+            text_parts.append(self.filename)
+        if self.content:
+            text_parts.append(self.content)
+        if self.ocr_text:
+            text_parts.append(self.ocr_text)
+        
+        return ' '.join(text_parts).lower()
+    
+    def is_recent(self, months: int = 12) -> bool:
+        """Check if document is from within specified months"""
+        if not self.date_created:
+            return False
+        
+        from dateutil.relativedelta import relativedelta
+        cutoff_date = date.today() - relativedelta(months=months)
+        return self.date_created >= cutoff_date
+
+@dataclass
+class EMRObservation:
+    """Internal representation of observation/lab result from EMR"""
+    fhir_id: str
+    code: Optional[str]
+    display: Optional[str]
+    value: Optional[str]
+    unit: Optional[str]
+    date: Optional[date]
+    category: str
+    reference_range: Optional[str] = None
+    status: Optional[str] = None
+    
+    def is_abnormal(self) -> bool:
+        """Check if observation value is outside normal range"""
+        # This would need more sophisticated logic based on reference ranges
+        # For now, return False as we don't have reference range parsing
+        return False
+    
+    def is_recent(self, months: int = 12) -> bool:
+        """Check if observation is from within specified months"""
+        if not self.date:
+            return False
+        
+        from dateutil.relativedelta import relativedelta
+        cutoff_date = date.today() - relativedelta(months=months)
+        return self.date >= cutoff_date
+
+@dataclass
+class EMRBundle:
+    """Bundle of EMR data for a patient"""
+    patient: EMRPatient
+    conditions: List[EMRCondition]
+    documents: List[EMRDocument]
+    observations: List[EMRObservation]
+    
+    def __post_init__(self):
+        # Link related data to patient
+        self.patient.conditions = self.conditions
+        self.patient.documents = self.documents
+        self.patient.observations = self.observations
+    
+    def get_documents_by_type(self, doc_type: str) -> List[EMRDocument]:
+        """Get documents filtered by type"""
+        return [doc for doc in self.documents if doc.document_type == doc_type]
+    
+    def get_recent_documents(self, months: int = 12) -> List[EMRDocument]:
+        """Get documents from within specified months"""
+        return [doc for doc in self.documents if doc.is_recent(months)]
+    
+    def get_observations_by_category(self, category: str) -> List[EMRObservation]:
+        """Get observations filtered by category"""
+        return [obs for obs in self.observations if obs.category == category]
+    
+    def get_recent_observations(self, months: int = 12) -> List[EMRObservation]:
+        """Get observations from within specified months"""
+        return [obs for obs in self.observations if obs.is_recent(months)]

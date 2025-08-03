@@ -1,304 +1,276 @@
 """
-Frequency and cutoff filtering logic for prep sheet data
+Frequency and cutoff filtering logic for prep sheets
+Handles document filtering based on time periods and screening cycles
 """
+
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
-from typing import List, Dict, Any, Optional
+from typing import Optional, List
+from sqlalchemy import and_
+
 from models import MedicalDocument, ScreeningType
 
 logger = logging.getLogger(__name__)
 
 class PrepSheetFilters:
-    """Handles filtering logic for prep sheet data based on frequency and cutoffs"""
+    """Handles filtering logic for prep sheet generation"""
     
-    def __init__(self):
-        pass
-    
-    def calculate_cutoff_date(self, months_back: int) -> date:
+    def get_cutoff_date(self, period: int, unit: str) -> date:
         """
-        Calculate cutoff date based on months back from today
+        Calculate cutoff date based on period and unit
         """
-        try:
-            today = date.today()
-            cutoff_date = today - relativedelta(months=months_back)
-            return cutoff_date
-        except Exception as e:
-            logger.error(f"Error calculating cutoff date: {str(e)}")
-            # Fallback to simple calculation
-            return date.today() - timedelta(days=months_back * 30)
-    
-    def filter_documents_by_frequency(self, documents: List[MedicalDocument], 
-                                    screening_type: ScreeningType) -> List[MedicalDocument]:
-        """
-        Filter documents based on screening frequency
-        Only show documents from the current screening cycle
-        """
-        if not documents or not screening_type:
-            return documents
+        today = date.today()
         
-        try:
-            # Calculate cutoff based on screening frequency
-            frequency_months = screening_type.frequency_months
-            cutoff_date = self.calculate_cutoff_date(frequency_months)
-            
-            # Filter documents after cutoff date
-            filtered_docs = [
-                doc for doc in documents 
-                if doc.document_date and doc.document_date >= cutoff_date
-            ]
-            
-            logger.debug(f"Filtered {len(documents)} documents to {len(filtered_docs)} based on {frequency_months} month frequency")
-            return filtered_docs
-            
-        except Exception as e:
-            logger.error(f"Error filtering documents by frequency: {str(e)}")
-            return documents
+        if unit == 'years':
+            return today - relativedelta(years=period)
+        elif unit == 'months':
+            return today - relativedelta(months=period)
+        elif unit == 'days':
+            return today - timedelta(days=period)
+        else:
+            # Default to months if unit is unknown
+            return today - relativedelta(months=period)
     
     def filter_documents_by_cutoff(self, documents: List[MedicalDocument], 
                                  cutoff_months: int) -> List[MedicalDocument]:
         """
-        Filter documents based on a specific cutoff period
+        Filter documents to only include those within the cutoff period
         """
-        if not documents:
+        cutoff_date = self.get_cutoff_date(cutoff_months, 'months')
+        
+        filtered_docs = []
+        for doc in documents:
+            if doc.date_created and doc.date_created >= cutoff_date:
+                filtered_docs.append(doc)
+        
+        return filtered_docs
+    
+    def filter_documents_by_screening_frequency(self, documents: List[MedicalDocument],
+                                              screening_type: ScreeningType,
+                                              last_completed_date: Optional[date] = None) -> List[MedicalDocument]:
+        """
+        Filter documents based on screening frequency
+        Only show documents from the current screening cycle
+        """
+        if not screening_type.frequency_number or not screening_type.frequency_unit:
             return documents
         
-        try:
-            cutoff_date = self.calculate_cutoff_date(cutoff_months)
-            
-            filtered_docs = [
-                doc for doc in documents 
-                if doc.document_date and doc.document_date >= cutoff_date
-            ]
-            
-            logger.debug(f"Filtered {len(documents)} documents to {len(filtered_docs)} based on {cutoff_months} month cutoff")
-            return filtered_docs
-            
-        except Exception as e:
-            logger.error(f"Error filtering documents by cutoff: {str(e)}")
-            return documents
-    
-    def get_relevant_documents_for_screening(self, patient_id: int, 
-                                           screening_type: ScreeningType) -> List[MedicalDocument]:
-        """
-        Get documents relevant to a specific screening type with frequency filtering
-        """
-        try:
-            # Get all patient documents
-            all_documents = MedicalDocument.query.filter_by(patient_id=patient_id).all()
-            
-            # Apply frequency-based filtering
-            filtered_documents = self.filter_documents_by_frequency(all_documents, screening_type)
-            
-            # Sort by date (most recent first)
-            filtered_documents.sort(key=lambda d: d.document_date or date.min, reverse=True)
-            
-            return filtered_documents
-            
-        except Exception as e:
-            logger.error(f"Error getting relevant documents for screening {screening_type.id}: {str(e)}")
-            return []
-    
-    def categorize_documents_by_age(self, documents: List[MedicalDocument]) -> Dict[str, List[MedicalDocument]]:
-        """
-        Categorize documents by age (recent, older, very old)
-        """
-        categories = {
-            'recent': [],      # Last 3 months
-            'older': [],       # 3-12 months
-            'very_old': []     # Over 12 months
-        }
+        # Calculate the start of current screening cycle
+        if last_completed_date:
+            cycle_start = last_completed_date
+        else:
+            # If no previous completion, look back one frequency period from today
+            cycle_start = self.get_cutoff_date(
+                screening_type.frequency_number,
+                screening_type.frequency_unit
+            )
         
-        try:
-            today = date.today()
-            three_months_ago = today - relativedelta(months=3)
-            twelve_months_ago = today - relativedelta(months=12)
-            
-            for doc in documents:
-                if not doc.document_date:
-                    categories['very_old'].append(doc)
-                elif doc.document_date >= three_months_ago:
-                    categories['recent'].append(doc)
-                elif doc.document_date >= twelve_months_ago:
-                    categories['older'].append(doc)
-                else:
-                    categories['very_old'].append(doc)
-            
-            return categories
-            
-        except Exception as e:
-            logger.error(f"Error categorizing documents by age: {str(e)}")
-            return categories
+        filtered_docs = []
+        for doc in documents:
+            if doc.date_created and doc.date_created >= cycle_start:
+                filtered_docs.append(doc)
+        
+        return filtered_docs
     
-    def filter_high_confidence_documents(self, documents: List[MedicalDocument], 
-                                       min_confidence: float = 0.8) -> List[MedicalDocument]:
+    def is_document_current(self, screening_type: ScreeningType) -> callable:
         """
-        Filter documents to only include those with high OCR confidence
+        Return a SQLAlchemy filter condition for current documents
         """
-        try:
-            filtered_docs = [
-                doc for doc in documents 
-                if doc.ocr_confidence and doc.ocr_confidence >= min_confidence
-            ]
-            
-            logger.debug(f"Filtered {len(documents)} documents to {len(filtered_docs)} high-confidence documents")
-            return filtered_docs
-            
-        except Exception as e:
-            logger.error(f"Error filtering high confidence documents: {str(e)}")
-            return documents
+        if not screening_type.frequency_number or not screening_type.frequency_unit:
+            # If no frequency defined, consider all documents current
+            return MedicalDocument.date_created.isnot(None)
+        
+        cutoff_date = self.get_cutoff_date(
+            screening_type.frequency_number,
+            screening_type.frequency_unit
+        )
+        
+        return MedicalDocument.date_created >= cutoff_date
     
-    def get_documents_for_date_range(self, patient_id: int, start_date: date, 
-                                   end_date: date, document_type: Optional[str] = None) -> List[MedicalDocument]:
+    def is_document_recent(self, document: MedicalDocument, months: int = 6) -> bool:
         """
-        Get documents within a specific date range
+        Check if a document is from within the specified number of months
         """
-        try:
-            query = MedicalDocument.query.filter(
+        if not document.date_created:
+            return False
+        
+        cutoff_date = self.get_cutoff_date(months, 'months')
+        return document.date_created >= cutoff_date
+    
+    def get_documents_in_period(self, patient_id: int, document_type: str, 
+                               period_months: int) -> List[MedicalDocument]:
+        """
+        Get documents of a specific type within a time period
+        """
+        from app import db
+        
+        cutoff_date = self.get_cutoff_date(period_months, 'months')
+        
+        documents = db.session.query(MedicalDocument).filter(
+            and_(
                 MedicalDocument.patient_id == patient_id,
-                MedicalDocument.document_date >= start_date,
-                MedicalDocument.document_date <= end_date
+                MedicalDocument.document_type == document_type,
+                MedicalDocument.date_created >= cutoff_date
             )
-            
-            if document_type:
-                query = query.filter(MedicalDocument.document_type == document_type)
-            
-            documents = query.order_by(MedicalDocument.document_date.desc()).all()
-            
-            logger.debug(f"Found {len(documents)} documents for date range {start_date} to {end_date}")
-            return documents
-            
-        except Exception as e:
-            logger.error(f"Error getting documents for date range: {str(e)}")
-            return []
-    
-    def apply_prep_sheet_filters(self, documents: List[MedicalDocument], 
-                               filter_config: Dict[str, Any]) -> List[MedicalDocument]:
-        """
-        Apply comprehensive filters based on prep sheet configuration
-        """
-        filtered_docs = documents
+        ).order_by(MedicalDocument.date_created.desc()).all()
         
-        try:
-            # Apply cutoff date filter
-            if 'cutoff_months' in filter_config:
-                filtered_docs = self.filter_documents_by_cutoff(
-                    filtered_docs, filter_config['cutoff_months']
-                )
-            
-            # Apply confidence filter
-            if 'min_confidence' in filter_config:
-                filtered_docs = self.filter_high_confidence_documents(
-                    filtered_docs, filter_config['min_confidence']
-                )
-            
-            # Apply document type filter
-            if 'document_types' in filter_config:
-                allowed_types = filter_config['document_types']
-                filtered_docs = [
-                    doc for doc in filtered_docs 
-                    if doc.document_type in allowed_types
-                ]
-            
-            # Apply limit
-            if 'limit' in filter_config:
-                filtered_docs = filtered_docs[:filter_config['limit']]
-            
-            logger.debug(f"Applied prep sheet filters: {len(documents)} -> {len(filtered_docs)} documents")
-            return filtered_docs
-            
-        except Exception as e:
-            logger.error(f"Error applying prep sheet filters: {str(e)}")
-            return documents
+        return documents
     
-    def get_screening_cycle_documents(self, patient_id: int, 
-                                    screening_type: ScreeningType,
-                                    last_completed_date: Optional[date] = None) -> List[MedicalDocument]:
+    def get_latest_document_by_type(self, patient_id: int, 
+                                   document_type: str) -> Optional[MedicalDocument]:
         """
-        Get documents from the current screening cycle
+        Get the most recent document of a specific type for a patient
         """
-        try:
-            if last_completed_date:
-                # Start from last completed date
-                start_date = last_completed_date
-            else:
-                # Use frequency to determine cycle start
-                start_date = self.calculate_cutoff_date(screening_type.frequency_months)
-            
-            end_date = date.today()
-            
-            documents = self.get_documents_for_date_range(
-                patient_id, start_date, end_date
+        from app import db
+        
+        document = db.session.query(MedicalDocument).filter(
+            and_(
+                MedicalDocument.patient_id == patient_id,
+                MedicalDocument.document_type == document_type
             )
-            
-            logger.debug(f"Found {len(documents)} documents in current screening cycle for {screening_type.name}")
-            return documents
-            
-        except Exception as e:
-            logger.error(f"Error getting screening cycle documents: {str(e)}")
-            return []
-    
-    def calculate_data_freshness_score(self, documents: List[MedicalDocument]) -> float:
-        """
-        Calculate a freshness score based on document dates
-        """
-        if not documents:
-            return 0.0
+        ).order_by(MedicalDocument.date_created.desc()).first()
         
-        try:
-            today = date.today()
-            total_score = 0.0
-            
-            for doc in documents:
-                if doc.document_date:
-                    days_old = (today - doc.document_date).days
-                    # Score decreases with age (max 1.0 for today, approaches 0 for very old)
-                    freshness = max(0.0, 1.0 - (days_old / 365.0))
-                    total_score += freshness
-            
-            # Average freshness score
-            return total_score / len(documents)
-            
-        except Exception as e:
-            logger.error(f"Error calculating data freshness score: {str(e)}")
-            return 0.0
+        return document
     
-    def get_priority_documents(self, documents: List[MedicalDocument], 
-                             max_count: int = 10) -> List[MedicalDocument]:
+    def calculate_document_age(self, document: MedicalDocument) -> Optional[dict]:
         """
-        Get the most important documents based on recency and confidence
+        Calculate the age of a document in various units
         """
-        try:
-            # Score documents based on recency and confidence
-            scored_docs = []
-            today = date.today()
+        if not document.date_created:
+            return None
+        
+        today = date.today()
+        delta = today - document.date_created
+        
+        return {
+            'days': delta.days,
+            'weeks': delta.days // 7,
+            'months': self._calculate_months_between(document.date_created, today),
+            'years': today.year - document.date_created.year
+        }
+    
+    def _calculate_months_between(self, start_date: date, end_date: date) -> int:
+        """
+        Calculate number of months between two dates
+        """
+        months = (end_date.year - start_date.year) * 12
+        months += end_date.month - start_date.month
+        
+        # Adjust if day hasn't been reached yet
+        if end_date.day < start_date.day:
+            months -= 1
+        
+        return max(0, months)
+    
+    def filter_by_confidence_threshold(self, documents: List[MedicalDocument],
+                                     min_confidence: float = 60.0) -> List[MedicalDocument]:
+        """
+        Filter documents by OCR confidence threshold
+        """
+        filtered_docs = []
+        for doc in documents:
+            if doc.ocr_confidence is None or doc.ocr_confidence >= min_confidence:
+                filtered_docs.append(doc)
+        
+        return filtered_docs
+    
+    def group_documents_by_month(self, documents: List[MedicalDocument]) -> dict:
+        """
+        Group documents by month for timeline display
+        """
+        grouped = {}
+        
+        for doc in documents:
+            if not doc.date_created:
+                continue
             
-            for doc in documents:
-                score = 0.0
-                
-                # Recency score (0-1, higher for more recent)
-                if doc.document_date:
-                    days_old = (today - doc.document_date).days
-                    recency_score = max(0.0, 1.0 - (days_old / 365.0))
-                    score += recency_score * 0.6
-                
-                # Confidence score (0-1)
-                if doc.ocr_confidence:
-                    confidence_score = doc.ocr_confidence / 100.0
-                    score += confidence_score * 0.4
-                
-                scored_docs.append((doc, score))
+            month_key = doc.date_created.strftime('%Y-%m')
+            month_name = doc.date_created.strftime('%B %Y')
             
-            # Sort by score and return top documents
-            scored_docs.sort(key=lambda x: x[1], reverse=True)
-            priority_docs = [doc for doc, score in scored_docs[:max_count]]
+            if month_key not in grouped:
+                grouped[month_key] = {
+                    'month_name': month_name,
+                    'documents': []
+                }
             
-            logger.debug(f"Selected {len(priority_docs)} priority documents from {len(documents)} total")
-            return priority_docs
+            grouped[month_key]['documents'].append(doc)
+        
+        # Sort by month (newest first)
+        sorted_groups = dict(sorted(grouped.items(), reverse=True))
+        
+        return sorted_groups
+    
+    def get_screening_cycle_info(self, screening_type: ScreeningType,
+                                last_completed_date: Optional[date] = None) -> dict:
+        """
+        Get information about the current screening cycle
+        """
+        if not screening_type.frequency_number or not screening_type.frequency_unit:
+            return {
+                'has_frequency': False,
+                'cycle_start': None,
+                'cycle_end': None,
+                'next_due': None
+            }
+        
+        if last_completed_date:
+            cycle_start = last_completed_date
             
-        except Exception as e:
-            logger.error(f"Error getting priority documents: {str(e)}")
-            return documents[:max_count]
-
-# Global filters instance
-prep_sheet_filters = PrepSheetFilters()
+            if screening_type.frequency_unit == 'years':
+                next_due = cycle_start + relativedelta(years=screening_type.frequency_number)
+            elif screening_type.frequency_unit == 'months':
+                next_due = cycle_start + relativedelta(months=screening_type.frequency_number)
+            else:  # days
+                next_due = cycle_start + timedelta(days=screening_type.frequency_number)
+        else:
+            # No previous completion - due now
+            cycle_start = None
+            next_due = date.today()
+        
+        return {
+            'has_frequency': True,
+            'frequency_text': self._format_frequency(screening_type),
+            'cycle_start': cycle_start,
+            'next_due': next_due,
+            'is_overdue': next_due < date.today() if next_due else False,
+            'days_until_due': (next_due - date.today()).days if next_due else None
+        }
+    
+    def _format_frequency(self, screening_type: ScreeningType) -> str:
+        """
+        Format screening frequency for display
+        """
+        if not screening_type.frequency_number or not screening_type.frequency_unit:
+            return 'As needed'
+        
+        unit = screening_type.frequency_unit
+        number = screening_type.frequency_number
+        
+        if number == 1:
+            return f"Every {unit[:-1]}"  # Remove 's' from plural
+        else:
+            return f"Every {number} {unit}"
+    
+    def get_document_relevance_score(self, document: MedicalDocument,
+                                   screening_type: ScreeningType) -> float:
+        """
+        Calculate a relevance score for a document to a screening type
+        """
+        score = 0.0
+        
+        # Base score for document type match
+        if document.document_type in ['lab', 'imaging', 'consult']:
+            score += 0.3
+        
+        # OCR confidence boost
+        if document.ocr_confidence:
+            score += (document.ocr_confidence / 100) * 0.3
+        
+        # Recency boost (more recent = higher score)
+        if document.date_created:
+            age_months = self._calculate_months_between(document.date_created, date.today())
+            recency_score = max(0, 1.0 - (age_months / 24))  # Decay over 24 months
+            score += recency_score * 0.4
+        
+        return min(1.0, score)  # Cap at 1.0

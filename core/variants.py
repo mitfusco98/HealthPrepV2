@@ -1,234 +1,205 @@
 """
 Handles screening type variants for different trigger conditions
+Allows different screening protocols based on patient conditions
 """
-import json
-import logging
-from typing import Dict, List, Any, Optional
-from datetime import date
-from dateutil.relativedelta import relativedelta
-from models import Patient, ScreeningType, PatientCondition
 
-logger = logging.getLogger(__name__)
+from typing import List, Dict, Optional, Any
+from models import ScreeningType, PatientCondition
+from core.matcher import FuzzyMatcher
 
-class VariantProcessor:
-    """Processes screening type variants based on patient trigger conditions"""
+class ScreeningVariants:
+    """Manages screening type variants and conditional protocols"""
     
     def __init__(self):
-        self.variant_rules = self._load_variant_rules()
+        self.matcher = FuzzyMatcher()
     
-    def _load_variant_rules(self) -> Dict[str, Dict[str, Any]]:
-        """Load predefined variant rules for common conditions"""
-        return {
-            'diabetes': {
-                'a1c': {'frequency_months': 3, 'priority': 'high'},
-                'lipid panel': {'frequency_months': 6, 'priority': 'high'},
-                'eye exam': {'frequency_months': 12, 'priority': 'high'},
-                'foot exam': {'frequency_months': 6, 'priority': 'medium'}
+    def get_applicable_variant(self, base_screening_type: ScreeningType, 
+                             patient_conditions: List[PatientCondition]) -> ScreeningType:
+        """
+        Get the most applicable screening variant based on patient conditions
+        """
+        # For now, return the base screening type
+        # This can be extended to handle complex variant logic
+        return base_screening_type
+    
+    def create_screening_variant(self, base_screening_id: int, 
+                               variant_name: str, 
+                               modifications: Dict[str, Any]) -> ScreeningType:
+        """
+        Create a variant of a screening type with modified parameters
+        """
+        base_screening = ScreeningType.query.get(base_screening_id)
+        if not base_screening:
+            raise ValueError("Base screening type not found")
+        
+        # Create new screening type as variant
+        variant = ScreeningType(
+            name=f"{base_screening.name} - {variant_name}",
+            description=f"{base_screening.description} (Variant: {variant_name})",
+            keywords=modifications.get('keywords', base_screening.keywords),
+            min_age=modifications.get('min_age', base_screening.min_age),
+            max_age=modifications.get('max_age', base_screening.max_age),
+            gender=modifications.get('gender', base_screening.gender),
+            frequency_number=modifications.get('frequency_number', base_screening.frequency_number),
+            frequency_unit=modifications.get('frequency_unit', base_screening.frequency_unit),
+            trigger_conditions=modifications.get('trigger_conditions', base_screening.trigger_conditions),
+            is_active=modifications.get('is_active', True)
+        )
+        
+        return variant
+    
+    def get_diabetic_variants(self) -> List[Dict[str, Any]]:
+        """Get common diabetic screening variants"""
+        return [
+            {
+                'name': 'Diabetic A1C',
+                'base_screening': 'A1C',
+                'modifications': {
+                    'frequency_number': 3,
+                    'frequency_unit': 'months',
+                    'trigger_conditions': ['diabetes', 'diabetes mellitus', 'dm']
+                }
             },
-            'hypertension': {
-                'blood pressure': {'frequency_months': 3, 'priority': 'high'},
-                'lipid panel': {'frequency_months': 6, 'priority': 'medium'},
-                'kidney function': {'frequency_months': 12, 'priority': 'medium'}
+            {
+                'name': 'Diabetic Eye Exam',
+                'base_screening': 'Eye Exam',
+                'modifications': {
+                    'frequency_number': 1,
+                    'frequency_unit': 'years',
+                    'trigger_conditions': ['diabetes', 'diabetes mellitus', 'dm']
+                }
             },
-            'high cholesterol': {
-                'lipid panel': {'frequency_months': 6, 'priority': 'high'},
-                'blood pressure': {'frequency_months': 6, 'priority': 'medium'}
-            },
-            'heart disease': {
-                'blood pressure': {'frequency_months': 3, 'priority': 'high'},
-                'lipid panel': {'frequency_months': 6, 'priority': 'high'},
-                'ecg': {'frequency_months': 12, 'priority': 'medium'}
-            },
-            'family history of cancer': {
-                'mammogram': {'frequency_months': 6, 'min_age': 40, 'priority': 'high'},
-                'colonoscopy': {'frequency_months': 12, 'min_age': 45, 'priority': 'high'},
-                'pap smear': {'frequency_months': 6, 'priority': 'medium'}
-            },
-            'osteoporosis': {
-                'dexa': {'frequency_months': 12, 'priority': 'high'},
-                'calcium': {'frequency_months': 6, 'priority': 'medium'},
-                'vitamin d': {'frequency_months': 6, 'priority': 'medium'}
+            {
+                'name': 'Diabetic Foot Exam',
+                'base_screening': 'Foot Exam',
+                'modifications': {
+                    'frequency_number': 6,
+                    'frequency_unit': 'months',
+                    'trigger_conditions': ['diabetes', 'diabetes mellitus', 'dm']
+                }
             }
-        }
+        ]
     
-    def get_screening_variants(self, patient: Patient, screening_type: ScreeningType) -> List[Dict[str, Any]]:
-        """
-        Get all applicable variants for a screening type based on patient conditions
-        Returns list of variant configurations
-        """
-        variants = []
-        
-        # Get patient conditions
-        patient_conditions = PatientCondition.query.filter_by(
-            patient_id=patient.id,
-            is_active=True
-        ).all()
-        
-        if not patient_conditions:
-            return [self._get_default_variant(screening_type)]
-        
-        # Check each condition for applicable variants
-        for condition in patient_conditions:
-            condition_variants = self._get_condition_variants(condition, screening_type)
-            variants.extend(condition_variants)
-        
-        # If no condition-specific variants found, return default
-        if not variants:
-            variants.append(self._get_default_variant(screening_type))
-        
-        # Remove duplicates and prioritize
-        return self._prioritize_variants(variants)
+    def get_cardiac_variants(self) -> List[Dict[str, Any]]:
+        """Get common cardiac screening variants"""
+        return [
+            {
+                'name': 'Cardiac Lipid Panel',
+                'base_screening': 'Lipid Panel',
+                'modifications': {
+                    'frequency_number': 6,
+                    'frequency_unit': 'months',
+                    'trigger_conditions': ['heart disease', 'coronary artery disease', 'cad', 'hyperlipidemia']
+                }
+            },
+            {
+                'name': 'Cardiac Stress Test - High Risk',
+                'base_screening': 'Stress Test',
+                'modifications': {
+                    'frequency_number': 2,
+                    'frequency_unit': 'years',
+                    'trigger_conditions': ['heart disease', 'coronary artery disease', 'cad']
+                }
+            }
+        ]
     
-    def _get_condition_variants(self, condition: PatientCondition, screening_type: ScreeningType) -> List[Dict[str, Any]]:
-        """Get variants for a specific condition"""
+    def get_hypertension_variants(self) -> List[Dict[str, Any]]:
+        """Get common hypertension screening variants"""
+        return [
+            {
+                'name': 'Hypertensive BMP/CMP',
+                'base_screening': 'Basic Metabolic Panel',
+                'modifications': {
+                    'frequency_number': 6,
+                    'frequency_unit': 'months',
+                    'trigger_conditions': ['hypertension', 'high blood pressure', 'htn']
+                }
+            },
+            {
+                'name': 'Hypertensive EKG',
+                'base_screening': 'EKG',
+                'modifications': {
+                    'frequency_number': 1,
+                    'frequency_unit': 'years',
+                    'trigger_conditions': ['hypertension', 'high blood pressure', 'htn']
+                }
+            }
+        ]
+    
+    def get_all_preset_variants(self) -> List[Dict[str, Any]]:
+        """Get all available preset variants"""
         variants = []
-        condition_name_lower = condition.condition_name.lower()
-        screening_name_lower = screening_type.name.lower()
-        
-        # Check predefined variant rules
-        for rule_condition, screenings in self.variant_rules.items():
-            if rule_condition in condition_name_lower:
-                for screening_pattern, variant_config in screenings.items():
-                    if screening_pattern in screening_name_lower:
-                        variant = self._create_variant(
-                            screening_type, 
-                            variant_config, 
-                            condition.condition_name,
-                            rule_condition
-                        )
-                        variants.append(variant)
-        
+        variants.extend(self.get_diabetic_variants())
+        variants.extend(self.get_cardiac_variants())
+        variants.extend(self.get_hypertension_variants())
         return variants
     
-    def _create_variant(self, screening_type: ScreeningType, config: Dict[str, Any], 
-                       condition_name: str, rule_condition: str) -> Dict[str, Any]:
-        """Create a variant configuration"""
-        return {
-            'screening_type_id': screening_type.id,
-            'screening_name': screening_type.name,
-            'original_frequency': screening_type.frequency_months,
-            'variant_frequency': config.get('frequency_months', screening_type.frequency_months),
-            'priority': config.get('priority', 'medium'),
-            'min_age': config.get('min_age', screening_type.min_age),
-            'max_age': config.get('max_age', screening_type.max_age),
-            'trigger_condition': condition_name,
-            'rule_condition': rule_condition,
-            'description': f"Modified frequency due to {condition_name}",
-            'is_variant': True
-        }
+    def apply_variant_preset(self, preset_name: str) -> List[ScreeningType]:
+        """Apply a preset of screening variants"""
+        created_variants = []
+        
+        if preset_name == 'diabetic':
+            variants = self.get_diabetic_variants()
+        elif preset_name == 'cardiac':
+            variants = self.get_cardiac_variants()
+        elif preset_name == 'hypertension':
+            variants = self.get_hypertension_variants()
+        else:
+            return created_variants
+        
+        for variant_data in variants:
+            # Check if base screening exists
+            base_name = variant_data['base_screening']
+            base_screening = ScreeningType.query.filter_by(name=base_name).first()
+            
+            if base_screening:
+                variant = self.create_screening_variant(
+                    base_screening.id,
+                    variant_data['name'],
+                    variant_data['modifications']
+                )
+                created_variants.append(variant)
+        
+        return created_variants
     
-    def _get_default_variant(self, screening_type: ScreeningType) -> Dict[str, Any]:
-        """Get default (non-variant) configuration"""
-        return {
-            'screening_type_id': screening_type.id,
-            'screening_name': screening_type.name,
-            'original_frequency': screening_type.frequency_months,
-            'variant_frequency': screening_type.frequency_months,
-            'priority': 'standard',
-            'min_age': screening_type.min_age,
-            'max_age': screening_type.max_age,
-            'trigger_condition': None,
-            'rule_condition': None,
-            'description': "Standard screening protocol",
-            'is_variant': False
-        }
-    
-    def _prioritize_variants(self, variants: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Remove duplicates and prioritize variants"""
-        # Group by screening type
-        grouped = {}
-        for variant in variants:
-            screening_id = variant['screening_type_id']
-            if screening_id not in grouped:
-                grouped[screening_id] = []
-            grouped[screening_id].append(variant)
+    def get_variant_suggestions(self, screening_type: ScreeningType) -> List[Dict[str, Any]]:
+        """Get suggested variants for a screening type"""
+        suggestions = []
         
-        # Select highest priority variant for each screening type
-        priority_order = {'high': 3, 'medium': 2, 'low': 1, 'standard': 0}
-        final_variants = []
+        # Age-based variants
+        if screening_type.min_age:
+            suggestions.append({
+                'name': 'Senior Variant',
+                'description': f'Modified frequency for patients over 65',
+                'modifications': {
+                    'min_age': 65,
+                    'frequency_number': max(1, screening_type.frequency_number - 1) if screening_type.frequency_number else 1
+                }
+            })
         
-        for screening_id, variant_list in grouped.items():
-            # Sort by priority and select highest
-            variant_list.sort(key=lambda v: priority_order.get(v['priority'], 0), reverse=True)
-            final_variants.append(variant_list[0])
+        # Gender-specific variants
+        if not screening_type.gender:
+            suggestions.extend([
+                {
+                    'name': 'Male-Specific',
+                    'description': 'Male-only version of this screening',
+                    'modifications': {'gender': 'M'}
+                },
+                {
+                    'name': 'Female-Specific', 
+                    'description': 'Female-only version of this screening',
+                    'modifications': {'gender': 'F'}
+                }
+            ])
         
-        return final_variants
-    
-    def calculate_variant_next_due_date(self, last_completed_date: date, variant: Dict[str, Any]) -> date:
-        """Calculate next due date using variant frequency"""
-        frequency_months = variant['variant_frequency']
-        return last_completed_date + relativedelta(months=frequency_months)
-    
-    def get_variant_urgency_level(self, variant: Dict[str, Any], next_due_date: date) -> str:
-        """Determine urgency level considering variant priority"""
-        today = date.today()
-        days_until_due = (next_due_date - today).days
-        priority = variant.get('priority', 'standard')
+        # High-risk variants
+        suggestions.append({
+            'name': 'High-Risk',
+            'description': 'More frequent screening for high-risk patients',
+            'modifications': {
+                'frequency_number': max(1, (screening_type.frequency_number or 1) // 2),
+                'trigger_conditions': ['high risk', 'family history']
+            }
+        })
         
-        # High priority conditions have stricter urgency thresholds
-        if priority == 'high':
-            if days_until_due <= 0:
-                return 'critical'
-            elif days_until_due <= 14:
-                return 'urgent'
-            elif days_until_due <= 30:
-                return 'high'
-            else:
-                return 'medium'
-        elif priority == 'medium':
-            if days_until_due <= 0:
-                return 'urgent'
-            elif days_until_due <= 30:
-                return 'high'
-            elif days_until_due <= 60:
-                return 'medium'
-            else:
-                return 'low'
-        else:  # standard or low priority
-            if days_until_due <= 0:
-                return 'high'
-            elif days_until_due <= 30:
-                return 'medium'
-            else:
-                return 'low'
-    
-    def create_screening_variant(self, base_screening_type: ScreeningType, 
-                               condition_name: str, variant_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a new screening variant programmatically"""
-        
-        variant_name = f"{base_screening_type.name} (for {condition_name})"
-        
-        return {
-            'name': variant_name,
-            'description': f"Modified {base_screening_type.name} protocol for patients with {condition_name}",
-            'keywords': base_screening_type.keywords,
-            'frequency_months': variant_config.get('frequency_months', base_screening_type.frequency_months),
-            'frequency_unit': base_screening_type.frequency_unit,
-            'min_age': variant_config.get('min_age', base_screening_type.min_age),
-            'max_age': variant_config.get('max_age', base_screening_type.max_age),
-            'gender_restrictions': base_screening_type.gender_restrictions,
-            'trigger_conditions': json.dumps([condition_name]),
-            'is_active': True,
-            'priority': variant_config.get('priority', 'medium'),
-            'parent_screening_type_id': base_screening_type.id
-        }
-    
-    def validate_variant_configuration(self, variant_config: Dict[str, Any]) -> List[str]:
-        """Validate variant configuration and return list of errors"""
-        errors = []
-        
-        required_fields = ['frequency_months', 'priority']
-        for field in required_fields:
-            if field not in variant_config:
-                errors.append(f"Missing required field: {field}")
-        
-        if 'frequency_months' in variant_config:
-            if not isinstance(variant_config['frequency_months'], int) or variant_config['frequency_months'] <= 0:
-                errors.append("frequency_months must be a positive integer")
-        
-        if 'priority' in variant_config:
-            valid_priorities = ['low', 'medium', 'high', 'critical']
-            if variant_config['priority'] not in valid_priorities:
-                errors.append(f"priority must be one of: {', '.join(valid_priorities)}")
-        
-        return errors
+        return suggestions

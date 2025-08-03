@@ -1,824 +1,669 @@
-{% extends 'base_demo.html' %}
+{% extends 'base_user.html' %}
 
 {% block title %}HealthPrep - Prep Sheet for {{ patient.full_name }}{% endblock %}
 
 {% block extra_css %}
 <style>
-.prep-sheet-container {
-    background-color: white;
-    color: #333;
-    padding: 2rem;
-    border-radius: 0.5rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    margin-bottom: 2rem;
-}
-
-.prep-sheet-header {
-    text-align: center;
-    border-bottom: 2px solid #0d6efd;
-    padding-bottom: 1rem;
-    margin-bottom: 2rem;
-}
-
-.prep-sheet-title {
-    color: #0d6efd;
-    font-size: 1.8rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-}
-
-.prep-sheet-subtitle {
-    color: #6c757d;
-    font-size: 1rem;
-}
-
-.patient-header {
-    background-color: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 0.375rem;
-    padding: 1.5rem;
-    margin-bottom: 2rem;
-}
-
-.patient-info-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-}
-
-.patient-info-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid #e9ecef;
-}
-
-.patient-info-item:last-child {
-    border-bottom: none;
-}
-
-.patient-info-label {
-    font-weight: 600;
-    color: #495057;
-}
-
-.patient-info-value {
-    color: #212529;
-    font-weight: 500;
-}
-
-.section-header {
-    color: #0d6efd;
-    font-size: 1.2rem;
-    font-weight: 600;
-    border-bottom: 2px solid #e9ecef;
-    padding-bottom: 0.5rem;
-    margin: 2rem 0 1rem 0;
-    display: flex;
-    align-items: center;
-}
-
-.section-icon {
-    margin-right: 0.5rem;
-}
-
-.data-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 1.5rem;
-}
-
-.data-table th {
-    background-color: #f8f9fa;
-    color: #495057;
-    font-weight: 600;
-    padding: 0.75rem;
-    border: 1px solid #dee2e6;
-    text-align: left;
-}
-
-.data-table td {
-    padding: 0.75rem;
-    border: 1px solid #dee2e6;
-    color: #212529;
-}
-
-.data-table tbody tr:nth-child(even) {
-    background-color: #f8f9fa;
-}
-
-.screening-status {
-    display: inline-block;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    font-size: 0.85rem;
-    font-weight: 600;
-    text-transform: uppercase;
-}
-
-.status-complete {
-    background-color: #d1e7dd;
-    color: #0f5132;
-    border: 1px solid #badbcc;
-}
-
-.status-due {
-    background-color: #f8d7da;
-    color: #842029;
-    border: 1px solid #f5c2c7;
-}
-
-.status-due-soon {
-    background-color: #fff3cd;
-    color: #664d03;
-    border: 1px solid #ffecb5;
-}
-
-.document-link {
-    color: #0d6efd;
-    text-decoration: none;
-    font-size: 0.9rem;
-    display: inline-block;
-    margin: 0.1rem 0.25rem 0.1rem 0;
-    padding: 0.2rem 0.4rem;
-    border-radius: 0.2rem;
-    border: 1px solid #e9ecef;
-    background-color: #f8f9fa;
-}
-
-.document-link:hover {
-    background-color: #e9ecef;
-    border-color: #0d6efd;
-}
-
-.confidence-indicator {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    margin-right: 0.3rem;
-}
-
-.confidence-high { background-color: #198754; }
-.confidence-medium { background-color: #ffc107; }
-.confidence-low { background-color: #dc3545; }
-
-.summary-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin-bottom: 2rem;
-}
-
-.summary-card {
-    background-color: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 0.375rem;
-    padding: 1rem;
-    text-align: center;
-}
-
-.summary-card-value {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #0d6efd;
-    margin-bottom: 0.25rem;
-}
-
-.summary-card-label {
-    color: #6c757d;
-    font-size: 0.9rem;
-}
-
-.action-buttons {
-    text-align: center;
-    margin-top: 2rem;
-    padding-top: 2rem;
-    border-top: 2px solid #e9ecef;
-}
-
-.prep-sheet-footer {
-    text-align: center;
-    color: #6c757d;
-    font-size: 0.8rem;
-    margin-top: 2rem;
-    padding-top: 1rem;
-    border-top: 1px solid #e9ecef;
-}
-
-.no-data-message {
-    text-align: center;
-    color: #6c757d;
-    font-style: italic;
-    padding: 2rem;
-}
-
-.cutoff-notice {
-    background-color: #e7f3ff;
-    border: 1px solid #b3d9ff;
-    border-radius: 0.25rem;
-    padding: 0.75rem;
-    margin-bottom: 1rem;
-    font-size: 0.9rem;
-    color: #004085;
-}
-
-.print-styles {
-    display: none;
-}
-
-/* Print styles */
-@media print {
-    body {
-        background: white !important;
-        color: black !important;
-    }
-    
-    .navbar, .action-buttons, .btn {
-        display: none !important;
-    }
-    
     .prep-sheet-container {
-        box-shadow: none;
-        border: 1px solid #333;
-        margin: 0;
-        padding: 1rem;
+        background: white;
+        color: #333;
+        padding: 2rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        margin-bottom: 2rem;
     }
     
-    .section-header {
-        color: #333 !important;
-        page-break-after: avoid;
-    }
-    
-    .data-table {
-        page-break-inside: avoid;
-    }
-    
-    .patient-header {
-        page-break-after: avoid;
-    }
-    
-    .print-styles {
-        display: block;
-        text-align: center;
-        font-size: 0.8rem;
-        color: #666;
-        margin-bottom: 1rem;
-    }
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-    .prep-sheet-container {
-        padding: 1rem;
+    .prep-sheet-header {
+        border-bottom: 3px solid #0d6efd;
+        padding-bottom: 1rem;
+        margin-bottom: 2rem;
     }
     
     .patient-info-grid {
-        grid-template-columns: 1fr;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
     }
     
-    .data-table {
-        font-size: 0.8rem;
+    .info-item {
+        display: flex;
+        flex-direction: column;
     }
     
-    .data-table th,
-    .data-table td {
+    .info-label {
+        font-weight: 600;
+        color: #495057;
+        font-size: 0.875rem;
+        margin-bottom: 0.25rem;
+    }
+    
+    .info-value {
+        font-size: 1rem;
+        color: #212529;
+    }
+    
+    .prep-section {
+        margin-bottom: 2rem;
+        page-break-inside: avoid;
+    }
+    
+    .section-header {
+        background: linear-gradient(135deg, #0d6efd, #6610f2);
+        color: white;
+        padding: 0.75rem 1rem;
+        border-radius: 0.375rem 0.375rem 0 0;
+        margin-bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .section-content {
+        border: 1px solid #dee2e6;
+        border-top: none;
+        padding: 1rem;
+        border-radius: 0 0 0.375rem 0.375rem;
+        background: #f8f9fa;
+    }
+    
+    .screening-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1rem;
+    }
+    
+    .screening-item {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        position: relative;
+    }
+    
+    .screening-status {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .status-complete {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    
+    .status-due-soon {
+        background: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+    
+    .status-due {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+    
+    .document-links {
+        margin-top: 0.5rem;
+    }
+    
+    .document-link {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        margin: 0.125rem;
+        border-radius: 0.25rem;
+        text-decoration: none;
+        font-size: 0.75rem;
+        color: white;
+        transition: all 0.2s;
+    }
+    
+    .document-link:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.2);
+        color: white;
+    }
+    
+    .confidence-high {
+        background: #28a745;
+    }
+    
+    .confidence-medium {
+        background: #ffc107;
+        color: #212529 !important;
+    }
+    
+    .confidence-low {
+        background: #dc3545;
+    }
+    
+    .medical-data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1rem;
+    }
+    
+    .medical-data-table th,
+    .medical-data-table td {
         padding: 0.5rem;
+        border: 1px solid #dee2e6;
+        text-align: left;
     }
-}
+    
+    .medical-data-table th {
+        background: #e9ecef;
+        font-weight: 600;
+    }
+    
+    .medical-data-table tbody tr:nth-child(even) {
+        background: #f8f9fa;
+    }
+    
+    .conditions-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .condition-item {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .condition-name {
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .condition-details {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .print-controls {
+        background: var(--bs-dark);
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        color: white;
+    }
+    
+    .summary-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-item {
+        text-align: center;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 1rem;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #0d6efd;
+        margin-bottom: 0.25rem;
+    }
+    
+    .stat-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    @media print {
+        .print-controls,
+        .navbar,
+        footer {
+            display: none !important;
+        }
+        
+        .prep-sheet-container {
+            box-shadow: none;
+            margin: 0;
+            padding: 1rem;
+        }
+        
+        body {
+            background: white !important;
+        }
+        
+        .prep-section {
+            page-break-inside: avoid;
+        }
+        
+        .section-header {
+            background: #0d6efd !important;
+            -webkit-print-color-adjust: exact;
+            color-adjust: exact;
+        }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Print Header (only visible when printing) -->
-<div class="print-styles">
-    <strong>HealthPrep Patient Preparation Sheet</strong><br>
-    Generated on {{ prep_sheet.generation_metadata.generated_at[:10] }}
+<!-- Print Controls -->
+<div class="print-controls d-print-none">
+    <div class="d-flex justify-content-between align-items-center w-100">
+        <div>
+            <h5 class="mb-0">
+                <i class="fas fa-file-medical-alt me-2"></i>
+                Prep Sheet for {{ patient.full_name }}
+            </h5>
+            <small class="text-muted">
+                Generated on {{ generated_at.strftime('%B %d, %Y at %I:%M %p') }}
+            </small>
+        </div>
+        <div class="btn-group">
+            <a href="{{ url_for('patient.patient_detail', patient_id=patient.id) }}" class="btn btn-outline-light">
+                <i class="fas fa-arrow-left me-1"></i>Back to Patient
+            </a>
+            <button type="button" class="btn btn-outline-light" onclick="window.print()">
+                <i class="fas fa-print me-1"></i>Print
+            </button>
+            <button type="button" class="btn btn-outline-light" onclick="downloadPDF()">
+                <i class="fas fa-file-pdf me-1"></i>Download PDF
+            </button>
+            <button type="button" class="btn btn-light" onclick="refreshPrepSheet()">
+                <i class="fas fa-sync-alt me-1"></i>Refresh
+            </button>
+        </div>
+    </div>
 </div>
 
 <div class="prep-sheet-container">
-    <!-- Prep Sheet Header -->
+    <!-- Patient Header -->
     <div class="prep-sheet-header">
-        <div class="prep-sheet-title">
-            <i class="fas fa-file-medical me-2"></i>
-            Patient Preparation Sheet
-        </div>
-        <div class="prep-sheet-subtitle">
-            Comprehensive visit preparation and screening status
-        </div>
-    </div>
-
-    <!-- Patient Header Information -->
-    <div class="patient-header">
-        <h5 class="mb-3">
-            <i class="fas fa-user me-2 text-primary"></i>
-            Patient Information
-        </h5>
-        <div class="patient-info-grid">
-            <div class="patient-info-item">
-                <span class="patient-info-label">Patient Name:</span>
-                <span class="patient-info-value">{{ prep_sheet.patient_header.patient_name }}</span>
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <h1 class="mb-2">{{ patient.full_name }}</h1>
+                <p class="text-muted mb-0">Patient Visit Preparation Sheet</p>
             </div>
-            <div class="patient-info-item">
-                <span class="patient-info-label">MRN:</span>
-                <span class="patient-info-value">{{ prep_sheet.patient_header.mrn }}</span>
-            </div>
-            <div class="patient-info-item">
-                <span class="patient-info-label">Date of Birth:</span>
-                <span class="patient-info-value">{{ prep_sheet.patient_header.date_of_birth }}</span>
-            </div>
-            <div class="patient-info-item">
-                <span class="patient-info-label">Age:</span>
-                <span class="patient-info-value">{{ prep_sheet.patient_header.age }} years</span>
-            </div>
-            <div class="patient-info-item">
-                <span class="patient-info-label">Gender:</span>
-                <span class="patient-info-value">{{ prep_sheet.patient_header.gender }}</span>
-            </div>
-            <div class="patient-info-item">
-                <span class="patient-info-label">Last Visit:</span>
-                <span class="patient-info-value">{{ prep_sheet.patient_header.last_visit }}</span>
-            </div>
-            <div class="patient-info-item">
-                <span class="patient-info-label">Prep Date:</span>
-                <span class="patient-info-value">{{ prep_sheet.patient_header.prep_date }}</span>
+            <div class="text-end">
+                <p class="mb-1"><strong>Prep Date:</strong> {{ prep_data.patient_header.prep_date.strftime('%B %d, %Y') }}</p>
+                <p class="mb-0"><strong>Generated at:</strong> {{ generated_at.strftime('%I:%M %p') }}</p>
             </div>
         </div>
     </div>
 
-    <!-- Patient Summary -->
-    {% if prep_sheet.patient_summary %}
-    <div class="section-header">
-        <i class="fas fa-chart-line section-icon"></i>
-        Patient Summary
+    <!-- Patient Information Grid -->
+    <div class="patient-info-grid">
+        <div class="info-item">
+            <div class="info-label">Medical Record Number</div>
+            <div class="info-value">{{ patient.mrn }}</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">Date of Birth</div>
+            <div class="info-value">{{ prep_data.patient_header.date_of_birth.strftime('%m/%d/%Y') }}</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">Age</div>
+            <div class="info-value">{{ prep_data.patient_header.age }} years</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">Gender</div>
+            <div class="info-value">{{ 'Male' if prep_data.patient_header.gender == 'M' else 'Female' if prep_data.patient_header.gender == 'F' else prep_data.patient_header.gender }}</div>
+        </div>
+        <div class="info-item">
+            <div class="info-label">Last Visit</div>
+            <div class="info-value">
+                {% if prep_data.patient_header.last_visit %}
+                    {{ prep_data.patient_header.last_visit.strftime('%m/%d/%Y') }}
+                {% else %}
+                    <em>No previous visits</em>
+                {% endif %}
+            </div>
+        </div>
     </div>
 
-    <div class="summary-cards">
-        <div class="summary-card">
-            <div class="summary-card-value">{{ prep_sheet.patient_summary.recent_visits|length }}</div>
-            <div class="summary-card-label">Recent Visits (6 months)</div>
+    <!-- Summary Statistics -->
+    <div class="summary-stats">
+        <div class="stat-item">
+            <div class="stat-value">{{ prep_data.quality_checklist.total_screenings }}</div>
+            <div class="stat-label">Total Screenings</div>
         </div>
-        <div class="summary-card">
-            <div class="summary-card-value">{{ prep_sheet.patient_summary.total_conditions }}</div>
-            <div class="summary-card-label">Active Conditions</div>
+        <div class="stat-item">
+            <div class="stat-value text-danger">{{ prep_data.quality_checklist.due_count }}</div>
+            <div class="stat-label">Due Now</div>
         </div>
-        <div class="summary-card">
-            <div class="summary-card-value">{{ prep_sheet.quality_checklist.total_screenings }}</div>
-            <div class="summary-card-label">Tracked Screenings</div>
+        <div class="stat-item">
+            <div class="stat-value text-warning">{{ prep_data.quality_checklist.due_soon_count }}</div>
+            <div class="stat-label">Due Soon</div>
         </div>
-        <div class="summary-card">
-            <div class="summary-card-value">{{ prep_sheet.quality_checklist.status_summary.Complete }}</div>
-            <div class="summary-card-label">Up to Date</div>
+        <div class="stat-item">
+            <div class="stat-value text-success">{{ prep_data.quality_checklist.complete_count }}</div>
+            <div class="stat-label">Complete</div>
         </div>
     </div>
 
     <!-- Active Conditions -->
-    {% if prep_sheet.patient_summary.active_conditions %}
-    <h6 class="text-primary mb-2">Active Medical Conditions</h6>
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Condition</th>
-                <th>ICD Code</th>
-                <th>Diagnosis Date</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for condition in prep_sheet.patient_summary.active_conditions %}
-            <tr>
-                <td>{{ condition.name }}</td>
-                <td>{{ condition.icd_code or 'N/A' }}</td>
-                <td>{{ condition.diagnosis_date }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% endif %}
-
-    <!-- Recent Visits -->
-    {% if prep_sheet.patient_summary.recent_visits %}
-    <h6 class="text-primary mb-2">Recent Visit History</h6>
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Type</th>
-                <th>Notes</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for visit in prep_sheet.patient_summary.recent_visits %}
-            <tr>
-                <td>{{ visit.date }}</td>
-                <td>{{ visit.type }}</td>
-                <td>{{ visit.notes }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% endif %}
-    {% endif %}
-
-    <!-- Quality Checklist (Screening Status) -->
-    <div class="section-header">
-        <i class="fas fa-clipboard-check section-icon"></i>
-        Quality Checklist - Screening Status
-    </div>
-
-    {% if prep_sheet.quality_checklist.screening_items %}
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Screening Type</th>
-                <th>Status</th>
-                <th>Last Completed</th>
-                <th>Frequency</th>
-                <th>Next Due</th>
-                <th>Matched Documents</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for screening in prep_sheet.quality_checklist.screening_items %}
-            <tr>
-                <td><strong>{{ screening.screening_name }}</strong></td>
-                <td>
-                    <span class="screening-status status-{{ screening.status.lower().replace(' ', '-') }}">
-                        {{ screening.status }}
-                    </span>
-                </td>
-                <td>{{ screening.last_completed }}</td>
-                <td>{{ screening.frequency }}</td>
-                <td>{{ screening.next_due }}</td>
-                <td>
-                    {% if screening.matched_documents %}
-                        {% for doc in screening.matched_documents %}
-                            <span class="document-link">
-                                <span class="confidence-indicator confidence-{{ 'high' if doc.confidence >= 0.8 else 'medium' if doc.confidence >= 0.5 else 'low' }}"></span>
-                                {{ doc.filename[:30] }}{% if doc.filename|length > 30 %}...{% endif %}
-                                <small>({{ doc.date }})</small>
-                            </span>
-                        {% endfor %}
-                    {% else %}
-                        <span class="text-muted">No matches</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <div class="no-data-message">
-        <i class="fas fa-info-circle me-2"></i>
-        No screening data available for this patient.
+    {% if prep_data.patient_summary.active_conditions %}
+    <div class="prep-section">
+        <div class="section-header">
+            <h4 class="mb-0"><i class="fas fa-diagnoses me-2"></i>Active Medical Conditions</h4>
+            <span class="badge bg-light text-dark">{{ prep_data.patient_summary.active_conditions|length }} condition(s)</span>
+        </div>
+        <div class="section-content">
+            <ul class="conditions-list">
+                {% for condition in prep_data.patient_summary.active_conditions %}
+                <li class="condition-item">
+                    <div>
+                        <div class="condition-name">{{ condition.name }}</div>
+                        {% if condition.icd_code %}
+                            <div class="condition-details">ICD Code: {{ condition.icd_code }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="text-end">
+                        {% if condition.onset_date %}
+                            <small class="text-muted">Since {{ condition.onset_date.strftime('%m/%d/%Y') }}</small>
+                        {% endif %}
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
     </div>
     {% endif %}
 
-    <!-- Medical Data Sections -->
-    {% if prep_sheet.medical_data %}
-    
-    <!-- Recent Labs -->
-    {% if prep_sheet.medical_data.recent_labs.documents %}
-    <div class="section-header">
-        <i class="fas fa-vial section-icon"></i>
-        Recent Laboratory Results
+    <!-- Quality Checklist - Screening Status -->
+    <div class="prep-section">
+        <div class="section-header">
+            <h4 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>Screening Checklist</h4>
+            <span class="badge bg-light text-dark">
+                {{ prep_data.quality_checklist.complete_count }}/{{ prep_data.quality_checklist.total_screenings }} Complete
+            </span>
+        </div>
+        <div class="section-content">
+            {% if prep_data.quality_checklist.screenings %}
+                <div class="screening-grid">
+                    {% for screening in prep_data.quality_checklist.screenings %}
+                    <div class="screening-item">
+                        <div class="screening-status status-{{ screening.status.lower().replace(' ', '-') }}">
+                            {% if screening.status == 'Complete' %}
+                                <i class="fas fa-check-circle me-1"></i>{{ screening.status }}
+                            {% elif screening.status == 'Due Soon' %}
+                                <i class="fas fa-clock me-1"></i>{{ screening.status }}
+                            {% else %}
+                                <i class="fas fa-exclamation-triangle me-1"></i>{{ screening.status }}
+                            {% endif %}
+                        </div>
+                        
+                        <h6 class="mb-2">{{ screening.name }}</h6>
+                        
+                        <div class="row">
+                            <div class="col-6">
+                                <small class="text-muted">Last Completed:</small>
+                                <div>
+                                    {% if screening.last_completed %}
+                                        {{ screening.last_completed.strftime('%m/%d/%Y') }}
+                                    {% else %}
+                                        <em>Never</em>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">Frequency:</small>
+                                <div>{{ screening.frequency }}</div>
+                            </div>
+                        </div>
+                        
+                        {% if screening.next_due %}
+                        <div class="mt-2">
+                            <small class="text-muted">Next Due:</small>
+                            <div><strong>{{ screening.next_due.strftime('%m/%d/%Y') }}</strong></div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if screening.matched_documents %}
+                        <div class="document-links">
+                            <small class="text-muted">Related Documents:</small>
+                            <div class="mt-1">
+                                {% for doc in screening.matched_documents %}
+                                    <a href="{{ url_for('patient.view_document', document_id=doc.id) }}" 
+                                       class="document-link confidence-{{ doc.confidence_level }}" 
+                                       target="_blank"
+                                       title="Confidence: {{ (doc.confidence * 100)|round(1) if doc.confidence else 'Unknown' }}%">
+                                        <i class="fas fa-file-medical me-1"></i>
+                                        {{ doc.filename[:20] }}{% if doc.filename|length > 20 %}...{% endif %}
+                                    </a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-clipboard-list fa-2x text-muted mb-2"></i>
+                    <p class="text-muted">No screenings configured for this patient.</p>
+                </div>
+            {% endif %}
+        </div>
     </div>
-    <div class="cutoff-notice">
-        <i class="fas fa-info-circle me-2"></i>
-        Showing labs from the last {{ prep_sheet.medical_data.recent_labs.cutoff_months }} months
-    </div>
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Document</th>
-                <th>Date</th>
-                <th>Upload Date</th>
-                <th>OCR Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for doc in prep_sheet.medical_data.recent_labs.documents %}
-            <tr>
-                <td>{{ doc.filename }}</td>
-                <td>{{ doc.date }}</td>
-                <td>{{ doc.upload_date }}</td>
-                <td>
-                    {% if doc.has_ocr %}
-                        <span class="text-success">
-                            <i class="fas fa-check-circle me-1"></i>
-                            Processed ({{ (doc.ocr_confidence * 100)|round(1) }}%)
-                        </span>
-                    {% else %}
-                        <span class="text-warning">
-                            <i class="fas fa-clock me-1"></i>
-                            Pending
-                        </span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% endif %}
 
-    <!-- Recent Imaging -->
-    {% if prep_sheet.medical_data.recent_imaging.documents %}
-    <div class="section-header">
-        <i class="fas fa-x-ray section-icon"></i>
-        Recent Imaging Studies
-    </div>
-    <div class="cutoff-notice">
-        <i class="fas fa-info-circle me-2"></i>
-        Showing imaging from the last {{ prep_sheet.medical_data.recent_imaging.cutoff_months }} months
-    </div>
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Document</th>
-                <th>Date</th>
-                <th>Upload Date</th>
-                <th>OCR Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for doc in prep_sheet.medical_data.recent_imaging.documents %}
-            <tr>
-                <td>{{ doc.filename }}</td>
-                <td>{{ doc.date }}</td>
-                <td>{{ doc.upload_date }}</td>
-                <td>
-                    {% if doc.has_ocr %}
-                        <span class="text-success">
-                            <i class="fas fa-check-circle me-1"></i>
-                            Processed ({{ (doc.ocr_confidence * 100)|round(1) }}%)
-                        </span>
-                    {% else %}
-                        <span class="text-warning">
-                            <i class="fas fa-clock me-1"></i>
-                            Pending
-                        </span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% endif %}
-
-    <!-- Recent Consults -->
-    {% if prep_sheet.medical_data.recent_consults.documents %}
-    <div class="section-header">
-        <i class="fas fa-user-md section-icon"></i>
-        Recent Consultations
-    </div>
-    <div class="cutoff-notice">
-        <i class="fas fa-info-circle me-2"></i>
-        Showing consults from the last {{ prep_sheet.medical_data.recent_consults.cutoff_months }} months
-    </div>
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Document</th>
-                <th>Date</th>
-                <th>Upload Date</th>
-                <th>OCR Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for doc in prep_sheet.medical_data.recent_consults.documents %}
-            <tr>
-                <td>{{ doc.filename }}</td>
-                <td>{{ doc.date }}</td>
-                <td>{{ doc.upload_date }}</td>
-                <td>
-                    {% if doc.has_ocr %}
-                        <span class="text-success">
-                            <i class="fas fa-check-circle me-1"></i>
-                            Processed ({{ (doc.ocr_confidence * 100)|round(1) }}%)
-                        </span>
-                    {% else %}
-                        <span class="text-warning">
-                            <i class="fas fa-clock me-1"></i>
-                            Pending
-                        </span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% endif %}
-
-    <!-- Recent Hospital Stays -->
-    {% if prep_sheet.medical_data.recent_hospital_stays.documents %}
-    <div class="section-header">
-        <i class="fas fa-hospital section-icon"></i>
-        Recent Hospital Stays
-    </div>
-    <div class="cutoff-notice">
-        <i class="fas fa-info-circle me-2"></i>
-        Showing hospital records from the last {{ prep_sheet.medical_data.recent_hospital_stays.cutoff_months }} months
-    </div>
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Document</th>
-                <th>Date</th>
-                <th>Upload Date</th>
-                <th>OCR Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for doc in prep_sheet.medical_data.recent_hospital_stays.documents %}
-            <tr>
-                <td>{{ doc.filename }}</td>
-                <td>{{ doc.date }}</td>
-                <td>{{ doc.upload_date }}</td>
-                <td>
-                    {% if doc.has_ocr %}
-                        <span class="text-success">
-                            <i class="fas fa-check-circle me-1"></i>
-                            Processed ({{ (doc.ocr_confidence * 100)|round(1) }}%)
-                        </span>
-                    {% else %}
-                        <span class="text-warning">
-                            <i class="fas fa-clock me-1"></i>
-                            Pending
-                        </span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% endif %}
-
-    {% endif %}
-
-    <!-- Prep Sheet Footer -->
-    <div class="prep-sheet-footer">
-        <div class="row">
-            <div class="col-md-6">
-                Generated by {{ prep_sheet.generation_metadata.generated_by }}<br>
-                Version {{ prep_sheet.generation_metadata.version }}
+    <!-- Recent Medical Data -->
+    {% for section_name, section_title, icon in [
+        ('lab_results', 'Recent Laboratory Results', 'fas fa-vial'),
+        ('imaging_results', 'Recent Imaging Studies', 'fas fa-x-ray'),
+        ('consult_results', 'Recent Specialist Consults', 'fas fa-user-md'),
+        ('hospital_results', 'Recent Hospital Records', 'fas fa-hospital')
+    ] %}
+        {% set section_data = prep_data.medical_data.get(section_name, []) %}
+        {% if section_data %}
+        <div class="prep-section">
+            <div class="section-header">
+                <h4 class="mb-0"><i class="{{ icon }} me-2"></i>{{ section_title }}</h4>
+                <span class="badge bg-light text-dark">{{ section_data|length }} record(s)</span>
             </div>
-            <div class="col-md-6 text-md-end">
-                Generated on {{ prep_sheet.generation_metadata.generated_at[:19].replace('T', ' ') }} UTC<br>
-                <strong>CONFIDENTIAL - For Medical Use Only</strong>
+            <div class="section-content">
+                <table class="medical-data-table">
+                    <thead>
+                        <tr>
+                            <th>Document</th>
+                            <th>Date</th>
+                            <th>Quality</th>
+                            <th>Preview</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in section_data %}
+                        <tr>
+                            <td>
+                                <strong>{{ item.filename }}</strong>
+                            </td>
+                            <td>
+                                {% if item.date %}
+                                    {{ item.date.strftime('%m/%d/%Y') }}
+                                {% else %}
+                                    <em>Date unknown</em>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.confidence is not none %}
+                                    <span class="badge confidence-{{ item.confidence_level }}">
+                                        {{ (item.confidence * 100)|round(1) }}%
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Pending</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small>{{ item.content_preview }}</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    {% endfor %}
+
+    <!-- Footer -->
+    <div class="prep-section">
+        <div class="section-header">
+            <h4 class="mb-0"><i class="fas fa-info-circle me-2"></i>Preparation Notes</h4>
+        </div>
+        <div class="section-content">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Document Quality Legend:</h6>
+                    <ul class="list-unstyled">
+                        <li><span class="badge confidence-high me-2">High</span>≥80% OCR confidence</li>
+                        <li><span class="badge confidence-medium me-2">Medium</span>60-79% OCR confidence</li>
+                        <li><span class="badge confidence-low me-2">Low</span><60% OCR confidence</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6>System Information:</h6>
+                    <ul class="list-unstyled">
+                        <li><strong>Data Cutoffs:</strong></li>
+                        <li>• Labs: {{ settings.lab_cutoff_months }} months</li>
+                        <li>• Imaging: {{ settings.imaging_cutoff_months }} months</li>
+                        <li>• Consults: {{ settings.consult_cutoff_months }} months</li>
+                        <li>• Hospital: {{ settings.hospital_cutoff_months }} months</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="mt-3 p-3" style="background: #fff3cd; border-radius: 0.375rem; border: 1px solid #ffeaa7;">
+                <h6 class="text-warning mb-2"><i class="fas fa-exclamation-triangle me-2"></i>Important Notes:</h6>
+                <ul class="mb-0">
+                    <li>Review all "Due" and "Due Soon" screenings with the patient</li>
+                    <li>Verify accuracy of low-confidence documents before clinical decisions</li>
+                    <li>Consider patient's current conditions when scheduling follow-ups</li>
+                    <li>This prep sheet was automatically generated - clinical judgment always takes precedence</li>
+                </ul>
             </div>
         </div>
     </div>
-</div>
-
-<!-- Action Buttons -->
-<div class="action-buttons">
-    <button type="button" class="btn btn-primary me-2" onclick="window.print()">
-        <i class="fas fa-print me-1"></i>
-        Print Prep Sheet
-    </button>
-    <button type="button" class="btn btn-outline-success me-2" onclick="exportPDF()">
-        <i class="fas fa-file-pdf me-1"></i>
-        Export PDF
-    </button>
-    <button type="button" class="btn btn-outline-info me-2" onclick="emailPrepSheet()">
-        <i class="fas fa-envelope me-1"></i>
-        Email Prep Sheet
-    </button>
-    <a href="{{ url_for('ui.screening_list') }}" class="btn btn-outline-secondary">
-        <i class="fas fa-arrow-left me-1"></i>
-        Back to Screening List
-    </a>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-function exportPDF() {
-    // In a real implementation, this would generate a PDF
-    window.showToast('PDF export functionality would be implemented here', 'info');
+function refreshPrepSheet() {
+    const button = event.target;
+    const originalText = button.innerHTML;
     
-    // For now, trigger print dialog
-    window.print();
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Refreshing...';
+    button.disabled = true;
+    
+    // Reload the page to refresh data
+    setTimeout(() => {
+        window.location.reload();
+    }, 1000);
 }
 
-function emailPrepSheet() {
-    // Show email modal
-    const modal = document.createElement('div');
-    modal.className = 'modal fade';
-    modal.innerHTML = `
-        <div class="modal-dialog">
-            <div class="modal-content bg-dark">
-                <div class="modal-header">
-                    <h5 class="modal-title">Email Prep Sheet</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="email-form">
-                        <div class="mb-3">
-                            <label for="email-to" class="form-label">Send to:</label>
-                            <input type="email" class="form-control" id="email-to" required 
-                                   placeholder="doctor@clinic.com">
-                        </div>
-                        <div class="mb-3">
-                            <label for="email-subject" class="form-label">Subject:</label>
-                            <input type="text" class="form-control" id="email-subject" 
-                                   value="Prep Sheet for {{ patient.full_name }}" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="email-message" class="form-label">Message:</label>
-                            <textarea class="form-control" id="email-message" rows="4" 
-                                      placeholder="Optional message..."></textarea>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="sendEmail()">
-                        <i class="fas fa-paper-plane me-1"></i>
-                        Send Email
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
+function downloadPDF() {
+    const button = event.target;
+    const originalText = button.innerHTML;
     
-    document.body.appendChild(modal);
-    const bsModal = new bootstrap.Modal(modal);
-    bsModal.show();
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Generating...';
+    button.disabled = true;
     
-    // Clean up modal after it's hidden
-    modal.addEventListener('hidden.bs.modal', () => {
-        document.body.removeChild(modal);
-    });
+    // In a real implementation, this would call a PDF generation service
+    // For now, we'll open the print dialog
+    setTimeout(() => {
+        window.print();
+        button.innerHTML = originalText;
+        button.disabled = false;
+    }, 1000);
 }
 
-function sendEmail() {
-    const emailTo = document.getElementById('email-to').value;
-    const emailSubject = document.getElementById('email-subject').value;
-    const emailMessage = document.getElementById('email-message').value;
-    
-    if (!emailTo || !emailSubject) {
-        window.showToast('Please fill in required fields', 'warning');
-        return;
-    }
-    
-    // In a real implementation, this would send the email via API
-    window.showToast('Email functionality would be implemented here', 'info');
-    
-    // Close modal
-    bootstrap.Modal.getInstance(document.querySelector('.modal')).hide();
-}
-
-// Enhanced print functionality
+// Print optimization
 window.addEventListener('beforeprint', function() {
-    // Expand all collapsed sections for printing
-    document.querySelectorAll('.collapse').forEach(el => {
-        el.classList.add('show');
+    // Hide interactive elements
+    document.querySelectorAll('.document-link').forEach(link => {
+        link.style.display = 'none';
+    });
+    
+    // Expand all content
+    document.querySelectorAll('.screening-item').forEach(item => {
+        item.style.pageBreakInside = 'avoid';
     });
 });
 
 window.addEventListener('afterprint', function() {
-    // Restore collapsed state after printing
-    window.showToast('Prep sheet printed successfully', 'success');
+    // Restore interactive elements
+    document.querySelectorAll('.document-link').forEach(link => {
+        link.style.display = 'inline-block';
+    });
 });
 
-// Auto-focus on page load for accessibility
+// Auto-expand sections with critical items
 document.addEventListener('DOMContentLoaded', function() {
-    // Add keyboard shortcuts
-    document.addEventListener('keydown', function(e) {
-        // Ctrl+P for print
-        if (e.ctrlKey && e.key === 'p') {
-            e.preventDefault();
-            window.print();
-        }
-        
-        // Ctrl+E for email
-        if (e.ctrlKey && e.key === 'e') {
-            e.preventDefault();
-            emailPrepSheet();
-        }
-        
-        // Escape to go back
-        if (e.key === 'Escape') {
-            window.location.href = '{{ url_for("ui.screening_list") }}';
-        }
+    // Highlight overdue items
+    const overdueItems = document.querySelectorAll('.status-due');
+    overdueItems.forEach(item => {
+        item.closest('.screening-item').style.borderLeft = '4px solid #dc3545';
+        item.closest('.screening-item').style.backgroundColor = '#fff5f5';
     });
     
-    // Add tooltips to confidence indicators
-    document.querySelectorAll('.confidence-indicator').forEach(indicator => {
-        let confidenceText = '';
-        if (indicator.classList.contains('confidence-high')) {
-            confidenceText = 'High Confidence (≥80%)';
-        } else if (indicator.classList.contains('confidence-medium')) {
-            confidenceText = 'Medium Confidence (50-79%)';
-        } else if (indicator.classList.contains('confidence-low')) {
-            confidenceText = 'Low Confidence (<50%)';
-        }
-        
-        indicator.setAttribute('title', confidenceText);
-        indicator.setAttribute('data-bs-toggle', 'tooltip');
-        new bootstrap.Tooltip(indicator);
+    // Highlight due soon items
+    const dueSoonItems = document.querySelectorAll('.status-due-soon');
+    dueSoonItems.forEach(item => {
+        item.closest('.screening-item').style.borderLeft = '4px solid #ffc107';
+        item.closest('.screening-item').style.backgroundColor = '#fffbf0';
     });
+    
+    // Calculate and display data freshness
+    updateDataFreshness();
+});
+
+function updateDataFreshness() {
+    const generatedTime = new Date('{{ generated_at.isoformat() }}');
+    const now = new Date();
+    const diffMinutes = Math.floor((now - generatedTime) / (1000 * 60));
+    
+    if (diffMinutes > 30) {
+        // Show freshness warning
+        const warning = document.createElement('div');
+        warning.className = 'alert alert-warning d-print-none';
+        warning.innerHTML = `
+            <i class="fas fa-clock me-2"></i>
+            <strong>Data Freshness Notice:</strong> This prep sheet was generated ${diffMinutes} minutes ago. 
+            Consider refreshing for the most current information.
+        `;
+        
+        const container = document.querySelector('.prep-sheet-container');
+        container.insertBefore(warning, container.firstChild);
+    }
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + P for print
+    if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        window.print();
+    }
+    
+    // Ctrl/Cmd + R for refresh
+    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+        e.preventDefault();
+        refreshPrepSheet();
+    }
 });
 </script>
 {% endblock %}

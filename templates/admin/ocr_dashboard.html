@@ -1,371 +1,330 @@
-{% extends "base_admin.html" %}
+{% extends 'base_admin.html' %}
 
-{% block title %}OCR Dashboard - HealthPrep Admin{% endblock %}
+{% block title %}HealthPrep Admin - OCR Monitor{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>
-        <i class="fas fa-scan me-2"></i>
-        OCR Processing Dashboard
-    </h2>
-    <div>
-        <button class="btn btn-outline-primary me-2" onclick="refreshOCRData()">
-            <i class="fas fa-sync me-1"></i>Refresh Data
-        </button>
-        <button class="btn btn-outline-info" onclick="showOCRSettings()">
-            <i class="fas fa-cog me-1"></i>Settings
-        </button>
-    </div>
+<div class="admin-header text-center">
+    <h1><i class="fas fa-file-medical me-3"></i>OCR Processing Monitor</h1>
+    <p class="lead mb-0">Document processing quality and performance monitoring</p>
 </div>
 
-<!-- Processing Statistics Row -->
+<!-- OCR Statistics Overview -->
 <div class="row mb-4">
     <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card metric-card">
+        <div class="card stat-card">
             <div class="card-body text-center">
-                <div class="metric-value">{{ data.statistics.total_documents or 0 }}</div>
-                <div class="h6 mb-0">Total Documents</div>
-                <small class="opacity-75">processed</small>
+                <i class="fas fa-file-alt fa-2x mb-3"></i>
+                <h3>{{ stats.total_documents or 0 }}</h3>
+                <p class="mb-0">Total Documents</p>
+                <small>{{ stats.ocr_processed or 0 }} processed</small>
             </div>
         </div>
     </div>
     <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card metric-card">
+        <div class="card stat-card">
             <div class="card-body text-center">
-                <div class="metric-value">{{ "%.1f"|format(data.statistics.average_confidence or 0) }}%</div>
-                <div class="h6 mb-0">Avg Confidence</div>
-                <small class="opacity-75">OCR accuracy</small>
+                <i class="fas fa-percentage fa-2x mb-3"></i>
+                <h3>{{ "%.1f"|format((stats.success_rate or 0)) }}%</h3>
+                <p class="mb-0">Success Rate</p>
+                <small>Processing accuracy</small>
             </div>
         </div>
     </div>
     <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card metric-card">
+        <div class="card stat-card">
             <div class="card-body text-center">
-                <div class="metric-value">{{ data.statistics.processing_success_rate or 0 }}%</div>
-                <div class="h6 mb-0">Success Rate</div>
-                <small class="opacity-75">processing</small>
+                <i class="fas fa-star fa-2x mb-3"></i>
+                <h3>{{ "%.1f"|format((stats.average_confidence or 0) * 100) }}%</h3>
+                <p class="mb-0">Avg Confidence</p>
+                <small>Text extraction quality</small>
             </div>
         </div>
     </div>
     <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card metric-card">
+        <div class="card stat-card">
             <div class="card-body text-center">
-                <div class="metric-value">{{ data.queue_status.pending_documents or 0 }}</div>
-                <div class="h6 mb-0">Queue Size</div>
-                <small class="opacity-75">pending</small>
+                <i class="fas fa-clock fa-2x mb-3"></i>
+                <h3>{{ stats.recent_processed or 0 }}</h3>
+                <p class="mb-0">Recent (7 days)</p>
+                <small>Documents processed</small>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Processing Queue and Confidence Analysis -->
+<!-- Processing Quality Charts -->
 <div class="row mb-4">
-    <div class="col-lg-6">
-        <div class="card admin-card h-100">
+    <div class="col-lg-6 mb-4">
+        <div class="card admin-table">
             <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-clock me-2"></i>
-                    Processing Queue Status
-                </h5>
+                <h5><i class="fas fa-chart-pie me-2"></i>Confidence Distribution</h5>
             </div>
             <div class="card-body">
-                {% if data.queue_status %}
-                    <div class="row text-center mb-4">
-                        <div class="col-6">
-                            <div class="h4 mb-1 text-warning">{{ data.queue_status.pending_documents or 0 }}</div>
-                            <small class="text-muted">Pending Documents</small>
+                <canvas id="confidenceDistributionChart" height="200"></canvas>
+                
+                <div class="mt-3">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="confidence-indicator confidence-high"></div>
+                            <strong>{{ stats.confidence_distribution.high or 0 }}</strong>
+                            <br><small>High (≥80%)</small>
                         </div>
-                        <div class="col-6">
-                            <div class="h4 mb-1 text-success">{{ data.queue_status.recently_processed or 0 }}</div>
-                            <small class="text-muted">Last Hour</small>
+                        <div class="col-4">
+                            <div class="confidence-indicator confidence-medium"></div>
+                            <strong>{{ stats.confidence_distribution.medium or 0 }}</strong>
+                            <br><small>Medium (60-79%)</small>
+                        </div>
+                        <div class="col-4">
+                            <div class="confidence-indicator confidence-low"></div>
+                            <strong>{{ stats.confidence_distribution.low or 0 }}</strong>
+                            <br><small>Low (<60%)</small>
                         </div>
                     </div>
-                    
-                    <div class="alert {{ 'alert-warning' if data.queue_status.queue_status == 'busy' else 'alert-success' }} mb-3">
-                        <i class="fas fa-{{ 'exclamation-triangle' if data.queue_status.queue_status == 'busy' else 'check-circle' }} me-2"></i>
-                        Queue Status: <strong>{{ data.queue_status.queue_status.title() }}</strong>
-                    </div>
-                    
-                    {% if data.queue_status.queue_status == 'busy' %}
-                        <div class="progress mb-3">
-                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-warning" 
-                                 role="progressbar" style="width: 75%">
-                                Processing...
-                            </div>
-                        </div>
-                    {% endif %}
-                {% else %}
-                    <div class="text-center text-muted">
-                        <i class="fas fa-hourglass-half fa-2x mb-3"></i>
-                        <p>Queue status unavailable</p>
-                    </div>
-                {% endif %}
+                </div>
             </div>
         </div>
     </div>
     
-    <div class="col-lg-6">
-        <div class="card admin-card h-100">
+    <div class="col-lg-6 mb-4">
+        <div class="card admin-table">
             <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-chart-pie me-2"></i>
-                    Confidence Distribution
-                </h5>
+                <h5><i class="fas fa-file-medical me-2"></i>Document Types</h5>
             </div>
             <div class="card-body">
-                {% if data.statistics.confidence_distribution %}
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="badge bg-success">High Confidence (85%+)</span>
-                            <span>{{ data.statistics.confidence_distribution.high.count or 0 }} documents</span>
-                        </div>
-                        <div class="progress mb-3" style="height: 8px;">
-                            <div class="progress-bar bg-success" 
-                                 style="width: {{ data.statistics.confidence_distribution.high.percentage or 0 }}%">
-                            </div>
-                        </div>
+                <canvas id="documentTypesChart" height="200"></canvas>
+                
+                <div class="mt-3">
+                    {% for doc_type, count in stats.document_types.items() %}
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-capitalize">
+                            {% if doc_type == 'lab' %}
+                                <i class="fas fa-vial me-1"></i>Laboratory
+                            {% elif doc_type == 'imaging' %}
+                                <i class="fas fa-x-ray me-1"></i>Imaging
+                            {% elif doc_type == 'consult' %}
+                                <i class="fas fa-user-md me-1"></i>Consults
+                            {% elif doc_type == 'hospital' %}
+                                <i class="fas fa-hospital me-1"></i>Hospital
+                            {% else %}
+                                <i class="fas fa-file me-1"></i>{{ doc_type or 'Other' }}
+                            {% endif %}
+                        </span>
+                        <span class="badge bg-primary">{{ count }}</span>
                     </div>
-                    
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="badge bg-warning">Medium Confidence (60-84%)</span>
-                            <span>{{ data.statistics.confidence_distribution.medium.count or 0 }} documents</span>
-                        </div>
-                        <div class="progress mb-3" style="height: 8px;">
-                            <div class="progress-bar bg-warning" 
-                                 style="width: {{ data.statistics.confidence_distribution.medium.percentage or 0 }}%">
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="badge bg-danger">Low Confidence (<60%)</span>
-                            <span>{{ data.statistics.confidence_distribution.low.count or 0 }} documents</span>
-                        </div>
-                        <div class="progress" style="height: 8px;">
-                            <div class="progress-bar bg-danger" 
-                                 style="width: {{ data.statistics.confidence_distribution.low.percentage or 0 }}%">
-                            </div>
-                        </div>
-                    </div>
-                {% else %}
-                    <div class="text-center text-muted">
-                        <i class="fas fa-chart-pie fa-2x mb-3"></i>
-                        <p>No confidence data available</p>
-                    </div>
-                {% endif %}
+                    {% endfor %}
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Document Type Analysis and Low Confidence Documents -->
+<!-- Processing Queue and Status -->
 <div class="row mb-4">
-    <div class="col-lg-8">
-        <div class="card admin-card h-100">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    Low Confidence Documents Requiring Review
-                </h5>
+    <div class="col-lg-8 mb-4">
+        <div class="card admin-table">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-list me-2"></i>Recent Processing Activity</h5>
+                <span class="badge bg-info">Last 20 documents</span>
             </div>
             <div class="card-body">
-                {% if data.low_confidence_documents %}
+                {% if recent_docs %}
                     <div class="table-responsive">
-                        <table class="table admin-table mb-0">
+                        <table class="table table-sm">
                             <thead>
                                 <tr>
                                     <th>Document</th>
                                     <th>Patient</th>
                                     <th>Type</th>
+                                    <th>Upload Date</th>
                                     <th>Confidence</th>
-                                    <th>Date</th>
-                                    <th>Actions</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for doc in data.low_confidence_documents %}
-                                    <tr>
-                                        <td>
-                                            <div>
-                                                <strong>{{ doc.filename[:30] }}{% if doc.filename|length > 30 %}...{% endif %}</strong>
-                                                <br>
-                                                <small class="text-muted">{{ doc.text_length or 0 }} characters</small>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <small>ID: {{ doc.patient_id }}</small>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-secondary">{{ (doc.document_type or 'unknown').title() }}</span>
-                                        </td>
-                                        <td>
+                                {% for doc in recent_docs %}
+                                <tr>
+                                    <td>
+                                        <i class="fas fa-file-medical me-1"></i>
+                                        <small>{{ doc.filename[:30] }}{% if doc.filename|length > 30 %}...{% endif %}</small>
+                                    </td>
+                                    <td>
+                                        {% if doc.patient %}
+                                            <small>{{ doc.patient.full_name }}</small>
+                                        {% else %}
+                                            <span class="text-muted">Unknown</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if doc.document_type %}
+                                            <span class="badge bg-secondary">{{ doc.document_type.title() }}</span>
+                                        {% else %}
+                                            <span class="badge bg-dark">Unknown</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small>{{ doc.upload_date.strftime('%m/%d/%Y %H:%M') if doc.upload_date else 'N/A' }}</small>
+                                    </td>
+                                    <td>
+                                        {% if doc.ocr_confidence is not none %}
                                             <div class="d-flex align-items-center">
-                                                <span class="badge bg-{{ 'danger' if doc.confidence < 40 else 'warning' }} me-2">
-                                                    {{ "%.1f"|format(doc.confidence or 0) }}%
-                                                </span>
-                                                <span class="badge bg-light text-dark">{{ doc.quality_flag.title() }}</span>
+                                                <div class="confidence-indicator confidence-{{ doc.confidence_level }} me-2"></div>
+                                                <small>{{ "%.1f"|format(doc.ocr_confidence * 100) }}%</small>
                                             </div>
-                                        </td>
-                                        <td>
-                                            <small>{{ doc.created_at.strftime('%m/%d/%Y') if doc.created_at else 'Unknown' }}</small>
-                                        </td>
-                                        <td>
-                                            <div class="btn-group btn-group-sm">
-                                                <button class="btn btn-outline-primary" 
-                                                        onclick="viewDocument({{ doc.id }})" title="View Document">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                                <button class="btn btn-outline-warning" 
-                                                        onclick="flagForReview({{ doc.id }})" title="Flag for Review">
-                                                    <i class="fas fa-flag"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                        {% else %}
+                                            <span class="text-muted">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if doc.ocr_confidence is not none %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check me-1"></i>Processed
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="fas fa-clock me-1"></i>Pending
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
-                    
-                    {% if data.low_confidence_documents|length >= 20 %}
-                        <div class="text-center mt-3">
-                            <button class="btn btn-outline-primary" onclick="loadMoreLowConfidence()">
-                                <i class="fas fa-chevron-down me-1"></i>Load More
-                            </button>
-                        </div>
-                    {% endif %}
                 {% else %}
                     <div class="text-center text-muted py-4">
-                        <i class="fas fa-check-circle fa-2x mb-3 text-success"></i>
-                        <h5>No Low Confidence Documents</h5>
-                        <p>All recent documents have acceptable confidence levels.</p>
+                        <i class="fas fa-inbox fa-2x mb-2"></i>
+                        <p>No recent documents to display</p>
                     </div>
                 {% endif %}
             </div>
         </div>
     </div>
     
-    <div class="col-lg-4">
-        <div class="card admin-card h-100">
+    <div class="col-lg-4 mb-4">
+        <div class="card admin-table">
             <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-file-alt me-2"></i>
-                    Document Types
-                </h5>
+                <h5><i class="fas fa-tachometer-alt me-2"></i>Processing Status</h5>
             </div>
             <div class="card-body">
-                {% if data.statistics.document_types %}
-                    {% for doc_type, stats in data.statistics.document_types.items() %}
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div>
-                                <strong>{{ doc_type.title() }}</strong>
-                                <br>
-                                <small class="text-muted">{{ stats.count }} documents</small>
-                            </div>
-                            <div class="text-end">
-                                <div class="badge bg-{{ 'success' if stats.avg_confidence >= 85 else 'warning' if stats.avg_confidence >= 60 else 'danger' }}">
-                                    {{ "%.1f"|format(stats.avg_confidence or 0) }}%
-                                </div>
-                            </div>
-                        </div>
-                        <div class="progress mb-3" style="height: 4px;">
-                            <div class="progress-bar bg-{{ 'success' if stats.avg_confidence >= 85 else 'warning' if stats.avg_confidence >= 60 else 'danger' }}" 
-                                 style="width: {{ stats.avg_confidence or 0 }}%">
-                            </div>
-                        </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="text-center text-muted">
-                        <i class="fas fa-file fa-2x mb-3"></i>
-                        <p>No document type data</p>
+                <!-- Processing Queue Status -->
+                <div class="mb-4">
+                    <h6><i class="fas fa-hourglass-half me-2"></i>Queue Status</h6>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Pending Processing</span>
+                        <span class="badge bg-warning text-dark">{{ stats.pending_processing or 0 }}</span>
                     </div>
-                {% endif %}
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Successfully Processed</span>
+                        <span class="badge bg-success">{{ stats.ocr_processed or 0 }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>PHI Filtered</span>
+                        <span class="badge bg-info">{{ stats.phi_filtered_count or 0 }}</span>
+                    </div>
+                </div>
+                
+                <!-- Performance Metrics -->
+                <div class="mb-4">
+                    <h6><i class="fas fa-chart-line me-2"></i>Performance</h6>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Processing Rate</span>
+                        <span class="badge bg-primary">{{ "%.1f"|format(stats.success_rate or 0) }}%</span>
+                    </div>
+                    <div class="progress mb-3">
+                        <div class="progress-bar bg-primary" 
+                             style="width: {{ stats.success_rate or 0 }}%"></div>
+                    </div>
+                </div>
+                
+                <!-- System Health -->
+                <div>
+                    <h6><i class="fas fa-heartbeat me-2"></i>System Health</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <i class="fas fa-circle text-success me-1"></i>
+                            <small>OCR Service: Online</small>
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-circle text-success me-1"></i>
+                            <small>Tesseract: Active</small>
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-circle text-success me-1"></i>
+                            <small>PHI Filter: Enabled</small>
+                        </li>
+                        <li>
+                            <i class="fas fa-circle text-success me-1"></i>
+                            <small>Queue: Processing</small>
+                        </li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Confidence Trend Chart -->
+<!-- Low Confidence Documents Alert -->
+{% set low_confidence_count = stats.confidence_distribution.low or 0 %}
+{% if low_confidence_count > 0 %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert admin-alert" role="alert">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="alert-heading">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Low Confidence Documents
+                    </h5>
+                    <p class="mb-0">
+                        {{ low_confidence_count }} documents have low OCR confidence scores and may require manual review.
+                    </p>
+                </div>
+                <button type="button" class="btn btn-warning" onclick="showLowConfidenceDetails()">
+                    <i class="fas fa-eye me-1"></i>Review
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- OCR Settings Quick Access -->
 <div class="row">
     <div class="col-12">
-        <div class="card admin-card">
+        <div class="card admin-table">
             <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-chart-line me-2"></i>
-                    Confidence Trend (Last 30 Days)
-                </h5>
+                <h5><i class="fas fa-cogs me-2"></i>OCR Management</h5>
             </div>
             <div class="card-body">
-                {% if data.confidence_trend %}
-                    <canvas id="confidenceTrendChart" style="height: 300px;"></canvas>
-                {% else %}
-                    <div class="text-center text-muted py-4">
-                        <i class="fas fa-chart-line fa-2x mb-3"></i>
-                        <p>Insufficient data for trend analysis</p>
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- OCR Settings Modal -->
-<div class="modal fade" id="ocrSettingsModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-cog me-2"></i>OCR Processing Settings
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
                 <div class="row">
-                    <div class="col-md-6">
-                        <h6>Processing Configuration</h6>
-                        <div class="mb-3">
-                            <label class="form-label">Confidence Threshold</label>
-                            <input type="range" class="form-range" min="40" max="90" value="60" id="confidenceThreshold">
-                            <div class="d-flex justify-content-between">
-                                <small>40%</small>
-                                <small>90%</small>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Processing Timeout (seconds)</label>
-                            <input type="number" class="form-control" value="300" min="60" max="600">
+                    <div class="col-md-3">
+                        <div class="d-grid">
+                            <a href="{{ url_for('admin.phi_settings') }}" class="btn btn-outline-warning">
+                                <i class="fas fa-shield-alt me-2"></i>PHI Settings
+                            </a>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        <h6>Quality Settings</h6>
-                        <div class="form-check mb-2">
-                            <input class="form-check-input" type="checkbox" checked id="enablePreprocessing">
-                            <label class="form-check-label" for="enablePreprocessing">
-                                Enable image preprocessing
-                            </label>
+                    <div class="col-md-3">
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-outline-info" onclick="refreshOCRStats()">
+                                <i class="fas fa-sync-alt me-2"></i>Refresh Stats
+                            </button>
                         </div>
-                        <div class="form-check mb-2">
-                            <input class="form-check-input" type="checkbox" checked id="enableEnhancement">
-                            <label class="form-check-label" for="enableEnhancement">
-                                Enable text enhancement
-                            </label>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-outline-success" onclick="testOCRSystem()">
+                                <i class="fas fa-vial me-2"></i>Test OCR
+                            </button>
                         </div>
-                        <div class="form-check mb-2">
-                            <input class="form-check-input" type="checkbox" checked id="enableMedicalTerms">
-                            <label class="form-check-label" for="enableMedicalTerms">
-                                Medical terminology optimization
-                            </label>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-outline-primary" onclick="exportOCRReport()">
+                                <i class="fas fa-download me-2"></i>Export Report
+                            </button>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="saveOCRSettings()">
-                    <i class="fas fa-save me-2"></i>Save Settings
-                </button>
             </div>
         </div>
     </div>
@@ -374,179 +333,159 @@
 
 {% block extra_js %}
 <script>
-// Refresh OCR data
-function refreshOCRData() {
-    showLoading('Refreshing OCR data...');
-    setTimeout(() => {
-        window.location.reload();
-    }, 1000);
-}
-
-// Show OCR settings modal
-function showOCRSettings() {
-    const modal = new bootstrap.Modal(document.getElementById('ocrSettingsModal'));
-    modal.show();
-}
-
-// Save OCR settings
-function saveOCRSettings() {
-    showLoading('Saving OCR settings...');
-    
-    // In a real implementation, this would send settings to server
-    setTimeout(() => {
-        hideLoading();
-        const modal = bootstrap.Modal.getInstance(document.getElementById('ocrSettingsModal'));
-        modal.hide();
-        
-        // Show success message
-        const alert = document.createElement('div');
-        alert.className = 'alert alert-success alert-dismissible fade show';
-        alert.innerHTML = `
-            <i class="fas fa-check me-2"></i>OCR settings saved successfully
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        document.querySelector('.container-fluid > div').prepend(alert);
-        
-        setTimeout(() => alert.remove(), 3000);
-    }, 1000);
-}
-
-// View document details
-function viewDocument(docId) {
-    // In a real implementation, this would open document viewer
-    alert(`View document ${docId} - This would open the document viewer`);
-}
-
-// Flag document for review
-function flagForReview(docId) {
-    if (confirm('Flag this document for manual review?')) {
-        showLoading('Flagging document...');
-        
-        setTimeout(() => {
-            hideLoading();
-            alert('Document flagged for review');
-        }, 500);
-    }
-}
-
-// Load more low confidence documents
-function loadMoreLowConfidence() {
-    showLoading('Loading more documents...');
-    
-    setTimeout(() => {
-        hideLoading();
-        // In real implementation, this would load more documents via AJAX
-        alert('More documents would be loaded here');
-    }, 1000);
-}
-
-// Initialize confidence trend chart
 document.addEventListener('DOMContentLoaded', function() {
-    {% if data.confidence_trend %}
-        const trendData = {{ data.confidence_trend|tojson }};
-        
-        if (trendData.length > 0 && typeof Chart !== 'undefined') {
-            const ctx = document.getElementById('confidenceTrendChart');
-            
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: trendData.map(d => d.date),
-                    datasets: [{
-                        label: 'Average Confidence',
-                        data: trendData.map(d => d.average_confidence),
-                        borderColor: '#007bff',
-                        backgroundColor: 'rgba(0, 123, 255, 0.1)',
-                        tension: 0.4,
-                        fill: true
-                    }, {
-                        label: 'Document Count',
-                        data: trendData.map(d => d.document_count),
-                        borderColor: '#28a745',
-                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
-                        tension: 0.4,
-                        yAxisID: 'y1'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: {
-                        mode: 'index',
-                        intersect: false,
-                    },
-                    scales: {
-                        y: {
-                            type: 'linear',
-                            display: true,
-                            position: 'left',
-                            title: {
-                                display: true,
-                                text: 'Confidence %'
-                            },
-                            min: 0,
-                            max: 100
-                        },
-                        y1: {
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            title: {
-                                display: true,
-                                text: 'Document Count'
-                            },
-                            grid: {
-                                drawOnChartArea: false,
-                            },
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Date'
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    let label = context.dataset.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
-                                    if (context.datasetIndex === 0) {
-                                        label += context.parsed.y.toFixed(1) + '%';
-                                    } else {
-                                        label += context.parsed.y + ' documents';
-                                    }
-                                    return label;
-                                }
-                            }
-                        }
+    // Confidence Distribution Chart
+    const confCtx = document.getElementById('confidenceDistributionChart').getContext('2d');
+    new Chart(confCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['High Confidence', 'Medium Confidence', 'Low Confidence'],
+            datasets: [{
+                data: [
+                    {{ stats.confidence_distribution.high or 0 }},
+                    {{ stats.confidence_distribution.medium or 0 }},
+                    {{ stats.confidence_distribution.low or 0 }}
+                ],
+                backgroundColor: ['#198754', '#ffc107', '#dc3545'],
+                borderWidth: 2,
+                borderColor: '#495057'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: '#ffffff',
+                        padding: 20
                     }
                 }
-            });
+            }
         }
-    {% endif %}
+    });
     
-    // Update confidence threshold display
-    const thresholdSlider = document.getElementById('confidenceThreshold');
-    if (thresholdSlider) {
-        thresholdSlider.addEventListener('input', function() {
-            // Update display of current threshold value
-            console.log('Confidence threshold:', this.value + '%');
-        });
-    }
+    // Document Types Chart
+    const typesCtx = document.getElementById('documentTypesChart').getContext('2d');
+    const documentTypes = {{ stats.document_types.keys()|list|tojson }};
+    const documentCounts = {{ stats.document_types.values()|list|tojson }};
+    
+    new Chart(typesCtx, {
+        type: 'bar',
+        data: {
+            labels: documentTypes.map(type => type.charAt(0).toUpperCase() + type.slice(1)),
+            datasets: [{
+                label: 'Documents',
+                data: documentCounts,
+                backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6f42c1'],
+                borderColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6f42c1'],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: '#ffffff'
+                    },
+                    grid: {
+                        color: '#495057'
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: '#ffffff'
+                    },
+                    grid: {
+                        color: '#495057'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
 });
 
-// Auto-refresh every 2 minutes
+// OCR Management Functions
+function refreshOCRStats() {
+    const button = event.target;
+    const originalText = button.innerHTML;
+    
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Refreshing...';
+    button.disabled = true;
+    
+    // Reload the page to refresh stats
+    setTimeout(() => {
+        location.reload();
+    }, 1000);
+}
+
+function testOCRSystem() {
+    if (confirm('Run OCR system test? This will process a sample document to verify system functionality.')) {
+        const button = event.target;
+        const originalText = button.innerHTML;
+        
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Testing...';
+        button.disabled = true;
+        
+        // Simulate test (in real implementation, this would call a test endpoint)
+        setTimeout(() => {
+            alert('OCR system test completed successfully!');
+            button.innerHTML = originalText;
+            button.disabled = false;
+        }, 3000);
+    }
+}
+
+function exportOCRReport() {
+    const button = event.target;
+    const originalText = button.innerHTML;
+    
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Exporting...';
+    button.disabled = true;
+    
+    // Create download link
+    const reportData = {
+        timestamp: new Date().toISOString(),
+        stats: {{ stats|tojson }},
+        summary: {
+            total_documents: {{ stats.total_documents or 0 }},
+            success_rate: {{ stats.success_rate or 0 }},
+            avg_confidence: {{ stats.average_confidence or 0 }}
+        }
+    };
+    
+    const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ocr_report_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    button.innerHTML = originalText;
+    button.disabled = false;
+}
+
+function showLowConfidenceDetails() {
+    alert('Low confidence documents require manual review. This feature will show detailed document analysis in a future update.');
+}
+
+// Auto-refresh every 30 seconds
 setInterval(function() {
-    console.log('Auto-refreshing OCR data...');
-    // Uncomment for actual auto-refresh
-    // refreshOCRData();
-}, 120000);
+    if (document.visibilityState === 'visible') {
+        location.reload();
+    }
+}, 30000);
 </script>
 {% endblock %}

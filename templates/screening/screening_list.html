@@ -1,378 +1,546 @@
 {% extends 'base_user.html' %}
 
-{% block title %}HealthPrep - Screening List{% endblock %}
+{% block title %}HealthPrep - Screening Management{% endblock %}
 
 {% block extra_css %}
 <style>
-/* Confidence-based color coding for document links */
-.confidence-high {
-    color: #155724 !important;
-    background-color: #d4edda !important;
-    border: 1px solid #c3e6cb !important;
-}
-
-.confidence-medium {
-    color: #856404 !important;
-    background-color: #fff3cd !important;
-    border: 1px solid #ffeaa7 !important;
-}
-
-.confidence-low {
-    color: #721c24 !important;
-    background-color: #f8d7da !important;
-    border: 1px solid #f5c6cb !important;
-}
-
-.confidence-high:hover, .confidence-medium:hover, .confidence-low:hover {
-    opacity: 0.8;
-    transform: scale(1.02);
-    transition: all 0.2s ease;
-}
-
-/* Document confidence legend */
-.confidence-legend {
-    font-size: 0.85em;
-    margin-bottom: 10px;
-}
-
-.confidence-legend .badge {
-    margin-right: 8px;
-}
-
-/* Multi-modal interface styling */
-.screening-tabs .nav-link {
-    border-radius: 8px 8px 0 0;
-    margin-right: 2px;
-}
-
-.screening-tabs .nav-link.active {
-    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-    border-color: #0056b3;
-}
-
-/* Screening type management */
-.screening-type-card {
-    transition: transform 0.2s ease;
-    border-left: 4px solid #007bff;
-}
-
-.screening-type-card:hover {
-    transform: translateY(-2px);
-}
-
-.screening-type-inactive {
-    opacity: 0.6;
-    border-left-color: #6c757d;
-}
-
-/* Keywords display */
-.keywords-badges-container {
-    line-height: 1.5;
-}
-
-.keywords-badges-container .badge {
-    font-size: 0.75rem;
-    margin-bottom: 2px;
-    margin-right: 4px;
-}
-
-/* Status badges */
-.status-due {
-    background: linear-gradient(45deg, #dc3545, #c82333);
-}
-
-.status-due-soon {
-    background: linear-gradient(45deg, #ffc107, #e0a800);
-}
-
-.status-complete {
-    background: linear-gradient(45deg, #28a745, #1e7e34);
-}
-
-/* Selective refresh indicator */
-.refresh-indicator {
-    display: none;
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 1050;
-}
-
-.refresh-indicator.show {
-    display: block;
-}
+    /* Confidence-based color coding for document links */
+    .confidence-high {
+        color: #155724 !important;
+        background-color: #d4edda !important;
+        border: 1px solid #c3e6cb !important;
+    }
+    
+    .confidence-medium {
+        color: #856404 !important;
+        background-color: #fff3cd !important;
+        border: 1px solid #ffeaa7 !important;
+    }
+    
+    .confidence-low {
+        color: #721c24 !important;
+        background-color: #f8d7da !important;
+        border: 1px solid #f5c6cb !important;
+    }
+    
+    .confidence-high:hover, .confidence-medium:hover, .confidence-low:hover {
+        opacity: 0.8;
+        transform: scale(1.02);
+        transition: all 0.2s ease;
+    }
+    
+    /* Document confidence legend */
+    .confidence-legend {
+        font-size: 0.85em;
+        margin-bottom: 10px;
+    }
+    
+    .confidence-legend .badge {
+        margin-right: 8px;
+    }
+    
+    /* Tab styling */
+    .nav-tabs .nav-link {
+        background: var(--bs-dark);
+        border: 1px solid var(--bs-border-color);
+        color: var(--bs-body-color);
+        margin-right: 0.25rem;
+    }
+    
+    .nav-tabs .nav-link.active {
+        background: var(--bs-primary);
+        border-color: var(--bs-primary);
+        color: white;
+    }
+    
+    .nav-tabs .nav-link:hover {
+        background: var(--bs-secondary);
+        color: white;
+    }
+    
+    /* Status badges */
+    .status-complete { background-color: var(--bs-success) !important; }
+    .status-due { background-color: var(--bs-danger) !important; }
+    .status-due-soon { background-color: var(--bs-warning) !important; color: var(--bs-dark) !important; }
+    
+    /* Screening table */
+    .screening-table {
+        background: var(--bs-dark);
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+    
+    .screening-table th {
+        background: var(--bs-primary);
+        color: white;
+        border: none;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .screening-table td {
+        border-color: var(--bs-border-color);
+        vertical-align: middle;
+    }
+    
+    .screening-table tbody tr:hover {
+        background-color: rgba(13, 110, 253, 0.1);
+    }
+    
+    /* Keywords display */
+    .keywords-badges-container {
+        line-height: 1.5;
+    }
+    
+    .keywords-badges-container .badge {
+        font-size: 0.75rem;
+        margin-bottom: 2px;
+        margin-right: 0.25rem;
+    }
+    
+    /* Filter section */
+    .filter-section {
+        background: var(--bs-dark);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    /* Action buttons */
+    .btn-action {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+        margin-right: 0.25rem;
+    }
+    
+    /* Loading states */
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+    
+    .loading-spinner {
+        background: var(--bs-primary);
+        color: white;
+        padding: 2rem;
+        border-radius: 1rem;
+        text-align: center;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>
-        <i class="fas fa-list-check me-2"></i>Screening Management
-    </h2>
-    <div class="btn-group" role="group">
-        <button type="button" class="btn btn-outline-primary" onclick="refreshScreenings(event, 'list')">
+    <h1><i class="fas fa-list-check me-3"></i>Screening Management</h1>
+    <div>
+        <button type="button" class="btn btn-outline-primary me-2" onclick="refreshScreenings(event, 'all')">
             <i class="fas fa-sync-alt me-1"></i>Refresh All
         </button>
-        {% if current_user.is_admin %}
-        <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-success">
+        <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-primary">
             <i class="fas fa-plus me-1"></i>Add Screening Type
         </a>
-        {% endif %}
     </div>
 </div>
 
-<!-- Multi-Modal Interface Tabs -->
-<ul class="nav nav-tabs screening-tabs mb-4" id="screeningTabs" role="tablist">
+<!-- Navigation Tabs -->
+<ul class="nav nav-tabs mb-4" id="screeningTabs" role="tablist">
     <li class="nav-item" role="presentation">
         <button class="nav-link active" id="list-tab" data-bs-toggle="tab" data-bs-target="#list-pane" type="button" role="tab">
-            <i class="fas fa-list me-1"></i>Screening List
+            <i class="fas fa-list me-2"></i>Screening List
         </button>
     </li>
-    {% if current_user.is_admin %}
     <li class="nav-item" role="presentation">
         <button class="nav-link" id="types-tab" data-bs-toggle="tab" data-bs-target="#types-pane" type="button" role="tab">
-            <i class="fas fa-cogs me-1"></i>Screening Types
+            <i class="fas fa-cogs me-2"></i>Screening Types
         </button>
     </li>
     <li class="nav-item" role="presentation">
         <button class="nav-link" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settings-pane" type="button" role="tab">
-            <i class="fas fa-sliders-h me-1"></i>Checklist Settings
+            <i class="fas fa-sliders-h me-2"></i>Settings
         </button>
     </li>
-    {% endif %}
 </ul>
 
 <!-- Tab Content -->
 <div class="tab-content" id="screeningTabContent">
     <!-- Screening List Tab -->
     <div class="tab-pane fade show active" id="list-pane" role="tabpanel">
+        <!-- Filters -->
+        <div class="filter-section">
+            <form method="GET" action="{{ url_for('screening.screening_list') }}">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label for="patient_filter" class="form-label">
+                            <i class="fas fa-user me-1"></i>Patient
+                        </label>
+                        <input type="text" class="form-control" id="patient_filter" name="patient" 
+                               value="{{ current_patient_filter }}" placeholder="Search by name or MRN">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="status_filter" class="form-label">
+                            <i class="fas fa-flag me-1"></i>Status
+                        </label>
+                        <select class="form-select" id="status_filter" name="status">
+                            <option value="">All Statuses</option>
+                            <option value="Complete" {{ 'selected' if current_status_filter == 'Complete' }}>Complete</option>
+                            <option value="Due Soon" {{ 'selected' if current_status_filter == 'Due Soon' }}>Due Soon</option>
+                            <option value="Due" {{ 'selected' if current_status_filter == 'Due' }}>Due</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="type_filter" class="form-label">
+                            <i class="fas fa-stethoscope me-1"></i>Screening Type
+                        </label>
+                        <input type="text" class="form-control" id="type_filter" name="type" 
+                               value="{{ current_type_filter }}" placeholder="Search screening types">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-filter me-1"></i>Filter
+                            </button>
+                            <a href="{{ url_for('screening.screening_list') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Clear
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
         <!-- Confidence Legend -->
         <div class="confidence-legend">
             <strong>Document Confidence:</strong>
-            <span class="badge bg-success">High (≥80%)</span>
-            <span class="badge bg-warning">Medium (50-79%)</span>
-            <span class="badge bg-danger">Low (<50%)</span>
+            <span class="badge confidence-high">High (≥80%)</span>
+            <span class="badge confidence-medium">Medium (60-79%)</span>
+            <span class="badge confidence-low">Low (<60%)</span>
         </div>
 
         <!-- Screening List Table -->
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-table me-1"></i>Patient Screenings
-                </h5>
-            </div>
-            <div class="card-body">
-                {% if screening_data %}
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Patient</th>
-                                <th>Screening Type</th>
-                                <th>Status</th>
-                                <th>Last Completed</th>
-                                <th>Frequency</th>
-                                <th>Matched Documents</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in screening_data %}
-                            <tr>
-                                <td>
-                                    <strong>{{ item.patient.full_name }}</strong><br>
-                                    <small class="text-muted">MRN: {{ item.patient.mrn }}</small>
-                                </td>
-                                <td>{{ item.screening_type.name }}</td>
-                                <td>
-                                    <span class="badge status-{{ item.screening.status.lower().replace(' ', '-') }}">
-                                        {{ item.screening.status }}
-                                    </span>
-                                </td>
-                                <td>
-                                    {% if item.screening.last_completed_date %}
-                                        {{ item.screening.last_completed_date.strftime('%Y-%m-%d') }}
-                                    {% else %}
-                                        <span class="text-muted">Never</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    Every {{ item.screening_type.frequency_value }} {{ item.screening_type.frequency_unit }}
-                                </td>
-                                <td>
-                                    {% if item.screening.matched_documents %}
-                                        {% set doc_ids = item.screening.matched_documents | from_json %}
-                                        {% for doc_id in doc_ids %}
-                                            <span class="badge confidence-medium me-1">
-                                                Document #{{ doc_id }}
-                                            </span>
-                                        {% endfor %}
-                                    {% else %}
-                                        <span class="text-muted">No matches</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <div class="btn-group btn-group-sm">
-                                        <a href="{{ url_for('prep_sheet.generate_prep_sheet', patient_id=item.patient.id) }}" 
-                                           class="btn btn-outline-primary">
-                                            <i class="fas fa-file-medical"></i>
-                                        </a>
+        <div class="table-responsive">
+            <table class="table table-hover screening-table">
+                <thead>
+                    <tr>
+                        <th>Patient</th>
+                        <th>Screening Type</th>
+                        <th>Status</th>
+                        <th>Last Completed</th>
+                        <th>Frequency</th>
+                        <th>Next Due</th>
+                        <th>Matched Documents</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if screenings %}
+                        {% for screening in screenings %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="me-2">
+                                        <i class="fas fa-user-circle fa-lg text-primary"></i>
                                     </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                {% else %}
-                <div class="text-center py-5">
-                    <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
-                    <h5>No Screening Data Available</h5>
-                    <p class="text-muted">Add patients and screening types to get started.</p>
-                    {% if current_user.is_admin %}
-                    <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-primary">
-                        <i class="fas fa-plus me-1"></i>Add Your First Screening Type
-                    </a>
+                                    <div>
+                                        <strong>{{ screening.patient.full_name }}</strong>
+                                        <br>
+                                        <small class="text-muted">MRN: {{ screening.patient.mrn }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <strong>{{ screening.screening_type.name }}</strong>
+                                {% if screening.screening_type.description %}
+                                    <br>
+                                    <small class="text-muted">{{ screening.screening_type.description[:50] }}{% if screening.screening_type.description|length > 50 %}...{% endif %}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge status-{{ screening.status.lower().replace(' ', '-') }}">
+                                    {% if screening.status == 'Complete' %}
+                                        <i class="fas fa-check-circle me-1"></i>
+                                    {% elif screening.status == 'Due Soon' %}
+                                        <i class="fas fa-clock me-1"></i>
+                                    {% else %}
+                                        <i class="fas fa-exclamation-triangle me-1"></i>
+                                    {% endif %}
+                                    {{ screening.status }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if screening.last_completed %}
+                                    {{ screening.last_completed.strftime('%m/%d/%Y') }}
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-info">
+                                    Every {{ screening.screening_type.frequency_value }} 
+                                    {{ screening.screening_type.frequency_unit }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if screening.next_due %}
+                                    {{ screening.next_due.strftime('%m/%d/%Y') }}
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% set matched_docs = screening.get_matched_documents() %}
+                                {% if matched_docs %}
+                                    <div class="btn-group-vertical btn-group-sm">
+                                        {% for doc_id in matched_docs[:3] %}
+                                            {% set doc = namespace(found=none) %}
+                                            {% for document in screening.patient.documents %}
+                                                {% if document.id == doc_id %}
+                                                    {% set doc.found = document %}
+                                                {% endif %}
+                                            {% endfor %}
+                                            {% if doc.found %}
+                                                <a href="{{ url_for('patient.view_document', document_id=doc.found.id) }}" 
+                                                   class="btn btn-sm confidence-{{ doc.found.confidence_level }}" 
+                                                   target="_blank"
+                                                   title="Confidence: {{ (doc.found.ocr_confidence * 100)|round(1) if doc.found.ocr_confidence else 'Unknown' }}%">
+                                                    <i class="fas fa-file-medical me-1"></i>
+                                                    {{ doc.found.filename[:20] }}{% if doc.found.filename|length > 20 %}...{% endif %}
+                                                </a>
+                                            {% endif %}
+                                        {% endfor %}
+                                        {% if matched_docs|length > 3 %}
+                                            <small class="text-muted">+{{ matched_docs|length - 3 }} more</small>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">No documents</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group-vertical btn-group-sm">
+                                    <a href="{{ url_for('patient.patient_detail', patient_id=screening.patient.id) }}" 
+                                       class="btn btn-outline-primary btn-action">
+                                        <i class="fas fa-eye me-1"></i>View Patient
+                                    </a>
+                                    <a href="{{ url_for('prep_sheet.generate_prep_sheet', patient_id=screening.patient.id) }}" 
+                                       class="btn btn-outline-success btn-action">
+                                        <i class="fas fa-file-medical-alt me-1"></i>Prep Sheet
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="fas fa-clipboard-list fa-3x mb-3"></i>
+                                    <h5>No screenings found</h5>
+                                    <p>No screenings match your current filters, or no patients have been added yet.</p>
+                                    <a href="{{ url_for('patient.add_patient') }}" class="btn btn-primary">
+                                        <i class="fas fa-user-plus me-1"></i>Add Patient
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
                     {% endif %}
-                </div>
-                {% endif %}
-            </div>
+                </tbody>
+            </table>
         </div>
     </div>
 
-    {% if current_user.is_admin %}
     <!-- Screening Types Tab -->
     <div class="tab-pane fade" id="types-pane" role="tabpanel">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5>
-                <i class="fas fa-cogs me-1"></i>Screening Type Management
-            </h5>
-            <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-success">
-                <i class="fas fa-plus me-1"></i>Add New Type
-            </a>
+            <h4><i class="fas fa-cogs me-2"></i>Screening Types Management</h4>
+            <button type="button" class="btn btn-outline-primary" onclick="refreshScreenings(event, 'types')">
+                <i class="fas fa-sync-alt me-1"></i>Refresh Types
+            </button>
         </div>
 
-        {% if screening_types %}
-        <div class="row">
-            {% for screening_type in screening_types %}
-            <div class="col-md-6 col-lg-4 mb-3">
-                <div class="card screening-type-card {{ 'screening-type-inactive' if not screening_type.is_active }}">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h6 class="card-title">{{ screening_type.name }}</h6>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" 
-                                       {{ 'checked' if screening_type.is_active }}
-                                       onchange="toggleScreeningStatus({{ screening_type.id }})">
-                            </div>
-                        </div>
-                        
-                        {% if screening_type.description %}
-                        <p class="card-text small">{{ screening_type.description[:100] }}...</p>
-                        {% endif %}
-                        
-                        <div class="mb-2">
-                            <small class="text-muted">Keywords:</small>
-                            <div class="keywords-badges-container" id="keywords-display-{{ screening_type.id }}">
-                                <div class="spinner-border spinner-border-sm" role="status">
-                                    <span class="visually-hidden">Loading...</span>
+        <div class="table-responsive">
+            <table class="table table-hover screening-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>Keywords</th>
+                        <th>Eligibility</th>
+                        <th>Frequency</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if screening_types %}
+                        {% for st in screening_types %}
+                        <tr>
+                            <td>
+                                <strong>{{ st.name }}</strong>
+                            </td>
+                            <td>
+                                {% if st.description %}
+                                    {{ st.description[:100] }}{% if st.description|length > 100 %}...{% endif %}
+                                {% else %}
+                                    <span class="text-muted">No description</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="keywords-badges-container" id="keywords-display-{{ st.id }}">
+                                    <small class="text-muted">Loading...</small>
                                 </div>
-                            </div>
+                            </td>
+                            <td>
+                                <div>
+                                    {% if st.eligibility_gender %}
+                                        <span class="badge bg-secondary">{{ st.eligibility_gender }}</span>
+                                    {% endif %}
+                                    {% if st.eligibility_min_age or st.eligibility_max_age %}
+                                        <span class="badge bg-info">
+                                            Age: {{ st.eligibility_min_age or 0 }}-{{ st.eligibility_max_age or '∞' }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-primary">
+                                    Every {{ st.frequency_value }} {{ st.frequency_unit }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge {{ 'bg-success' if st.is_active else 'bg-secondary' }}">
+                                    {{ 'Active' if st.is_active else 'Inactive' }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('screening.edit_screening_type', type_id=st.id) }}" 
+                                       class="btn btn-outline-primary">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <form method="POST" action="{{ url_for('screening.delete_screening_type', type_id=st.id) }}" 
+                                          style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this screening type?')">
+                                        <button type="submit" class="btn btn-outline-danger">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="fas fa-stethoscope fa-3x mb-3"></i>
+                                    <h5>No screening types found</h5>
+                                    <p>Create your first screening type to get started.</p>
+                                    <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-primary">
+                                        <i class="fas fa-plus me-1"></i>Add Screening Type
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div class="tab-pane fade" id="settings-pane" role="tabpanel">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-sliders-h me-2"></i>Screening Settings</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>Configure global screening parameters and refresh behaviors.</p>
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('admin.prep_settings') }}" class="btn btn-outline-primary">
+                                <i class="fas fa-file-medical-alt me-2"></i>Prep Sheet Settings
+                            </a>
+                            <a href="{{ url_for('admin.phi_settings') }}" class="btn btn-outline-warning">
+                                <i class="fas fa-shield-alt me-2"></i>PHI Filter Settings
+                            </a>
                         </div>
-                        
-                        <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-muted">
-                                Every {{ screening_type.frequency_value }} {{ screening_type.frequency_unit }}
-                            </small>
-                            <div class="btn-group btn-group-sm">
-                                <button class="btn btn-outline-primary" onclick="editScreeningType({{ screening_type.id }})">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button class="btn btn-outline-danger" onclick="deleteScreeningType({{ screening_type.id }})">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-chart-bar me-2"></i>System Statistics</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <h4 class="text-primary">{{ screenings|length }}</h4>
+                                <small class="text-muted">Total Screenings</small>
+                            </div>
+                            <div class="col-6">
+                                <h4 class="text-success">{{ screening_types|length }}</h4>
+                                <small class="text-muted">Active Types</small>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="text-center py-5">
-            <i class="fas fa-cogs fa-3x text-muted mb-3"></i>
-            <h5>No Screening Types Configured</h5>
-            <p class="text-muted">Create screening types to define eligibility criteria and keywords for document matching.</p>
-            <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-primary">
-                <i class="fas fa-plus me-1"></i>Add Your First Screening Type
-            </a>
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- Checklist Settings Tab -->
-    <div class="tab-pane fade" id="settings-pane" role="tabpanel">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-sliders-h me-1"></i>Prep Sheet Settings
-                </h5>
-            </div>
-            <div class="card-body">
-                <p class="text-muted">Configure data cutoff periods for different medical data types in prep sheets.</p>
-                
-                <a href="{{ url_for('prep_sheet.prep_sheet_settings') }}" class="btn btn-primary">
-                    <i class="fas fa-cog me-1"></i>Configure Settings
-                </a>
-            </div>
         </div>
     </div>
-    {% endif %}
 </div>
 
-<!-- Refresh Indicator -->
-<div class="refresh-indicator alert alert-info" id="refreshIndicator">
-    <i class="fas fa-sync-alt fa-spin me-2"></i>Refreshing screenings...
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay" style="display: none;">
+    <div class="loading-spinner">
+        <div class="spinner-border text-light mb-3" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <h5>Processing...</h5>
+        <p>Please wait while we refresh the screening data.</p>
+    </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
-<!-- Include screening modals JavaScript -->
 <script src="{{ url_for('static', filename='js/screening_modals.js') }}"></script>
-<!-- Include performance optimization JavaScript -->
 <script src="{{ url_for('static', filename='js/screening_performance.js') }}"></script>
 
 <script>
 // Load keywords and display as badges
 function loadKeywordsAsBadges() {
     const keywordContainers = document.querySelectorAll('.keywords-badges-container');
-    console.log(`loadKeywordsAsBadges: Found ${keywordContainers.length} keyword containers to load`);
     
     keywordContainers.forEach(container => {
         const screeningTypeId = container.id.replace('keywords-display-', '');
-        console.log(`loadKeywordsAsBadges: Loading keywords for screening ${screeningTypeId}`);
         
-        fetch(`/screening/api/screening-keywords/${screeningTypeId}`)
+        fetch(`/screening/api/keywords/${screeningTypeId}`)
             .then(response => {
-                console.log(`loadKeywordsAsBadges: API response status for screening ${screeningTypeId}: ${response.status}`);
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
                 return response.json();
             })
             .then(data => {
-                console.log(`Received keywords data for screening ${screeningTypeId}:`, data);
                 if (data.success && data.keywords && Array.isArray(data.keywords) && data.keywords.length > 0) {
                     // Display keywords as badges
                     const keywordsHtml = data.keywords.map(keyword =>
                         `<span class="badge bg-primary me-1 mb-1">${keyword}</span>`
                     ).join('');
                     container.innerHTML = keywordsHtml;
-                    console.log(`Successfully updated keywords display for screening ${screeningTypeId} with ${data.keywords.length} keywords`);
                 } else {
                     // Show no keywords message
                     container.innerHTML = '<small class="text-muted">No keywords defined</small>';
-                    console.log(`No keywords found for screening ${screeningTypeId}`);
                 }
             })
             .catch(error => {
@@ -382,100 +550,77 @@ function loadKeywordsAsBadges() {
     });
 }
 
-// Initialize keyword display when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM Content Loaded - checking for keyword containers...');
-    // Check if keyword containers exist
-    const hasKeywordContainers = document.querySelectorAll('.keywords-badges-container').length > 0;
-    
-    if (hasKeywordContainers) {
-        console.log('Loading keywords for display...');
-        // Load keywords immediately
-        loadKeywordsAsBadges();
-        // Also load after a delay to ensure DOM is fully ready
-        setTimeout(() => {
-            loadKeywordsAsBadges();
-        }, 1000);
-    } else {
-        console.log('No keyword containers found - skipping keyword loading');
-    }
-});
-
-// Enhanced refresh functionality that works across all tabs
+// Enhanced refresh functionality
 function refreshScreenings(event, tab) {
-    // Prevent default link behavior
     event.preventDefault();
     
-    const button = event.target.closest('a') || event.target.closest('button');
+    const button = event.target.closest('a, button');
     const originalText = button.innerHTML;
-    const confirmMessage = tab === 'types' 
-        ? 'Refresh all automated screenings using the current parsing rules from this tab? This will update document matches immediately.' 
-        : 'Refresh all screening statuses based on current criteria? This may take a moment for large datasets.';
     
-    if (confirm(confirmMessage)) {
-        // Show loading state
-        button.disabled = true;
-        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Refreshing...';
-        
-        // Show refresh indicator
-        const indicator = document.getElementById('refreshIndicator');
-        if (indicator) {
-            indicator.classList.add('show');
+    const confirmMessage = tab === 'types'
+        ? 'Refresh all automated screenings using the current parsing rules from this tab?'
+        : 'Refresh all screening data? This will update document matches and screening statuses.';
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    // Show loading state
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Refreshing...';
+    button.disabled = true;
+    
+    // Show loading overlay
+    document.getElementById('loadingOverlay').style.display = 'flex';
+    
+    // Make refresh request
+    fetch('/screening/refresh', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name=csrf-token]').getAttribute('content')
         }
+    })
+    .then(response => {
+        if (response.ok) {
+            // Reload the page to show updated data
+            window.location.reload();
+        } else {
+            throw new Error('Refresh failed');
+        }
+    })
+    .catch(error => {
+        console.error('Error refreshing screenings:', error);
+        alert('Error refreshing screenings. Please try again.');
         
-        // Make refresh request
-        fetch('/screening/refresh', { method: 'POST' })
-            .then(response => response.text())
-            .then(() => {
-                // Reload page to show updated data
-                window.location.reload();
-            })
-            .catch(error => {
-                console.error('Refresh failed:', error);
-                alert('Refresh failed. Please try again.');
-                
-                // Restore button state
-                button.disabled = false;
-                button.innerHTML = originalText;
-                
-                // Hide refresh indicator
-                if (indicator) {
-                    indicator.classList.remove('show');
-                }
-            });
+        // Restore button state
+        button.innerHTML = originalText;
+        button.disabled = false;
+        document.getElementById('loadingOverlay').style.display = 'none';
+    });
+}
+
+// Initialize keyword display when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if we're on the types tab and load keywords
+    const typesTab = document.getElementById('types-tab');
+    const typesPane = document.getElementById('types-pane');
+    
+    // Load keywords when types tab is shown
+    typesTab.addEventListener('shown.bs.tab', function() {
+        setTimeout(loadKeywordsAsBadges, 100);
+    });
+    
+    // Load keywords if types tab is active on page load
+    if (typesPane.classList.contains('show', 'active')) {
+        loadKeywordsAsBadges();
     }
-}
-
-// Toggle screening type status
-function toggleScreeningStatus(screeningTypeId) {
-    fetch(`/screening/toggle-status/${screeningTypeId}`, { method: 'POST' })
-        .then(response => {
-            if (response.ok) {
-                // Reload to show updated status
-                window.location.reload();
-            } else {
-                alert('Failed to update screening status');
-            }
-        })
-        .catch(error => {
-            console.error('Error toggling status:', error);
-            alert('Failed to update screening status');
-        });
-}
-
-// Edit screening type (placeholder)
-function editScreeningType(screeningTypeId) {
-    // In a full implementation, this would open an edit modal
-    alert('Edit functionality would be implemented here');
-}
-
-// Delete screening type (placeholder)
-function deleteScreeningType(screeningTypeId) {
-    if (confirm('Are you sure you want to delete this screening type? This action cannot be undone.')) {
-        // In a full implementation, this would make a delete request
-        alert('Delete functionality would be implemented here');
-    }
-}
+    
+    // Auto-refresh every 5 minutes if page is visible
+    setInterval(function() {
+        if (document.visibilityState === 'visible') {
+            loadKeywordsAsBadges();
+        }
+    }, 5 * 60 * 1000);
+});
 </script>
 {% endblock %}
-

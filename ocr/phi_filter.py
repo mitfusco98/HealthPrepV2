@@ -1,369 +1,309 @@
 """
-HIPAA-compliant PHI filtering with regex-based redaction
+PHI filtering and HIPAA compliance
+Regex-based pattern removal with medical term protection
 """
+
 import re
-import json
 import logging
-from typing import Dict, List, Any, Tuple, Optional
 from datetime import datetime
-from app import db
+from typing import Dict, List, Tuple, Any
 from models import PHIFilterSettings
+from app import db
 
 logger = logging.getLogger(__name__)
 
 class PHIFilter:
-    """Handles PHI detection and redaction for HIPAA compliance"""
+    """Handles PHI filtering and redaction for HIPAA compliance"""
     
     def __init__(self):
-        self.medical_terms = self._load_medical_terms()
-        self.phi_patterns = self._load_phi_patterns()
-        self.replacement_text = "[REDACTED]"
-    
-    def _load_medical_terms(self) -> List[str]:
-        """Load medical terms that should be preserved during filtering"""
-        return [
-            # Vital signs and measurements
-            'blood pressure', 'bp', 'mmhg', 'mg/dl', 'mg/l', 'bpm',
-            # Lab values
-            'glucose', 'cholesterol', 'hdl', 'ldl', 'triglycerides', 'a1c', 'hba1c',
-            'creatinine', 'bun', 'gfr', 'sodium', 'potassium', 'chloride',
-            # Procedures
-            'mammogram', 'mammography', 'colonoscopy', 'endoscopy', 'biopsy',
-            'ultrasound', 'ct scan', 'mri', 'x-ray', 'ecg', 'ekg',
-            # Medications (common prefixes/suffixes)
-            'lisinopril', 'metformin', 'atorvastatin', 'amlodipine', 'losartan',
-            # Medical specialties
-            'cardiology', 'neurology', 'gastroenterology', 'oncology', 'radiology'
-        ]
-    
-    def _load_phi_patterns(self) -> Dict[str, str]:
-        """Load regex patterns for PHI detection"""
+        self.patterns = self._initialize_patterns()
+        self.medical_terms = self._initialize_medical_terms()
+        self.replacement_char = '[REDACTED]'
+        
+    def _initialize_patterns(self) -> Dict[str, str]:
+        """Initialize regex patterns for different PHI types"""
         return {
             'ssn': r'\b\d{3}-\d{2}-\d{4}\b|\b\d{9}\b',
-            'phone': r'\b(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})\b',
-            'mrn': r'\b(MRN|Medical Record|Patient ID)[\s:]*([A-Z0-9]{6,12})\b',
+            'phone': r'\b\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})\b',
+            'mrn': r'\b(?:MRN|Medical Record|Patient ID)[\s:]*([A-Z0-9]{6,12})\b',
+            'insurance': r'\b(?:Policy|Member|Insurance)[\s:]*([\dA-Z]{8,15})\b',
+            'address': r'\b\d+\s+[A-Za-z0-9\s,]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd)\b',
             'email': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
-            'address': r'\b\d{1,5}\s[A-Za-z0-9\s,.-]+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Court|Ct|Circle|Cir)\b',
-            'zip_code': r'\b\d{5}(-\d{4})?\b',
-            'dates': r'\b(0?[1-9]|1[0-2])[-/](0?[1-9]|[12][0-9]|3[01])[-/](19|20)\d{2}\b|\b(19|20)\d{2}[-/](0?[1-9]|1[0-2])[-/](0?[1-9]|[12][0-9]|3[01])\b',
-            'insurance_id': r'\b(Policy|Member|Insurance)\s?(ID|Number)[\s:]*([A-Z0-9]{8,15})\b',
-            'driver_license': r'\b(DL|Driver.?s?\s?License)[\s:]*([A-Z0-9]{8,12})\b'
+            'dates': r'\b(?:0?[1-9]|1[0-2])[\/\-](?:0?[1-9]|[12]\d|3[01])[\/\-](?:19|20)\d{2}\b',
+            'names': r'\b(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b'
         }
     
-    def filter_text(self, text: str, settings: Optional[PHIFilterSettings] = None) -> Dict[str, Any]:
+    def _initialize_medical_terms(self) -> List[str]:
+        """Initialize protected medical terms that should not be filtered"""
+        return [
+            # Vital signs and measurements
+            'blood pressure', 'bp', 'systolic', 'diastolic', 'mmhg',
+            'heart rate', 'hr', 'bpm', 'temperature', 'temp', 'fahrenheit', 'celsius',
+            'weight', 'height', 'bmi', 'body mass index',
+            
+            # Lab values and units
+            'mg/dl', 'mmol/l', 'g/dl', 'mcg', 'ng/ml', 'iu/l', 'pg/ml',
+            'glucose', 'cholesterol', 'triglycerides', 'hdl', 'ldl',
+            'hemoglobin', 'hematocrit', 'wbc', 'rbc', 'platelets',
+            'creatinine', 'bun', 'gfr', 'sodium', 'potassium', 'chloride',
+            'a1c', 'hba1c', 'tsh', 't3', 't4', 'psa',
+            
+            # Medical procedures
+            'mammogram', 'colonoscopy', 'endoscopy', 'biopsy', 'surgery',
+            'ct scan', 'mri', 'ultrasound', 'x-ray', 'echocardiogram', 'ekg', 'ecg',
+            'stress test', 'pap smear', 'bone density', 'dxa', 'dexa',
+            
+            # Medical conditions
+            'diabetes', 'hypertension', 'hyperlipidemia', 'obesity',
+            'coronary artery disease', 'heart disease', 'stroke', 'cancer',
+            'pneumonia', 'bronchitis', 'asthma', 'copd',
+            
+            # Medications and dosages
+            'mg', 'ml', 'mcg', 'units', 'tablets', 'capsules',
+            'twice daily', 'once daily', 'as needed', 'prn',
+            'metformin', 'lisinopril', 'atorvastatin', 'aspirin'
+        ]
+    
+    def filter_text(self, text: str, settings: PHIFilterSettings = None) -> Tuple[str, Dict[str, int]]:
         """
-        Filter PHI from text and return results with audit trail
+        Filter PHI from text while preserving medical terminology
+        Returns filtered text and statistics
         """
         if not text:
-            return {
-                'filtered_text': '',
-                'original_text': '',
-                'redactions_made': 0,
-                'phi_found': [],
-                'confidence': 1.0
-            }
+            return text, {}
         
-        # Get current settings
         if not settings:
-            settings = self._get_current_settings()
+            settings = self._get_filter_settings()
         
-        original_text = text
+        if not settings.is_enabled:
+            return text, {'filtered': 0}
+        
         filtered_text = text
-        phi_found = []
-        redactions_made = 0
+        stats = {}
         
-        try:
-            # Apply each PHI filter based on settings
-            if settings.filter_ssn:
-                filtered_text, ssn_matches = self._apply_pattern_filter(
-                    filtered_text, 'ssn', 'Social Security Number'
-                )
-                phi_found.extend(ssn_matches)
-                redactions_made += len(ssn_matches)
-            
-            if settings.filter_phone:
-                filtered_text, phone_matches = self._apply_pattern_filter(
-                    filtered_text, 'phone', 'Phone Number'
-                )
-                phi_found.extend(phone_matches)
-                redactions_made += len(phone_matches)
-            
-            if settings.filter_mrn:
-                filtered_text, mrn_matches = self._apply_pattern_filter(
-                    filtered_text, 'mrn', 'Medical Record Number'
-                )
-                phi_found.extend(mrn_matches)
-                redactions_made += len(mrn_matches)
-            
-            if settings.filter_addresses:
-                filtered_text, addr_matches = self._apply_pattern_filter(
-                    filtered_text, 'address', 'Address'
-                )
-                phi_found.extend(addr_matches)
-                redactions_made += len(addr_matches)
-                
-                filtered_text, zip_matches = self._apply_pattern_filter(
-                    filtered_text, 'zip_code', 'ZIP Code'
-                )
-                phi_found.extend(zip_matches)
-                redactions_made += len(zip_matches)
-            
-            if settings.filter_dates:
-                filtered_text, date_matches = self._apply_date_filter(
-                    filtered_text, settings.preserve_medical_values
-                )
-                phi_found.extend(date_matches)
-                redactions_made += len(date_matches)
-            
-            # Email filtering
-            filtered_text, email_matches = self._apply_pattern_filter(
-                filtered_text, 'email', 'Email Address'
-            )
-            phi_found.extend(email_matches)
-            redactions_made += len(email_matches)
-            
-            # Insurance and ID filtering
-            filtered_text, insurance_matches = self._apply_pattern_filter(
-                filtered_text, 'insurance_id', 'Insurance ID'
-            )
-            phi_found.extend(insurance_matches)
-            redactions_made += len(insurance_matches)
-            
-            # Name filtering (if enabled)
-            if settings.filter_names:
-                filtered_text, name_matches = self._apply_name_filter(filtered_text)
-                phi_found.extend(name_matches)
-                redactions_made += len(name_matches)
-            
-            # Calculate confidence score
-            confidence = self._calculate_filter_confidence(original_text, filtered_text, phi_found)
-            
-            return {
-                'filtered_text': filtered_text,
-                'original_text': original_text,
-                'redactions_made': redactions_made,
-                'phi_found': phi_found,
-                'confidence': confidence,
-                'processing_timestamp': datetime.utcnow()
-            }
-            
-        except Exception as e:
-            logger.error(f"Error filtering PHI from text: {str(e)}")
-            return {
-                'filtered_text': text,
-                'original_text': text,
-                'redactions_made': 0,
-                'phi_found': [],
-                'confidence': 0.0,
-                'error': str(e)
-            }
+        # Apply filters based on settings
+        if settings.filter_ssn:
+            filtered_text, ssn_count = self._apply_filter(filtered_text, 'ssn')
+            stats['ssn'] = ssn_count
+        
+        if settings.filter_phone:
+            filtered_text, phone_count = self._apply_filter(filtered_text, 'phone')
+            stats['phone'] = phone_count
+        
+        if settings.filter_mrn:
+            filtered_text, mrn_count = self._apply_filter(filtered_text, 'mrn')
+            stats['mrn'] = mrn_count
+        
+        if settings.filter_insurance:
+            filtered_text, insurance_count = self._apply_filter(filtered_text, 'insurance')
+            stats['insurance'] = insurance_count
+        
+        if settings.filter_addresses:
+            filtered_text, address_count = self._apply_filter(filtered_text, 'address')
+            stats['address'] = address_count
+        
+        if settings.filter_email:
+            filtered_text, email_count = self._apply_filter(filtered_text, 'email')
+            stats['email'] = email_count
+        
+        if settings.filter_dates:
+            filtered_text, date_count = self._apply_date_filter(filtered_text)
+            stats['dates'] = date_count
+        
+        if settings.filter_names:
+            filtered_text, name_count = self._apply_name_filter(filtered_text)
+            stats['names'] = name_count
+        
+        # Calculate total filtered items
+        stats['total_filtered'] = sum(stats.values())
+        
+        return filtered_text, stats
     
-    def _apply_pattern_filter(self, text: str, pattern_name: str, phi_type: str) -> Tuple[str, List[Dict]]:
-        """Apply a specific regex pattern filter"""
-        pattern = self.phi_patterns.get(pattern_name)
+    def _apply_filter(self, text: str, filter_type: str) -> Tuple[str, int]:
+        """Apply a specific filter pattern to text"""
+        pattern = self.patterns.get(filter_type)
         if not pattern:
-            return text, []
+            return text, 0
         
-        matches = []
-        filtered_text = text
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        count = len(matches)
         
-        for match in re.finditer(pattern, text, re.IGNORECASE):
-            match_text = match.group()
-            start_pos = match.start()
-            end_pos = match.end()
-            
-            # Skip if this looks like a medical value
-            if self._is_medical_value(match_text):
-                continue
-            
-            matches.append({
-                'type': phi_type,
-                'text': match_text,
-                'position': (start_pos, end_pos),
-                'pattern': pattern_name
-            })
+        if count > 0:
+            filtered_text = re.sub(pattern, self.replacement_char, text, flags=re.IGNORECASE)
+            return filtered_text, count
         
-        # Replace matches with redaction text
-        for match in reversed(matches):  # Reverse to maintain positions
-            start, end = match['position']
-            filtered_text = filtered_text[:start] + self.replacement_text + filtered_text[end:]
-        
-        return filtered_text, matches
+        return text, 0
     
-    def _apply_date_filter(self, text: str, preserve_medical: bool) -> Tuple[str, List[Dict]]:
-        """Apply date filtering with medical value preservation"""
-        date_pattern = self.phi_patterns['dates']
-        matches = []
-        filtered_text = text
-        
-        for match in re.finditer(date_pattern, text):
-            match_text = match.group()
-            start_pos = match.start()
-            end_pos = match.end()
-            
-            # If preserving medical values, check context
-            if preserve_medical:
-                context = text[max(0, start_pos-20):min(len(text), end_pos+20)]
-                if self._is_medical_date_context(context):
-                    continue
-            
-            matches.append({
-                'type': 'Date',
-                'text': match_text,
-                'position': (start_pos, end_pos),
-                'pattern': 'dates'
-            })
-        
-        # Replace matches with redaction text
-        for match in reversed(matches):
-            start, end = match['position']
-            filtered_text = filtered_text[:start] + self.replacement_text + filtered_text[end:]
-        
-        return filtered_text, matches
-    
-    def _apply_name_filter(self, text: str) -> Tuple[str, List[Dict]]:
-        """Apply name filtering using simple heuristics"""
-        # This is a basic implementation - in production, use NLP libraries
-        name_patterns = [
-            r'\b[A-Z][a-z]+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b',  # First Last or First Middle Last
-            r'\b(Mr|Mrs|Ms|Dr|Doctor)\s+[A-Z][a-z]+\b'  # Title + Name
+    def _apply_date_filter(self, text: str) -> Tuple[str, int]:
+        """Filter dates while preserving medical values like blood pressure"""
+        # Protect medical measurements that might look like dates
+        protected_patterns = [
+            r'\b\d{2,3}\/\d{2,3}\b',  # Blood pressure readings like 120/80
+            r'\b\d{1,3}\/\d{1,3}\s*mmhg\b',  # BP with unit
         ]
         
-        matches = []
-        filtered_text = text
+        # Store protected segments
+        protected_segments = {}
+        placeholder_counter = 0
         
-        for pattern in name_patterns:
-            for match in re.finditer(pattern, text):
-                match_text = match.group()
-                start_pos = match.start()
-                end_pos = match.end()
-                
-                # Skip medical terms and common words
-                if self._is_medical_term(match_text) or self._is_common_phrase(match_text):
-                    continue
-                
-                matches.append({
-                    'type': 'Name',
-                    'text': match_text,
-                    'position': (start_pos, end_pos),
-                    'pattern': 'name'
-                })
+        for pattern in protected_patterns:
+            matches = re.finditer(pattern, text, re.IGNORECASE)
+            for match in matches:
+                placeholder = f"__PROTECTED_{placeholder_counter}__"
+                protected_segments[placeholder] = match.group()
+                text = text.replace(match.group(), placeholder)
+                placeholder_counter += 1
         
-        # Replace matches with redaction text
-        for match in reversed(matches):
-            start, end = match['position']
-            filtered_text = filtered_text[:start] + self.replacement_text + filtered_text[end:]
+        # Apply date filter
+        date_pattern = self.patterns['dates']
+        matches = re.findall(date_pattern, text)
+        count = len(matches)
         
-        return filtered_text, matches
+        if count > 0:
+            text = re.sub(date_pattern, self.replacement_char, text)
+        
+        # Restore protected segments
+        for placeholder, original in protected_segments.items():
+            text = text.replace(placeholder, original)
+        
+        return text, count
     
-    def _is_medical_value(self, text: str) -> bool:
-        """Check if text appears to be a medical value"""
-        text_lower = text.lower()
+    def _apply_name_filter(self, text: str) -> Tuple[str, int]:
+        """Filter names while preserving medical terminology"""
+        # Protect medical professional titles and terms
+        medical_titles = ['Dr', 'Doctor', 'Nurse', 'Physician', 'Specialist']
         
-        # Check for medical measurement patterns
-        medical_patterns = [
-            r'\d+/\d+',  # Blood pressure
-            r'\d+\s*(mg/dl|mmhg|bpm)',  # Medical units
-            r'(glucose|cholesterol|a1c).*\d+',  # Lab values
-        ]
+        # Store protected medical contexts
+        protected_segments = {}
+        placeholder_counter = 0
         
-        for pattern in medical_patterns:
-            if re.search(pattern, text_lower):
-                return True
+        # Protect medical contexts
+        for title in medical_titles:
+            pattern = f'\\b{title}\\s+[A-Z][a-z]+'
+            matches = re.finditer(pattern, text, re.IGNORECASE)
+            for match in matches:
+                # Only protect if in medical context
+                context = text[max(0, match.start()-50):match.end()+50].lower()
+                if any(term in context for term in ['consultation', 'referral', 'specialist', 'department']):
+                    placeholder = f"__PROTECTED_{placeholder_counter}__"
+                    protected_segments[placeholder] = match.group()
+                    text = text.replace(match.group(), placeholder)
+                    placeholder_counter += 1
         
-        return False
+        # Apply name filter
+        name_pattern = self.patterns['names']
+        matches = re.findall(name_pattern, text)
+        count = len(matches)
+        
+        if count > 0:
+            text = re.sub(name_pattern, self.replacement_char, text)
+        
+        # Restore protected segments
+        for placeholder, original in protected_segments.items():
+            text = text.replace(placeholder, original)
+        
+        return text, count
     
-    def _is_medical_date_context(self, context: str) -> bool:
-        """Check if a date appears in medical context"""
-        medical_keywords = [
-            'test', 'lab', 'result', 'procedure', 'appointment',
-            'visit', 'exam', 'surgery', 'diagnosis', 'treatment'
-        ]
-        
-        context_lower = context.lower()
-        return any(keyword in context_lower for keyword in medical_keywords)
-    
-    def _is_medical_term(self, text: str) -> bool:
-        """Check if text is a known medical term"""
-        text_lower = text.lower()
-        return any(term in text_lower for term in self.medical_terms)
-    
-    def _is_common_phrase(self, text: str) -> bool:
-        """Check if text is a common non-name phrase"""
-        common_phrases = [
-            'patient care', 'health care', 'medical center', 'test results',
-            'blood pressure', 'heart rate', 'patient information'
-        ]
-        
-        text_lower = text.lower()
-        return any(phrase in text_lower for phrase in common_phrases)
-    
-    def _calculate_filter_confidence(self, original: str, filtered: str, phi_found: List[Dict]) -> float:
-        """Calculate confidence score for PHI filtering"""
-        if not original:
-            return 1.0
-        
-        # Base confidence on coverage and pattern matching
-        redaction_ratio = len(phi_found) / len(original.split()) if original.split() else 0
-        
-        # Lower confidence if too many or too few redactions
-        if redaction_ratio > 0.3:  # Too aggressive
-            confidence = 0.6
-        elif redaction_ratio < 0.01 and len(original) > 100:  # Possibly missed PHI
-            confidence = 0.8
-        else:
-            confidence = 0.95
-        
-        return confidence
-    
-    def _get_current_settings(self) -> PHIFilterSettings:
+    def _get_filter_settings(self) -> PHIFilterSettings:
         """Get current PHI filter settings"""
         settings = PHIFilterSettings.query.first()
         if not settings:
             # Create default settings
-            settings = PHIFilterSettings(
-                filter_ssn=True,
-                filter_phone=True,
-                filter_mrn=True,
-                filter_addresses=True,
-                filter_names=True,
-                filter_dates=True,
-                preserve_medical_values=True,
-                confidence_threshold=0.8
-            )
+            settings = PHIFilterSettings()
             db.session.add(settings)
-            try:
-                db.session.commit()
-            except Exception as e:
-                db.session.rollback()
-                logger.error(f"Error creating default PHI settings: {str(e)}")
-        
+            db.session.commit()
         return settings
     
     def test_filter(self, test_text: str) -> Dict[str, Any]:
-        """Test PHI filter with sample text"""
-        settings = self._get_current_settings()
-        result = self.filter_text(test_text, settings)
+        """Test PHI filter on sample text for configuration purposes"""
+        settings = self._get_filter_settings()
+        
+        filtered_text, stats = self.filter_text(test_text, settings)
         
         return {
             'original_text': test_text,
-            'filtered_text': result['filtered_text'],
-            'phi_detected': result['phi_found'],
-            'redactions_count': result['redactions_made'],
-            'confidence': result['confidence'],
-            'test_timestamp': datetime.utcnow()
+            'filtered_text': filtered_text,
+            'statistics': stats,
+            'settings_applied': {
+                'filter_ssn': settings.filter_ssn,
+                'filter_phone': settings.filter_phone,
+                'filter_mrn': settings.filter_mrn,
+                'filter_insurance': settings.filter_insurance,
+                'filter_addresses': settings.filter_addresses,
+                'filter_names': settings.filter_names,
+                'filter_dates': settings.filter_dates
+            }
         }
     
+    def update_settings(self, new_settings: Dict[str, bool]) -> bool:
+        """Update PHI filter settings"""
+        try:
+            settings = self._get_filter_settings()
+            
+            for key, value in new_settings.items():
+                if hasattr(settings, key):
+                    setattr(settings, key, value)
+            
+            settings.updated_at = datetime.utcnow()
+            db.session.commit()
+            
+            logger.info("PHI filter settings updated successfully")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating PHI filter settings: {str(e)}")
+            db.session.rollback()
+            return False
+    
     def get_filter_statistics(self) -> Dict[str, Any]:
-        """Get statistics about PHI filtering usage"""
-        # In production, this would query a PHI audit log table
+        """Get PHI filtering statistics"""
+        from models import MedicalDocument
+        
+        # Count documents with PHI filtering applied
+        total_docs = db.session.query(MedicalDocument).count()
+        filtered_docs = db.session.query(MedicalDocument).filter(
+            MedicalDocument.phi_filtered_text.isnot(None)
+        ).count()
+        
+        # Calculate processing rate
+        processing_rate = (filtered_docs / total_docs * 100) if total_docs > 0 else 0
+        
         return {
-            'total_documents_filtered': 0,
-            'total_redactions_made': 0,
-            'average_confidence': 0.95,
-            'most_common_phi_types': ['Phone Number', 'SSN', 'Address'],
-            'last_filter_run': datetime.utcnow()
+            'total_documents': total_docs,
+            'filtered_documents': filtered_docs,
+            'processing_rate': round(processing_rate, 1),
+            'filter_enabled': self._get_filter_settings().is_enabled
         }
-
-# Global PHI filter instance
-phi_filter = PHIFilter()
+    
+    def export_configuration(self) -> Dict[str, Any]:
+        """Export current PHI filter configuration"""
+        settings = self._get_filter_settings()
+        
+        return {
+            'version': '1.0',
+            'exported_at': datetime.utcnow().isoformat(),
+            'settings': {
+                'is_enabled': settings.is_enabled,
+                'filter_ssn': settings.filter_ssn,
+                'filter_phone': settings.filter_phone,
+                'filter_mrn': settings.filter_mrn,
+                'filter_insurance': settings.filter_insurance,
+                'filter_addresses': settings.filter_addresses,
+                'filter_names': settings.filter_names,
+                'filter_dates': settings.filter_dates
+            },
+            'patterns': self.patterns,
+            'protected_terms_count': len(self.medical_terms)
+        }
+    
+    def import_configuration(self, config: Dict[str, Any]) -> bool:
+        """Import PHI filter configuration"""
+        try:
+            if 'settings' not in config:
+                return False
+            
+            return self.update_settings(config['settings'])
+            
+        except Exception as e:
+            logger.error(f"Error importing PHI filter configuration: {str(e)}")
+            return False

@@ -4,356 +4,341 @@
 
 {% block extra_css %}
 <style>
-.screening-form .form-group {
-    margin-bottom: 1.5rem;
-}
-
-.keywords-help {
-    background-color: rgba(13, 110, 253, 0.1);
-    border-left: 4px solid #0d6efd;
-    padding: 1rem;
-    margin-top: 0.5rem;
-}
-
-.medical-variants {
-    background-color: rgba(25, 135, 84, 0.1);
-    border-left: 4px solid #198754;
-    padding: 1rem;
-    margin-top: 1rem;
-}
-
-.frequency-preview {
-    background-color: rgba(255, 193, 7, 0.1);
-    border-left: 4px solid #ffc107;
-    padding: 0.75rem;
-    margin-top: 0.5rem;
-}
-
-.form-floating textarea {
-    min-height: 120px;
-}
-
-.btn-preview {
-    background: linear-gradient(135deg, #6f42c1, #5a379b);
-    border: none;
-    color: white;
-}
-
-.btn-preview:hover {
-    background: linear-gradient(135deg, #5a379b, #4a2c7d);
-    color: white;
-}
+    .form-section {
+        background: var(--bs-dark);
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid var(--bs-border-color);
+    }
+    
+    .form-section h5 {
+        color: var(--bs-primary);
+        border-bottom: 2px solid var(--bs-primary);
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .keyword-input {
+        position: relative;
+    }
+    
+    .keyword-suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--bs-dark);
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0 0 0.375rem 0.375rem;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+    }
+    
+    .keyword-suggestion {
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        border-bottom: 1px solid var(--bs-border-color);
+    }
+    
+    .keyword-suggestion:hover {
+        background: var(--bs-primary);
+        color: white;
+    }
+    
+    .preview-section {
+        background: rgba(13, 110, 253, 0.1);
+        border: 1px solid var(--bs-primary);
+        border-radius: 0.5rem;
+        padding: 1rem;
+    }
+    
+    .eligibility-preview {
+        background: var(--bs-secondary);
+        padding: 0.75rem;
+        border-radius: 0.375rem;
+        margin-top: 1rem;
+    }
+    
+    .frequency-preview {
+        background: var(--bs-info);
+        color: var(--bs-dark);
+        padding: 0.5rem 1rem;
+        border-radius: 0.375rem;
+        display: inline-block;
+        font-weight: 600;
+    }
+    
+    .help-text {
+        font-size: 0.875rem;
+        color: var(--bs-secondary);
+        margin-top: 0.25rem;
+    }
+    
+    .medical-terms-helper {
+        background: rgba(255, 193, 7, 0.1);
+        border: 1px solid var(--bs-warning);
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .common-keywords {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+    
+    .keyword-badge {
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .keyword-badge:hover {
+        transform: scale(1.05);
+        background-color: var(--bs-primary) !important;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>
-        <i class="fas fa-plus-circle me-2"></i>Add Screening Type
-    </h2>
-    <a href="{{ url_for('screening.screening_list') }}" class="btn btn-outline-secondary">
-        <i class="fas fa-arrow-left me-1"></i>Back to Screenings
-    </a>
-</div>
-
-<div class="row">
+<div class="row justify-content-center">
     <div class="col-lg-8">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-cogs me-1"></i>Screening Type Configuration
-                </h5>
-            </div>
-            <div class="card-body">
-                <form method="POST" class="screening-form" novalidate>
-                    {{ form.hidden_tag() }}
-
-                    <!-- Basic Information -->
-                    <div class="row">
-                        <div class="col-md-8">
-                            <div class="form-floating mb-3">
-                                {{ form.name(class="form-control", placeholder="Screening Name") }}
-                                <label for="name">
-                                    <i class="fas fa-tag me-1"></i>Screening Name *
-                                </label>
-                                {% if form.name.errors %}
-                                    <div class="text-danger small mt-1">
-                                        {% for error in form.name.errors %}
-                                            <div>{{ error }}</div>
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-floating mb-3">
-                                {{ form.is_active(class="form-check-input", style="width: 3rem; height: 1.5rem;") }}
-                                <label for="is_active" class="form-check-label ms-2">
-                                    Active Status
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-floating mb-3">
-                        {{ form.description(class="form-control", placeholder="Description") }}
-                        <label for="description">
-                            <i class="fas fa-align-left me-1"></i>Description
-                        </label>
-                        {% if form.description.errors %}
-                            <div class="text-danger small mt-1">
-                                {% for error in form.description.errors %}
-                                    <div>{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                    </div>
-
-                    <!-- Keywords Configuration -->
-                    <div class="form-floating mb-3">
-                        {{ form.keywords(class="form-control", placeholder="Keywords", rows="6") }}
-                        <label for="keywords">
-                            <i class="fas fa-key me-1"></i>Keywords for Document Matching
-                        </label>
-                        {% if form.keywords.errors %}
-                            <div class="text-danger small mt-1">
-                                {% for error in form.keywords.errors %}
-                                    <div>{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                        <div class="keywords-help">
-                            <h6><i class="fas fa-lightbulb me-1"></i>Keyword Matching Tips:</h6>
-                            <ul class="mb-0">
-                                <li>Enter one keyword per line</li>
-                                <li>Use medical terminology and common abbreviations</li>
-                                <li>System automatically handles fuzzy matching</li>
-                                <li>Keywords match both filenames and document content</li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    <!-- Eligibility Criteria -->
-                    <h6 class="border-bottom pb-2 mb-3">
-                        <i class="fas fa-users me-1"></i>Eligibility Criteria
-                    </h6>
-
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="form-floating mb-3">
-                                {{ form.gender_filter(class="form-select") }}
-                                <label for="gender_filter">
-                                    <i class="fas fa-venus-mars me-1"></i>Gender Filter
-                                </label>
-                                {% if form.gender_filter.errors %}
-                                    <div class="text-danger small mt-1">
-                                        {% for error in form.gender_filter.errors %}
-                                            <div>{{ error }}</div>
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-floating mb-3">
-                                {{ form.min_age(class="form-control", placeholder="Minimum Age") }}
-                                <label for="min_age">
-                                    <i class="fas fa-calendar-minus me-1"></i>Minimum Age
-                                </label>
-                                {% if form.min_age.errors %}
-                                    <div class="text-danger small mt-1">
-                                        {% for error in form.min_age.errors %}
-                                            <div>{{ error }}</div>
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-floating mb-3">
-                                {{ form.max_age(class="form-control", placeholder="Maximum Age") }}
-                                <label for="max_age">
-                                    <i class="fas fa-calendar-plus me-1"></i>Maximum Age
-                                </label>
-                                {% if form.max_age.errors %}
-                                    <div class="text-danger small mt-1">
-                                        {% for error in form.max_age.errors %}
-                                            <div>{{ error }}</div>
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Frequency Configuration -->
-                    <h6 class="border-bottom pb-2 mb-3">
-                        <i class="fas fa-clock me-1"></i>Screening Frequency
-                    </h6>
-
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-floating mb-3">
-                                {{ form.frequency_value(class="form-control", placeholder="Frequency Value") }}
-                                <label for="frequency_value">
-                                    <i class="fas fa-hashtag me-1"></i>Frequency Value *
-                                </label>
-                                {% if form.frequency_value.errors %}
-                                    <div class="text-danger small mt-1">
-                                        {% for error in form.frequency_value.errors %}
-                                            <div>{{ error }}</div>
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-floating mb-3">
-                                {{ form.frequency_unit(class="form-select") }}
-                                <label for="frequency_unit">
-                                    <i class="fas fa-calendar-alt me-1"></i>Frequency Unit *
-                                </label>
-                                {% if form.frequency_unit.errors %}
-                                    <div class="text-danger small mt-1">
-                                        {% for error in form.frequency_unit.errors %}
-                                            <div>{{ error }}</div>
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="frequency-preview" id="frequencyPreview">
-                        <strong>Frequency Preview:</strong>
-                        <span id="frequencyText">Configure frequency above</span>
-                    </div>
-
-                    <!-- Trigger Conditions -->
-                    <div class="form-floating mb-3 mt-4">
-                        {{ form.trigger_conditions(class="form-control", placeholder="Trigger Conditions", rows="4") }}
-                        <label for="trigger_conditions">
-                            <i class="fas fa-heartbeat me-1"></i>Trigger Conditions (Optional)
-                        </label>
-                        {% if form.trigger_conditions.errors %}
-                            <div class="text-danger small mt-1">
-                                {% for error in form.trigger_conditions.errors %}
-                                    <div>{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                        <small class="text-muted">Enter medical conditions that trigger this screening (one per line)</small>
-                    </div>
-
-                    <!-- Form Actions -->
-                    <div class="d-flex gap-2 pt-3">
-                        <button type="submit" class="btn btn-success">
-                            <i class="fas fa-save me-1"></i>Create Screening Type
-                        </button>
-                        <button type="button" class="btn btn-preview" onclick="previewScreeningType()">
-                            <i class="fas fa-eye me-1"></i>Preview
-                        </button>
-                        <a href="{{ url_for('screening.screening_list') }}" class="btn btn-outline-secondary">
-                            <i class="fas fa-times me-1"></i>Cancel
-                        </a>
-                    </div>
-                </form>
-            </div>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-plus-circle me-3"></i>Add Screening Type</h1>
+            <a href="{{ url_for('screening.screening_types') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Back to Types
+            </a>
         </div>
-    </div>
 
-    <!-- Help Sidebar -->
-    <div class="col-lg-4">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0">
-                    <i class="fas fa-question-circle me-1"></i>Screening Type Help
-                </h6>
+        <form method="POST" id="screeningTypeForm">
+            {{ form.hidden_tag() }}
+            
+            <!-- Basic Information -->
+            <div class="form-section">
+                <h5><i class="fas fa-info-circle me-2"></i>Basic Information</h5>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.name.id }}" class="form-label">
+                            <i class="fas fa-stethoscope me-1"></i>Screening Name *
+                        </label>
+                        {{ form.name(class="form-control", placeholder="e.g., Mammogram, Colonoscopy") }}
+                        {% if form.name.errors %}
+                            <div class="text-danger mt-1">
+                                {% for error in form.name.errors %}
+                                    <small><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</small>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="help-text">
+                            Enter a clear, descriptive name for this screening type.
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.is_active.id }}" class="form-label">
+                            <i class="fas fa-toggle-on me-1"></i>Status
+                        </label>
+                        <div class="form-check form-switch">
+                            {{ form.is_active(class="form-check-input", checked=True) }}
+                            <label class="form-check-label" for="{{ form.is_active.id }}">
+                                Active (will generate screenings for eligible patients)
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="{{ form.description.id }}" class="form-label">
+                        <i class="fas fa-align-left me-1"></i>Description
+                    </label>
+                    {{ form.description(class="form-control", rows="3", placeholder="Describe the purpose and details of this screening") }}
+                    {% if form.description.errors %}
+                        <div class="text-danger mt-1">
+                            {% for error in form.description.errors %}
+                                <small><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</small>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    <div class="help-text">
+                        Provide additional details about this screening type for documentation purposes.
+                    </div>
+                </div>
             </div>
-            <div class="card-body">
-                <h6>Common Screening Examples:</h6>
-                <div class="accordion" id="examplesAccordion">
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mammogramExample">
-                                Mammogram
-                            </button>
-                        </h2>
-                        <div id="mammogramExample" class="accordion-collapse collapse">
-                            <div class="accordion-body small">
-                                <strong>Keywords:</strong> mammogram, mammography, breast imaging, mammo<br>
-                                <strong>Gender:</strong> Female Only<br>
-                                <strong>Age:</strong> 40-75<br>
-                                <strong>Frequency:</strong> Every 1 year
-                            </div>
+
+            <!-- Keywords and Document Matching -->
+            <div class="form-section">
+                <h5><i class="fas fa-search me-2"></i>Keywords and Document Matching</h5>
+                
+                <div class="mb-3">
+                    <label for="{{ form.keywords.id }}" class="form-label">
+                        <i class="fas fa-tags me-1"></i>Keywords (one per line)
+                    </label>
+                    <div class="keyword-input">
+                        {{ form.keywords(class="form-control", rows="6", placeholder="mammogram\nmammography\nbreast imaging\nmammo") }}
+                        <div class="keyword-suggestions" id="keywordSuggestions"></div>
+                    </div>
+                    {% if form.keywords.errors %}
+                        <div class="text-danger mt-1">
+                            {% for error in form.keywords.errors %}
+                                <small><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</small>
+                            {% endfor %}
                         </div>
+                    {% endif %}
+                    <div class="help-text">
+                        Enter keywords that should match document filenames and content. Include variations and synonyms.
                     </div>
                     
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#colonoscopyExample">
-                                Colonoscopy
-                            </button>
-                        </h2>
-                        <div id="colonoscopyExample" class="accordion-collapse collapse">
-                            <div class="accordion-body small">
-                                <strong>Keywords:</strong> colonoscopy, colon screening, colon<br>
-                                <strong>Gender:</strong> All Genders<br>
-                                <strong>Age:</strong> 45-75<br>
-                                <strong>Frequency:</strong> Every 10 years
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#boneExample">
-                                Bone Density
-                            </button>
-                        </h2>
-                        <div id="boneExample" class="accordion-collapse collapse">
-                            <div class="accordion-body small">
-                                <strong>Keywords:</strong> dexa, dxa, bone density, bone scan<br>
-                                <strong>Gender:</strong> Female Only<br>
-                                <strong>Age:</strong> 65+<br>
-                                <strong>Frequency:</strong> Every 2 years
-                            </div>
+                    <!-- Medical Terms Helper -->
+                    <div class="medical-terms-helper">
+                        <h6><i class="fas fa-lightbulb me-2 text-warning"></i>Common Medical Keywords</h6>
+                        <p class="mb-2">Click to add common keywords for specific screening types:</p>
+                        
+                        <div class="common-keywords">
+                            <span class="badge bg-secondary keyword-badge" data-keywords="mammogram,mammography,breast imaging,mammo">Mammogram</span>
+                            <span class="badge bg-secondary keyword-badge" data-keywords="colonoscopy,colon screening,endoscopy,colorectal">Colonoscopy</span>
+                            <span class="badge bg-secondary keyword-badge" data-keywords="pap,pap smear,cervical screening,cytology">Pap Smear</span>
+                            <span class="badge bg-secondary keyword-badge" data-keywords="dexa,dxa,bone density,osteoporosis scan">DEXA Scan</span>
+                            <span class="badge bg-secondary keyword-badge" data-keywords="a1c,hba1c,hemoglobin a1c,glycated hemoglobin">A1C Test</span>
+                            <span class="badge bg-secondary keyword-badge" data-keywords="cholesterol,lipid panel,hdl,ldl,triglycerides">Cholesterol</span>
+                            <span class="badge bg-secondary keyword-badge" data-keywords="echo,echocardiogram,cardiac echo,heart ultrasound">Echo</span>
+                            <span class="badge bg-secondary keyword-badge" data-keywords="stress test,exercise test,cardiac stress">Stress Test</span>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="medical-variants mt-3">
-            <h6><i class="fas fa-robot me-1"></i>Fuzzy Matching</h6>
-            <p class="mb-2">The system automatically recognizes medical term variations:</p>
-            <ul class="small mb-0">
-                <li><strong>dexa</strong> matches: dxa, bone density, bone scan</li>
-                <li><strong>a1c</strong> matches: hba1c, hemoglobin a1c</li>
-                <li><strong>mammogram</strong> matches: mammo, mammography</li>
-                <li><strong>ecg</strong> matches: ekg, electrocardiogram</li>
-            </ul>
-        </div>
-    </div>
-</div>
+            <!-- Eligibility Criteria -->
+            <div class="form-section">
+                <h5><i class="fas fa-users me-2"></i>Eligibility Criteria</h5>
+                
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.eligibility_gender.id }}" class="form-label">
+                            <i class="fas fa-venus-mars me-1"></i>Gender Requirement
+                        </label>
+                        {{ form.eligibility_gender(class="form-select") }}
+                        {% if form.eligibility_gender.errors %}
+                            <div class="text-danger mt-1">
+                                {% for error in form.eligibility_gender.errors %}
+                                    <small><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</small>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.eligibility_min_age.id }}" class="form-label">
+                            <i class="fas fa-calendar-alt me-1"></i>Minimum Age
+                        </label>
+                        {{ form.eligibility_min_age(class="form-control", placeholder="18") }}
+                        {% if form.eligibility_min_age.errors %}
+                            <div class="text-danger mt-1">
+                                {% for error in form.eligibility_min_age.errors %}
+                                    <small><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</small>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <label for="{{ form.eligibility_max_age.id }}" class="form-label">
+                            <i class="fas fa-calendar-alt me-1"></i>Maximum Age
+                        </label>
+                        {{ form.eligibility_max_age(class="form-control", placeholder="75") }}
+                        {% if form.eligibility_max_age.errors %}
+                            <div class="text-danger mt-1">
+                                {% for error in form.eligibility_max_age.errors %}
+                                    <small><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</small>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="{{ form.trigger_conditions.id }}" class="form-label">
+                        <i class="fas fa-exclamation-triangle me-1"></i>Trigger Conditions (one per line)
+                    </label>
+                    {{ form.trigger_conditions(class="form-control", rows="4", placeholder="diabetes\nhypertension\nheart disease") }}
+                    {% if form.trigger_conditions.errors %}
+                        <div class="text-danger mt-1">
+                            {% for error in form.trigger_conditions.errors %}
+                                <small><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</small>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    <div class="help-text">
+                        Optional: Enter medical conditions that would make this screening applicable. Leave blank if no specific conditions are required.
+                    </div>
+                </div>
+                
+                <!-- Eligibility Preview -->
+                <div class="eligibility-preview" id="eligibilityPreview">
+                    <strong>Eligibility Preview:</strong>
+                    <span id="eligibilityText">All patients</span>
+                </div>
+            </div>
 
-<!-- Preview Modal -->
-<div class="modal fade" id="previewModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-eye me-1"></i>Screening Type Preview
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <!-- Frequency Settings -->
+            <div class="form-section">
+                <h5><i class="fas fa-clock me-2"></i>Frequency Settings</h5>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.frequency_value.id }}" class="form-label">
+                            <i class="fas fa-hashtag me-1"></i>Frequency Value *
+                        </label>
+                        {{ form.frequency_value(class="form-control", placeholder="1", min="1") }}
+                        {% if form.frequency_value.errors %}
+                            <div class="text-danger mt-1">
+                                {% for error in form.frequency_value.errors %}
+                                    <small><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</small>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="{{ form.frequency_unit.id }}" class="form-label">
+                            <i class="fas fa-calendar me-1"></i>Frequency Unit *
+                        </label>
+                        {{ form.frequency_unit(class="form-select") }}
+                        {% if form.frequency_unit.errors %}
+                            <div class="text-danger mt-1">
+                                {% for error in form.frequency_unit.errors %}
+                                    <small><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</small>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="preview-section">
+                    <strong>Frequency Preview:</strong>
+                    <div class="mt-2">
+                        <span class="frequency-preview" id="frequencyPreview">Every 1 years</span>
+                    </div>
+                    <div class="help-text mt-2">
+                        This determines how often patients should have this screening performed.
+                    </div>
+                </div>
             </div>
-            <div class="modal-body" id="previewContent">
-                <!-- Preview content will be populated by JavaScript -->
+
+            <!-- Action Buttons -->
+            <div class="d-flex justify-content-between">
+                <a href="{{ url_for('screening.screening_types') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-times me-1"></i>Cancel
+                </a>
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="fas fa-save me-1"></i>Create Screening Type
+                </button>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
+        </form>
     </div>
 </div>
 {% endblock %}
@@ -361,143 +346,206 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Update frequency preview
-    function updateFrequencyPreview() {
-        const value = document.getElementById('frequency_value').value;
-        const unit = document.getElementById('frequency_unit').value;
-        const preview = document.getElementById('frequencyText');
+    const form = document.getElementById('screeningTypeForm');
+    const keywordsTextarea = document.getElementById('{{ form.keywords.id }}');
+    const nameInput = document.getElementById('{{ form.name.id }}');
+    const genderSelect = document.getElementById('{{ form.eligibility_gender.id }}');
+    const minAgeInput = document.getElementById('{{ form.eligibility_min_age.id }}');
+    const maxAgeInput = document.getElementById('{{ form.eligibility_max_age.id }}');
+    const conditionsTextarea = document.getElementById('{{ form.trigger_conditions.id }}');
+    const frequencyValueInput = document.getElementById('{{ form.frequency_value.id }}');
+    const frequencyUnitSelect = document.getElementById('{{ form.frequency_unit.id }}');
+    
+    // Medical keyword suggestions
+    const medicalKeywords = {
+        'mammogram': ['mammogram', 'mammography', 'breast imaging', 'mammo', 'breast screening'],
+        'colonoscopy': ['colonoscopy', 'colon screening', 'endoscopy', 'colorectal screening', 'colonogram'],
+        'pap': ['pap', 'pap smear', 'cervical screening', 'cytology', 'cervical cancer screening'],
+        'dexa': ['dexa', 'dxa', 'bone density', 'osteoporosis scan', 'bone scan'],
+        'a1c': ['a1c', 'hba1c', 'hemoglobin a1c', 'glycated hemoglobin', 'diabetes monitoring'],
+        'cholesterol': ['cholesterol', 'lipid panel', 'hdl', 'ldl', 'triglycerides', 'lipids'],
+        'echo': ['echo', 'echocardiogram', 'cardiac echo', 'heart ultrasound', 'cardiac imaging'],
+        'stress': ['stress test', 'exercise test', 'cardiac stress test', 'treadmill test']
+    };
+    
+    // Add keyword suggestions on input
+    keywordsTextarea.addEventListener('input', function() {
+        const currentValue = this.value.toLowerCase();
+        const lines = currentValue.split('\n');
+        const currentLine = lines[lines.length - 1].trim();
         
-        if (value && unit) {
-            const singular = {
-                'days': 'day',
-                'months': 'month', 
-                'years': 'year'
-            };
-            
-            if (value == 1) {
-                preview.textContent = `Every ${singular[unit] || unit}`;
-            } else {
-                preview.textContent = `Every ${value} ${unit}`;
-            }
+        if (currentLine.length > 2) {
+            showKeywordSuggestions(currentLine);
         } else {
-            preview.textContent = 'Configure frequency above';
+            hideKeywordSuggestions();
+        }
+    });
+    
+    function showKeywordSuggestions(input) {
+        const suggestions = [];
+        
+        for (const [category, keywords] of Object.entries(medicalKeywords)) {
+            if (category.includes(input) || keywords.some(k => k.includes(input))) {
+                suggestions.push(...keywords.filter(k => k.includes(input) && !keywordsTextarea.value.includes(k)));
+            }
+        }
+        
+        if (suggestions.length > 0) {
+            const suggestionsDiv = document.getElementById('keywordSuggestions');
+            suggestionsDiv.innerHTML = suggestions.slice(0, 5).map(s => 
+                `<div class="keyword-suggestion" onclick="addKeyword('${s}')">${s}</div>`
+            ).join('');
+            suggestionsDiv.style.display = 'block';
+        } else {
+            hideKeywordSuggestions();
         }
     }
     
-    // Attach event listeners
-    document.getElementById('frequency_value').addEventListener('input', updateFrequencyPreview);
-    document.getElementById('frequency_unit').addEventListener('change', updateFrequencyPreview);
+    function hideKeywordSuggestions() {
+        document.getElementById('keywordSuggestions').style.display = 'none';
+    }
     
-    // Initial preview update
+    window.addKeyword = function(keyword) {
+        const lines = keywordsTextarea.value.split('\n');
+        lines[lines.length - 1] = keyword;
+        keywordsTextarea.value = lines.join('\n') + '\n';
+        keywordsTextarea.focus();
+        hideKeywordSuggestions();
+    };
+    
+    // Common keyword badges
+    document.querySelectorAll('.keyword-badge').forEach(badge => {
+        badge.addEventListener('click', function() {
+            const keywords = this.dataset.keywords.split(',');
+            const currentKeywords = keywordsTextarea.value.trim();
+            
+            const newKeywords = keywords.filter(k => !currentKeywords.includes(k));
+            
+            if (newKeywords.length > 0) {
+                if (currentKeywords) {
+                    keywordsTextarea.value += '\n' + newKeywords.join('\n');
+                } else {
+                    keywordsTextarea.value = newKeywords.join('\n');
+                }
+                
+                // Visual feedback
+                this.style.backgroundColor = 'var(--bs-success)';
+                setTimeout(() => {
+                    this.style.backgroundColor = '';
+                }, 1000);
+            }
+        });
+    });
+    
+    // Update eligibility preview
+    function updateEligibilityPreview() {
+        let eligibility = [];
+        
+        const gender = genderSelect.value;
+        if (gender) {
+            eligibility.push(gender === 'M' ? 'Male' : gender === 'F' ? 'Female' : 'Other gender');
+        }
+        
+        const minAge = minAgeInput.value;
+        const maxAge = maxAgeInput.value;
+        
+        if (minAge || maxAge) {
+            let ageText = 'Age ';
+            if (minAge && maxAge) {
+                ageText += `${minAge}-${maxAge}`;
+            } else if (minAge) {
+                ageText += `${minAge}+`;
+            } else if (maxAge) {
+                ageText += `up to ${maxAge}`;
+            }
+            eligibility.push(ageText);
+        }
+        
+        const conditions = conditionsTextarea.value.trim();
+        if (conditions) {
+            const conditionList = conditions.split('\n').filter(c => c.trim());
+            if (conditionList.length > 0) {
+                eligibility.push('with ' + conditionList.join(' or '));
+            }
+        }
+        
+        const eligibilityText = eligibility.length > 0 ? 
+            'Patients who are ' + eligibility.join(', ') : 
+            'All patients';
+        
+        document.getElementById('eligibilityText').textContent = eligibilityText;
+    }
+    
+    // Update frequency preview
+    function updateFrequencyPreview() {
+        const value = frequencyValueInput.value || '1';
+        const unit = frequencyUnitSelect.value || 'years';
+        
+        let frequencyText = `Every ${value} ${unit}`;
+        
+        // Add common frequency descriptions
+        if (value === '1' && unit === 'years') {
+            frequencyText += ' (Annually)';
+        } else if (value === '2' && unit === 'years') {
+            frequencyText += ' (Biannually)';
+        } else if (value === '6' && unit === 'months') {
+            frequencyText += ' (Semi-annually)';
+        } else if (value === '3' && unit === 'months') {
+            frequencyText += ' (Quarterly)';
+        } else if (value === '1' && unit === 'months') {
+            frequencyText += ' (Monthly)';
+        }
+        
+        document.getElementById('frequencyPreview').textContent = frequencyText;
+    }
+    
+    // Event listeners for previews
+    [genderSelect, minAgeInput, maxAgeInput, conditionsTextarea].forEach(input => {
+        input.addEventListener('input', updateEligibilityPreview);
+    });
+    
+    [frequencyValueInput, frequencyUnitSelect].forEach(input => {
+        input.addEventListener('input', updateFrequencyPreview);
+    });
+    
+    // Initial preview updates
+    updateEligibilityPreview();
     updateFrequencyPreview();
     
     // Form validation
-    const form = document.querySelector('form');
     form.addEventListener('submit', function(e) {
-        const name = document.getElementById('name').value.trim();
-        const frequencyValue = document.getElementById('frequency_value').value;
-        const frequencyUnit = document.getElementById('frequency_unit').value;
+        const name = nameInput.value.trim();
+        const frequencyValue = frequencyValueInput.value;
         
         if (!name) {
             e.preventDefault();
-            alert('Please enter a screening name');
-            document.getElementById('name').focus();
+            nameInput.focus();
+            alert('Please enter a screening name.');
             return;
         }
         
-        if (!frequencyValue || !frequencyUnit) {
+        if (!frequencyValue || frequencyValue < 1) {
             e.preventDefault();
-            alert('Please configure the screening frequency');
+            frequencyValueInput.focus();
+            alert('Please enter a valid frequency value (1 or greater).');
             return;
         }
         
         // Show loading state
-        const submitBtn = form.querySelector('button[type="submit"]');
-        const originalText = submitBtn.innerHTML;
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Creating...';
-        
-        // Re-enable if form submission fails
-        setTimeout(() => {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
-        }, 5000);
+        const submitButton = form.querySelector('button[type="submit"]');
+        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Creating...';
+        submitButton.disabled = true;
+    });
+    
+    // Auto-focus name field
+    nameInput.focus();
+    
+    // Hide suggestions when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.keyword-input')) {
+            hideKeywordSuggestions();
+        }
     });
 });
-
-function previewScreeningType() {
-    const formData = new FormData(document.querySelector('form'));
-    const preview = document.getElementById('previewContent');
-    
-    // Build preview HTML
-    let html = '<div class="row">';
-    
-    // Basic Info
-    html += '<div class="col-md-6">';
-    html += '<h6>Basic Information</h6>';
-    html += `<p><strong>Name:</strong> ${formData.get('name') || 'Not specified'}</p>`;
-    html += `<p><strong>Description:</strong> ${formData.get('description') || 'Not specified'}</p>`;
-    html += `<p><strong>Status:</strong> ${formData.get('is_active') ? 'Active' : 'Inactive'}</p>`;
-    html += '</div>';
-    
-    // Eligibility
-    html += '<div class="col-md-6">';
-    html += '<h6>Eligibility Criteria</h6>';
-    html += `<p><strong>Gender:</strong> ${formData.get('gender_filter') || 'All Genders'}</p>`;
-    html += `<p><strong>Age Range:</strong> `;
-    
-    const minAge = formData.get('min_age');
-    const maxAge = formData.get('max_age');
-    if (minAge && maxAge) {
-        html += `${minAge}-${maxAge} years`;
-    } else if (minAge) {
-        html += `${minAge}+ years`;
-    } else if (maxAge) {
-        html += `Up to ${maxAge} years`;
-    } else {
-        html += 'All ages';
-    }
-    html += '</p>';
-    
-    const frequencyValue = formData.get('frequency_value');
-    const frequencyUnit = formData.get('frequency_unit');
-    if (frequencyValue && frequencyUnit) {
-        html += `<p><strong>Frequency:</strong> Every ${frequencyValue} ${frequencyUnit}</p>`;
-    }
-    html += '</div>';
-    
-    html += '</div>';
-    
-    // Keywords
-    const keywords = formData.get('keywords');
-    if (keywords) {
-        html += '<h6 class="mt-3">Keywords</h6>';
-        const keywordList = keywords.split('\n').filter(k => k.trim());
-        html += '<div>';
-        keywordList.forEach(keyword => {
-            html += `<span class="badge bg-primary me-1 mb-1">${keyword.trim()}</span>`;
-        });
-        html += '</div>';
-    }
-    
-    // Trigger Conditions
-    const conditions = formData.get('trigger_conditions');
-    if (conditions) {
-        html += '<h6 class="mt-3">Trigger Conditions</h6>';
-        const conditionList = conditions.split('\n').filter(c => c.trim());
-        html += '<ul>';
-        conditionList.forEach(condition => {
-            html += `<li>${condition.trim()}</li>`;
-        });
-        html += '</ul>';
-    }
-    
-    preview.innerHTML = html;
-    
-    // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('previewModal'));
-    modal.show();
-}
 </script>
 {% endblock %}
-

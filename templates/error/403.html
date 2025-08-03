@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HealthPrep - Access Forbidden</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .error-container {
+            text-align: center;
+            background: var(--bs-dark);
+            padding: 3rem 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            margin: 2rem;
+        }
+        
+        .error-icon {
+            font-size: 5rem;
+            color: #dc3545;
+            margin-bottom: 1.5rem;
+        }
+        
+        .error-code {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #dc3545;
+            margin-bottom: 1rem;
+        }
+        
+        .error-message {
+            font-size: 1.25rem;
+            color: var(--bs-light);
+            margin-bottom: 2rem;
+        }
+        
+        .error-details {
+            background: rgba(220, 53, 69, 0.1);
+            border: 1px solid #dc3545;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            text-align: left;
+        }
+        
+        .btn-home {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            border: none;
+            padding: 0.75rem 2rem;
+            font-weight: 600;
+        }
+        
+        .btn-home:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0.5rem 1rem rgba(0, 123, 255, 0.3);
+        }
+        
+        .hipaa-notice {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid #ffc107;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 2rem;
+        }
+        
+        .role-info {
+            background: rgba(13, 110, 253, 0.1);
+            border: 1px solid #0d6efd;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="error-icon">
+            <i class="fas fa-ban"></i>
+        </div>
+        
+        <div class="error-code">403</div>
+        
+        <h2 class="error-message">Access Forbidden</h2>
+        
+        <div class="error-details">
+            <h6><i class="fas fa-shield-alt me-2 text-danger"></i>Insufficient Permissions</h6>
+            <p class="mb-2">You don't have the required permissions to access this resource or perform this action.</p>
+            
+            <h6><i class="fas fa-user-shield me-2 text-danger"></i>This might be because:</h6>
+            <ul class="mb-0">
+                <li>Your user role doesn't include access to this feature</li>
+                <li>You're trying to access admin-only functionality</li>
+                <li>The resource requires higher-level permissions</li>
+                <li>Your access level has been restricted by your administrator</li>
+            </ul>
+        </div>
+        
+        <div class="role-info">
+            <h6><i class="fas fa-info-circle me-2 text-primary"></i>Permission Levels in HealthPrep</h6>
+            <div class="row text-start">
+                <div class="col-md-6">
+                    <h6 class="text-primary">Standard Users:</h6>
+                    <ul class="small mb-0">
+                        <li>View assigned patients</li>
+                        <li>Generate prep sheets</li>
+                        <li>Upload documents</li>
+                        <li>View screening status</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6 class="text-warning">Administrators:</h6>
+                    <ul class="small mb-0">
+                        <li>Manage all patients</li>
+                        <li>Configure screening types</li>
+                        <li>Access audit logs</li>
+                        <li>System settings</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="d-grid gap-2 mt-3">
+            <button type="button" class="btn btn-home btn-lg" onclick="goBack()">
+                <i class="fas fa-arrow-left me-2"></i>Go Back
+            </button>
+            <a href="{{ url_for('index') }}" class="btn btn-outline-light">
+                <i class="fas fa-home me-2"></i>Return to Dashboard
+            </a>
+            <button type="button" class="btn btn-outline-warning" onclick="requestAccess()">
+                <i class="fas fa-envelope me-2"></i>Request Access
+            </button>
+        </div>
+        
+        <div class="hipaa-notice">
+            <h6><i class="fas fa-exclamation-triangle me-2 text-warning"></i>HIPAA Compliance Notice</h6>
+            <small class="text-muted">
+                Access to patient health information is strictly controlled in accordance with HIPAA regulations. 
+                All access attempts are logged for compliance and security monitoring. If you believe you should 
+                have access to this resource, please contact your system administrator.
+            </small>
+        </div>
+        
+        <div class="mt-3">
+            <small class="text-muted">
+                <i class="fas fa-heartbeat me-1"></i>
+                HealthPrep - Role-Based Access Control System
+            </small>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        function goBack() {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = "{{ url_for('index') }}";
+            }
+        }
+        
+        function requestAccess() {
+            const message = `Hello,
+
+I am requesting access to a HealthPrep resource that I was denied access to.
+
+Resource URL: ${window.location.href}
+Timestamp: ${new Date().toLocaleString()}
+User: {{ current_user.username if current_user.is_authenticated else 'Not logged in' }}
+
+Please review my access permissions and grant access if appropriate.
+
+Thank you.`;
+            
+            const subject = 'HealthPrep Access Request';
+            const mailtoLink = `mailto:admin@example.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+            
+            window.location.href = mailtoLink;
+        }
+        
+        // Log access denial for security monitoring
+        fetch('/admin/log-security-event', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                event_type: 'Access Denied - Insufficient Permissions',
+                url: window.location.href,
+                user: '{{ current_user.username if current_user.is_authenticated else "Anonymous" }}',
+                user_agent: navigator.userAgent,
+                timestamp: new Date().toISOString()
+            })
+        }).catch(err => console.warn('Failed to log security event:', err));
+    </script>
+</body>
+</html>

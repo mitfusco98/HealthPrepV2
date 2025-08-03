@@ -1,314 +1,335 @@
 """
-OCR processing with Tesseract integration and quality assessment
+OCR processing with Tesseract integration
+Handles document text extraction with quality controls
 """
+
 import os
 import logging
 import tempfile
-from typing import Dict, Any, Optional, Tuple
-from PIL import Image
+from datetime import datetime
+from typing import Dict, Optional, Tuple
 import pytesseract
-import cv2
-import numpy as np
+from PIL import Image
+import pdf2image
+import io
+
+from models import MedicalDocument, OCRProcessingStats
+from app import db
 
 logger = logging.getLogger(__name__)
 
 class OCRProcessor:
-    """Handles OCR processing with medical document optimization"""
+    """Handles OCR processing of medical documents"""
     
     def __init__(self):
         # Configure Tesseract for medical documents
-        self.tesseract_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,/:-()[]{}!@#$%^&*+=<>?;"\' '
-        self.confidence_threshold = 60.0
+        self.tesseract_config = '--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,;:!?()[]{}/-+= \n'
+        self.confidence_threshold = 60  # Minimum confidence for good quality
+        
+        # Medical terminology boost
+        self.medical_terms = [
+            'patient', 'diagnosis', 'treatment', 'medication', 'dosage', 'mg', 'ml',
+            'blood pressure', 'heart rate', 'temperature', 'weight', 'height',
+            'laboratory', 'results', 'normal', 'abnormal', 'positive', 'negative',
+            'radiology', 'imaging', 'xray', 'ct scan', 'mri', 'ultrasound',
+            'consultation', 'specialist', 'recommendation', 'follow up',
+            'hospital', 'admission', 'discharge', 'emergency', 'surgery'
+        ]
     
-    def process_document(self, file_path: str) -> Dict[str, Any]:
+    def process_document(self, document: MedicalDocument, file_content: bytes = None) -> Dict[str, any]:
         """
-        Process a document with OCR and return text with confidence metrics
+        Process a document for OCR text extraction
         """
         try:
-            if not os.path.exists(file_path):
-                logger.error(f"File not found: {file_path}")
+            start_time = datetime.now()
+            
+            # If no file content provided, skip OCR (for existing documents)
+            if not file_content:
+                logger.warning(f"No file content provided for document {document.id}")
                 return {
                     'success': False,
-                    'error': 'File not found',
-                    'text': '',
+                    'error': 'No file content provided',
                     'confidence': 0.0,
-                    'word_count': 0,
                     'processing_time': 0.0
                 }
             
-            logger.info(f"Processing OCR for file: {file_path}")
-            import time
-            start_time = time.time()
-            
-            # Load and preprocess image
-            image = self._load_and_preprocess_image(file_path)
-            if image is None:
+            # Extract text based on file type
+            if document.filename and document.filename.lower().endswith('.pdf'):
+                ocr_result = self._process_pdf(file_content)
+            elif document.filename and any(document.filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.tiff', '.bmp']):
+                ocr_result = self._process_image(file_content)
+            else:
+                logger.warning(f"Unsupported file type for document {document.id}: {document.filename}")
                 return {
                     'success': False,
-                    'error': 'Could not load image',
-                    'text': '',
+                    'error': 'Unsupported file type',
                     'confidence': 0.0,
-                    'word_count': 0,
                     'processing_time': 0.0
                 }
             
-            # Perform OCR with detailed data
-            ocr_data = pytesseract.image_to_data(image, config=self.tesseract_config, output_type=pytesseract.Output.DICT)
+            processing_time = (datetime.now() - start_time).total_seconds()
             
-            # Extract text and calculate confidence
-            text, confidence = self._extract_text_and_confidence(ocr_data)
-            
-            processing_time = time.time() - start_time
-            word_count = len(text.split()) if text else 0
-            
-            # Quality assessment
-            quality_score = self._assess_quality(text, confidence, word_count)
-            
-            result = {
-                'success': True,
-                'text': text,
-                'confidence': confidence,
-                'word_count': word_count,
-                'processing_time': processing_time,
-                'quality_score': quality_score,
-                'needs_review': confidence < self.confidence_threshold
-            }
-            
-            logger.info(f"OCR completed - Confidence: {confidence:.1f}%, Words: {word_count}, Time: {processing_time:.2f}s")
-            return result
-            
+            if ocr_result['success']:
+                # Update document with OCR results
+                document.ocr_text = ocr_result['text']
+                document.ocr_confidence = ocr_result['confidence']
+                document.processed_at = datetime.now()
+                
+                # Update processing statistics
+                self._update_processing_stats(ocr_result['confidence'], processing_time, True)
+                
+                db.session.commit()
+                
+                logger.info(f"Successfully processed document {document.id} with {ocr_result['confidence']:.1f}% confidence")
+                
+                return {
+                    'success': True,
+                    'text': ocr_result['text'],
+                    'confidence': ocr_result['confidence'],
+                    'processing_time': processing_time
+                }
+            else:
+                self._update_processing_stats(0.0, processing_time, False)
+                return {
+                    'success': False,
+                    'error': ocr_result['error'],
+                    'confidence': 0.0,
+                    'processing_time': processing_time
+                }
+                
         except Exception as e:
-            logger.error(f"Error processing OCR for {file_path}: {str(e)}")
+            logger.error(f"Error processing document {document.id}: {str(e)}")
+            self._update_processing_stats(0.0, 0.0, False)
             return {
                 'success': False,
                 'error': str(e),
-                'text': '',
                 'confidence': 0.0,
-                'word_count': 0,
                 'processing_time': 0.0
             }
     
-    def _load_and_preprocess_image(self, file_path: str) -> Optional[np.ndarray]:
-        """Load and preprocess image for better OCR results"""
+    def _process_pdf(self, pdf_content: bytes) -> Dict[str, any]:
+        """Process PDF document for OCR"""
         try:
-            # Handle different file types
-            file_extension = os.path.splitext(file_path)[1].lower()
-            
-            if file_extension == '.pdf':
-                # Convert PDF to image (first page)
-                image = self._pdf_to_image(file_path)
-            else:
-                # Load image directly
-                image = cv2.imread(file_path)
+            # Convert PDF to images
+            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_pdf:
+                temp_pdf.write(pdf_content)
+                temp_pdf.flush()
                 
-            if image is None:
-                return None
+                # Convert PDF pages to images
+                images = pdf2image.convert_from_path(
+                    temp_pdf.name,
+                    dpi=300,  # High DPI for better OCR
+                    first_page=1,
+                    last_page=10  # Limit to first 10 pages for performance
+                )
+                
+                os.unlink(temp_pdf.name)  # Clean up temp file
             
-            # Convert to grayscale
-            if len(image.shape) == 3:
-                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            else:
-                gray = image
+            all_text = []
+            total_confidence = 0
+            page_count = 0
             
-            # Apply preprocessing techniques for medical documents
-            processed = self._preprocess_medical_document(gray)
+            # Process each page
+            for i, image in enumerate(images):
+                try:
+                    # Run OCR on the image
+                    ocr_data = pytesseract.image_to_data(
+                        image, 
+                        config=self.tesseract_config,
+                        output_type=pytesseract.Output.DICT
+                    )
+                    
+                    # Extract text and calculate confidence
+                    page_text = []
+                    confidences = []
+                    
+                    for j in range(len(ocr_data['text'])):
+                        text = ocr_data['text'][j].strip()
+                        conf = int(ocr_data['conf'][j])
+                        
+                        if text and conf > 0:
+                            page_text.append(text)
+                            confidences.append(conf)
+                    
+                    if page_text:
+                        page_text_str = ' '.join(page_text)
+                        all_text.append(page_text_str)
+                        
+                        # Calculate page confidence
+                        if confidences:
+                            page_confidence = sum(confidences) / len(confidences)
+                            total_confidence += page_confidence
+                            page_count += 1
+                
+                except Exception as e:
+                    logger.warning(f"Error processing PDF page {i+1}: {str(e)}")
+                    continue
             
-            return processed
+            if not all_text:
+                return {
+                    'success': False,
+                    'error': 'No text extracted from PDF',
+                    'confidence': 0.0
+                }
+            
+            # Combine all text and calculate overall confidence
+            combined_text = '\n\n'.join(all_text)
+            overall_confidence = total_confidence / page_count if page_count > 0 else 0
+            
+            # Boost confidence for medical terminology
+            boosted_confidence = self._apply_medical_term_boost(combined_text, overall_confidence)
+            
+            return {
+                'success': True,
+                'text': combined_text,
+                'confidence': boosted_confidence
+            }
             
         except Exception as e:
-            logger.error(f"Error preprocessing image {file_path}: {str(e)}")
-            return None
+            logger.error(f"Error processing PDF: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'confidence': 0.0
+            }
     
-    def _pdf_to_image(self, pdf_path: str) -> Optional[np.ndarray]:
-        """Convert PDF to image for OCR processing"""
+    def _process_image(self, image_content: bytes) -> Dict[str, any]:
+        """Process image document for OCR"""
         try:
-            import fitz  # PyMuPDF
+            # Load image
+            image = Image.open(io.BytesIO(image_content))
             
-            # Open PDF
-            doc = fitz.open(pdf_path)
+            # Convert to RGB if necessary
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
             
-            # Get first page
-            page = doc[0]
-            
-            # Render page to image
-            mat = fitz.Matrix(2.0, 2.0)  # 2x zoom for better quality
-            pix = page.get_pixmap(matrix=mat)
-            
-            # Convert to numpy array
-            img_data = pix.tobytes("ppm")
-            
-            # Save to temporary file and load with OpenCV
-            with tempfile.NamedTemporaryFile(suffix='.ppm', delete=False) as temp_file:
-                temp_file.write(img_data)
-                temp_path = temp_file.name
-            
-            image = cv2.imread(temp_path)
-            os.unlink(temp_path)  # Clean up temp file
-            
-            doc.close()
-            return image
-            
-        except ImportError:
-            logger.warning("PyMuPDF not available - PDF processing disabled")
-            return None
-        except Exception as e:
-            logger.error(f"Error converting PDF to image: {str(e)}")
-            return None
-    
-    def _preprocess_medical_document(self, image: np.ndarray) -> np.ndarray:
-        """Apply preprocessing specific to medical documents"""
-        try:
-            # Noise reduction
-            denoised = cv2.medianBlur(image, 3)
-            
-            # Enhance contrast
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-            enhanced = clahe.apply(denoised)
-            
-            # Binarization with adaptive threshold
-            binary = cv2.adaptiveThreshold(
-                enhanced, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-                cv2.THRESH_BINARY, 11, 2
+            # Run OCR
+            ocr_data = pytesseract.image_to_data(
+                image,
+                config=self.tesseract_config,
+                output_type=pytesseract.Output.DICT
             )
             
-            # Morphological operations to clean up
-            kernel = np.ones((1, 1), np.uint8)
-            cleaned = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
-            
-            return cleaned
-            
-        except Exception as e:
-            logger.error(f"Error in medical document preprocessing: {str(e)}")
-            return image
-    
-    def _extract_text_and_confidence(self, ocr_data: Dict) -> Tuple[str, float]:
-        """Extract text and calculate average confidence from OCR data"""
-        try:
-            words = []
+            # Extract text and calculate confidence
+            text_parts = []
             confidences = []
             
             for i in range(len(ocr_data['text'])):
-                word = ocr_data['text'][i].strip()
+                text = ocr_data['text'][i].strip()
                 conf = int(ocr_data['conf'][i])
                 
-                # Only include words with reasonable confidence
-                if word and conf > 0:
-                    words.append(word)
+                if text and conf > 0:
+                    text_parts.append(text)
                     confidences.append(conf)
             
-            # Combine words into text
-            text = ' '.join(words)
-            
-            # Calculate average confidence
-            avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
-            
-            return text, avg_confidence
-            
-        except Exception as e:
-            logger.error(f"Error extracting text and confidence: {str(e)}")
-            return '', 0.0
-    
-    def _assess_quality(self, text: str, confidence: float, word_count: int) -> float:
-        """Assess overall quality of OCR result"""
-        try:
-            quality_factors = []
-            
-            # Confidence factor (0-1)
-            confidence_factor = min(confidence / 100.0, 1.0)
-            quality_factors.append(confidence_factor * 0.4)
-            
-            # Word count factor (more words generally better)
-            word_factor = min(word_count / 100.0, 1.0)  # Normalize to 100 words
-            quality_factors.append(word_factor * 0.2)
-            
-            # Text coherence factor (basic check)
-            coherence_factor = self._assess_text_coherence(text)
-            quality_factors.append(coherence_factor * 0.4)
-            
-            return sum(quality_factors)
-            
-        except Exception as e:
-            logger.error(f"Error assessing quality: {str(e)}")
-            return 0.0
-    
-    def _assess_text_coherence(self, text: str) -> float:
-        """Basic assessment of text coherence"""
-        if not text:
-            return 0.0
-        
-        try:
-            # Check for reasonable character distribution
-            alpha_count = sum(c.isalpha() for c in text)
-            digit_count = sum(c.isdigit() for c in text)
-            space_count = sum(c.isspace() for c in text)
-            total_chars = len(text)
-            
-            if total_chars == 0:
-                return 0.0
-            
-            # Medical documents should have mostly alphabetic characters
-            alpha_ratio = alpha_count / total_chars
-            space_ratio = space_count / total_chars
-            
-            # Reasonable ratios for medical documents
-            if alpha_ratio > 0.6 and space_ratio > 0.1 and space_ratio < 0.3:
-                return 0.8
-            elif alpha_ratio > 0.4:
-                return 0.6
-            else:
-                return 0.3
-                
-        except Exception as e:
-            logger.error(f"Error assessing text coherence: {str(e)}")
-            return 0.0
-    
-    def process_batch(self, file_paths: list) -> Dict[str, Dict[str, Any]]:
-        """Process multiple documents in batch"""
-        results = {}
-        
-        for file_path in file_paths:
-            try:
-                result = self.process_document(file_path)
-                results[file_path] = result
-            except Exception as e:
-                logger.error(f"Error processing {file_path} in batch: {str(e)}")
-                results[file_path] = {
+            if not text_parts:
+                return {
                     'success': False,
-                    'error': str(e),
-                    'text': '',
+                    'error': 'No text extracted from image',
                     'confidence': 0.0
                 }
-        
-        return results
-    
-    def get_processing_stats(self, results: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
-        """Calculate processing statistics from batch results"""
-        if not results:
+            
+            # Combine text and calculate confidence
+            combined_text = ' '.join(text_parts)
+            overall_confidence = sum(confidences) / len(confidences) if confidences else 0
+            
+            # Boost confidence for medical terminology
+            boosted_confidence = self._apply_medical_term_boost(combined_text, overall_confidence)
+            
             return {
-                'total_documents': 0,
-                'successful': 0,
-                'failed': 0,
+                'success': True,
+                'text': combined_text,
+                'confidence': boosted_confidence
+            }
+            
+        except Exception as e:
+            logger.error(f"Error processing image: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'confidence': 0.0
+            }
+    
+    def _apply_medical_term_boost(self, text: str, base_confidence: float) -> float:
+        """Apply confidence boost for medical terminology"""
+        text_lower = text.lower()
+        medical_term_count = 0
+        
+        for term in self.medical_terms:
+            if term in text_lower:
+                medical_term_count += 1
+        
+        # Boost confidence based on medical term density
+        if len(text.split()) > 0:
+            term_density = medical_term_count / len(text.split())
+            boost_factor = min(1.2, 1.0 + (term_density * 0.5))  # Max 20% boost
+            return min(100.0, base_confidence * boost_factor)
+        
+        return base_confidence
+    
+    def _update_processing_stats(self, confidence: float, processing_time: float, success: bool):
+        """Update OCR processing statistics"""
+        try:
+            stats = OCRProcessingStats.query.first()
+            if not stats:
+                stats = OCRProcessingStats()
+                db.session.add(stats)
+            
+            if success:
+                # Update document count and confidence
+                old_count = stats.documents_processed
+                old_avg_conf = stats.avg_confidence or 0
+                
+                stats.documents_processed = old_count + 1
+                stats.avg_confidence = ((old_avg_conf * old_count) + confidence) / stats.documents_processed
+                
+                # Track low confidence documents
+                if confidence < self.confidence_threshold:
+                    stats.low_confidence_count += 1
+                
+                # Update processing time
+                old_avg_time = stats.processing_time_avg or 0
+                stats.processing_time_avg = ((old_avg_time * old_count) + processing_time) / stats.documents_processed
+            
+            stats.last_updated = datetime.now()
+            db.session.commit()
+            
+        except Exception as e:
+            logger.error(f"Error updating processing stats: {str(e)}")
+    
+    def get_processing_stats(self) -> Dict[str, any]:
+        """Get current OCR processing statistics"""
+        stats = OCRProcessingStats.query.first()
+        if not stats:
+            return {
+                'documents_processed': 0,
                 'avg_confidence': 0.0,
-                'avg_word_count': 0.0,
-                'total_processing_time': 0.0
+                'low_confidence_count': 0,
+                'processing_time_avg': 0.0,
+                'last_updated': None
             }
         
-        successful = [r for r in results.values() if r.get('success', False)]
-        failed = [r for r in results.values() if not r.get('success', False)]
-        
-        avg_confidence = sum(r.get('confidence', 0) for r in successful) / len(successful) if successful else 0.0
-        avg_word_count = sum(r.get('word_count', 0) for r in successful) / len(successful) if successful else 0.0
-        total_processing_time = sum(r.get('processing_time', 0) for r in results.values())
-        
         return {
-            'total_documents': len(results),
-            'successful': len(successful),
-            'failed': len(failed),
-            'success_rate': len(successful) / len(results) * 100 if results else 0.0,
-            'avg_confidence': avg_confidence,
-            'avg_word_count': avg_word_count,
-            'total_processing_time': total_processing_time
+            'documents_processed': stats.documents_processed,
+            'avg_confidence': round(stats.avg_confidence or 0, 1),
+            'low_confidence_count': stats.low_confidence_count,
+            'processing_time_avg': round(stats.processing_time_avg or 0, 2),
+            'last_updated': stats.last_updated
         }
-
-# Global OCR processor instance
-ocr_processor = OCRProcessor()
+    
+    def is_high_quality(self, confidence: float) -> bool:
+        """Check if OCR result is high quality"""
+        return confidence >= 80
+    
+    def is_low_quality(self, confidence: float) -> bool:
+        """Check if OCR result is low quality"""
+        return confidence < self.confidence_threshold
+    
+    def get_confidence_color_class(self, confidence: float) -> str:
+        """Get CSS class for confidence-based coloring"""
+        if confidence >= 80:
+            return 'confidence-high'
+        elif confidence >= 60:
+            return 'confidence-medium'
+        else:
+            return 'confidence-low'

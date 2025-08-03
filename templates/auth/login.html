@@ -1,112 +1,163 @@
-{% extends "base_user.html" %}
+{% extends 'base_user.html' %}
 
-{% block title %}Login - HealthPrep{% endblock %}
+{% block title %}HealthPrep - Login{% endblock %}
+
+{% block extra_css %}
+<style>
+    .login-container {
+        max-width: 400px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+    
+    .login-card {
+        background: var(--bs-dark);
+        border: 1px solid var(--bs-border-color);
+        border-radius: 1rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.3);
+    }
+    
+    .login-header {
+        background: linear-gradient(135deg, var(--bs-primary), var(--bs-info));
+        color: white;
+        padding: 2rem;
+        text-align: center;
+        border-radius: 1rem 1rem 0 0;
+    }
+    
+    .login-body {
+        padding: 2rem;
+    }
+    
+    .form-control {
+        background: var(--bs-body-bg);
+        border: 1px solid var(--bs-border-color);
+        color: var(--bs-body-color);
+    }
+    
+    .form-control:focus {
+        background: var(--bs-body-bg);
+        border-color: var(--bs-primary);
+        color: var(--bs-body-color);
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+    
+    .btn-login {
+        background: linear-gradient(135deg, var(--bs-primary), var(--bs-info));
+        border: none;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        border-radius: 0.5rem;
+        transition: transform 0.2s;
+    }
+    
+    .btn-login:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.2);
+    }
+    
+    .security-notice {
+        background: rgba(255, 193, 7, 0.1);
+        border: 1px solid var(--bs-warning);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .input-group-text {
+        background: var(--bs-secondary);
+        border: 1px solid var(--bs-border-color);
+        color: var(--bs-body-color);
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-6 col-lg-4">
-        <div class="card shadow-lg border-0">
-            <div class="card-header bg-primary text-white text-center py-4">
-                <h4 class="mb-0">
-                    <i class="fas fa-heartbeat me-2"></i>
-                    HealthPrep Login
-                </h4>
-                <small class="text-light">HIPAA-Compliant Access</small>
+        <div class="login-card">
+            <div class="login-header">
+                <i class="fas fa-heartbeat fa-3x mb-3"></i>
+                <h2 class="mb-0">HealthPrep</h2>
+                <p class="mb-0">Patient Visit Preparation System</p>
             </div>
-            <div class="card-body p-4">
-                <form method="POST" action="{{ url_for('ui.login') }}">
+            
+            <div class="login-body">
+                <form method="POST" id="loginForm">
+                    {{ form.hidden_tag() }}
+                    
                     <div class="mb-3">
-                        <label for="username" class="form-label">
-                            <i class="fas fa-user me-1"></i>Username
+                        <label for="{{ form.username.id }}" class="form-label">
+                            <i class="fas fa-user me-2"></i>Username
                         </label>
-                        <input type="text" 
-                               class="form-control form-control-lg" 
-                               id="username" 
-                               name="username" 
-                               required 
-                               autocomplete="username"
-                               placeholder="Enter your username">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-user"></i>
+                            </span>
+                            {{ form.username(class="form-control", placeholder="Enter your username") }}
+                        </div>
+                        {% if form.username.errors %}
+                            <div class="text-danger mt-1">
+                                {% for error in form.username.errors %}
+                                    <small><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</small>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
                     </div>
                     
-                    <div class="mb-4">
-                        <label for="password" class="form-label">
-                            <i class="fas fa-lock me-1"></i>Password
+                    <div class="mb-3">
+                        <label for="{{ form.password.id }}" class="form-label">
+                            <i class="fas fa-lock me-2"></i>Password
                         </label>
-                        <input type="password" 
-                               class="form-control form-control-lg" 
-                               id="password" 
-                               name="password" 
-                               required 
-                               autocomplete="current-password"
-                               placeholder="Enter your password">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-lock"></i>
+                            </span>
+                            {{ form.password(class="form-control", placeholder="Enter your password") }}
+                            <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        {% if form.password.errors %}
+                            <div class="text-danger mt-1">
+                                {% for error in form.password.errors %}
+                                    <small><i class="fas fa-exclamation-circle me-1"></i>{{ error }}</small>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        {{ form.remember_me(class="form-check-input") }}
+                        <label class="form-check-label" for="{{ form.remember_me.id }}">
+                            <i class="fas fa-clock me-1"></i>Remember me
+                        </label>
                     </div>
                     
                     <div class="d-grid">
-                        <button type="submit" class="btn btn-primary btn-lg">
-                            <i class="fas fa-sign-in-alt me-2"></i>
-                            Login
-                        </button>
+                        {{ form.submit(class="btn btn-login btn-lg", id="loginButton") }}
                     </div>
                 </form>
                 
-                <!-- Security notice -->
-                <div class="mt-4 p-3 bg-light rounded">
+                <div class="security-notice">
+                    <h6><i class="fas fa-shield-alt me-2 text-warning"></i>Security Notice</h6>
                     <small class="text-muted">
-                        <i class="fas fa-shield-alt me-1"></i>
-                        <strong>Security Notice:</strong>
-                        This system contains protected health information (PHI). 
-                        Unauthorized access is prohibited and may be subject to 
-                        criminal and civil penalties under HIPAA.
-                    </small>
-                </div>
-                
-                <!-- System status indicator -->
-                <div class="mt-3 text-center">
-                    <small class="text-success">
-                        <i class="fas fa-check-circle me-1"></i>
-                        System Status: Operational
+                        This system contains protected health information (PHI) and is subject to HIPAA regulations. 
+                        Unauthorized access is prohibited and will be logged and reported.
                     </small>
                 </div>
             </div>
         </div>
         
-        <!-- Additional security information -->
-        <div class="mt-4 text-center">
+        <!-- System Status -->
+        <div class="text-center mt-4">
             <small class="text-muted">
-                Having trouble logging in? Contact your system administrator.
+                <i class="fas fa-circle text-success me-1"></i>
+                System Status: Online
+                <br>
+                <i class="fas fa-lock me-1"></i>
+                Secure Connection Active
             </small>
-        </div>
-    </div>
-</div>
-
-<!-- Password requirements modal (for future use) -->
-<div class="modal fade" id="passwordRequirementsModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-key me-2"></i>Password Requirements
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>For security compliance, passwords must contain:</p>
-                <ul>
-                    <li>At least 12 characters</li>
-                    <li>At least one uppercase letter</li>
-                    <li>At least one lowercase letter</li>
-                    <li>At least one number</li>
-                    <li>At least one special character (!@#$%^&*)</li>
-                </ul>
-                <div class="alert alert-info mt-3">
-                    <i class="fas fa-info-circle me-2"></i>
-                    <strong>Note:</strong> Passwords are encrypted using industry-standard 
-                    AES-256 encryption and stored securely.
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
         </div>
     </div>
 </div>
@@ -114,45 +165,100 @@
 
 {% block extra_js %}
 <script>
-    // Focus on username field when page loads
-    document.addEventListener('DOMContentLoaded', function() {
-        document.getElementById('username').focus();
+document.addEventListener('DOMContentLoaded', function() {
+    const loginForm = document.getElementById('loginForm');
+    const loginButton = document.getElementById('loginButton');
+    const togglePassword = document.getElementById('togglePassword');
+    const passwordField = document.getElementById('{{ form.password.id }}');
+    
+    // Password visibility toggle
+    togglePassword.addEventListener('click', function() {
+        const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordField.setAttribute('type', type);
+        
+        const icon = this.querySelector('i');
+        icon.classList.toggle('fa-eye');
+        icon.classList.toggle('fa-eye-slash');
     });
     
-    // Show loading on form submit
-    document.querySelector('form').addEventListener('submit', function() {
-        const button = this.querySelector('button[type="submit"]');
-        const originalText = button.innerHTML;
+    // Form submission handling
+    loginForm.addEventListener('submit', function(e) {
+        // Show loading state
+        loginButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Signing In...';
+        loginButton.disabled = true;
         
-        button.disabled = true;
-        button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Signing In...';
-        
-        // Re-enable button if form submission fails
+        // Add a timeout to re-enable the button in case of issues
         setTimeout(function() {
-            button.disabled = false;
-            button.innerHTML = originalText;
-        }, 5000);
+            if (loginButton.disabled) {
+                loginButton.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>Sign In';
+                loginButton.disabled = false;
+            }
+        }, 10000); // 10 seconds timeout
     });
     
-    // Handle Enter key in password field
-    document.getElementById('password').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            this.form.submit();
+    // Auto-focus username field
+    document.getElementById('{{ form.username.id }}').focus();
+    
+    // Security warning for caps lock
+    document.addEventListener('keydown', function(e) {
+        if (e.getModifierState('CapsLock')) {
+            showCapsLockWarning();
         }
     });
     
-    // Show password requirements (for future enhancement)
-    function showPasswordRequirements() {
-        const modal = new bootstrap.Modal(document.getElementById('passwordRequirementsModal'));
-        modal.show();
+    function showCapsLockWarning() {
+        const existingWarning = document.getElementById('capsLockWarning');
+        if (existingWarning) return;
+        
+        const warning = document.createElement('div');
+        warning.id = 'capsLockWarning';
+        warning.className = 'alert alert-warning alert-dismissible fade show mt-2';
+        warning.innerHTML = `
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Caps Lock is on
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        passwordField.parentNode.parentNode.appendChild(warning);
+        
+        // Auto-hide after 3 seconds
+        setTimeout(function() {
+            if (warning.parentNode) {
+                warning.remove();
+            }
+        }, 3000);
     }
     
-    // Add click handler for help text (if added)
-    document.addEventListener('click', function(e) {
-        if (e.target.classList.contains('password-help')) {
-            e.preventDefault();
-            showPasswordRequirements();
-        }
+    // Track failed login attempts (client-side)
+    let failedAttempts = parseInt(localStorage.getItem('failedLoginAttempts') || '0');
+    
+    if (failedAttempts >= 3) {
+        const warning = document.createElement('div');
+        warning.className = 'alert alert-danger mt-3';
+        warning.innerHTML = `
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Security Alert:</strong> Multiple failed login attempts detected. 
+            If you continue to have trouble logging in, please contact your system administrator.
+        `;
+        loginForm.appendChild(warning);
+    }
+    
+    // Clear failed attempts on successful form submission
+    loginForm.addEventListener('submit', function() {
+        // This will be cleared by server response, but we'll also clear on successful navigation
+        setTimeout(function() {
+            if (window.location.pathname !== "{{ url_for('auth.login') }}") {
+                localStorage.removeItem('failedLoginAttempts');
+            }
+        }, 1000);
     });
+});
+
+// Handle login errors and track attempts
+{% if get_flashed_messages(category_filter=['error']) %}
+    // Increment failed attempts
+    let attempts = parseInt(localStorage.getItem('failedLoginAttempts') || '0') + 1;
+    localStorage.setItem('failedLoginAttempts', attempts.toString());
+{% endif %}
 </script>
 {% endblock %}
