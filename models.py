@@ -73,12 +73,14 @@ class Document(db.Model):
     document_type = db.Column(db.String(50))  # 'lab', 'imaging', 'consult', etc.
     upload_date = db.Column(db.DateTime, default=datetime.utcnow)
     document_date = db.Column(db.DateTime)
+    file_size = db.Column(db.Integer)  # File size in bytes
     
     # OCR fields
     ocr_text = db.Column(db.Text)
     ocr_confidence = db.Column(db.Float)
     ocr_processed = db.Column(db.Boolean, default=False)
     phi_filtered = db.Column(db.Boolean, default=False)
+    phi_filtered_text = db.Column(db.Text)  # PHI-filtered version of OCR text
     
     # Relationships
     screening_documents = db.relationship('ScreeningDocument', backref='document', lazy=True)

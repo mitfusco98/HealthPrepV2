@@ -1,74 +1,41 @@
 from flask_wtf import FlaskForm
-from flask_wtf.file import FileField, FileRequired
-from wtforms import StringField, PasswordField, BooleanField, TextAreaField, IntegerField, SelectField, DateField
-from wtforms.validators import DataRequired, Email, Length, NumberRange, Optional
+from flask_wtf.file import FileField, FileRequired, FileAllowed
+from wtforms import SelectField, StringField, DateField, BooleanField, SubmitField
+from wtforms.validators import DataRequired, Optional
+from datetime import date
+
+class DocumentUploadForm(FlaskForm):
+    patient_id = SelectField('Patient', coerce=int, validators=[DataRequired()], choices=[])
+    file = FileField('Document File', validators=[
+        FileRequired(),
+        FileAllowed(['pdf', 'png', 'jpg', 'jpeg', 'tiff', 'tif'], 'Only PDF and image files allowed!')
+    ])
+    document_type = SelectField('Document Type', choices=[
+        ('lab', 'Lab Results'),
+        ('imaging', 'Imaging Study'),
+        ('consult', 'Consultation'),
+        ('hospital', 'Hospital Report'),
+        ('other', 'Other')
+    ], validators=[DataRequired()])
+    document_date = DateField('Document Date', validators=[Optional()], default=date.today)
+    process_ocr = BooleanField('Process with OCR', default=True)
+    apply_phi_filter = BooleanField('Apply PHI Filtering', default=True)
+    submit = SubmitField('Upload Document')
 
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
-    password = PasswordField('Password', validators=[DataRequired()])
-    remember_me = BooleanField('Remember Me')
+    password = StringField('Password', validators=[DataRequired()])
+    submit = SubmitField('Login')
 
 class ScreeningTypeForm(FlaskForm):
-    name = StringField('Screening Name', validators=[DataRequired(), Length(max=100)])
-    description = TextAreaField('Description')
-    keywords = TextAreaField('Keywords (comma-separated)', 
-                            description='Keywords to match in documents')
-    gender = SelectField('Gender', choices=[('any', 'Any'), ('M', 'Male'), ('F', 'Female')])
-    min_age = IntegerField('Minimum Age', validators=[Optional(), NumberRange(min=0, max=150)])
-    max_age = IntegerField('Maximum Age', validators=[Optional(), NumberRange(min=0, max=150)])
-    frequency_value = IntegerField('Frequency', validators=[DataRequired(), NumberRange(min=1)])
-    frequency_unit = SelectField('Frequency Unit', 
-                               choices=[('months', 'Months'), ('years', 'Years')],
-                               validators=[DataRequired()])
-    trigger_conditions = TextAreaField('Trigger Conditions (comma-separated)',
-                                     description='Medical conditions that trigger this screening')
-
-class PatientForm(FlaskForm):
-    mrn = StringField('MRN', validators=[DataRequired(), Length(max=50)])
-    first_name = StringField('First Name', validators=[DataRequired(), Length(max=100)])
-    last_name = StringField('Last Name', validators=[DataRequired(), Length(max=100)])
-    date_of_birth = DateField('Date of Birth', validators=[DataRequired()])
-    gender = SelectField('Gender', choices=[('M', 'Male'), ('F', 'Female'), ('O', 'Other')])
-    phone = StringField('Phone', validators=[Optional(), Length(max=20)])
-    email = StringField('Email', validators=[Optional(), Email(), Length(max=120)])
-    address = TextAreaField('Address')
-
-class DocumentUploadForm(FlaskForm):
-    patient_id = SelectField('Patient', validators=[DataRequired()], coerce=int)
-    file = FileField('Document File', validators=[FileRequired()])
-    document_type = SelectField('Document Type', 
-                               choices=[
-                                   ('lab', 'Lab Results'),
-                                   ('imaging', 'Imaging Studies'),
-                                   ('consult', 'Consultation Notes'),
-                                   ('hospital', 'Hospital Records'),
-                                   ('screening', 'Screening Results'),
-                                   ('other', 'Other')
-                               ],
-                               validators=[DataRequired()])
-    document_date = DateField('Document Date', validators=[Optional()])
-
-class ChecklistSettingsForm(FlaskForm):
-    labs_cutoff_months = IntegerField('Labs Cutoff (months)', 
-                                    validators=[DataRequired(), NumberRange(min=1, max=60)],
-                                    default=12)
-    imaging_cutoff_months = IntegerField('Imaging Cutoff (months)',
-                                       validators=[DataRequired(), NumberRange(min=1, max=60)],
-                                       default=24)
-    consults_cutoff_months = IntegerField('Consults Cutoff (months)',
-                                        validators=[DataRequired(), NumberRange(min=1, max=60)],
-                                        default=12)
-    hospital_cutoff_months = IntegerField('Hospital Visits Cutoff (months)',
-                                        validators=[DataRequired(), NumberRange(min=1, max=60)],
-                                        default=12)
-
-class PHIFilterForm(FlaskForm):
-    is_enabled = BooleanField('Enable PHI Filtering', default=True)
-    filter_ssn = BooleanField('Filter Social Security Numbers', default=True)
-    filter_phone = BooleanField('Filter Phone Numbers', default=True)
-    filter_mrn = BooleanField('Filter Medical Record Numbers', default=True)
-    filter_insurance = BooleanField('Filter Insurance IDs', default=True)
-    filter_addresses = BooleanField('Filter Addresses', default=True)
-    filter_names = BooleanField('Filter Names', default=True)
-    filter_dates = BooleanField('Filter Dates', default=True)
-    preserve_medical_terms = BooleanField('Preserve Medical Terms', default=True)
+    name = StringField('Screening Name', validators=[DataRequired()])
+    description = StringField('Description')
+    keywords = StringField('Keywords (comma-separated)')
+    frequency_value = SelectField('Frequency', coerce=int, choices=[
+        (3, '3'), (6, '6'), (12, '12'), (18, '18'), (24, '24'), (36, '36')
+    ])
+    frequency_unit = SelectField('Unit', choices=[('months', 'Months'), ('years', 'Years')])
+    gender = SelectField('Gender', choices=[('all', 'All'), ('male', 'Male'), ('female', 'Female')])
+    min_age = SelectField('Min Age', coerce=int, choices=[(i, str(i)) for i in range(0, 101)])
+    max_age = SelectField('Max Age', coerce=int, choices=[(i, str(i)) for i in range(0, 101)])
+    submit = SubmitField('Save Screening Type')
