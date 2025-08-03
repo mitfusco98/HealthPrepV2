@@ -29,7 +29,7 @@ def init_database():
                 username='admin',
                 email='admin@example.com',
                 password_hash=generate_password_hash('admin123'),
-                is_admin=True
+                role='admin'
             )
             db.session.add(admin_user)
         
@@ -40,7 +40,7 @@ def init_database():
                 username='user',
                 email='user@example.com',
                 password_hash=generate_password_hash('user123'),
-                is_admin=False
+                role='user'
             )
             db.session.add(basic_user)
         
@@ -49,30 +49,24 @@ def init_database():
             {
                 'name': 'Mammogram',
                 'description': 'Breast cancer screening',
-                'keywords': 'mammogram,mammography,breast screening',
-                'eligibility_gender': 'F',
-                'eligibility_min_age': 40,
-                'eligibility_max_age': 75,
+                'keywords': ['mammogram', 'mammography', 'breast screening'],
+                'eligibility_criteria': {'gender': 'F', 'min_age': 40, 'max_age': 75},
                 'frequency_value': 1,
                 'frequency_unit': 'years'
             },
             {
                 'name': 'Colonoscopy',
                 'description': 'Colorectal cancer screening',
-                'keywords': 'colonoscopy,colon screening,colorectal',
-                'eligibility_gender': None,
-                'eligibility_min_age': 50,
-                'eligibility_max_age': 75,
+                'keywords': ['colonoscopy', 'colon screening', 'colorectal'],
+                'eligibility_criteria': {'min_age': 50, 'max_age': 75},
                 'frequency_value': 10,
                 'frequency_unit': 'years'
             },
             {
                 'name': 'Pap Smear',
                 'description': 'Cervical cancer screening',
-                'keywords': 'pap smear,cervical screening,cytology',
-                'eligibility_gender': 'F',
-                'eligibility_min_age': 21,
-                'eligibility_max_age': 65,
+                'keywords': ['pap smear', 'cervical screening', 'cytology'],
+                'eligibility_criteria': {'gender': 'F', 'min_age': 21, 'max_age': 65},
                 'frequency_value': 3,
                 'frequency_unit': 'years'
             }
