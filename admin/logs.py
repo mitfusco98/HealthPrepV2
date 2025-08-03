@@ -64,3 +64,19 @@ class AdminLogger:
         except Exception as e:
             logger.error(f"Failed to retrieve admin logs: {e}")
             return []
+
+# Initialize a global instance for convenience
+admin_logger = AdminLogger()
+
+def log_admin_action(user_id=None, action=None, resource_type=None, 
+                    resource_id=None, details=None, ip_address=None, user_agent=None):
+    """Convenience function for logging admin actions"""
+    admin_logger.log_action(
+        user_id=user_id,
+        action=action,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        details=details,
+        ip_address=ip_address,
+        user_agent=user_agent
+    )
