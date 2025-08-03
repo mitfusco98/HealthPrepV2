@@ -1,203 +1,246 @@
 """
-SMART on FHIR API client for EMR integration
-Handles authentication and data retrieval from FHIR-compliant EMRs
+SMART on FHIR API client for EMR integration.
+Handles authentication and data retrieval from FHIR-compatible EMRs.
 """
-import requests
-import json
-import logging
-from datetime import datetime
-from config.settings import FHIR_BASE_URL, FHIR_CLIENT_ID, FHIR_CLIENT_SECRET
 
-logger = logging.getLogger(__name__)
+import logging
+import requests
+from typing import Dict, List, Optional, Any
+import os
+from datetime import datetime, timedelta
+import json
 
 class FHIRClient:
-    """Client for connecting to FHIR-compliant EMR systems"""
+    """FHIR client for EMR integration"""
     
-    def __init__(self, base_url=None, client_id=None, client_secret=None):
-        self.base_url = base_url or FHIR_BASE_URL
-        self.client_id = client_id or FHIR_CLIENT_ID
-        self.client_secret = client_secret or FHIR_CLIENT_SECRET
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+        self.base_url = os.getenv('FHIR_BASE_URL', 'https://fhir.epic.com/interconnect-fhir-oauth')
+        self.client_id = os.getenv('FHIR_CLIENT_ID', 'health-prep-client')
+        self.client_secret = os.getenv('FHIR_CLIENT_SECRET', 'default-secret')
         self.access_token = None
-        self.token_expires = None
+        self.token_expires_at = None
         
-    def authenticate(self):
-        """Authenticate with the FHIR server using OAuth2"""
-        auth_url = f"{self.base_url}/auth/token"
-        
-        data = {
-            'grant_type': 'client_credentials',
-            'client_id': self.client_id,
-            'client_secret': self.client_secret,
-            'scope': 'patient/*.read'
+        # Common FHIR endpoints
+        self.endpoints = {
+            'patients': '/Patient',
+            'observations': '/Observation',
+            'diagnostic_reports': '/DiagnosticReport',
+            'document_references': '/DocumentReference',
+            'conditions': '/Condition',
+            'procedures': '/Procedure',
+            'encounters': '/Encounter'
         }
-        
+    
+    def authenticate(self) -> bool:
+        """Authenticate with FHIR server using client credentials"""
         try:
-            response = requests.post(auth_url, data=data)
+            auth_url = f"{self.base_url}/oauth2/token"
+            
+            data = {
+                'grant_type': 'client_credentials',
+                'client_id': self.client_id,
+                'client_secret': self.client_secret,
+                'scope': 'system/Patient.read system/Observation.read system/DiagnosticReport.read system/DocumentReference.read'
+            }
+            
+            response = requests.post(auth_url, data=data, timeout=30)
             response.raise_for_status()
             
             token_data = response.json()
-            self.access_token = token_data['access_token']
-            self.token_expires = datetime.utcnow().timestamp() + token_data.get('expires_in', 3600)
+            self.access_token = token_data.get('access_token')
+            expires_in = token_data.get('expires_in', 3600)
+            self.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in - 60)  # 1 minute buffer
             
-            logger.info("Successfully authenticated with FHIR server")
+            self.logger.info("Successfully authenticated with FHIR server")
             return True
             
         except requests.RequestException as e:
-            logger.error(f"FHIR authentication failed: {e}")
+            self.logger.error(f"FHIR authentication failed: {str(e)}")
+            return False
+        except Exception as e:
+            self.logger.error(f"Unexpected error during FHIR authentication: {str(e)}")
             return False
     
-    def is_token_valid(self):
-        """Check if the current access token is still valid"""
-        if not self.access_token or not self.token_expires:
-            return False
-        
-        return datetime.utcnow().timestamp() < self.token_expires
-    
-    def ensure_authenticated(self):
+    def _ensure_authenticated(self) -> bool:
         """Ensure we have a valid access token"""
-        if not self.is_token_valid():
+        if not self.access_token or (self.token_expires_at and datetime.utcnow() >= self.token_expires_at):
             return self.authenticate()
         return True
     
-    def get_headers(self):
-        """Get HTTP headers for FHIR requests"""
-        if not self.ensure_authenticated():
-            raise Exception("Failed to authenticate with FHIR server")
+    def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Optional[Dict]:
+        """Make authenticated request to FHIR server"""
+        if not self._ensure_authenticated():
+            return None
         
-        return {
-            'Authorization': f'Bearer {self.access_token}',
-            'Accept': 'application/fhir+json',
-            'Content-Type': 'application/fhir+json'
+        try:
+            url = f"{self.base_url}{endpoint}"
+            headers = {
+                'Authorization': f'Bearer {self.access_token}',
+                'Accept': 'application/fhir+json',
+                'Content-Type': 'application/fhir+json'
+            }
+            
+            response = requests.get(url, headers=headers, params=params or {}, timeout=30)
+            response.raise_for_status()
+            
+            return response.json()
+            
+        except requests.RequestException as e:
+            self.logger.error(f"FHIR request failed for {endpoint}: {str(e)}")
+            return None
+        except Exception as e:
+            self.logger.error(f"Unexpected error during FHIR request: {str(e)}")
+            return None
+    
+    def get_patient_by_mrn(self, mrn: str) -> Optional[Dict]:
+        """Get patient by medical record number"""
+        params = {
+            'identifier': f'urn:oid:1.2.840.114350.1.13.0.1.7.5.737384.0|{mrn}'
         }
-    
-    def get_patient(self, patient_id):
-        """Get patient resource by ID"""
-        url = f"{self.base_url}/Patient/{patient_id}"
         
-        try:
-            response = requests.get(url, headers=self.get_headers())
-            response.raise_for_status()
-            return response.json()
-            
-        except requests.RequestException as e:
-            logger.error(f"Failed to fetch patient {patient_id}: {e}")
-            return None
-    
-    def search_patients(self, family_name=None, given_name=None, identifier=None):
-        """Search for patients"""
-        url = f"{self.base_url}/Patient"
-        params = {}
+        response = self._make_request(self.endpoints['patients'], params)
+        if response and response.get('total', 0) > 0:
+            entries = response.get('entry', [])
+            if entries:
+                return entries[0].get('resource')
         
-        if family_name:
-            params['family'] = family_name
-        if given_name:
-            params['given'] = given_name
-        if identifier:
-            params['identifier'] = identifier
-        
-        try:
-            response = requests.get(url, headers=self.get_headers(), params=params)
-            response.raise_for_status()
-            return response.json()
-            
-        except requests.RequestException as e:
-            logger.error(f"Patient search failed: {e}")
-            return None
+        return None
     
-    def get_patient_documents(self, patient_id):
-        """Get all DocumentReference resources for a patient"""
-        url = f"{self.base_url}/DocumentReference"
-        params = {'patient': patient_id}
-        
-        try:
-            response = requests.get(url, headers=self.get_headers(), params=params)
-            response.raise_for_status()
-            return response.json()
-            
-        except requests.RequestException as e:
-            logger.error(f"Failed to fetch documents for patient {patient_id}: {e}")
-            return None
-    
-    def get_patient_observations(self, patient_id, category=None):
-        """Get Observation resources for a patient"""
-        url = f"{self.base_url}/Observation"
-        params = {'patient': patient_id}
+    def get_patient_observations(self, patient_id: str, category: Optional[str] = None, 
+                               date_range: Optional[tuple] = None) -> List[Dict]:
+        """Get observations for a patient"""
+        params = {
+            'patient': patient_id,
+            '_count': 1000
+        }
         
         if category:
             params['category'] = category
         
-        try:
-            response = requests.get(url, headers=self.get_headers(), params=params)
-            response.raise_for_status()
-            return response.json()
-            
-        except requests.RequestException as e:
-            logger.error(f"Failed to fetch observations for patient {patient_id}: {e}")
-            return None
+        if date_range:
+            start_date, end_date = date_range
+            params['date'] = f'ge{start_date.isoformat()}'
+            if end_date:
+                params['date'] += f'&date=le{end_date.isoformat()}'
+        
+        response = self._make_request(self.endpoints['observations'], params)
+        if response:
+            return [entry.get('resource') for entry in response.get('entry', [])]
+        
+        return []
     
-    def get_patient_conditions(self, patient_id):
-        """Get Condition resources for a patient"""
-        url = f"{self.base_url}/Condition"
-        params = {'patient': patient_id}
+    def get_patient_diagnostic_reports(self, patient_id: str, date_range: Optional[tuple] = None) -> List[Dict]:
+        """Get diagnostic reports for a patient"""
+        params = {
+            'patient': patient_id,
+            '_count': 1000
+        }
+        
+        if date_range:
+            start_date, end_date = date_range
+            params['date'] = f'ge{start_date.isoformat()}'
+            if end_date:
+                params['date'] += f'&date=le{end_date.isoformat()}'
+        
+        response = self._make_request(self.endpoints['diagnostic_reports'], params)
+        if response:
+            return [entry.get('resource') for entry in response.get('entry', [])]
+        
+        return []
+    
+    def get_patient_documents(self, patient_id: str, date_range: Optional[tuple] = None) -> List[Dict]:
+        """Get document references for a patient"""
+        params = {
+            'patient': patient_id,
+            '_count': 1000
+        }
+        
+        if date_range:
+            start_date, end_date = date_range
+            params['date'] = f'ge{start_date.isoformat()}'
+            if end_date:
+                params['date'] += f'&date=le{end_date.isoformat()}'
+        
+        response = self._make_request(self.endpoints['document_references'], params)
+        if response:
+            return [entry.get('resource') for entry in response.get('entry', [])]
+        
+        return []
+    
+    def get_patient_conditions(self, patient_id: str) -> List[Dict]:
+        """Get active conditions for a patient"""
+        params = {
+            'patient': patient_id,
+            'clinical-status': 'active',
+            '_count': 1000
+        }
+        
+        response = self._make_request(self.endpoints['conditions'], params)
+        if response:
+            return [entry.get('resource') for entry in response.get('entry', [])]
+        
+        return []
+    
+    def get_patient_procedures(self, patient_id: str, date_range: Optional[tuple] = None) -> List[Dict]:
+        """Get procedures for a patient"""
+        params = {
+            'patient': patient_id,
+            '_count': 1000
+        }
+        
+        if date_range:
+            start_date, end_date = date_range
+            params['date'] = f'ge{start_date.isoformat()}'
+            if end_date:
+                params['date'] += f'&date=le{end_date.isoformat()}'
+        
+        response = self._make_request(self.endpoints['procedures'], params)
+        if response:
+            return [entry.get('resource') for entry in response.get('entry', [])]
+        
+        return []
+    
+    def download_document(self, document_url: str) -> Optional[bytes]:
+        """Download document content"""
+        if not self._ensure_authenticated():
+            return None
         
         try:
-            response = requests.get(url, headers=self.get_headers(), params=params)
-            response.raise_for_status()
-            return response.json()
+            headers = {
+                'Authorization': f'Bearer {self.access_token}',
+                'Accept': '*/*'
+            }
             
-        except requests.RequestException as e:
-            logger.error(f"Failed to fetch conditions for patient {patient_id}: {e}")
-            return None
-    
-    def get_patient_encounters(self, patient_id):
-        """Get Encounter resources for a patient"""
-        url = f"{self.base_url}/Encounter"
-        params = {'patient': patient_id}
-        
-        try:
-            response = requests.get(url, headers=self.get_headers(), params=params)
+            response = requests.get(document_url, headers=headers, timeout=60)
             response.raise_for_status()
-            return response.json()
             
-        except requests.RequestException as e:
-            logger.error(f"Failed to fetch encounters for patient {patient_id}: {e}")
-            return None
-    
-    def download_document(self, document_url):
-        """Download a document from a FHIR DocumentReference"""
-        try:
-            response = requests.get(document_url, headers=self.get_headers())
-            response.raise_for_status()
             return response.content
             
         except requests.RequestException as e:
-            logger.error(f"Failed to download document from {document_url}: {e}")
+            self.logger.error(f"Failed to download document from {document_url}: {str(e)}")
             return None
     
-    def create_document_reference(self, patient_id, document_data):
-        """Create a new DocumentReference resource"""
-        url = f"{self.base_url}/DocumentReference"
+    def search_patients(self, search_params: Dict[str, str]) -> List[Dict]:
+        """Search for patients with given parameters"""
+        params = search_params.copy()
+        params['_count'] = params.get('_count', 50)
         
-        fhir_document = {
-            "resourceType": "DocumentReference",
-            "status": "current",
-            "subject": {
-                "reference": f"Patient/{patient_id}"
-            },
-            "content": [{
-                "attachment": {
-                    "contentType": document_data.get('content_type', 'application/pdf'),
-                    "title": document_data.get('title', 'Uploaded Document'),
-                    "creation": document_data.get('creation_date', datetime.utcnow().isoformat())
-                }
-            }]
-        }
+        response = self._make_request(self.endpoints['patients'], params)
+        if response:
+            return [entry.get('resource') for entry in response.get('entry', [])]
         
+        return []
+    
+    def get_capability_statement(self) -> Optional[Dict]:
+        """Get server capability statement"""
+        return self._make_request('/metadata')
+    
+    def test_connection(self) -> bool:
+        """Test connection to FHIR server"""
         try:
-            response = requests.post(url, headers=self.get_headers(), json=fhir_document)
-            response.raise_for_status()
-            return response.json()
-            
-        except requests.RequestException as e:
-            logger.error(f"Failed to create document reference: {e}")
-            return None
+            capability = self.get_capability_statement()
+            return capability is not None
+        except Exception as e:
+            self.logger.error(f"FHIR connection test failed: {str(e)}")
+            return False

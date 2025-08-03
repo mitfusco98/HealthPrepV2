@@ -1,307 +1,315 @@
 """
-Admin log management and utilities
-Handles comprehensive logging of admin actions and system events
+Admin logging functionality.
+Handles comprehensive logging of admin actions and system events.
 """
+
 import logging
+from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 from flask import request
+from flask_login import current_user
+
 from app import db
 from models import AdminLog, User
 
-logger = logging.getLogger(__name__)
-
-class AdminLogger:
-    """Simple wrapper class for admin logging functionality"""
-    
-    def log_action(self, user_id, action, resource_type=None, resource_id=None, details=None, ip_address=None):
-        """Log an admin action - wrapper for log_admin_action function"""
-        return log_admin_action(user_id, action, resource_type, resource_id, details, ip_address)
-
-def log_admin_action(user_id, action, resource_type=None, resource_id=None, details=None, ip_address=None):
+def log_admin_action(user_id: Optional[int], action: str, details: Optional[str] = None, 
+                    ip_address: Optional[str] = None) -> bool:
     """Log an admin action to the database"""
     try:
-        if ip_address is None:
-            ip_address = request.remote_addr if request else None
+        # Get IP address if not provided
+        if ip_address is None and request:
+            ip_address = request.remote_addr
         
-        admin_log = AdminLog(
+        # Create log entry
+        log_entry = AdminLog(
             user_id=user_id,
             action=action,
-            resource_type=resource_type,
-            resource_id=resource_id,
-            details=details or {},
+            details=details,
             ip_address=ip_address,
             timestamp=datetime.utcnow()
         )
         
-        db.session.add(admin_log)
+        db.session.add(log_entry)
         db.session.commit()
         
-        logger.info(f"Admin action logged: {action} by user {user_id}")
+        # Also log to application logger
+        logger = logging.getLogger(__name__)
+        user_info = f"User {user_id}" if user_id else "System"
+        logger.info(f"Admin Action: {user_info} - {action} - {details} - IP: {ip_address}")
+        
+        return True
         
     except Exception as e:
-        logger.error(f"Failed to log admin action: {e}")
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to log admin action: {str(e)}")
         db.session.rollback()
+        return False
+
+def log_user_action(action: str, details: Optional[str] = None) -> bool:
+    """Log action for current user"""
+    user_id = current_user.id if current_user.is_authenticated else None
+    return log_admin_action(user_id, action, details)
+
+def log_system_event(event: str, details: Optional[str] = None) -> bool:
+    """Log system event (no user associated)"""
+    return log_admin_action(None, f"SYSTEM: {event}", details)
+
+def log_security_event(event: str, details: Optional[str] = None, 
+                      ip_address: Optional[str] = None) -> bool:
+    """Log security-related event"""
+    user_id = current_user.id if current_user.is_authenticated else None
+    return log_admin_action(user_id, f"SECURITY: {event}", details, ip_address)
+
+def log_phi_access(action: str, patient_id: Optional[int] = None, 
+                   document_id: Optional[int] = None) -> bool:
+    """Log PHI access for HIPAA compliance"""
+    details = []
+    if patient_id:
+        details.append(f"Patient ID: {patient_id}")
+    if document_id:
+        details.append(f"Document ID: {document_id}")
+    
+    detail_str = " | ".join(details) if details else None
+    return log_user_action(f"PHI ACCESS: {action}", detail_str)
+
+def log_data_modification(action: str, table: str, record_id: int, 
+                         changes: Optional[Dict] = None) -> bool:
+    """Log data modification events"""
+    details = f"Table: {table}, Record ID: {record_id}"
+    if changes:
+        details += f" | Changes: {changes}"
+    
+    return log_user_action(f"DATA MODIFICATION: {action}", details)
 
 class AdminLogManager:
-    """Manages admin logs and provides analytics"""
+    """Manager class for admin logging operations"""
     
     def __init__(self):
-        pass
+        self.logger = logging.getLogger(__name__)
     
-    def get_recent_logs(self, limit=50, user_id=None, action=None, days=30):
-        """Get recent admin logs with optional filtering"""
-        query = AdminLog.query
-        
-        # Date filtering
-        if days:
-            cutoff_date = datetime.utcnow() - timedelta(days=days)
-            query = query.filter(AdminLog.timestamp >= cutoff_date)
-        
-        # User filtering
-        if user_id:
-            query = query.filter(AdminLog.user_id == user_id)
-        
-        # Action filtering
-        if action:
-            query = query.filter(AdminLog.action == action)
-        
-        return query.order_by(AdminLog.timestamp.desc()).limit(limit).all()
-    
-    def get_log_statistics(self, days=30):
-        """Get statistics about admin activity"""
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
-        
-        # Total actions
-        total_actions = AdminLog.query.filter(
-            AdminLog.timestamp >= cutoff_date
-        ).count()
-        
-        # Actions by type
-        action_counts = db.session.query(
-            AdminLog.action,
-            db.func.count(AdminLog.id).label('count')
-        ).filter(
-            AdminLog.timestamp >= cutoff_date
-        ).group_by(AdminLog.action).all()
-        
-        # Actions by user
-        user_counts = db.session.query(
-            User.username,
-            db.func.count(AdminLog.id).label('count')
-        ).join(AdminLog).filter(
-            AdminLog.timestamp >= cutoff_date
-        ).group_by(User.username).all()
-        
-        # Daily activity
-        daily_counts = db.session.query(
-            db.func.date(AdminLog.timestamp).label('date'),
-            db.func.count(AdminLog.id).label('count')
-        ).filter(
-            AdminLog.timestamp >= cutoff_date
-        ).group_by(db.func.date(AdminLog.timestamp)).all()
-        
-        return {
-            'total_actions': total_actions,
-            'actions_by_type': [
-                {'action': row.action, 'count': row.count}
-                for row in action_counts
-            ],
-            'actions_by_user': [
-                {'username': row.username, 'count': row.count}
-                for row in user_counts
-            ],
-            'daily_activity': [
-                {'date': row.date.isoformat(), 'count': row.count}
-                for row in daily_counts
-            ]
-        }
-    
-    def export_logs(self, start_date=None, end_date=None, format='json'):
-        """Export logs in various formats"""
-        query = AdminLog.query.join(User)
-        
-        if start_date:
-            query = query.filter(AdminLog.timestamp >= start_date)
-        if end_date:
-            query = query.filter(AdminLog.timestamp <= end_date)
-        
-        logs = query.order_by(AdminLog.timestamp.desc()).all()
-        
-        if format == 'json':
-            import json
-            export_data = []
+    def get_logs(self, page: int = 1, per_page: int = 50, 
+                filters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Get paginated admin logs with optional filtering"""
+        try:
+            query = AdminLog.query
             
-            for log in logs:
-                export_data.append({
+            if filters:
+                # Apply filters
+                if filters.get('action'):
+                    query = query.filter(AdminLog.action.contains(filters['action']))
+                
+                if filters.get('user_id'):
+                    query = query.filter(AdminLog.user_id == filters['user_id'])
+                
+                if filters.get('start_date'):
+                    query = query.filter(AdminLog.timestamp >= filters['start_date'])
+                
+                if filters.get('end_date'):
+                    query = query.filter(AdminLog.timestamp <= filters['end_date'])
+                
+                if filters.get('ip_address'):
+                    query = query.filter(AdminLog.ip_address == filters['ip_address'])
+            
+            # Get paginated results
+            logs = query.order_by(AdminLog.timestamp.desc())\
+                       .paginate(page=page, per_page=per_page, error_out=False)
+            
+            # Format results
+            log_data = []
+            for log in logs.items:
+                user_name = log.user.username if log.user else 'System'
+                log_data.append({
                     'id': log.id,
                     'timestamp': log.timestamp.isoformat(),
-                    'user': log.user.username if log.user else 'Unknown',
+                    'user_id': log.user_id,
+                    'user_name': user_name,
                     'action': log.action,
-                    'resource_type': log.resource_type,
-                    'resource_id': log.resource_id,
                     'details': log.details,
                     'ip_address': log.ip_address
                 })
             
-            return json.dumps(export_data, indent=2)
-        
-        elif format == 'csv':
-            import csv
-            import io
-            
-            output = io.StringIO()
-            writer = csv.writer(output)
-            
-            # Header
-            writer.writerow([
-                'ID', 'Timestamp', 'User', 'Action', 'Resource Type',
-                'Resource ID', 'Details', 'IP Address'
-            ])
-            
-            # Data rows
-            for log in logs:
-                writer.writerow([
-                    log.id,
-                    log.timestamp.isoformat(),
-                    log.user.username if log.user else 'Unknown',
-                    log.action,
-                    log.resource_type or '',
-                    log.resource_id or '',
-                    str(log.details) if log.details else '',
-                    log.ip_address or ''
-                ])
-            
-            return output.getvalue()
-        
-        else:
-            raise ValueError(f"Unsupported export format: {format}")
-    
-    def cleanup_old_logs(self, days_to_keep=365):
-        """Clean up old log entries"""
-        cutoff_date = datetime.utcnow() - timedelta(days=days_to_keep)
-        
-        deleted_count = AdminLog.query.filter(
-            AdminLog.timestamp < cutoff_date
-        ).delete()
-        
-        db.session.commit()
-        
-        logger.info(f"Cleaned up {deleted_count} old admin log entries")
-        return deleted_count
-    
-    def get_user_activity_summary(self, user_id, days=30):
-        """Get activity summary for a specific user"""
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
-        
-        user = User.query.get(user_id)
-        if not user:
-            return None
-        
-        logs = AdminLog.query.filter(
-            AdminLog.user_id == user_id,
-            AdminLog.timestamp >= cutoff_date
-        ).order_by(AdminLog.timestamp.desc()).all()
-        
-        # Action summary
-        action_summary = {}
-        for log in logs:
-            action = log.action
-            if action not in action_summary:
-                action_summary[action] = 0
-            action_summary[action] += 1
-        
-        # Resource summary
-        resource_summary = {}
-        for log in logs:
-            resource_type = log.resource_type or 'system'
-            if resource_type not in resource_summary:
-                resource_summary[resource_type] = 0
-            resource_summary[resource_type] += 1
-        
-        return {
-            'user': {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email
-            },
-            'period_days': days,
-            'total_actions': len(logs),
-            'action_summary': action_summary,
-            'resource_summary': resource_summary,
-            'recent_actions': [
-                {
-                    'timestamp': log.timestamp,
-                    'action': log.action,
-                    'resource_type': log.resource_type,
-                    'resource_id': log.resource_id
+            return {
+                'logs': log_data,
+                'pagination': {
+                    'page': logs.page,
+                    'pages': logs.pages,
+                    'per_page': logs.per_page,
+                    'total': logs.total,
+                    'has_next': logs.has_next,
+                    'has_prev': logs.has_prev
                 }
-                for log in logs[:10]  # Last 10 actions
-            ]
-        }
-    
-    def get_security_events(self, days=30):
-        """Get security-related log events"""
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
-        
-        security_actions = [
-            'login', 'logout', 'password_change', 'user_create',
-            'user_delete', 'role_change', 'settings_change',
-            'phi_settings_change', 'failed_login'
-        ]
-        
-        security_logs = AdminLog.query.filter(
-            AdminLog.timestamp >= cutoff_date,
-            AdminLog.action.in_(security_actions)
-        ).order_by(AdminLog.timestamp.desc()).all()
-        
-        return [
-            {
-                'timestamp': log.timestamp,
-                'user': log.user.username if log.user else 'System',
-                'action': log.action,
-                'ip_address': log.ip_address,
-                'details': log.details
-            }
-            for log in security_logs
-        ]
-    
-    def generate_compliance_report(self, start_date, end_date):
-        """Generate a compliance report for audit purposes"""
-        logs = AdminLog.query.filter(
-            AdminLog.timestamp >= start_date,
-            AdminLog.timestamp <= end_date
-        ).order_by(AdminLog.timestamp.asc()).all()
-        
-        report = {
-            'report_period': {
-                'start_date': start_date.isoformat(),
-                'end_date': end_date.isoformat()
-            },
-            'total_events': len(logs),
-            'phi_access_events': [],
-            'user_management_events': [],
-            'system_configuration_events': [],
-            'data_modification_events': []
-        }
-        
-        for log in logs:
-            event_data = {
-                'timestamp': log.timestamp.isoformat(),
-                'user': log.user.username if log.user else 'System',
-                'action': log.action,
-                'resource_type': log.resource_type,
-                'resource_id': log.resource_id,
-                'ip_address': log.ip_address
             }
             
-            # Categorize events
-            if 'phi' in log.action.lower() or log.resource_type in ['document', 'patient']:
-                report['phi_access_events'].append(event_data)
-            elif log.action in ['user_create', 'user_delete', 'role_change']:
-                report['user_management_events'].append(event_data)
-            elif 'settings' in log.action.lower():
-                report['system_configuration_events'].append(event_data)
-            elif log.action in ['create', 'update', 'delete']:
-                report['data_modification_events'].append(event_data)
-        
-        return report
+        except Exception as e:
+            self.logger.error(f"Error getting admin logs: {str(e)}")
+            return {'logs': [], 'pagination': {}}
+    
+    def get_log_statistics(self) -> Dict[str, Any]:
+        """Get statistics about admin logs"""
+        try:
+            total_logs = AdminLog.query.count()
+            
+            # Logs by action type
+            action_stats = db.session.query(
+                AdminLog.action,
+                db.func.count(AdminLog.id).label('count')
+            ).group_by(AdminLog.action).all()
+            
+            # Recent activity (last 24 hours)
+            yesterday = datetime.utcnow() - timedelta(hours=24)
+            recent_logs = AdminLog.query.filter(AdminLog.timestamp >= yesterday).count()
+            
+            # Most active users
+            user_stats = db.session.query(
+                User.username,
+                db.func.count(AdminLog.id).label('count')
+            ).join(AdminLog, User.id == AdminLog.user_id)\
+             .group_by(User.username)\
+             .order_by(db.func.count(AdminLog.id).desc())\
+             .limit(10).all()
+            
+            # Security events
+            security_logs = AdminLog.query.filter(
+                AdminLog.action.like('SECURITY:%')
+            ).count()
+            
+            # PHI access logs
+            phi_logs = AdminLog.query.filter(
+                AdminLog.action.like('PHI ACCESS:%')
+            ).count()
+            
+            return {
+                'total_logs': total_logs,
+                'recent_activity': recent_logs,
+                'security_events': security_logs,
+                'phi_access_events': phi_logs,
+                'action_breakdown': {
+                    action: count for action, count in action_stats
+                },
+                'most_active_users': [
+                    {'username': username, 'action_count': count}
+                    for username, count in user_stats
+                ]
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error getting log statistics: {str(e)}")
+            return {}
+    
+    def export_logs(self, start_date: Optional[datetime] = None, 
+                   end_date: Optional[datetime] = None,
+                   format: str = 'json') -> Dict[str, Any]:
+        """Export logs for compliance or analysis"""
+        try:
+            query = AdminLog.query
+            
+            if start_date:
+                query = query.filter(AdminLog.timestamp >= start_date)
+            
+            if end_date:
+                query = query.filter(AdminLog.timestamp <= end_date)
+            
+            logs = query.order_by(AdminLog.timestamp.desc()).all()
+            
+            export_data = []
+            for log in logs:
+                export_data.append({
+                    'timestamp': log.timestamp.isoformat(),
+                    'user_id': log.user_id,
+                    'user_name': log.user.username if log.user else 'System',
+                    'action': log.action,
+                    'details': log.details,
+                    'ip_address': log.ip_address
+                })
+            
+            return {
+                'export_generated': datetime.utcnow().isoformat(),
+                'total_records': len(export_data),
+                'date_range': {
+                    'start': start_date.isoformat() if start_date else None,
+                    'end': end_date.isoformat() if end_date else None
+                },
+                'logs': export_data
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error exporting logs: {str(e)}")
+            return {}
+    
+    def cleanup_old_logs(self, days_to_keep: int = 365) -> int:
+        """Clean up logs older than specified days"""
+        try:
+            cutoff_date = datetime.utcnow() - timedelta(days=days_to_keep)
+            
+            old_logs = AdminLog.query.filter(AdminLog.timestamp < cutoff_date)
+            count = old_logs.count()
+            
+            old_logs.delete()
+            db.session.commit()
+            
+            self.logger.info(f"Cleaned up {count} old admin logs")
+            log_system_event("Log Cleanup", f"Removed {count} logs older than {days_to_keep} days")
+            
+            return count
+            
+        except Exception as e:
+            self.logger.error(f"Error cleaning up old logs: {str(e)}")
+            db.session.rollback()
+            return 0
+    
+    def get_security_report(self) -> Dict[str, Any]:
+        """Generate security-focused log report"""
+        try:
+            # Get security events from last 30 days
+            thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+            
+            security_logs = AdminLog.query.filter(
+                AdminLog.action.like('SECURITY:%'),
+                AdminLog.timestamp >= thirty_days_ago
+            ).all()
+            
+            phi_logs = AdminLog.query.filter(
+                AdminLog.action.like('PHI ACCESS:%'),
+                AdminLog.timestamp >= thirty_days_ago
+            ).all()
+            
+            # Failed login attempts
+            failed_logins = AdminLog.query.filter(
+                AdminLog.action.like('%login%'),
+                AdminLog.action.like('%failed%'),
+                AdminLog.timestamp >= thirty_days_ago
+            ).all()
+            
+            # Unusual IP addresses
+            ip_stats = db.session.query(
+                AdminLog.ip_address,
+                db.func.count(AdminLog.id).label('count')
+            ).filter(AdminLog.timestamp >= thirty_days_ago)\
+             .group_by(AdminLog.ip_address)\
+             .order_by(db.func.count(AdminLog.id).desc()).all()
+            
+            return {
+                'report_period': '30 days',
+                'security_events': len(security_logs),
+                'phi_access_events': len(phi_logs),
+                'failed_login_attempts': len(failed_logins),
+                'unique_ip_addresses': len(ip_stats),
+                'top_ip_addresses': [
+                    {'ip': ip, 'requests': count} 
+                    for ip, count in ip_stats[:10]
+                ],
+                'security_event_details': [
+                    {
+                        'timestamp': log.timestamp.isoformat(),
+                        'action': log.action,
+                        'user': log.user.username if log.user else 'Unknown',
+                        'ip': log.ip_address,
+                        'details': log.details
+                    }
+                    for log in security_logs[-20:]  # Last 20 events
+                ]
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error generating security report: {str(e)}")
+            return {}

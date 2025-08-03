@@ -1,25 +1,24 @@
 from datetime import datetime, timedelta
 from app import db
 from flask_login import UserMixin
-from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import JSON
+from sqlalchemy import Text, JSON, Index
+import json
 
 class User(UserMixin, db.Model):
+    __tablename__ = 'users'
+    
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(256))
-    role = db.Column(db.String(20), default='user')  # 'admin', 'user'
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    password_hash = db.Column(db.String(256), nullable=False)
+    role = db.Column(db.String(20), default='user')  # 'admin', 'user', 'nurse', 'ma'
     is_active = db.Column(db.Boolean, default=True)
-
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
-
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login = db.Column(db.DateTime)
 
 class Patient(db.Model):
+    __tablename__ = 'patients'
+    
     id = db.Column(db.Integer, primary_key=True)
     mrn = db.Column(db.String(50), unique=True, nullable=False)
     first_name = db.Column(db.String(100), nullable=False)
@@ -28,127 +27,141 @@ class Patient(db.Model):
     gender = db.Column(db.String(10), nullable=False)
     phone = db.Column(db.String(20))
     email = db.Column(db.String(120))
-    address = db.Column(db.Text)
-    last_visit = db.Column(db.DateTime)
+    address = db.Column(Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    documents = db.relationship('Document', backref='patient', lazy=True)
-    screenings = db.relationship('Screening', backref='patient', lazy=True)
-    appointments = db.relationship('Appointment', backref='patient', lazy=True)
-    conditions = db.relationship('Condition', backref='patient', lazy=True)
-
-    @property
-    def full_name(self):
-        return f"{self.first_name} {self.last_name}"
-
-    @property
-    def age(self):
-        today = datetime.today().date()
-        return today.year - self.date_of_birth.year - ((today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day))
+    documents = db.relationship('MedicalDocument', backref='patient', lazy=True, cascade='all, delete-orphan')
+    screenings = db.relationship('Screening', backref='patient', lazy=True, cascade='all, delete-orphan')
+    appointments = db.relationship('Appointment', backref='patient', lazy=True, cascade='all, delete-orphan')
 
 class ScreeningType(db.Model):
+    __tablename__ = 'screening_types'
+    
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text)
-    keywords = db.Column(JSON)  # List of keywords for document matching
-    eligibility_criteria = db.Column(JSON)  # Gender, age range, conditions
-    frequency_value = db.Column(db.Integer, nullable=False)  # Number
-    frequency_unit = db.Column(db.String(10), nullable=False)  # 'months', 'years'
-    trigger_conditions = db.Column(JSON)  # Medical conditions that trigger this screening
-    status = db.Column(db.String(10), default='active')  # 'active', 'inactive'
+    name = db.Column(db.String(200), nullable=False)
+    description = db.Column(Text)
+    keywords = db.Column(Text)  # JSON string of keywords
+    eligible_genders = db.Column(db.String(20))  # 'M', 'F', 'both'
+    min_age = db.Column(db.Integer)
+    max_age = db.Column(db.Integer)
+    frequency_number = db.Column(db.Integer)  # e.g., 12 for "12 months"
+    frequency_unit = db.Column(db.String(20))  # 'months', 'years'
+    trigger_conditions = db.Column(Text)  # JSON string of conditions
+    is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Relationships
-    screenings = db.relationship('Screening', backref='screening_type', lazy=True)
+    def get_keywords_list(self):
+        """Parse keywords JSON string into list"""
+        if self.keywords:
+            try:
+                return json.loads(self.keywords)
+            except (json.JSONDecodeError, TypeError):
+                return self.keywords.split(',') if self.keywords else []
+        return []
+    
+    def set_keywords_list(self, keywords_list):
+        """Set keywords from list"""
+        self.keywords = json.dumps(keywords_list) if keywords_list else None
 
-class Document(db.Model):
+class MedicalDocument(db.Model):
+    __tablename__ = 'medical_documents'
+    
     id = db.Column(db.Integer, primary_key=True)
-    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patients.id'), nullable=False)
     filename = db.Column(db.String(255), nullable=False)
-    original_filename = db.Column(db.String(255), nullable=False)
-    file_path = db.Column(db.String(500), nullable=False)
-    document_type = db.Column(db.String(50))  # 'lab', 'imaging', 'consult', etc.
+    file_path = db.Column(db.String(500))
+    document_type = db.Column(db.String(100))  # 'lab', 'imaging', 'consult', 'hospital'
+    document_date = db.Column(db.Date)
     upload_date = db.Column(db.DateTime, default=datetime.utcnow)
-    document_date = db.Column(db.DateTime)
-    file_size = db.Column(db.Integer)  # File size in bytes
     
     # OCR fields
-    ocr_text = db.Column(db.Text)
+    ocr_text = db.Column(Text)
     ocr_confidence = db.Column(db.Float)
     ocr_processed = db.Column(db.Boolean, default=False)
-    phi_filtered = db.Column(db.Boolean, default=False)
-    phi_filtered_text = db.Column(db.Text)  # PHI-filtered version of OCR text
+    ocr_processed_at = db.Column(db.DateTime)
     
-    # Relationships
-    screening_documents = db.relationship('ScreeningDocument', backref='document', lazy=True)
+    # PHI filtering
+    phi_filtered = db.Column(db.Boolean, default=False)
+    original_text = db.Column(Text)  # Before PHI filtering
+    
+    # Metadata
+    file_size = db.Column(db.Integer)
+    mime_type = db.Column(db.String(100))
+    
+    # Indexes for performance
+    __table_args__ = (
+        Index('idx_document_patient_date', 'patient_id', 'document_date'),
+        Index('idx_document_type_date', 'document_type', 'document_date'),
+        Index('idx_ocr_processed', 'ocr_processed'),
+    )
 
 class Screening(db.Model):
+    __tablename__ = 'screenings'
+    
     id = db.Column(db.Integer, primary_key=True)
-    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
-    screening_type_id = db.Column(db.Integer, db.ForeignKey('screening_type.id'), nullable=False)
-    status = db.Column(db.String(20), default='due')  # 'complete', 'due', 'due_soon'
-    last_completed = db.Column(db.DateTime)
-    next_due = db.Column(db.DateTime)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patients.id'), nullable=False)
+    screening_type_id = db.Column(db.Integer, db.ForeignKey('screening_types.id'), nullable=False)
+    status = db.Column(db.String(20), default='Due')  # 'Complete', 'Due', 'Due Soon'
+    last_completed_date = db.Column(db.Date)
+    next_due_date = db.Column(db.Date)
+    matched_documents = db.Column(Text)  # JSON string of document IDs
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    documents = db.relationship('ScreeningDocument', backref='screening', lazy=True)
-
-class ScreeningDocument(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    screening_id = db.Column(db.Integer, db.ForeignKey('screening.id'), nullable=False)
-    document_id = db.Column(db.Integer, db.ForeignKey('document.id'), nullable=False)
-    match_confidence = db.Column(db.Float)  # How well the document matches the screening
-    matched_keywords = db.Column(JSON)  # Which keywords matched
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    screening_type = db.relationship('ScreeningType', backref='screenings')
+    
+    def get_matched_documents_list(self):
+        """Parse matched documents JSON string into list"""
+        if self.matched_documents:
+            try:
+                return json.loads(self.matched_documents)
+            except (json.JSONDecodeError, TypeError):
+                return []
+        return []
 
 class Appointment(db.Model):
+    __tablename__ = 'appointments'
+    
     id = db.Column(db.Integer, primary_key=True)
-    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patients.id'), nullable=False)
     appointment_date = db.Column(db.DateTime, nullable=False)
     appointment_type = db.Column(db.String(100))
-    provider = db.Column(db.String(100))
-    notes = db.Column(db.Text)
-    status = db.Column(db.String(20), default='scheduled')  # 'scheduled', 'completed', 'cancelled'
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-class Condition(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
-    condition_name = db.Column(db.String(200), nullable=False)
-    icd10_code = db.Column(db.String(10))
-    diagnosis_date = db.Column(db.DateTime)
-    status = db.Column(db.String(20), default='active')  # 'active', 'resolved', 'chronic'
-    notes = db.Column(db.Text)
+    provider = db.Column(db.String(200))
+    status = db.Column(db.String(20), default='Scheduled')
+    notes = db.Column(Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class AdminLog(db.Model):
+    __tablename__ = 'admin_logs'
+    
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    action = db.Column(db.String(100), nullable=False)
-    resource_type = db.Column(db.String(50))
-    resource_id = db.Column(db.Integer)
-    details = db.Column(JSON)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    action = db.Column(db.String(200), nullable=False)
+    details = db.Column(Text)
     ip_address = db.Column(db.String(45))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     
+    # Relationship
     user = db.relationship('User', backref='admin_logs')
 
 class ChecklistSettings(db.Model):
+    __tablename__ = 'checklist_settings'
+    
     id = db.Column(db.Integer, primary_key=True)
-    labs_cutoff_months = db.Column(db.Integer, default=12)
-    imaging_cutoff_months = db.Column(db.Integer, default=24)
-    consults_cutoff_months = db.Column(db.Integer, default=12)
-    hospital_cutoff_months = db.Column(db.Integer, default=12)
-    default_items = db.Column(JSON)  # Default checklist items
-    status_options = db.Column(JSON)  # Custom status options
+    cutoff_labs = db.Column(db.Integer, default=12)  # months
+    cutoff_imaging = db.Column(db.Integer, default=24)  # months
+    cutoff_consults = db.Column(db.Integer, default=12)  # months
+    cutoff_hospital = db.Column(db.Integer, default=24)  # months
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class PHISettings(db.Model):
+    __tablename__ = 'phi_settings'
+    
     id = db.Column(db.Integer, primary_key=True)
     phi_filtering_enabled = db.Column(db.Boolean, default=True)
     filter_ssn = db.Column(db.Boolean, default=True)
@@ -158,19 +171,5 @@ class PHISettings(db.Model):
     filter_addresses = db.Column(db.Boolean, default=True)
     filter_names = db.Column(db.Boolean, default=True)
     filter_dates = db.Column(db.Boolean, default=True)
-    preserve_medical_terms = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-class OCRProcessingStats(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    document_id = db.Column(db.Integer, db.ForeignKey('document.id'), nullable=False)
-    processing_time = db.Column(db.Float)  # Time in seconds
-    confidence_score = db.Column(db.Float)
-    pages_processed = db.Column(db.Integer, default=1)
-    characters_extracted = db.Column(db.Integer)
-    phi_items_filtered = db.Column(db.Integer, default=0)
-    ocr_engine = db.Column(db.String(50), default='tesseract')
-    processing_date = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    # Relationship
-    document = db.relationship('Document', backref='ocr_stats')

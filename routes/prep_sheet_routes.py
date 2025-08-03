@@ -1,339 +1,383 @@
 """
-Prep sheet generation and viewing routes
-Handles patient prep sheet creation and display
+Prep sheet generation and management routes
 """
-
-import logging
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, make_response
 from flask_login import login_required, current_user
+from datetime import datetime
+import logging
 
-from models import Patient, ChecklistSettings
-from routes.auth_routes import user_required
+from models import Patient, Appointment
 from prep_sheet.generator import PrepSheetGenerator
-from admin.logs import AdminLogger
+from admin.logs import AdminLogManager
 
 logger = logging.getLogger(__name__)
+
 prep_sheet_bp = Blueprint('prep_sheet', __name__)
-admin_logger = AdminLogger()
 
 @prep_sheet_bp.route('/patient/<int:patient_id>')
-@user_required
-def view_prep_sheet(patient_id):
-    """View prep sheet for a specific patient"""
-    # Get patient
-    patient = Patient.query.get_or_404(patient_id)
-    
-    # Generate prep sheet
-    generator = PrepSheetGenerator()
-    
+@login_required
+def generate_for_patient(patient_id):
+    """Generate prep sheet for a specific patient"""
     try:
-        prep_data = generator.get_prep_sheet_template_data(patient_id)
+        patient = Patient.query.get_or_404(patient_id)
+        appointment_id = request.args.get('appointment_id', type=int)
         
-        if 'error' in prep_data:
-            flash(f'Error generating prep sheet: {prep_data["error"]}', 'error')
-            return redirect(url_for('screening.screening_list'))
+        # Generate prep sheet
+        generator = PrepSheetGenerator()
+        result = generator.generate_prep_sheet(patient_id, appointment_id)
         
-        # Log the prep sheet view
-        admin_logger.log_action(
-            user_id=current_user.id,
-            action='prep_sheet_viewed',
-            resource_type='prep_sheet',
-            resource_id=patient_id,
-            details={
-                'patient_name': patient.name,
-                'patient_mrn': patient.mrn
-            },
-            ip_address=request.remote_addr
-        )
-        
-        return render_template('prep_sheet/prep_sheet.html',
-                             patient=patient,
-                             prep_data=prep_data)
-    
-    except Exception as e:
-        logger.error(f"Error viewing prep sheet for patient {patient_id}: {str(e)}")
-        flash('An error occurred while generating the prep sheet.', 'error')
-        return redirect(url_for('screening.screening_list'))
-
-@prep_sheet_bp.route('/patient/<int:patient_id>/generate', methods=['POST'])
-@user_required
-def generate_prep_sheet(patient_id):
-    """Generate/regenerate prep sheet for a patient"""
-    patient = Patient.query.get_or_404(patient_id)
-    
-    # Get custom settings from form if provided
-    custom_settings = {}
-    
-    if request.form.get('lab_cutoff_months'):
-        custom_settings['lab_cutoff_months'] = int(request.form.get('lab_cutoff_months'))
-    
-    if request.form.get('imaging_cutoff_months'):
-        custom_settings['imaging_cutoff_months'] = int(request.form.get('imaging_cutoff_months'))
-    
-    if request.form.get('consult_cutoff_months'):
-        custom_settings['consult_cutoff_months'] = int(request.form.get('consult_cutoff_months'))
-    
-    if request.form.get('hospital_cutoff_months'):
-        custom_settings['hospital_cutoff_months'] = int(request.form.get('hospital_cutoff_months'))
-    
-    # Generate prep sheet
-    generator = PrepSheetGenerator()
-    
-    try:
-        result = generator.generate_prep_sheet(patient_id, custom_settings)
-        
-        if result.get('success'):
+        if result['success']:
             # Log the generation
-            admin_logger.log_action(
+            log_manager = AdminLogManager()
+            log_manager.log_action(
                 user_id=current_user.id,
-                action='prep_sheet_generated',
-                resource_type='prep_sheet',
-                resource_id=patient_id,
+                action='generate_prep_sheet',
+                target_type='patient',
+                target_id=patient_id,
                 details={
-                    'patient_name': patient.name,
                     'patient_mrn': patient.mrn,
-                    'custom_settings': custom_settings
-                },
-                ip_address=request.remote_addr
+                    'appointment_id': appointment_id
+                }
             )
             
-            flash('Prep sheet generated successfully!', 'success')
+            return render_template('prep_sheet/prep_sheet.html', 
+                                 **result['data'])
         else:
-            flash(f'Error generating prep sheet: {result.get("error", "Unknown error")}', 'error')
-    
+            flash(f'Error generating prep sheet: {result["error"]}', 'error')
+            return redirect(url_for('main.patient_detail', patient_id=patient_id))
+        
     except Exception as e:
-        logger.error(f"Error generating prep sheet for patient {patient_id}: {str(e)}")
-        flash('An error occurred while generating the prep sheet.', 'error')
-    
-    return redirect(url_for('prep_sheet.view_prep_sheet', patient_id=patient_id))
+        logger.error(f"Error generating prep sheet: {str(e)}")
+        flash('Error generating prep sheet', 'error')
+        return redirect(url_for('main.patient_detail', patient_id=patient_id))
 
-@prep_sheet_bp.route('/patient/<int:patient_id>/print')
-@user_required
-def print_prep_sheet(patient_id):
-    """Print-friendly version of prep sheet"""
-    patient = Patient.query.get_or_404(patient_id)
-    
-    # Generate prep sheet
-    generator = PrepSheetGenerator()
-    
+@prep_sheet_bp.route('/appointment/<int:appointment_id>')
+@login_required
+def generate_for_appointment(appointment_id):
+    """Generate prep sheet for a specific appointment"""
     try:
-        prep_data = generator.get_prep_sheet_template_data(patient_id)
+        appointment = Appointment.query.get_or_404(appointment_id)
         
-        if 'error' in prep_data:
-            flash(f'Error generating prep sheet: {prep_data["error"]}', 'error')
-            return redirect(url_for('prep_sheet.view_prep_sheet', patient_id=patient_id))
+        # Generate prep sheet
+        generator = PrepSheetGenerator()
+        result = generator.generate_prep_sheet(appointment.patient_id, appointment_id)
         
-        # Log the print action
-        admin_logger.log_action(
+        if result['success']:
+            # Log the generation
+            log_manager = AdminLogManager()
+            log_manager.log_action(
+                user_id=current_user.id,
+                action='generate_prep_sheet',
+                target_type='appointment',
+                target_id=appointment_id,
+                details={
+                    'patient_mrn': appointment.patient.mrn,
+                    'appointment_date': appointment.appointment_date.isoformat()
+                }
+            )
+            
+            return render_template('prep_sheet/prep_sheet.html', 
+                                 **result['data'])
+        else:
+            flash(f'Error generating prep sheet: {result["error"]}', 'error')
+            return redirect(url_for('main.patient_detail', patient_id=appointment.patient_id))
+        
+    except Exception as e:
+        logger.error(f"Error generating prep sheet for appointment: {str(e)}")
+        flash('Error generating prep sheet', 'error')
+        return redirect(url_for('main.dashboard'))
+
+@prep_sheet_bp.route('/batch-generate', methods=['GET', 'POST'])
+@login_required
+def batch_generate():
+    """Batch generate prep sheets for multiple patients"""
+    try:
+        if request.method == 'GET':
+            # Show batch generation interface
+            upcoming_appointments = Appointment.query.filter(
+                Appointment.appointment_date >= datetime.now(),
+                Appointment.status == 'Scheduled'
+            ).order_by(Appointment.appointment_date).limit(50).all()
+            
+            return render_template('prep_sheet/batch_generate.html',
+                                 appointments=upcoming_appointments)
+        
+        # Handle POST request
+        appointment_ids = request.form.getlist('appointment_ids')
+        if not appointment_ids:
+            flash('No appointments selected', 'error')
+            return redirect(url_for('prep_sheet.batch_generate'))
+        
+        # Generate prep sheets for selected appointments
+        generator = PrepSheetGenerator()
+        generated_count = 0
+        error_count = 0
+        results = []
+        
+        for apt_id in appointment_ids:
+            try:
+                appointment = Appointment.query.get(int(apt_id))
+                if appointment:
+                    result = generator.generate_prep_sheet(
+                        appointment.patient_id, 
+                        appointment.id
+                    )
+                    
+                    if result['success']:
+                        generated_count += 1
+                        results.append({
+                            'patient_mrn': appointment.patient.mrn,
+                            'appointment_date': appointment.appointment_date,
+                            'success': True
+                        })
+                    else:
+                        error_count += 1
+                        results.append({
+                            'patient_mrn': appointment.patient.mrn,
+                            'appointment_date': appointment.appointment_date,
+                            'success': False,
+                            'error': result['error']
+                        })
+                
+            except Exception as e:
+                error_count += 1
+                logger.error(f"Error generating prep sheet for appointment {apt_id}: {str(e)}")
+        
+        # Log the batch generation
+        log_manager = AdminLogManager()
+        log_manager.log_action(
             user_id=current_user.id,
-            action='prep_sheet_printed',
-            resource_type='prep_sheet',
-            resource_id=patient_id,
+            action='batch_generate_prep_sheets',
             details={
-                'patient_name': patient.name,
-                'patient_mrn': patient.mrn
-            },
-            ip_address=request.remote_addr
+                'generated_count': generated_count,
+                'error_count': error_count,
+                'total_requested': len(appointment_ids)
+            }
         )
         
-        return render_template('prep_sheet/prep_sheet_print.html',
-                             patient=patient,
-                             prep_data=prep_data)
-    
+        if generated_count > 0:
+            flash(f'Successfully generated {generated_count} prep sheets', 'success')
+        if error_count > 0:
+            flash(f'{error_count} prep sheets failed generation', 'warning')
+        
+        return render_template('prep_sheet/batch_results.html',
+                             results=results,
+                             generated_count=generated_count,
+                             error_count=error_count)
+        
     except Exception as e:
-        logger.error(f"Error printing prep sheet for patient {patient_id}: {str(e)}")
-        flash('An error occurred while preparing the prep sheet for printing.', 'error')
-        return redirect(url_for('prep_sheet.view_prep_sheet', patient_id=patient_id))
+        logger.error(f"Error in batch prep sheet generation: {str(e)}")
+        flash('Error in batch generation', 'error')
+        return redirect(url_for('prep_sheet.batch_generate'))
 
-@prep_sheet_bp.route('/settings')
-@user_required
-def prep_sheet_settings():
-    """Prep sheet settings configuration"""
-    settings = ChecklistSettings.query.first()
-    if not settings:
-        settings = ChecklistSettings()
-    
-    return render_template('prep_sheet/settings.html', settings=settings)
-
-@prep_sheet_bp.route('/settings/update', methods=['POST'])
-@user_required
-def update_prep_sheet_settings():
-    """Update prep sheet settings"""
-    settings = ChecklistSettings.query.first()
-    if not settings:
-        settings = ChecklistSettings()
-        from app import db
-        db.session.add(settings)
-    
+@prep_sheet_bp.route('/export/<int:patient_id>')
+@login_required
+def export_prep_sheet(patient_id):
+    """Export prep sheet in various formats"""
     try:
-        # Update settings from form
-        settings.lab_cutoff_months = int(request.form.get('lab_cutoff_months', 12))
-        settings.imaging_cutoff_months = int(request.form.get('imaging_cutoff_months', 24))
-        settings.consult_cutoff_months = int(request.form.get('consult_cutoff_months', 12))
-        settings.hospital_cutoff_months = int(request.form.get('hospital_cutoff_months', 24))
+        patient = Patient.query.get_or_404(patient_id)
+        format_type = request.args.get('format', 'json')
+        appointment_id = request.args.get('appointment_id', type=int)
         
-        # Handle default items (JSON array)
-        default_items = request.form.getlist('default_items')
-        settings.default_items = default_items
+        # Generate prep sheet data
+        generator = PrepSheetGenerator()
+        result = generator.generate_prep_sheet(patient_id, appointment_id)
         
-        from app import db
-        db.session.commit()
+        if not result['success']:
+            flash(f'Error generating prep sheet: {result["error"]}', 'error')
+            return redirect(url_for('main.patient_detail', patient_id=patient_id))
         
-        # Log the update
-        admin_logger.log_action(
-            user_id=current_user.id,
-            action='prep_sheet_settings_updated',
-            resource_type='prep_sheet_settings',
-            resource_id=settings.id,
-            details={
-                'lab_cutoff_months': settings.lab_cutoff_months,
-                'imaging_cutoff_months': settings.imaging_cutoff_months,
-                'consult_cutoff_months': settings.consult_cutoff_months,
-                'hospital_cutoff_months': settings.hospital_cutoff_months,
-                'default_items_count': len(settings.default_items) if settings.default_items else 0
-            },
-            ip_address=request.remote_addr
-        )
+        # Export in requested format
+        export_result = generator.export_prep_sheet_data(result['data'], format_type)
         
-        flash('Prep sheet settings updated successfully!', 'success')
-    
-    except ValueError as e:
-        flash('Invalid input values. Please check your entries.', 'error')
+        if export_result['success']:
+            if format_type == 'json':
+                import json
+                response = make_response(json.dumps(export_result['data'], indent=2))
+                response.headers['Content-Type'] = 'application/json'
+                response.headers['Content-Disposition'] = f'attachment; filename="{export_result["filename"]}"'
+                
+                # Log the export
+                log_manager = AdminLogManager()
+                log_manager.log_action(
+                    user_id=current_user.id,
+                    action='export_prep_sheet',
+                    target_type='patient',
+                    target_id=patient_id,
+                    details={
+                        'format': format_type,
+                        'patient_mrn': patient.mrn
+                    }
+                )
+                
+                return response
+            else:
+                flash(f'Export format {format_type} not supported yet', 'error')
+                return redirect(url_for('main.patient_detail', patient_id=patient_id))
+        else:
+            flash(f'Error exporting prep sheet: {export_result["error"]}', 'error')
+            return redirect(url_for('main.patient_detail', patient_id=patient_id))
+        
     except Exception as e:
-        logger.error(f"Error updating prep sheet settings: {str(e)}")
-        flash('An error occurred while updating settings.', 'error')
-    
-    return redirect(url_for('prep_sheet.prep_sheet_settings'))
+        logger.error(f"Error exporting prep sheet: {str(e)}")
+        flash('Error exporting prep sheet', 'error')
+        return redirect(url_for('main.patient_detail', patient_id=patient_id))
 
-# API endpoints for AJAX requests
-
-@prep_sheet_bp.route('/api/patient/<int:patient_id>/preview')
-@user_required
-def api_prep_sheet_preview(patient_id):
-    """Get prep sheet preview data via API"""
-    generator = PrepSheetGenerator()
-    
+@prep_sheet_bp.route('/api/validate/<int:patient_id>')
+@login_required
+def api_validate_prep_sheet(patient_id):
+    """API endpoint to validate prep sheet data completeness"""
     try:
-        # Get custom settings from query parameters
-        custom_settings = {}
+        patient = Patient.query.get_or_404(patient_id)
         
-        for setting in ['lab_cutoff_months', 'imaging_cutoff_months', 
-                       'consult_cutoff_months', 'hospital_cutoff_months']:
-            value = request.args.get(setting)
-            if value:
-                custom_settings[setting] = int(value)
+        # Generate prep sheet
+        generator = PrepSheetGenerator()
+        result = generator.generate_prep_sheet(patient_id)
         
-        prep_data = generator.generate_prep_sheet(patient_id, custom_settings)
-        
-        if prep_data.get('success'):
+        if result['success']:
+            # Validate the data
+            validation_result = generator.validate_prep_sheet_data(result['data'])
+            
             return jsonify({
                 'success': True,
-                'data': prep_data['prep_data']
+                'validation': validation_result,
+                'patient_mrn': patient.mrn
             })
         else:
             return jsonify({
                 'success': False,
-                'error': prep_data.get('error', 'Unknown error')
+                'error': result['error']
             })
-    
+        
     except Exception as e:
-        logger.error(f"Error generating prep sheet preview for patient {patient_id}: {str(e)}")
+        logger.error(f"Error validating prep sheet: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
         }), 500
 
-@prep_sheet_bp.route('/api/patient/<int:patient_id>/summary')
-@user_required
-def api_prep_sheet_summary(patient_id):
-    """Get prep sheet summary statistics via API"""
-    generator = PrepSheetGenerator()
-    
+@prep_sheet_bp.route('/api/preview/<int:patient_id>')
+@login_required
+def api_preview_prep_sheet(patient_id):
+    """API endpoint to get prep sheet preview data"""
     try:
-        prep_data = generator.get_prep_sheet_template_data(patient_id)
+        patient = Patient.query.get_or_404(patient_id)
+        appointment_id = request.args.get('appointment_id', type=int)
         
-        if 'error' in prep_data:
+        # Generate prep sheet
+        generator = PrepSheetGenerator()
+        result = generator.generate_prep_sheet(patient_id, appointment_id)
+        
+        if result['success']:
+            # Return preview data (subset of full prep sheet)
+            preview_data = {
+                'patient_header': result['data']['patient_header'],
+                'screening_summary': {
+                    'total_screenings': result['data']['quality_checklist']['total_screenings'],
+                    'due_count': result['data']['quality_checklist']['due_count'],
+                    'due_soon_count': result['data']['quality_checklist']['due_soon_count'],
+                    'complete_count': result['data']['quality_checklist']['complete_count']
+                },
+                'document_summary': {
+                    category: {
+                        'count': data['count'],
+                        'cutoff_months': data['cutoff_months']
+                    }
+                    for category, data in result['data']['medical_data'].items()
+                }
+            }
+            
+            return jsonify({
+                'success': True,
+                'preview': preview_data
+            })
+        else:
             return jsonify({
                 'success': False,
-                'error': prep_data['error']
+                'error': result['error']
             })
         
-        # Extract summary statistics
-        quality_checklist = prep_data.get('quality_checklist', {})
-        medical_data = prep_data.get('medical_data', {})
-        
-        summary = {
-            'total_screenings': quality_checklist.get('total_screenings', 0),
-            'compliance_rate': quality_checklist.get('compliance_rate', 0),
-            'status_counts': quality_checklist.get('status_summary', {}),
-            'document_counts': {
-                'lab': medical_data.get('lab', {}).get('count', 0),
-                'imaging': medical_data.get('imaging', {}).get('count', 0),
-                'consult': medical_data.get('consult', {}).get('count', 0),
-                'hospital': medical_data.get('hospital', {}).get('count', 0)
-            },
-            'total_documents': sum([
-                medical_data.get('lab', {}).get('count', 0),
-                medical_data.get('imaging', {}).get('count', 0),
-                medical_data.get('consult', {}).get('count', 0),
-                medical_data.get('hospital', {}).get('count', 0)
-            ])
-        }
-        
-        return jsonify({
-            'success': True,
-            'summary': summary
-        })
-    
     except Exception as e:
-        logger.error(f"Error generating prep sheet summary for patient {patient_id}: {str(e)}")
+        logger.error(f"Error generating prep sheet preview: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
         }), 500
 
-@prep_sheet_bp.route('/api/document/<int:document_id>')
-@user_required
-def api_document_details(document_id):
-    """Get document details via API"""
-    from models import MedicalDocument
-    
-    document = MedicalDocument.query.get_or_404(document_id)
-    
-    # Check if user has access to this patient's data
-    # For now, allow all authenticated users
-    
-    return jsonify({
-        'success': True,
-        'document': {
-            'id': document.id,
-            'filename': document.filename,
-            'document_type': document.document_type,
-            'date_created': document.date_created.isoformat() if document.date_created else None,
-            'ocr_confidence': document.ocr_confidence,
-            'has_ocr_text': document.ocr_text is not None,
-            'patient_name': document.patient.name if document.patient else None
-        }
-    })
-"""
-Prep sheet generation routes
-"""
-
-from flask import Blueprint, render_template, request, redirect, url_for, flash
-from flask_login import login_required
-
-prep_sheet_bp = Blueprint('prep_sheet', __name__)
-
-@prep_sheet_bp.route('/generate/<int:patient_id>')
+@prep_sheet_bp.route('/templates')
 @login_required
-def generate_prep_sheet(patient_id):
-    """Generate prep sheet for a patient"""
-    from models import Patient
-    patient = Patient.query.get_or_404(patient_id)
-    return render_template('prep_sheet/prep_sheet.html', patient=patient)
+def manage_templates():
+    """Manage prep sheet templates"""
+    try:
+        # This would implement template management
+        # For now, show a placeholder page
+        
+        templates = [
+            {
+                'name': 'Standard Prep Sheet',
+                'description': 'Default comprehensive prep sheet',
+                'active': True
+            },
+            {
+                'name': 'Cardiology Focused',
+                'description': 'Focused on cardiac screenings',
+                'active': False
+            }
+        ]
+        
+        return render_template('prep_sheet/templates.html',
+                             templates=templates)
+        
+    except Exception as e:
+        logger.error(f"Error loading prep sheet templates: {str(e)}")
+        flash('Error loading templates', 'error')
+        return render_template('error/500.html'), 500
 
-@prep_sheet_bp.route('/settings')
+@prep_sheet_bp.route('/settings', methods=['GET', 'POST'])
 @login_required
-def settings():
-    """Prep sheet settings"""
-    return render_template('settings/checklist_settings.html')
+def prep_sheet_settings():
+    """Prep sheet generation settings"""
+    try:
+        from models import ChecklistSettings
+        
+        if request.method == 'POST':
+            # Update prep sheet settings
+            settings = ChecklistSettings.query.first()
+            if not settings:
+                settings = ChecklistSettings()
+                db.session.add(settings)
+            
+            # Update cutoff settings
+            settings.lab_cutoff_months = request.form.get('lab_cutoff_months', type=int) or 12
+            settings.imaging_cutoff_months = request.form.get('imaging_cutoff_months', type=int) or 12
+            settings.consult_cutoff_months = request.form.get('consult_cutoff_months', type=int) or 12
+            settings.hospital_cutoff_months = request.form.get('hospital_cutoff_months', type=int) or 24
+            
+            db.session.commit()
+            
+            # Log the change
+            log_manager = AdminLogManager()
+            log_manager.log_action(
+                user_id=current_user.id,
+                action='update_prep_sheet_settings',
+                details={
+                    'lab_cutoff': settings.lab_cutoff_months,
+                    'imaging_cutoff': settings.imaging_cutoff_months,
+                    'consult_cutoff': settings.consult_cutoff_months,
+                    'hospital_cutoff': settings.hospital_cutoff_months
+                }
+            )
+            
+            flash('Prep sheet settings updated successfully', 'success')
+            return redirect(url_for('prep_sheet.prep_sheet_settings'))
+        
+        # GET request - show current settings
+        settings = ChecklistSettings.query.first()
+        
+        return render_template('prep_sheet/settings.html',
+                             settings=settings)
+        
+    except Exception as e:
+        logger.error(f"Error in prep sheet settings: {str(e)}")
+        flash('Error loading prep sheet settings', 'error')
+        return render_template('error/500.html'), 500

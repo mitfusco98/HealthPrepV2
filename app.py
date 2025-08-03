@@ -1,10 +1,11 @@
 import os
 import logging
-from flask import Flask, render_template
+from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_login import LoginManager
+from flask_wtf.csrf import CSRFProtect
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -28,65 +29,39 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 
 # Initialize extensions
 db.init_app(app)
+csrf = CSRfProtect(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'auth.login'
+
+# HIPAA and security configurations
+app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['WTF_CSRF_TIME_LIMIT'] = None
 
 @login_manager.user_loader
 def load_user(user_id):
     from models import User
     return User.query.get(int(user_id))
 
-# Error handlers
-@app.errorhandler(400)
-def bad_request(error):
-    return render_template('error/400.html'), 400
-
-@app.errorhandler(401)
-def unauthorized(error):
-    return render_template('error/401.html'), 401
-
-@app.errorhandler(403)
-def forbidden(error):
-    return render_template('error/403.html'), 403
-
-@app.errorhandler(404)
-def not_found(error):
-    return render_template('error/404.html'), 404
-
-@app.errorhandler(500)
-def internal_error(error):
-    return render_template('error/500.html'), 500
-
-# Add a root route
-@app.route('/')
-def index():
-    return render_template('dashboard.html')
-
 with app.app_context():
-    # Import models to create tables
+    # Import models to ensure tables are created
     import models
     db.create_all()
     
-    # Import and register all route blueprints
-    from routes.auth_routes import auth_bp
-    from routes.admin_routes import admin_bp
-    from routes.patient_routes import patient_bp
-    from routes.screening_routes import screening_bp
-    from routes.document_routes import document_bp
-    from routes.api_routes import api_bp
-    from routes.demo_routes import demo_bp
-    from routes.prep_sheet_routes import prep_sheet_bp
+    # Initialize default admin user if not exists
+    from models import User
+    from werkzeug.security import generate_password_hash
     
-    # Register blueprints
-    app.register_blueprint(auth_bp, url_prefix='/auth')
-    app.register_blueprint(admin_bp, url_prefix='/admin')
-    app.register_blueprint(patient_bp, url_prefix='/patients')
-    app.register_blueprint(screening_bp, url_prefix='/screening')
-    app.register_blueprint(document_bp, url_prefix='/documents')
-    app.register_blueprint(api_bp, url_prefix='/api')
-    app.register_blueprint(demo_bp, url_prefix='/demo')
-    app.register_blueprint(prep_sheet_bp, url_prefix='/prep-sheet')
-    
-    # Import legacy routes
-    import routes
+    admin_user = User.query.filter_by(username='admin').first()
+    if not admin_user:
+        admin_user = User(
+            username='admin',
+            email='admin@healthprep.com',
+            password_hash=generate_password_hash('admin123'),
+            role='admin',
+            is_active=True
+        )
+        db.session.add(admin_user)
+        db.session.commit()
+        logging.info("Default admin user created")

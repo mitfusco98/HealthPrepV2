@@ -1,171 +1,229 @@
 """
-Global constants and settings for the application
-Centralized configuration management
+Global application settings and constants.
+Centralized configuration management for the HealthPrep system.
 """
+
 import os
 from datetime import timedelta
 
-# Flask Configuration
-SECRET_KEY = os.environ.get("SESSION_SECRET")
-DATABASE_URL = os.environ.get("DATABASE_URL")
+# Application Information
+APP_NAME = "HealthPrep"
+APP_VERSION = "2.0.0"
+APP_DESCRIPTION = "HIPAA-compliant healthcare preparation system with FHIR integration"
 
-# FHIR Configuration
-FHIR_BASE_URL = os.environ.get("FHIR_BASE_URL", "https://fhir.epic.com/interconnect-fhir-oauth")
-FHIR_CLIENT_ID = os.environ.get("FHIR_CLIENT_ID", "")
-FHIR_CLIENT_SECRET = os.environ.get("FHIR_CLIENT_SECRET", "")
+# Environment Configuration
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
+TESTING = os.getenv('TESTING', 'False').lower() == 'true'
+SECRET_KEY = os.getenv('SESSION_SECRET')
 
-# OCR Configuration
-TESSERACT_PATH = os.environ.get("TESSERACT_PATH", "/usr/bin/tesseract")
-OCR_CONFIDENCE_THRESHOLD = float(os.environ.get("OCR_CONFIDENCE_THRESHOLD", "0.6"))
-MAX_DOCUMENT_SIZE_MB = int(os.environ.get("MAX_DOCUMENT_SIZE_MB", "50"))
+# Database Configuration
+DATABASE_URL = os.getenv('DATABASE_URL')
+DATABASE_ENGINE_OPTIONS = {
+    'pool_recycle': 300,
+    'pool_pre_ping': True,
+    'pool_size': 10,
+    'max_overflow': 20
+}
 
 # File Upload Configuration
-UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "uploads")
+UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
+MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB
 ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png', 'tiff', 'bmp'}
-MAX_CONTENT_LENGTH = MAX_DOCUMENT_SIZE_MB * 1024 * 1024  # Convert to bytes
 
-# Session Configuration
-PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
-SESSION_COOKIE_SECURE = True
-SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = 'Lax'
+# OCR Configuration
+TESSERACT_CMD = os.getenv('TESSERACT_CMD', '/usr/bin/tesseract')
+OCR_LANGUAGES = ['eng']  # English by default
+OCR_CONFIG = r'--oem 3 --psm 6'
+OCR_CONFIDENCE_THRESHOLD = 0.6
 
-# Logging Configuration
-LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
-LOG_FILE = os.environ.get("LOG_FILE", "healthprep.log")
+# FHIR Configuration
+FHIR_BASE_URL = os.getenv('FHIR_BASE_URL', 'https://fhir.epic.com/interconnect-fhir-oauth')
+FHIR_CLIENT_ID = os.getenv('FHIR_CLIENT_ID', 'health-prep-client')
+FHIR_CLIENT_SECRET = os.getenv('FHIR_CLIENT_SECRET')
+FHIR_SCOPES = [
+    'system/Patient.read',
+    'system/Observation.read',
+    'system/DiagnosticReport.read',
+    'system/DocumentReference.read',
+    'system/Condition.read',
+    'system/Procedure.read'
+]
+
+# Security Configuration
+CSRF_TIME_LIMIT = None  # No time limit for CSRF tokens
+SESSION_PERMANENT = True
+PERMANENT_SESSION_LIFETIME = timedelta(hours=8)  # 8 hour sessions
+
+# HIPAA Compliance Settings
+PHI_RETENTION_DAYS = 2555  # 7 years as per HIPAA requirements
+AUDIT_LOG_RETENTION_DAYS = 2555  # 7 years for audit logs
+REQUIRE_MFA = os.getenv('REQUIRE_MFA', 'False').lower() == 'true'
+SESSION_TIMEOUT_MINUTES = 30
+PASSWORD_MIN_LENGTH = 8
+PASSWORD_REQUIRE_SPECIAL_CHARS = True
 
 # Screening Engine Configuration
 DEFAULT_SCREENING_FREQUENCY_MONTHS = 12
-SCREENING_DUE_SOON_DAYS = 30
-MAX_DOCUMENTS_PER_SCREENING = 100
+MAX_SCREENING_AGE_YEARS = 120
+MIN_SCREENING_AGE_YEARS = 0
+FUZZY_MATCH_THRESHOLD = 0.8
+KEYWORD_MATCH_CASE_SENSITIVE = False
 
-# PHI Filtering Configuration
-PHI_FILTERING_ENABLED = os.environ.get("PHI_FILTERING_ENABLED", "true").lower() == "true"
-PRESERVE_MEDICAL_TERMS = True
+# Performance Configuration
+PAGINATION_PAGE_SIZE = 20
+MAX_PAGINATION_PAGE_SIZE = 100
+CACHE_DEFAULT_TIMEOUT = 300  # 5 minutes
+SCREENING_REFRESH_BATCH_SIZE = 100
 
-# Prep Sheet Configuration
-DEFAULT_PREP_SHEET_CUTOFFS = {
+# Email Configuration (for notifications)
+MAIL_SERVER = os.getenv('MAIL_SERVER')
+MAIL_PORT = int(os.getenv('MAIL_PORT', '587'))
+MAIL_USE_TLS = os.getenv('MAIL_USE_TLS', 'True').lower() == 'true'
+MAIL_USERNAME = os.getenv('MAIL_USERNAME')
+MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
+MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', 'noreply@healthprep.com')
+
+# Logging Configuration
+LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
+LOG_FILE = os.getenv('LOG_FILE', 'healthprep.log')
+LOG_MAX_BYTES = 10 * 1024 * 1024  # 10MB
+LOG_BACKUP_COUNT = 5
+
+# Admin Configuration
+ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', 'admin@healthprep.com')
+SYSTEM_MAINTENANCE_MODE = os.getenv('MAINTENANCE_MODE', 'False').lower() == 'true'
+BACKUP_RETENTION_DAYS = 30
+
+# Integration Configuration
+ENABLE_FHIR_INTEGRATION = os.getenv('ENABLE_FHIR_INTEGRATION', 'True').lower() == 'true'
+ENABLE_OCR_PROCESSING = os.getenv('ENABLE_OCR_PROCESSING', 'True').lower() == 'true'
+ENABLE_PHI_FILTERING = os.getenv('ENABLE_PHI_FILTERING', 'True').lower() == 'true'
+
+# Monitoring and Analytics
+ENABLE_ANALYTICS = os.getenv('ENABLE_ANALYTICS', 'True').lower() == 'true'
+ANALYTICS_RETENTION_DAYS = 365
+PERFORMANCE_MONITORING = os.getenv('PERFORMANCE_MONITORING', 'True').lower() == 'true'
+
+# Default System Values
+DEFAULT_CUTOFF_SETTINGS = {
     'labs': 12,      # months
     'imaging': 24,   # months
     'consults': 12,  # months
-    'hospital': 12   # months
+    'hospital': 24   # months
 }
 
-# Performance Configuration
-BATCH_PROCESSING_SIZE = int(os.environ.get("BATCH_PROCESSING_SIZE", "50"))
-OCR_PROCESSING_TIMEOUT = int(os.environ.get("OCR_PROCESSING_TIMEOUT", "300"))  # seconds
-DATABASE_POOL_SIZE = int(os.environ.get("DATABASE_POOL_SIZE", "10"))
+DEFAULT_PHI_SETTINGS = {
+    'phi_filtering_enabled': True,
+    'filter_ssn': True,
+    'filter_phone': True,
+    'filter_mrn': True,
+    'filter_insurance': True,
+    'filter_addresses': True,
+    'filter_names': True,
+    'filter_dates': True
+}
 
-# HIPAA Compliance Settings
-AUDIT_LOG_RETENTION_DAYS = int(os.environ.get("AUDIT_LOG_RETENTION_DAYS", "2555"))  # 7 years
-SESSION_TIMEOUT_MINUTES = int(os.environ.get("SESSION_TIMEOUT_MINUTES", "480"))  # 8 hours
-PASSWORD_MIN_LENGTH = int(os.environ.get("PASSWORD_MIN_LENGTH", "8"))
+# Medical Terminology Configuration
+MEDICAL_SPECIALTIES = [
+    'Cardiology',
+    'Endocrinology',
+    'Gastroenterology',
+    'Hematology/Oncology',
+    'Nephrology',
+    'Neurology',
+    'Orthopedics',
+    'Pulmonology',
+    'Radiology',
+    'Urology',
+    'Gynecology',
+    'Dermatology',
+    'Ophthalmology',
+    'Psychiatry',
+    'General Surgery'
+]
 
-# Medical Terminology Settings
-FUZZY_MATCH_THRESHOLD = float(os.environ.get("FUZZY_MATCH_THRESHOLD", "0.8"))
-MEDICAL_ALIAS_EXPANSION = True
+DOCUMENT_TYPES = [
+    'lab',
+    'imaging',
+    'consult',
+    'hospital',
+    'procedure',
+    'other'
+]
 
-# Admin Dashboard Settings
-DASHBOARD_REFRESH_INTERVAL = int(os.environ.get("DASHBOARD_REFRESH_INTERVAL", "300"))  # seconds
-MAX_RECENT_LOGS = int(os.environ.get("MAX_RECENT_LOGS", "100"))
-
-# Email Configuration (if needed for notifications)
-MAIL_SERVER = os.environ.get("MAIL_SERVER")
-MAIL_PORT = int(os.environ.get("MAIL_PORT", "587"))
-MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS", "true").lower() == "true"
-MAIL_USERNAME = os.environ.get("MAIL_USERNAME")
-MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
+SCREENING_STATUSES = [
+    'Complete',
+    'Due',
+    'Due Soon'
+]
 
 # API Rate Limiting
-API_RATE_LIMIT = os.environ.get("API_RATE_LIMIT", "100/hour")
-FHIR_API_TIMEOUT = int(os.environ.get("FHIR_API_TIMEOUT", "30"))  # seconds
-
-# Development/Production Settings
-DEBUG = os.environ.get("FLASK_ENV") == "development"
-TESTING = os.environ.get("TESTING", "false").lower() == "true"
+API_RATE_LIMIT = os.getenv('API_RATE_LIMIT', '100/hour')
+API_BURST_LIMIT = os.getenv('API_BURST_LIMIT', '10/minute')
 
 # Feature Flags
-ENABLE_FHIR_INTEGRATION = os.environ.get("ENABLE_FHIR_INTEGRATION", "true").lower() == "true"
-ENABLE_OCR_PROCESSING = os.environ.get("ENABLE_OCR_PROCESSING", "true").lower() == "true"
-ENABLE_PHI_FILTERING = PHI_FILTERING_ENABLED
-ENABLE_ANALYTICS = os.environ.get("ENABLE_ANALYTICS", "true").lower() == "true"
-
-# Security Headers
-SECURITY_HEADERS = {
-    'X-Content-Type-Options': 'nosniff',
-    'X-Frame-Options': 'DENY',
-    'X-XSS-Protection': '1; mode=block',
-    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com; font-src 'self' cdnjs.cloudflare.com; img-src 'self' data:;"
+FEATURES = {
+    'advanced_analytics': os.getenv('FEATURE_ADVANCED_ANALYTICS', 'True').lower() == 'true',
+    'bulk_import': os.getenv('FEATURE_BULK_IMPORT', 'True').lower() == 'true',
+    'automated_scheduling': os.getenv('FEATURE_AUTOMATED_SCHEDULING', 'False').lower() == 'true',
+    'patient_portal': os.getenv('FEATURE_PATIENT_PORTAL', 'False').lower() == 'true',
+    'mobile_app': os.getenv('FEATURE_MOBILE_APP', 'False').lower() == 'true',
+    'ai_recommendations': os.getenv('FEATURE_AI_RECOMMENDATIONS', 'False').lower() == 'true'
 }
 
-# Cache Settings
-CACHE_TYPE = os.environ.get("CACHE_TYPE", "simple")
-CACHE_DEFAULT_TIMEOUT = int(os.environ.get("CACHE_DEFAULT_TIMEOUT", "300"))
+# Timezone Configuration
+DEFAULT_TIMEZONE = os.getenv('DEFAULT_TIMEZONE', 'UTC')
+DISPLAY_TIMEZONE = os.getenv('DISPLAY_TIMEZONE', 'America/New_York')
 
-# Backup and Recovery
-AUTO_BACKUP_ENABLED = os.environ.get("AUTO_BACKUP_ENABLED", "false").lower() == "true"
-BACKUP_RETENTION_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "30"))
+# Backup Configuration
+BACKUP_ENABLED = os.getenv('BACKUP_ENABLED', 'True').lower() == 'true'
+BACKUP_SCHEDULE = os.getenv('BACKUP_SCHEDULE', 'daily')  # daily, weekly, monthly
+BACKUP_LOCATION = os.getenv('BACKUP_LOCATION', 'backups/')
 
-def get_database_config():
-    """Get database configuration based on environment"""
+def get_config_summary():
+    """Get a summary of current configuration for admin dashboard"""
     return {
-        'SQLALCHEMY_DATABASE_URI': DATABASE_URL,
-        'SQLALCHEMY_ENGINE_OPTIONS': {
-            'pool_size': DATABASE_POOL_SIZE,
-            'pool_recycle': 300,
-            'pool_pre_ping': True,
-            'pool_timeout': 20,
-            'max_overflow': 20
+        'app_info': {
+            'name': APP_NAME,
+            'version': APP_VERSION,
+            'debug_mode': DEBUG,
+            'testing_mode': TESTING
         },
-        'SQLALCHEMY_TRACK_MODIFICATIONS': False
-    }
-
-def get_security_config():
-    """Get security configuration"""
-    return {
-        'SECRET_KEY': SECRET_KEY,
-        'SESSION_COOKIE_SECURE': SESSION_COOKIE_SECURE,
-        'SESSION_COOKIE_HTTPONLY': SESSION_COOKIE_HTTPONLY,
-        'SESSION_COOKIE_SAMESITE': SESSION_COOKIE_SAMESITE,
-        'PERMANENT_SESSION_LIFETIME': PERMANENT_SESSION_LIFETIME,
-        'PASSWORD_MIN_LENGTH': PASSWORD_MIN_LENGTH,
-        'SESSION_TIMEOUT_MINUTES': SESSION_TIMEOUT_MINUTES
-    }
-
-def get_ocr_config():
-    """Get OCR processing configuration"""
-    return {
-        'TESSERACT_PATH': TESSERACT_PATH,
-        'CONFIDENCE_THRESHOLD': OCR_CONFIDENCE_THRESHOLD,
-        'MAX_DOCUMENT_SIZE_MB': MAX_DOCUMENT_SIZE_MB,
-        'PROCESSING_TIMEOUT': OCR_PROCESSING_TIMEOUT,
-        'ALLOWED_EXTENSIONS': ALLOWED_EXTENSIONS
-    }
-
-def get_fhir_config():
-    """Get FHIR integration configuration"""
-    return {
-        'BASE_URL': FHIR_BASE_URL,
-        'CLIENT_ID': FHIR_CLIENT_ID,
-        'CLIENT_SECRET': FHIR_CLIENT_SECRET,
-        'API_TIMEOUT': FHIR_API_TIMEOUT,
-        'ENABLED': ENABLE_FHIR_INTEGRATION
+        'integrations': {
+            'fhir_enabled': ENABLE_FHIR_INTEGRATION,
+            'ocr_enabled': ENABLE_OCR_PROCESSING,
+            'phi_filtering_enabled': ENABLE_PHI_FILTERING
+        },
+        'security': {
+            'session_timeout_minutes': SESSION_TIMEOUT_MINUTES,
+            'password_min_length': PASSWORD_MIN_LENGTH,
+            'mfa_required': REQUIRE_MFA
+        },
+        'features': FEATURES,
+        'limits': {
+            'max_file_size_mb': MAX_CONTENT_LENGTH // (1024 * 1024),
+            'pagination_size': PAGINATION_PAGE_SIZE,
+            'session_lifetime_hours': PERMANENT_SESSION_LIFETIME.total_seconds() // 3600
+        }
     }
 
 def validate_required_settings():
     """Validate that all required settings are present"""
     required_settings = [
-        ('SECRET_KEY', SECRET_KEY),
-        ('DATABASE_URL', DATABASE_URL)
+        'SESSION_SECRET',
+        'DATABASE_URL'
     ]
     
     missing_settings = []
-    for setting_name, setting_value in required_settings:
-        if not setting_value:
-            missing_settings.append(setting_name)
+    for setting in required_settings:
+        if not os.getenv(setting):
+            missing_settings.append(setting)
     
     if missing_settings:
         raise ValueError(f"Missing required environment variables: {', '.join(missing_settings)}")
     
     return True
+
+# Validate settings on import
+if not TESTING:
+    validate_required_settings()
