@@ -61,8 +61,8 @@ def register_blueprints(app):
         from flask import render_template
         try:
             return render_template('base.html')
-        except:
-            return '<h1>HealthPrep Medical Screening System</h1><p>Please log in to continue.</p>'
+        except Exception as e:
+            return f'<h1>HealthPrep Medical Screening System</h1><p>Please log in to continue.</p><p>Debug: {str(e)}</p>'
     
     # Add /home route that redirects to index
     @app.route('/home')
