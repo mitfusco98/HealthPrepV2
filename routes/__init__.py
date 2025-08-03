@@ -63,3 +63,9 @@ def register_blueprints(app):
             return render_template('base.html')
         except:
             return '<h1>HealthPrep Medical Screening System</h1><p>Please log in to continue.</p>'
+    
+    # Add /home route that redirects to index
+    @app.route('/home')
+    def home():
+        from flask import redirect, url_for
+        return redirect(url_for('index'))
