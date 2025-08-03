@@ -429,7 +429,6 @@ def logs():
     from models import AdminLog
     logs = AdminLog.query.order_by(AdminLog.timestamp.desc()).limit(100).all()
     return render_template('admin/logs.html', logs=logs)
-</admin_bp_route>
 
 @admin_bp.route('/ocr')
 @login_required
