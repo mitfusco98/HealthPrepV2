@@ -16,19 +16,26 @@ def reset_database():
             # Force drop all tables with CASCADE to handle foreign key constraints
             print("Dropping all tables with CASCADE...")
             
-            # Get all table names first
-            inspector = db.inspect(db.engine)
-            table_names = inspector.get_table_names()
-            
-            if table_names:
-                # Drop each table with CASCADE
-                with db.engine.connect() as conn:
+            # Use a more aggressive approach - drop the entire schema and recreate
+            with db.engine.connect() as conn:
+                # Get all table names with proper quoting for reserved words
+                result = conn.execute(db.text("""
+                    SELECT tablename FROM pg_tables 
+                    WHERE schemaname = 'public'
+                """))
+                table_names = [row[0] for row in result]
+                
+                if table_names:
+                    # Drop all tables at once with CASCADE
                     for table_name in table_names:
                         try:
-                            conn.execute(db.text(f"DROP TABLE IF EXISTS {table_name} CASCADE"))
+                            # Quote table names that might be reserved words
+                            quoted_name = f'"{table_name}"' if table_name in ['user', 'order', 'group'] else table_name
+                            conn.execute(db.text(f"DROP TABLE IF EXISTS {quoted_name} CASCADE"))
                             print(f"Dropped table: {table_name}")
                         except Exception as e:
                             print(f"Warning: Could not drop table {table_name}: {e}")
+                    
                     conn.commit()
             
             # Create all tables fresh
@@ -64,7 +71,9 @@ def reset_database():
                     'min_age': 40,
                     'max_age': 75,
                     'frequency_number': 12,
-                    'frequency_unit': 'months'
+                    'frequency_unit': 'months',
+                    'trigger_conditions': None,
+                    'is_active': True
                 },
                 {
                     'name': 'Colonoscopy',
@@ -74,7 +83,9 @@ def reset_database():
                     'min_age': 50,
                     'max_age': 75,
                     'frequency_number': 10,
-                    'frequency_unit': 'years'
+                    'frequency_unit': 'years',
+                    'trigger_conditions': None,
+                    'is_active': True
                 },
                 {
                     'name': 'Pap Smear',
@@ -84,7 +95,9 @@ def reset_database():
                     'min_age': 21,
                     'max_age': 65,
                     'frequency_number': 3,
-                    'frequency_unit': 'years'
+                    'frequency_unit': 'years',
+                    'trigger_conditions': None,
+                    'is_active': True
                 }
             ]
             
