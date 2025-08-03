@@ -1,3 +1,4 @@
+# Applying the changes to correct the import errors and references to non-existent classes.
 """
 Admin dashboard routes and functionality
 """
@@ -6,7 +7,7 @@ from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 import logging
 
-from models import User, AdminLog, OCRProcessingStats, PHIFilterSettings, ChecklistSettings
+from models import User, AdminLog, PHISettings, ChecklistSettings
 from admin.logs import AdminLogManager
 from admin.analytics import AdminAnalytics
 from admin.config import AdminConfigManager
@@ -34,21 +35,21 @@ def dashboard():
     try:
         analytics = AdminAnalytics()
         log_manager = AdminLogManager()
-        
+
         # Get dashboard statistics
         dashboard_stats = analytics.get_dashboard_stats()
-        
+
         # Get recent activity
         recent_logs = log_manager.get_recent_logs(limit=10)
-        
+
         # Get system health indicators
         system_health = analytics.get_system_health()
-        
+
         return render_template('admin/dashboard.html',
                              stats=dashboard_stats,
                              recent_logs=recent_logs,
                              system_health=system_health)
-        
+
     except Exception as e:
         logger.error(f"Error in admin dashboard: {str(e)}")
         flash('Error loading admin dashboard', 'error')
@@ -61,14 +62,14 @@ def logs():
     """Admin logs viewer"""
     try:
         log_manager = AdminLogManager()
-        
+
         # Get filter parameters
         page = request.args.get('page', 1, type=int)
         event_type = request.args.get('event_type', '')
         user_id = request.args.get('user_id', type=int)
         start_date = request.args.get('start_date', '')
         end_date = request.args.get('end_date', '')
-        
+
         # Build filters
         filters = {}
         if event_type:
@@ -79,14 +80,14 @@ def logs():
             filters['start_date'] = datetime.strptime(start_date, '%Y-%m-%d')
         if end_date:
             filters['end_date'] = datetime.strptime(end_date, '%Y-%m-%d')
-        
+
         # Get filtered logs
         logs_result = log_manager.get_filtered_logs(filters, page=page, per_page=50)
-        
+
         # Get filter options
         users = User.query.all()
         event_types = log_manager.get_event_types()
-        
+
         return render_template('admin/logs.html',
                              logs=logs_result['logs'],
                              pagination=logs_result['pagination'],
@@ -98,7 +99,7 @@ def logs():
                                  'start_date': start_date,
                                  'end_date': end_date
                              })
-        
+
     except Exception as e:
         logger.error(f"Error in admin logs: {str(e)}")
         flash('Error loading admin logs', 'error')
@@ -111,19 +112,19 @@ def export_logs():
     """Export admin logs"""
     try:
         log_manager = AdminLogManager()
-        
+
         # Get export parameters
         format_type = request.args.get('format', 'json')
         days = request.args.get('days', 30, type=int)
-        
+
         result = log_manager.export_logs(days=days, format_type=format_type)
-        
+
         if result['success']:
             return jsonify(result)
         else:
             flash(f'Error exporting logs: {result["error"]}', 'error')
             return redirect(url_for('admin.logs'))
-        
+
     except Exception as e:
         logger.error(f"Error exporting logs: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -135,17 +136,27 @@ def ocr_dashboard():
     """OCR processing dashboard"""
     try:
         monitor = OCRMonitor()
-        
+
         # Get OCR dashboard data
         dashboard_data = monitor.get_processing_dashboard()
-        
+
         # Get low confidence documents
         low_confidence_docs = monitor.get_low_confidence_documents()
-        
+
+        # Get basic OCR statistics
+        total_docs = db.session.execute(db.text("SELECT COUNT(*) FROM medical_documents")).scalar() or 0
+        processed_docs = db.session.execute(db.text("SELECT COUNT(*) FROM medical_documents WHERE ocr_processed = true")).scalar() or 0
+        ocr_stats = {
+            'processed_documents': processed_docs,
+            'pending_documents': total_docs - processed_docs,
+            'average_confidence': 0.8  # placeholder
+        }
+
         return render_template('admin/ocr_dashboard.html',
                              dashboard=dashboard_data,
-                             low_confidence_docs=low_confidence_docs)
-        
+                             low_confidence_docs=low_confidence_docs,
+                             ocr_stats=ocr_stats)
+
     except Exception as e:
         logger.error(f"Error in OCR dashboard: {str(e)}")
         flash('Error loading OCR dashboard', 'error')
@@ -158,7 +169,7 @@ def phi_settings():
     """PHI filter settings management"""
     try:
         phi_filter = PHIFilter()
-        
+
         if request.method == 'POST':
             # Update PHI settings
             new_settings = {
@@ -171,12 +182,12 @@ def phi_settings():
                 'filter_names': request.form.get('filter_names') == 'on',
                 'filter_dates': request.form.get('filter_dates') == 'on'
             }
-            
+
             result = phi_filter.update_settings(new_settings)
-            
+
             if result['success']:
                 flash('PHI filter settings updated successfully', 'success')
-                
+
                 # Log the change
                 log_manager = AdminLogManager()
                 log_manager.log_action(
@@ -186,17 +197,17 @@ def phi_settings():
                 )
             else:
                 flash(f'Error updating settings: {result["error"]}', 'error')
-            
+
             return redirect(url_for('admin.phi_settings'))
-        
+
         # GET request - show current settings
         current_settings = phi_filter.settings
         processing_stats = phi_filter.get_processing_statistics()
-        
+
         return render_template('admin/phi_settings.html',
                              settings=current_settings,
                              stats=processing_stats)
-        
+
     except Exception as e:
         logger.error(f"Error in PHI settings: {str(e)}")
         flash('Error loading PHI settings', 'error')
@@ -209,18 +220,18 @@ def phi_test():
     """Test PHI filter with sample text"""
     try:
         phi_filter = PHIFilter()
-        
+
         test_text = request.form.get('test_text', '')
         if not test_text:
             return jsonify({'success': False, 'error': 'No test text provided'})
-        
+
         result = phi_filter.test_filter(test_text)
-        
+
         return jsonify({
             'success': True,
             'result': result
         })
-        
+
     except Exception as e:
         logger.error(f"Error testing PHI filter: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
@@ -232,9 +243,9 @@ def users():
     """User management"""
     try:
         users = User.query.order_by(User.username).all()
-        
+
         return render_template('admin/users.html', users=users)
-        
+
     except Exception as e:
         logger.error(f"Error loading users: {str(e)}")
         flash('Error loading users', 'error')
@@ -247,15 +258,15 @@ def toggle_user_status(user_id):
     """Toggle user active status"""
     try:
         user = User.query.get_or_404(user_id)
-        
+
         # Don't allow disabling own account
         if user.id == current_user.id:
             flash('Cannot disable your own account', 'error')
             return redirect(url_for('admin.users'))
-        
+
         user.is_active = not user.is_active
         db.session.commit()
-        
+
         # Log the action
         log_manager = AdminLogManager()
         log_manager.log_action(
@@ -265,12 +276,12 @@ def toggle_user_status(user_id):
             target_id=user_id,
             details={'new_status': user.is_active}
         )
-        
+
         status = 'activated' if user.is_active else 'deactivated'
         flash(f'User {user.username} {status} successfully', 'success')
-        
+
         return redirect(url_for('admin.users'))
-        
+
     except Exception as e:
         logger.error(f"Error toggling user status: {str(e)}")
         flash('Error updating user status', 'error')
@@ -283,7 +294,7 @@ def settings():
     """System settings management"""
     try:
         config_manager = AdminConfigManager()
-        
+
         if request.method == 'POST':
             # Update system settings
             settings_data = {
@@ -292,12 +303,12 @@ def settings():
                 'consult_cutoff_months': request.form.get('consult_cutoff_months', type=int),
                 'hospital_cutoff_months': request.form.get('hospital_cutoff_months', type=int)
             }
-            
+
             result = config_manager.update_checklist_settings(settings_data)
-            
+
             if result['success']:
                 flash('Settings updated successfully', 'success')
-                
+
                 # Log the change
                 log_manager = AdminLogManager()
                 log_manager.log_action(
@@ -307,15 +318,15 @@ def settings():
                 )
             else:
                 flash(f'Error updating settings: {result["error"]}', 'error')
-            
+
             return redirect(url_for('admin.settings'))
-        
+
         # GET request - show current settings
         current_settings = config_manager.get_current_settings()
-        
+
         return render_template('admin/settings.html',
                              settings=current_settings)
-        
+
     except Exception as e:
         logger.error(f"Error in admin settings: {str(e)}")
         flash('Error loading settings', 'error')
@@ -328,13 +339,13 @@ def analytics():
     """Advanced analytics dashboard"""
     try:
         analytics = AdminAnalytics()
-        
+
         # Get comprehensive analytics
         analytics_data = analytics.get_comprehensive_analytics()
-        
+
         return render_template('admin/analytics.html',
                              analytics=analytics_data)
-        
+
     except Exception as e:
         logger.error(f"Error in admin analytics: {str(e)}")
         flash('Error loading analytics', 'error')
@@ -347,11 +358,11 @@ def system_health():
     """System health monitoring"""
     try:
         analytics = AdminAnalytics()
-        
+
         health_data = analytics.get_detailed_system_health()
-        
+
         return jsonify(health_data)
-        
+
     except Exception as e:
         logger.error(f"Error getting system health: {str(e)}")
         return jsonify({'error': str(e)}), 500
@@ -364,11 +375,12 @@ def backup_data():
     try:
         # This would implement a backup strategy
         # For now, return a placeholder response
-        
+
         flash('Backup functionality not yet implemented', 'info')
         return redirect(url_for('admin.dashboard'))
-        
+
     except Exception as e:
         logger.error(f"Error creating backup: {str(e)}")
         flash('Error creating backup', 'error')
         return redirect(url_for('admin.dashboard'))
+`
