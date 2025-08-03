@@ -144,6 +144,64 @@ class AdminLogManager:
             self.logger.error(f"Error getting admin logs: {str(e)}")
             return {'logs': [], 'pagination': {}}
     
+    def get_recent_logs(self, limit: int = 10) -> List[Any]:
+        """Get recent admin logs for dashboard display"""
+        try:
+            logs = AdminLog.query.order_by(AdminLog.timestamp.desc()).limit(limit).all()
+            return logs
+        except Exception as e:
+            self.logger.error(f"Error getting recent logs: {str(e)}")
+            return []
+    
+    def get_filtered_logs(self, filters: Optional[Dict[str, Any]] = None, 
+                         page: int = 1, per_page: int = 50) -> Dict[str, Any]:
+        """Get filtered logs - alias for get_logs method"""
+        return self.get_logs(page=page, per_page=per_page, filters=filters)
+    
+    def get_event_types(self) -> List[str]:
+        """Get unique event types for filter dropdown"""
+        try:
+            actions = db.session.query(AdminLog.action).distinct().all()
+            return [action[0] for action in actions if action[0]]
+        except Exception as e:
+            self.logger.error(f"Error getting event types: {str(e)}")
+            return []
+    
+    def export_logs(self, days: int = 30, format_type: str = 'json') -> Dict[str, Any]:
+        """Export logs for a specified number of days"""
+        try:
+            start_date = datetime.utcnow() - timedelta(days=days)
+            end_date = datetime.utcnow()
+            
+            export_data = self.export_logs(start_date=start_date, end_date=end_date, format=format_type)
+            
+            return {
+                'success': True,
+                'data': export_data,
+                'format': format_type
+            }
+        except Exception as e:
+            self.logger.error(f"Error exporting logs: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def log_action(self, user_id: Optional[int], action: str, 
+                   target_type: Optional[str] = None, target_id: Optional[int] = None,
+                   details: Optional[Dict] = None) -> bool:
+        """Log an action - wrapper for log_admin_action function"""
+        detail_str = None
+        if details:
+            detail_str = str(details)
+        if target_type and target_id:
+            if detail_str:
+                detail_str += f" | Target: {target_type} ID {target_id}"
+            else:
+                detail_str = f"Target: {target_type} ID {target_id}"
+        
+        return log_admin_action(user_id, action, detail_str)
+    
     def get_log_statistics(self) -> Dict[str, Any]:
         """Get statistics about admin logs"""
         try:
