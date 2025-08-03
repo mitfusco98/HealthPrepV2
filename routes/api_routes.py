@@ -13,7 +13,7 @@ from core.engine import ScreeningEngine
 from core.matcher import FuzzyMatcher
 from core.criteria import EligibilityCriteria
 from ocr.processor import OCRProcessor
-from ocr.phi_filter import phi_filter
+from ocr.phi_filter import PHIFilter
 from prep_sheet.generator import PrepSheetGenerator
 from app import db
 
@@ -269,10 +269,14 @@ def test_phi_filter_api():
         test_text = data['text']
         enabled_filters = data.get('enabled_filters', None)
         
+        phi_filter = PHIFilter()
+        
         if enabled_filters:
-            filtered_text, report = phi_filter.filter_phi(test_text, enabled_filters)
+            filtered_text = phi_filter.filter_phi(test_text)
+            report = phi_filter.test_phi_filter(test_text)
         else:
-            filtered_text, report = phi_filter.filter_phi(test_text)
+            filtered_text = phi_filter.filter_phi(test_text)
+            report = phi_filter.test_phi_filter(test_text)
         
         return jsonify({
             'success': True,
