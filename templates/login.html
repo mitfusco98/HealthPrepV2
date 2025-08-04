@@ -1,194 +1,97 @@
-<!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HealthPrep - Login</title>
-    
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    
-    <style>
-        body {
-            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .login-container {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            padding: 2rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            width: 100%;
-            max-width: 400px;
-        }
-        
-        .logo {
-            font-size: 3rem;
-            color: #e74c3c;
-            margin-bottom: 1rem;
-        }
-        
-        .form-control {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: white;
-        }
-        
-        .form-control:focus {
-            background: rgba(255, 255, 255, 0.15);
-            border-color: #3498db;
-            box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
-            color: white;
-        }
-        
-        .form-control::placeholder {
-            color: rgba(255, 255, 255, 0.7);
-        }
-        
-        .btn-primary {
-            background: linear-gradient(45deg, #3498db, #2980b9);
-            border: none;
-            padding: 0.75rem 2rem;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-        }
-        
-        .btn-primary:hover {
-            background: linear-gradient(45deg, #2980b9, #1f5f8b);
-            transform: translateY(-2px);
-        }
-        
-        .security-notice {
-            background: rgba(231, 76, 60, 0.1);
-            border: 1px solid rgba(231, 76, 60, 0.3);
-            border-radius: 10px;
-            padding: 1rem;
-            margin-top: 1.5rem;
-        }
-        
-        .hipaa-badge {
-            background: rgba(46, 204, 113, 0.2);
-            border: 1px solid rgba(46, 204, 113, 0.4);
-            border-radius: 20px;
-            padding: 0.5rem 1rem;
-            display: inline-block;
-            margin-top: 1rem;
-            font-size: 0.875rem;
-        }
-    </style>
-</head>
-<body>
-    <div class="login-container text-center">
-        <!-- Logo and Title -->
-        <div class="mb-4">
-            <i class="fas fa-heartbeat logo"></i>
-            <h2 class="fw-bold text-white mb-0">HealthPrep</h2>
-            <p class="text-light opacity-75">Healthcare Preparation System</p>
+{% extends 'base_user.html' %}
+
+{% block title %}Login - HealthPrep{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="card shadow">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <i class="fas fa-heartbeat fa-3x text-primary mb-3"></i>
+                    <h2 class="card-title">HealthPrep</h2>
+                    <p class="text-muted">Healthcare Visit Preparation System</p>
+                </div>
+
+                <form method="POST" action="{{ url_for('login') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <div class="mb-3">
+                        <label for="username" class="form-label">
+                            <i class="fas fa-user me-2"></i>Username
+                        </label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="username" 
+                               name="username" 
+                               required 
+                               autocomplete="username"
+                               placeholder="Enter your username">
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="password" class="form-label">
+                            <i class="fas fa-lock me-2"></i>Password
+                        </label>
+                        <input type="password" 
+                               class="form-control" 
+                               id="password" 
+                               name="password" 
+                               required 
+                               autocomplete="current-password"
+                               placeholder="Enter your password">
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                        </button>
+                    </div>
+                </form>
+
+                <hr class="my-4">
+
+                <div class="text-center">
+                    <small class="text-muted">
+                        <i class="fas fa-shield-alt me-1"></i>
+                        HIPAA Compliant Secure Access
+                    </small>
+                </div>
+            </div>
         </div>
-
-        <!-- Flash messages -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
-                        <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'info-circle' }} me-2"></i>
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <!-- Login Form -->
-        <form method="POST" class="text-start">
-            {{ form.hidden_tag() }}
-            
-            <div class="mb-3">
-                <label for="username" class="form-label text-light">
-                    <i class="fas fa-user me-2"></i>Username
-                </label>
-                {{ form.username(class="form-control", placeholder="Enter your username", required=true) }}
-                {% if form.username.errors %}
-                    <div class="text-danger small mt-1">
-                        {% for error in form.username.errors %}
-                            <div>{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            </div>
-            
-            <div class="mb-4">
-                <label for="password" class="form-label text-light">
-                    <i class="fas fa-lock me-2"></i>Password
-                </label>
-                {{ form.password(class="form-control", placeholder="Enter your password", required=true) }}
-                {% if form.password.errors %}
-                    <div class="text-danger small mt-1">
-                        {% for error in form.password.errors %}
-                            <div>{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            </div>
-            
-            <div class="d-grid">
-                <button type="submit" class="btn btn-primary btn-lg">
-                    <i class="fas fa-sign-in-alt me-2"></i>Sign In
-                </button>
-            </div>
-        </form>
 
         <!-- Security Notice -->
-        <div class="security-notice">
-            <h6 class="text-warning mb-2">
-                <i class="fas fa-shield-alt me-2"></i>Security Notice
-            </h6>
-            <p class="small text-light mb-0">
-                This system contains Protected Health Information (PHI). 
-                Unauthorized access is prohibited and monitored. All activities are logged.
-            </p>
-        </div>
-
-        <!-- HIPAA Compliance Badge -->
-        <div class="hipaa-badge">
-            <i class="fas fa-check-circle text-success me-2"></i>
-            <span class="text-success fw-bold">HIPAA Compliant</span>
-        </div>
-
-        <!-- System Info -->
-        <div class="mt-3">
-            <small class="text-light opacity-50">
-                HealthPrep v2.0 | Secure Healthcare Platform
-            </small>
+        <div class="card mt-3 border-info">
+            <div class="card-body">
+                <h6 class="card-title text-info">
+                    <i class="fas fa-info-circle me-2"></i>Security Notice
+                </h6>
+                <ul class="list-unstyled mb-0 small">
+                    <li><i class="fas fa-check text-success me-2"></i>All sessions are encrypted</li>
+                    <li><i class="fas fa-check text-success me-2"></i>PHI data is protected</li>
+                    <li><i class="fas fa-check text-success me-2"></i>Activity is audited</li>
+                    <li><i class="fas fa-check text-success me-2"></i>Auto-logout after inactivity</li>
+                </ul>
+            </div>
         </div>
     </div>
+</div>
+{% endblock %}
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Focus on username field
+    document.getElementById('username').focus();
     
-    <script>
-        // Auto-focus username field
-        document.addEventListener('DOMContentLoaded', function() {
-            const usernameField = document.getElementById('username');
-            if (usernameField) {
-                usernameField.focus();
-            }
-        });
-
-        // Add loading state to form submission
-        document.querySelector('form').addEventListener('submit', function() {
-            const submitBtn = this.querySelector('button[type="submit"]');
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Signing In...';
-            submitBtn.disabled = true;
-        });
-    </script>
-</body>
-</html>
+    // Show loading state on form submission
+    const form = document.querySelector('form');
+    const submitBtn = document.querySelector('button[type="submit"]');
+    
+    form.addEventListener('submit', function() {
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Signing In...';
+        submitBtn.disabled = true;
+    });
+});
+</script>
+{% endblock %}

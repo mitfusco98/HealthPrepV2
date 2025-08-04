@@ -1,67 +1,77 @@
-{% extends 'admin/base.html' %}
+{% extends 'base_admin.html' %}
 
-{% block title %}HealthPrep Admin - OCR Monitor{% endblock %}
+{% block title %}OCR Dashboard - HealthPrep Admin{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1><i class="fas fa-file-text me-2"></i>OCR Processing Monitor</h1>
-    <div>
-        <button class="btn btn-outline-primary btn-sm" onclick="location.reload()">
-            <i class="fas fa-sync me-1"></i>Refresh
-        </button>
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-eye me-2"></i>OCR Processing Dashboard
+        </h1>
     </div>
 </div>
 
-<!-- OCR Statistics Overview -->
+<!-- OCR Statistics Row -->
 <div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card stat-card">
-            <div class="card-body text-center">
-                <div class="d-flex align-items-center justify-content-between">
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card text-white bg-primary h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
                     <div>
-                        <h3 class="mb-0">{{ stats.total_documents }}</h3>
-                        <small>Total Documents</small>
+                        <h4 class="card-title">{{ stats.total_documents }}</h4>
+                        <p class="card-text">Total Documents</p>
                     </div>
-                    <i class="fas fa-file stat-icon"></i>
+                    <div class="align-self-center">
+                        <i class="fas fa-file-alt fa-2x opacity-75"></i>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card stat-card">
-            <div class="card-body text-center">
-                <div class="d-flex align-items-center justify-content-between">
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card text-white bg-success h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
                     <div>
-                        <h3 class="mb-0 text-success">{{ stats.processed_documents }}</h3>
-                        <small>Processed</small>
+                        <h4 class="card-title">{{ stats.processed_documents }}</h4>
+                        <p class="card-text">OCR Processed</p>
                     </div>
-                    <i class="fas fa-check-circle stat-icon"></i>
+                    <div class="align-self-center">
+                        <i class="fas fa-check-circle fa-2x opacity-75"></i>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card stat-card">
-            <div class="card-body text-center">
-                <div class="d-flex align-items-center justify-content-between">
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card text-white bg-warning h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
                     <div>
-                        <h3 class="mb-0 text-warning">{{ stats.pending_documents }}</h3>
-                        <small>Pending</small>
+                        <h4 class="card-title">{{ stats.pending_processing }}</h4>
+                        <p class="card-text">Pending Queue</p>
                     </div>
-                    <i class="fas fa-clock stat-icon"></i>
+                    <div class="align-self-center">
+                        <i class="fas fa-clock fa-2x opacity-75"></i>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card stat-card">
-            <div class="card-body text-center">
-                <div class="d-flex align-items-center justify-content-between">
+    
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card text-white bg-info h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
                     <div>
-                        <h3 class="mb-0">{{ "%.1f"|format(stats.success_rate) }}%</h3>
-                        <small>Success Rate</small>
+                        <h4 class="card-title">{{ ((stats.processed_documents / stats.total_documents * 100) if stats.total_documents > 0 else 0)|round(1) }}%</h4>
+                        <p class="card-text">Processing Rate</p>
                     </div>
-                    <i class="fas fa-chart-line stat-icon"></i>
+                    <div class="align-self-center">
+                        <i class="fas fa-percentage fa-2x opacity-75"></i>
+                    </div>
                 </div>
             </div>
         </div>
@@ -70,205 +80,243 @@
 
 <!-- Confidence Distribution -->
 <div class="row mb-4">
-    <div class="col-md-12">
+    <div class="col-lg-8">
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-chart-bar me-2"></i>
-                    OCR Confidence Distribution
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>OCR Confidence Distribution
                 </h5>
             </div>
             <div class="card-body">
-                <div class="row">
-                    <div class="col-md-3">
-                        <div class="text-center p-3 border rounded confidence-high">
-                            <h4 class="mb-1">{{ stats.high_confidence }}</h4>
-                            <small class="fw-bold">High Confidence (≥80%)</small>
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <h3 class="text-success">{{ stats.high_confidence }}</h3>
+                            <p class="text-muted mb-1">High Confidence</p>
+                            <small class="text-muted">≥80% accuracy</small>
+                            <div class="progress mt-2" style="height: 8px;">
+                                <div class="progress-bar bg-success" 
+                                     style="width: {{ (stats.high_confidence / stats.processed_documents * 100) if stats.processed_documents > 0 else 0 }}%">
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="text-center p-3 border rounded confidence-medium">
-                            <h4 class="mb-1">{{ stats.medium_confidence }}</h4>
-                            <small class="fw-bold">Medium Confidence (60-79%)</small>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <h3 class="text-warning">{{ stats.medium_confidence }}</h3>
+                            <p class="text-muted mb-1">Medium Confidence</p>
+                            <small class="text-muted">60-79% accuracy</small>
+                            <div class="progress mt-2" style="height: 8px;">
+                                <div class="progress-bar bg-warning" 
+                                     style="width: {{ (stats.medium_confidence / stats.processed_documents * 100) if stats.processed_documents > 0 else 0 }}%">
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="text-center p-3 border rounded confidence-low">
-                            <h4 class="mb-1">{{ stats.low_confidence }}</h4>
-                            <small class="fw-bold">Low Confidence (<60%)</small>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="text-center p-3 border rounded bg-secondary text-white">
-                            <h4 class="mb-1">{{ stats.total_documents - stats.processed_documents }}</h4>
-                            <small class="fw-bold">Unprocessed</small>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <h3 class="text-danger">{{ stats.low_confidence }}</h3>
+                            <p class="text-muted mb-1">Low Confidence</p>
+                            <small class="text-muted">&lt;60% accuracy</small>
+                            <div class="progress mt-2" style="height: 8px;">
+                                <div class="progress-bar bg-danger" 
+                                     style="width: {{ (stats.low_confidence / stats.processed_documents * 100) if stats.processed_documents > 0 else 0 }}%">
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
-
-<!-- Processing Queue Status -->
-{% if stats.pending_documents > 0 %}
-<div class="row mb-4">
-    <div class="col-md-12">
-        <div class="alert alert-info">
-            <i class="fas fa-info-circle me-2"></i>
-            <strong>Processing Queue:</strong> {{ stats.pending_documents }} documents are currently awaiting OCR processing.
-            Processing typically completes within a few minutes of upload.
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-cog me-1"></i>OCR Settings
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label small">Confidence Threshold</label>
+                    <div class="d-flex align-items-center">
+                        <input type="range" class="form-range flex-grow-1 me-2" 
+                               min="0.5" max="1.0" step="0.1" value="0.6" 
+                               id="confidenceThreshold">
+                        <span class="badge bg-secondary" id="thresholdValue">60%</span>
+                    </div>
+                    <small class="text-muted">Documents below this threshold may need review</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label small">Auto-retry Failed</label>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="autoRetry" checked>
+                        <label class="form-check-label" for="autoRetry">
+                            Enabled
+                        </label>
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary btn-sm w-100">
+                    <i class="fas fa-save me-1"></i>Save Settings
+                </button>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-1"></i>Processing Info
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled small mb-0">
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Tesseract OCR Engine Active
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-shield-alt text-success me-2"></i>
+                        PHI Filtering Enabled
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-clock text-info me-2"></i>
+                        Average Processing: 15-30 seconds
+                    </li>
+                    <li class="mb-0">
+                        <i class="fas fa-file-pdf text-info me-2"></i>
+                        Supports: PDF, PNG, JPG, TIFF
+                    </li>
+                </ul>
+            </div>
         </div>
     </div>
 </div>
-{% endif %}
 
-<!-- Recent OCR Activity -->
-<div class="row mb-4">
-    <div class="col-md-12">
+<!-- Recent Documents -->
+<div class="row">
+    <div class="col-12">
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-history me-2"></i>
-                    Recent OCR Activity (Last 20 Documents)
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-history me-2"></i>Recent Document Processing (Last 7 Days)
                 </h5>
             </div>
             <div class="card-body">
-                {% if recent_documents %}
+                {% if stats.recent_documents %}
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead>
                                 <tr>
                                     <th>Document</th>
                                     <th>Patient</th>
-                                    <th>Upload Date</th>
+                                    <th>Type</th>
+                                    <th>Processed</th>
                                     <th>Confidence</th>
                                     <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for doc in recent_documents %}
-                                <tr>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <i class="fas fa-file-text me-2 text-muted"></i>
-                                            <div>
-                                                <div class="fw-bold">{{ doc.original_filename|truncate(30) }}</div>
-                                                <small class="text-muted">{{ doc.document_type or 'Unknown type' }}</small>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-secondary">
-                                            {{ doc.patient.full_name if doc.patient else 'Unknown' }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <small class="text-muted">
-                                            {{ doc.upload_date.strftime('%m/%d/%Y %H:%M') if doc.upload_date else 'Unknown' }}
-                                        </small>
-                                    </td>
-                                    <td>
-                                        {% if doc.ocr_confidence is not none %}
-                                            <span class="badge {{ get_confidence_class(doc.ocr_confidence) }}">
-                                                {{ "%.1f"|format(doc.ocr_confidence * 100) }}%
-                                            </span>
-                                        {% else %}
-                                            <span class="badge bg-secondary">Pending</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if doc.ocr_processed %}
-                                            <i class="fas fa-check-circle text-success" title="Processed"></i>
-                                        {% else %}
-                                            <i class="fas fa-clock text-warning" title="Processing"></i>
-                                        {% endif %}
-                                    </td>
-                                </tr>
+                                {% for doc in stats.recent_documents %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ doc.filename }}</strong>
+                                        </td>
+                                        <td>{{ doc.patient.full_name }}</td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ doc.document_type or 'Other' }}</span>
+                                        </td>
+                                        <td>
+                                            <small>{{ doc.created_at.strftime('%m/%d/%Y %H:%M') }}</small>
+                                        </td>
+                                        <td>
+                                            {% if doc.ocr_confidence %}
+                                                <span class="badge confidence-{{ doc.confidence_level }}">
+                                                    {{ (doc.ocr_confidence * 100)|round(1) }}%
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-light text-dark">Pending</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if doc.ocr_text %}
+                                                {% if doc.phi_filtered %}
+                                                    <i class="fas fa-check-circle text-success" title="Processed & PHI Filtered"></i>
+                                                {% else %}
+                                                    <i class="fas fa-exclamation-triangle text-warning" title="Processed but not PHI filtered"></i>
+                                                {% endif %}
+                                            {% else %}
+                                                <i class="fas fa-clock text-muted" title="Processing..."></i>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                     </div>
                 {% else %}
                     <div class="text-center text-muted py-4">
-                        <i class="fas fa-file-text fa-2x mb-2"></i>
-                        <p>No recent OCR activity to display</p>
+                        <i class="fas fa-file-alt fa-3x mb-3"></i>
+                        <h5>No recent documents</h5>
+                        <p>Documents will appear here once processing begins</p>
                     </div>
                 {% endif %}
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
-<!-- OCR Performance Alerts -->
-{% if stats.success_rate < 90 %}
-<div class="alert alert-warning">
-    <i class="fas fa-exclamation-triangle me-2"></i>
-    <strong>OCR Performance Alert:</strong> Success rate ({{ "%.1f"|format(stats.success_rate) }}%) is below the recommended 90%. 
-    Consider reviewing document upload quality or OCR processing settings.
-</div>
-{% endif %}
-
-{% if stats.pending_documents > 100 %}
-<div class="alert alert-warning">
-    <i class="fas fa-exclamation-triangle me-2"></i>
-    <strong>Processing Backlog Alert:</strong> {{ stats.pending_documents }} documents are pending processing. 
-    This may indicate a performance issue with the OCR service.
-</div>
-{% endif %}
-
-<!-- OCR System Information -->
-<div class="row">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-info-circle me-2"></i>
-                    OCR System Information
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6>Processing Configuration</h6>
-                        <ul class="list-unstyled">
-                            <li><strong>Engine:</strong> Tesseract OCR</li>
-                            <li><strong>Confidence Threshold:</strong> 60%</li>
-                            <li><strong>PHI Filtering:</strong> Enabled</li>
-                            <li><strong>Auto Processing:</strong> On Upload</li>
-                        </ul>
-                    </div>
-                    <div class="col-md-6">
-                        <h6>Supported Formats</h6>
-                        <ul class="list-unstyled">
-                            <li><i class="fas fa-file-pdf text-danger me-2"></i>PDF Documents</li>
-                            <li><i class="fas fa-file-image text-primary me-2"></i>JPEG, PNG Images</li>
-                            <li><i class="fas fa-file-image text-info me-2"></i>TIFF, BMP Files</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
+{% block extra_css %}
 <style>
 .confidence-high {
-    background-color: rgba(25, 135, 84, 0.1);
-    border-color: #198754 !important;
-    color: #198754;
+    background-color: #28a745 !important;
+    color: white !important;
 }
 
 .confidence-medium {
-    background-color: rgba(255, 193, 7, 0.1);
-    border-color: #ffc107 !important;
-    color: #664d03;
+    background-color: #ffc107 !important;
+    color: #212529 !important;
 }
 
 .confidence-low {
-    background-color: rgba(220, 53, 69, 0.1);
-    border-color: #dc3545 !important;
-    color: #dc3545;
+    background-color: #dc3545 !important;
+    color: white !important;
 }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Confidence threshold slider
+    const slider = document.getElementById('confidenceThreshold');
+    const valueDisplay = document.getElementById('thresholdValue');
+    
+    slider.addEventListener('input', function() {
+        const value = Math.round(this.value * 100);
+        valueDisplay.textContent = value + '%';
+    });
+    
+    // Auto-refresh every 30 seconds
+    setInterval(function() {
+        location.reload();
+    }, 30000);
+    
+    // Real-time processing updates (would connect to WebSocket in production)
+    function updateProcessingStats() {
+        // This would fetch real-time stats via AJAX
+        // For now, just update the UI to show it's working
+        const processingElements = document.querySelectorAll('.fa-clock');
+        processingElements.forEach(el => {
+            el.classList.add('fa-spin');
+        });
+    }
+    
+    // Simulate processing updates
+    setTimeout(updateProcessingStats, 5000);
+});
+</script>
 {% endblock %}

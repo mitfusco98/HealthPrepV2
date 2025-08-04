@@ -1,598 +1,649 @@
-/**
- * Screening Performance Optimization
- * Handles performance optimization for screening workflows
+/*!
+ * Screening Performance JavaScript - Health-Prep v2
+ * Performance optimization and UI enhancements for screening workflows
  */
 
+/**
+ * ScreeningPerformance - Optimizes screening list performance and user experience
+ */
 class ScreeningPerformance {
     constructor() {
-        this.debounceTimers = {};
+        this.initialized = false;
+        this.observerCallbacks = new Map();
+        this.debounceTimers = new Map();
         this.cache = new Map();
-        this.initializePerformanceMonitoring();
-        this.initializeOptimizations();
+        this.virtualScrollEnabled = false;
+        
+        this.init();
     }
 
-    initializePerformanceMonitoring() {
-        // Monitor page load performance
-        if (window.performance && window.performance.timing) {
-            window.addEventListener('load', () => {
-                setTimeout(() => {
-                    this.logPerformanceMetrics();
-                }, 100);
+    /**
+     * Initialize performance optimizations
+     */
+    init() {
+        if (this.initialized) return;
+        
+        this.setupIntersectionObserver();
+        this.setupVirtualScrolling();
+        this.setupLazyLoading();
+        this.setupDebouncedActions();
+        this.setupKeyboardShortcuts();
+        this.setupTooltipOptimization();
+        this.setupTableOptimizations();
+        
+        this.initialized = true;
+        console.log('ScreeningPerformance initialized');
+    }
+
+    /**
+     * Setup intersection observer for lazy loading
+     */
+    setupIntersectionObserver() {
+        if (!window.IntersectionObserver) return;
+
+        this.intersectionObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const element = entry.target;
+                    const callback = this.observerCallbacks.get(element);
+                    if (callback) {
+                        callback(element);
+                        this.intersectionObserver.unobserve(element);
+                        this.observerCallbacks.delete(element);
+                    }
+                }
             });
+        }, {
+            rootMargin: '50px',
+            threshold: 0.1
+        });
+    }
+
+    /**
+     * Setup virtual scrolling for large datasets
+     */
+    setupVirtualScrolling() {
+        const largeTable = document.querySelector('.screening-table tbody');
+        if (!largeTable) return;
+
+        const rows = largeTable.querySelectorAll('tr');
+        if (rows.length > 100) {
+            this.enableVirtualScrolling(largeTable, rows);
         }
-
-        // Monitor user interactions
-        this.initializeInteractionMonitoring();
     }
 
-    initializeOptimizations() {
-        // Optimize table rendering
-        this.optimizeTableRendering();
+    /**
+     * Enable virtual scrolling for large tables
+     */
+    enableVirtualScrolling(container, rows) {
+        this.virtualScrollEnabled = true;
+        const rowHeight = 60; // Approximate row height
+        const viewportHeight = window.innerHeight;
+        const visibleRows = Math.ceil(viewportHeight / rowHeight) + 5; // Add buffer
         
-        // Optimize form interactions
-        this.optimizeFormInteractions();
+        let scrollTop = 0;
+        let startIndex = 0;
         
-        // Optimize API calls
-        this.optimizeApiCalls();
-        
-        // Initialize lazy loading
-        this.initializeLazyLoading();
-        
-        // Optimize memory usage
-        this.initializeMemoryOptimization();
-    }
-
-    logPerformanceMetrics() {
-        const timing = window.performance.timing;
-        const metrics = {
-            loadTime: timing.loadEventEnd - timing.navigationStart,
-            domReady: timing.domContentLoadedEventEnd - timing.navigationStart,
-            networkTime: timing.responseEnd - timing.fetchStart,
-            renderTime: timing.loadEventEnd - timing.domContentLoadedEventStart
-        };
-
-        console.log('Page Performance Metrics:', metrics);
-
-        // Send to analytics if needed
-        this.sendPerformanceMetrics(metrics);
-    }
-
-    initializeInteractionMonitoring() {
-        // Monitor button clicks
-        document.addEventListener('click', (e) => {
-            if (e.target.matches('button, .btn')) {
-                const startTime = performance.now();
+        const updateVisibleRows = () => {
+            const newStartIndex = Math.floor(scrollTop / rowHeight);
+            const endIndex = Math.min(newStartIndex + visibleRows, rows.length);
+            
+            if (newStartIndex !== startIndex) {
+                startIndex = newStartIndex;
                 
-                requestAnimationFrame(() => {
-                    const endTime = performance.now();
-                    const responseTime = endTime - startTime;
-                    
-                    if (responseTime > 100) {
-                        console.warn(`Slow button response: ${responseTime}ms`);
+                // Hide all rows
+                rows.forEach((row, index) => {
+                    if (index < startIndex || index >= endIndex) {
+                        row.style.display = 'none';
+                    } else {
+                        row.style.display = '';
                     }
                 });
             }
-        });
-
-        // Monitor form submissions
-        document.addEventListener('submit', (e) => {
-            const form = e.target;
-            const startTime = performance.now();
-            
-            form.setAttribute('data-submit-time', startTime);
-        });
-    }
-
-    optimizeTableRendering() {
-        const tables = document.querySelectorAll('.table-large, .screening-table');
-        
-        tables.forEach(table => {
-            this.implementVirtualScrolling(table);
-            this.optimizeTableSorting(table);
-        });
-    }
-
-    implementVirtualScrolling(table) {
-        const tbody = table.querySelector('tbody');
-        if (!tbody || tbody.children.length < 50) return;
-
-        const rows = Array.from(tbody.children);
-        const rowHeight = 60; // Approximate row height
-        const visibleRows = Math.ceil(window.innerHeight / rowHeight) + 5;
-        
-        let startIndex = 0;
-        let endIndex = Math.min(visibleRows, rows.length);
-
-        const renderVisibleRows = () => {
-            // Hide all rows
-            rows.forEach((row, index) => {
-                if (index >= startIndex && index < endIndex) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
-            });
         };
 
-        const handleScroll = this.debounce(() => {
-            const scrollTop = window.pageYOffset;
-            const newStartIndex = Math.floor(scrollTop / rowHeight);
-            const newEndIndex = Math.min(newStartIndex + visibleRows, rows.length);
+        // Throttled scroll handler
+        const scrollHandler = this.throttle(() => {
+            scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            updateVisibleRows();
+        }, 16); // 60fps
 
-            if (newStartIndex !== startIndex || newEndIndex !== endIndex) {
-                startIndex = newStartIndex;
-                endIndex = newEndIndex;
-                renderVisibleRows();
-            }
-        }, 16); // ~60fps
-
-        window.addEventListener('scroll', handleScroll);
-        renderVisibleRows();
+        window.addEventListener('scroll', scrollHandler);
+        updateVisibleRows(); // Initial render
     }
 
-    optimizeTableSorting(table) {
-        const headers = table.querySelectorAll('th[data-sortable]');
-        
-        headers.forEach(header => {
-            header.addEventListener('click', this.debounce((e) => {
-                this.performTableSort(table, header);
-            }, 150));
+    /**
+     * Setup lazy loading for heavy content
+     */
+    setupLazyLoading() {
+        // Lazy load document previews
+        const documentPreviews = document.querySelectorAll('[data-lazy-content]');
+        documentPreviews.forEach(element => {
+            this.observeElement(element, this.loadLazyContent.bind(this));
+        });
+
+        // Lazy load screening keywords
+        const keywordContainers = document.querySelectorAll('.keywords-badges-container');
+        keywordContainers.forEach(container => {
+            this.observeElement(container, this.loadScreeningKeywords.bind(this));
         });
     }
 
-    performTableSort(table, header) {
-        const tbody = table.querySelector('tbody');
-        const rows = Array.from(tbody.querySelectorAll('tr'));
-        const column = header.getAttribute('data-column');
-        const currentSort = header.getAttribute('data-sort') || 'asc';
-        const newSort = currentSort === 'asc' ? 'desc' : 'asc';
+    /**
+     * Observe element with intersection observer
+     */
+    observeElement(element, callback) {
+        if (!this.intersectionObserver) return;
+        
+        this.observerCallbacks.set(element, callback);
+        this.intersectionObserver.observe(element);
+    }
+
+    /**
+     * Load lazy content
+     */
+    loadLazyContent(element) {
+        const contentType = element.dataset.lazyContent;
+        const contentId = element.dataset.contentId;
+        
+        switch (contentType) {
+            case 'document-preview':
+                this.loadDocumentPreview(element, contentId);
+                break;
+            case 'screening-details':
+                this.loadScreeningDetails(element, contentId);
+                break;
+            default:
+                console.warn('Unknown lazy content type:', contentType);
+        }
+    }
+
+    /**
+     * Load screening keywords with caching
+     */
+    loadScreeningKeywords(container) {
+        const screeningTypeId = container.id.replace('keywords-display-', '');
+        const cacheKey = `keywords-${screeningTypeId}`;
+        
+        // Check cache first
+        if (this.cache.has(cacheKey)) {
+            this.displayKeywords(container, this.cache.get(cacheKey));
+            return;
+        }
 
         // Show loading state
-        table.classList.add('table-loading');
+        container.innerHTML = '<div class="loading-inline"><span class="loading-spinner loading-spinner-sm me-2"></span>Loading keywords...</div>';
 
-        // Use requestAnimationFrame for smooth sorting
-        requestAnimationFrame(() => {
-            const sortedRows = this.sortTableRows(rows, column, newSort);
-            
-            // Update DOM efficiently
-            const fragment = document.createDocumentFragment();
-            sortedRows.forEach(row => fragment.appendChild(row));
-            tbody.appendChild(fragment);
-
-            // Update sort indicators
-            headers.forEach(h => {
-                h.removeAttribute('data-sort');
-                h.classList.remove('sort-asc', 'sort-desc');
+        fetch(`/api/screening-keywords/${screeningTypeId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.keywords) {
+                    this.cache.set(cacheKey, data.keywords);
+                    this.displayKeywords(container, data.keywords);
+                } else {
+                    container.innerHTML = '<small class="text-muted">No keywords defined</small>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading keywords:', error);
+                container.innerHTML = '<small class="text-danger">Error loading keywords</small>';
             });
-            
-            header.setAttribute('data-sort', newSort);
-            header.classList.add(`sort-${newSort}`);
+    }
 
-            // Remove loading state
-            table.classList.remove('table-loading');
+    /**
+     * Display keywords as badges
+     */
+    displayKeywords(container, keywords) {
+        if (!keywords || keywords.length === 0) {
+            container.innerHTML = '<small class="text-muted">No keywords defined</small>';
+            return;
+        }
+
+        const keywordsHtml = keywords.map(keyword => 
+            `<span class="badge bg-primary me-1 mb-1">${this.escapeHtml(keyword)}</span>`
+        ).join('');
+
+        container.innerHTML = keywordsHtml;
+    }
+
+    /**
+     * Setup debounced actions
+     */
+    setupDebouncedActions() {
+        // Debounced search
+        const searchInputs = document.querySelectorAll('[data-search-target]');
+        searchInputs.forEach(input => {
+            input.addEventListener('input', (e) => {
+                this.debounce('search', () => {
+                    this.performSearch(e.target);
+                }, 300);
+            });
+        });
+
+        // Debounced filter updates
+        const filterSelects = document.querySelectorAll('[data-filter-target]');
+        filterSelects.forEach(select => {
+            select.addEventListener('change', (e) => {
+                this.debounce('filter', () => {
+                    this.performFilter(e.target);
+                }, 150);
+            });
         });
     }
 
-    sortTableRows(rows, column, direction) {
-        return rows.sort((a, b) => {
-            const aValue = this.getCellValue(a, column);
-            const bValue = this.getCellValue(b, column);
+    /**
+     * Debounce function execution
+     */
+    debounce(key, callback, delay) {
+        if (this.debounceTimers.has(key)) {
+            clearTimeout(this.debounceTimers.get(key));
+        }
+
+        const timer = setTimeout(() => {
+            callback();
+            this.debounceTimers.delete(key);
+        }, delay);
+
+        this.debounceTimers.set(key, timer);
+    }
+
+    /**
+     * Throttle function execution
+     */
+    throttle(callback, delay) {
+        let lastCall = 0;
+        return function(...args) {
+            const now = Date.now();
+            if (now - lastCall >= delay) {
+                lastCall = now;
+                callback.apply(this, args);
+            }
+        };
+    }
+
+    /**
+     * Perform search with highlighting
+     */
+    performSearch(input) {
+        const searchTerm = input.value.toLowerCase().trim();
+        const targetSelector = input.dataset.searchTarget;
+        const searchableElements = document.querySelectorAll(targetSelector);
+
+        searchableElements.forEach(element => {
+            const text = element.textContent.toLowerCase();
+            const shouldShow = !searchTerm || text.includes(searchTerm);
             
-            let comparison = 0;
-            
-            if (this.isNumeric(aValue) && this.isNumeric(bValue)) {
-                comparison = parseFloat(aValue) - parseFloat(bValue);
-            } else if (this.isDate(aValue) && this.isDate(bValue)) {
-                comparison = new Date(aValue) - new Date(bValue);
+            // Show/hide element
+            const row = element.closest('tr');
+            if (row) {
+                row.style.display = shouldShow ? '' : 'none';
+                
+                // Add highlighting
+                if (shouldShow && searchTerm) {
+                    this.highlightSearchTerm(element, searchTerm);
+                } else {
+                    this.removeHighlighting(element);
+                }
+            }
+        });
+
+        // Update result count
+        this.updateSearchResultCount(searchableElements, searchTerm);
+    }
+
+    /**
+     * Highlight search terms
+     */
+    highlightSearchTerm(element, searchTerm) {
+        const originalText = element.dataset.originalText || element.textContent;
+        if (!element.dataset.originalText) {
+            element.dataset.originalText = originalText;
+        }
+
+        const regex = new RegExp(`(${this.escapeRegex(searchTerm)})`, 'gi');
+        const highlightedText = originalText.replace(regex, '<mark class="medical-search-highlight">$1</mark>');
+        element.innerHTML = highlightedText;
+    }
+
+    /**
+     * Remove search highlighting
+     */
+    removeHighlighting(element) {
+        if (element.dataset.originalText) {
+            element.textContent = element.dataset.originalText;
+            delete element.dataset.originalText;
+        }
+    }
+
+    /**
+     * Update search result count
+     */
+    updateSearchResultCount(elements, searchTerm) {
+        const visibleCount = Array.from(elements).filter(el => {
+            const row = el.closest('tr');
+            return row && row.style.display !== 'none';
+        }).length;
+
+        const countElement = document.querySelector('.search-result-count');
+        if (countElement) {
+            if (searchTerm) {
+                countElement.textContent = `Showing ${visibleCount} results`;
+                countElement.style.display = 'block';
             } else {
-                comparison = aValue.localeCompare(bValue);
+                countElement.style.display = 'none';
             }
+        }
+    }
+
+    /**
+     * Perform filtering
+     */
+    performFilter(select) {
+        const filterValue = select.value.toLowerCase();
+        const targetSelector = select.dataset.filterTarget;
+        const filterableElements = document.querySelectorAll(targetSelector);
+
+        filterableElements.forEach(element => {
+            const filterData = element.dataset.filterValue || element.textContent.toLowerCase();
+            const shouldShow = !filterValue || filterData.includes(filterValue);
             
-            return direction === 'desc' ? -comparison : comparison;
+            const row = element.closest('tr');
+            if (row) {
+                row.style.display = shouldShow ? '' : 'none';
+            }
         });
     }
 
-    getCellValue(row, column) {
-        const cell = row.querySelector(`[data-column="${column}"]`) || 
-                    row.children[parseInt(column)] ||
-                    row.querySelector(`td:nth-child(${parseInt(column) + 1})`);
-        
-        return cell ? (cell.getAttribute('data-value') || cell.textContent.trim()) : '';
-    }
+    /**
+     * Setup keyboard shortcuts
+     */
+    setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Ctrl/Cmd + K for search
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                const searchInput = document.querySelector('[data-search-target]');
+                if (searchInput) {
+                    searchInput.focus();
+                    searchInput.select();
+                }
+            }
 
-    isNumeric(value) {
-        return !isNaN(value) && !isNaN(parseFloat(value));
-    }
+            // Escape to clear search
+            if (e.key === 'Escape') {
+                const searchInput = document.querySelector('[data-search-target]');
+                if (searchInput && searchInput.value) {
+                    searchInput.value = '';
+                    this.performSearch(searchInput);
+                    searchInput.blur();
+                }
+            }
 
-    isDate(value) {
-        return !isNaN(Date.parse(value));
-    }
-
-    optimizeFormInteractions() {
-        // Optimize form validation
-        const forms = document.querySelectorAll('form');
-        
-        forms.forEach(form => {
-            this.optimizeFormValidation(form);
-            this.implementFormCaching(form);
+            // Ctrl/Cmd + R for refresh
+            if ((e.ctrlKey || e.metaKey) && e.key === 'r' && e.shiftKey) {
+                e.preventDefault();
+                const refreshButton = document.querySelector('[data-modal-action="refresh-screenings"]');
+                if (refreshButton) {
+                    refreshButton.click();
+                }
+            }
         });
     }
 
-    optimizeFormValidation(form) {
-        const inputs = form.querySelectorAll('input, select, textarea');
-        
-        inputs.forEach(input => {
-            // Debounce validation
-            input.addEventListener('input', this.debounce((e) => {
-                this.validateFieldOptimized(input);
-            }, 300));
+    /**
+     * Setup tooltip optimization
+     */
+    setupTooltipOptimization() {
+        // Use event delegation for tooltips
+        document.addEventListener('mouseenter', (e) => {
+            if (e.target.matches('[data-bs-toggle="tooltip"]')) {
+                this.showTooltip(e.target);
+            }
+        }, true);
 
-            // Immediate validation on blur
-            input.addEventListener('blur', (e) => {
-                this.validateFieldOptimized(input);
-            });
+        document.addEventListener('mouseleave', (e) => {
+            if (e.target.matches('[data-bs-toggle="tooltip"]')) {
+                this.hideTooltip(e.target);
+            }
+        }, true);
+    }
+
+    /**
+     * Show tooltip with delay
+     */
+    showTooltip(element) {
+        this.debounce(`tooltip-${element.dataset.bsOriginalTitle}`, () => {
+            if (!element.tooltip) {
+                element.tooltip = new bootstrap.Tooltip(element);
+            }
+            element.tooltip.show();
+        }, 300);
+    }
+
+    /**
+     * Hide tooltip
+     */
+    hideTooltip(element) {
+        if (element.tooltip) {
+            element.tooltip.hide();
+        }
+    }
+
+    /**
+     * Setup table optimizations
+     */
+    setupTableOptimizations() {
+        const tables = document.querySelectorAll('.table-responsive table');
+        tables.forEach(table => {
+            this.optimizeTable(table);
         });
     }
 
-    validateFieldOptimized(field) {
-        // Use cached validation rules
-        const cacheKey = `validation-${field.name}`;
-        let rules = this.cache.get(cacheKey);
+    /**
+     * Optimize table performance
+     */
+    optimizeTable(table) {
+        // Add table-layout: fixed for better performance
+        table.style.tableLayout = 'fixed';
         
-        if (!rules) {
-            rules = this.extractValidationRules(field);
-            this.cache.set(cacheKey, rules);
+        // Optimize column widths
+        const headers = table.querySelectorAll('th');
+        headers.forEach((header, index) => {
+            if (!header.style.width) {
+                switch (index) {
+                    case 0: // Patient name
+                        header.style.width = '20%';
+                        break;
+                    case 1: // Screening type
+                        header.style.width = '25%';
+                        break;
+                    case 2: // Status
+                        header.style.width = '15%';
+                        break;
+                    case 3: // Last completed
+                        header.style.width = '15%';
+                        break;
+                    case 4: // Frequency
+                        header.style.width = '12%';
+                        break;
+                    case 5: // Matched documents
+                        header.style.width = '13%';
+                        break;
+                }
+            }
+        });
+
+        // Add row hover optimization
+        this.setupRowHoverOptimization(table);
+    }
+
+    /**
+     * Setup optimized row hover effects
+     */
+    setupRowHoverOptimization(table) {
+        const tbody = table.querySelector('tbody');
+        if (!tbody) return;
+
+        tbody.addEventListener('mouseenter', (e) => {
+            if (e.target.matches('tr')) {
+                e.target.classList.add('table-hover-active');
+            }
+        }, true);
+
+        tbody.addEventListener('mouseleave', (e) => {
+            if (e.target.matches('tr')) {
+                e.target.classList.remove('table-hover-active');
+            }
+        }, true);
+    }
+
+    /**
+     * Load document preview
+     */
+    loadDocumentPreview(element, documentId) {
+        const cacheKey = `document-preview-${documentId}`;
+        
+        if (this.cache.has(cacheKey)) {
+            element.innerHTML = this.cache.get(cacheKey);
+            return;
         }
 
-        return this.applyValidationRules(field, rules);
+        element.innerHTML = '<div class="loading-inline"><span class="loading-spinner loading-spinner-sm me-2"></span>Loading preview...</div>';
+
+        // Simulate document preview loading
+        setTimeout(() => {
+            const previewHtml = `
+                <div class="medical-document-preview">
+                    <div class="document-preview-header">
+                        <strong>Document Preview</strong>
+                        <span class="badge confidence-high ms-2">High Confidence</span>
+                    </div>
+                    <div class="document-preview-content">
+                        Preview content would be loaded here...
+                    </div>
+                </div>
+            `;
+            
+            this.cache.set(cacheKey, previewHtml);
+            element.innerHTML = previewHtml;
+        }, 500);
     }
 
-    extractValidationRules(field) {
+    /**
+     * Load screening details
+     */
+    loadScreeningDetails(element, screeningId) {
+        const cacheKey = `screening-details-${screeningId}`;
+        
+        if (this.cache.has(cacheKey)) {
+            element.innerHTML = this.cache.get(cacheKey);
+            return;
+        }
+
+        element.innerHTML = '<div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text"></div>';
+
+        // Simulate screening details loading
+        setTimeout(() => {
+            const detailsHtml = `
+                <div class="screening-details">
+                    <div class="row">
+                        <div class="col-6">
+                            <small class="text-muted">Status</small>
+                            <div class="fw-bold">Due Soon</div>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Due Date</small>
+                            <div class="fw-bold">2024-03-15</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            this.cache.set(cacheKey, detailsHtml);
+            element.innerHTML = detailsHtml;
+        }, 300);
+    }
+
+    /**
+     * Clear cache
+     */
+    clearCache(pattern = null) {
+        if (pattern) {
+            for (const key of this.cache.keys()) {
+                if (key.includes(pattern)) {
+                    this.cache.delete(key);
+                }
+            }
+        } else {
+            this.cache.clear();
+        }
+    }
+
+    /**
+     * Get performance metrics
+     */
+    getPerformanceMetrics() {
         return {
-            required: field.hasAttribute('required'),
-            pattern: field.getAttribute('pattern'),
-            min: field.getAttribute('min'),
-            max: field.getAttribute('max'),
-            minLength: field.getAttribute('minlength'),
-            maxLength: field.getAttribute('maxlength'),
-            type: field.getAttribute('type')
+            cacheSize: this.cache.size,
+            observedElements: this.observerCallbacks.size,
+            virtualScrollEnabled: this.virtualScrollEnabled,
+            debounceTimers: this.debounceTimers.size
         };
     }
 
-    applyValidationRules(field, rules) {
-        const value = field.value.trim();
-        
-        // Quick validation checks
-        if (rules.required && !value) {
-            this.setFieldError(field, 'This field is required');
-            return false;
-        }
-        
-        if (value && rules.pattern && !new RegExp(rules.pattern).test(value)) {
-            this.setFieldError(field, 'Invalid format');
-            return false;
-        }
-        
-        // Clear errors if validation passes
-        this.clearFieldError(field);
-        return true;
+    /**
+     * Utility: Escape HTML
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
-    implementFormCaching(form) {
-        const cacheKey = `form-data-${form.id || 'default'}`;
-        
-        // Load cached data
-        const cachedData = this.getFromLocalStorage(cacheKey);
-        if (cachedData) {
-            this.populateFormFromCache(form, cachedData);
+    /**
+     * Utility: Escape regex
+     */
+    escapeRegex(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    /**
+     * Clean up resources
+     */
+    destroy() {
+        if (this.intersectionObserver) {
+            this.intersectionObserver.disconnect();
         }
 
-        // Save data on input
-        const saveFormData = this.debounce(() => {
-            const formData = this.extractFormData(form);
-            this.saveToLocalStorage(cacheKey, formData);
-        }, 1000);
-
-        form.addEventListener('input', saveFormData);
-        
-        // Clear cache on successful submission
-        form.addEventListener('submit', () => {
-            this.removeFromLocalStorage(cacheKey);
-        });
-    }
-
-    optimizeApiCalls() {
-        // Implement request caching
-        this.apiCache = new Map();
-        this.pendingRequests = new Map();
-        
-        // Override fetch for caching
-        this.originalFetch = window.fetch;
-        window.fetch = this.cachedFetch.bind(this);
-    }
-
-    cachedFetch(url, options = {}) {
-        const cacheKey = this.generateCacheKey(url, options);
-        
-        // Return cached response if available
-        if (options.method === 'GET' && this.apiCache.has(cacheKey)) {
-            const cached = this.apiCache.get(cacheKey);
-            if (Date.now() - cached.timestamp < 300000) { // 5 minutes
-                return Promise.resolve(cached.response.clone());
-            }
-        }
-
-        // Return pending request if one exists
-        if (this.pendingRequests.has(cacheKey)) {
-            return this.pendingRequests.get(cacheKey);
-        }
-
-        // Make new request
-        const request = this.originalFetch(url, options)
-            .then(response => {
-                // Cache successful GET requests
-                if (options.method === 'GET' && response.ok) {
-                    this.apiCache.set(cacheKey, {
-                        response: response.clone(),
-                        timestamp: Date.now()
-                    });
-                }
-                
-                this.pendingRequests.delete(cacheKey);
-                return response;
-            })
-            .catch(error => {
-                this.pendingRequests.delete(cacheKey);
-                throw error;
-            });
-
-        this.pendingRequests.set(cacheKey, request);
-        return request;
-    }
-
-    generateCacheKey(url, options) {
-        return `${options.method || 'GET'}-${url}`;
-    }
-
-    initializeLazyLoading() {
-        // Lazy load images
-        const images = document.querySelectorAll('img[data-src]');
-        
-        if ('IntersectionObserver' in window) {
-            const imageObserver = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const img = entry.target;
-                        img.src = img.getAttribute('data-src');
-                        img.removeAttribute('data-src');
-                        imageObserver.unobserve(img);
-                    }
-                });
-            });
-
-            images.forEach(img => imageObserver.observe(img));
-        }
-
-        // Lazy load content sections
-        this.initializeContentLazyLoading();
-    }
-
-    initializeContentLazyLoading() {
-        const lazyElements = document.querySelectorAll('[data-lazy-load]');
-        
-        if ('IntersectionObserver' in window) {
-            const contentObserver = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        this.loadLazyContent(entry.target);
-                        contentObserver.unobserve(entry.target);
-                    }
-                });
-            }, { threshold: 0.1 });
-
-            lazyElements.forEach(element => contentObserver.observe(element));
-        }
-    }
-
-    loadLazyContent(element) {
-        const url = element.getAttribute('data-lazy-load');
-        if (!url) return;
-
-        element.innerHTML = '<div class="text-center p-3"><div class="spinner-healthcare"></div></div>';
-
-        fetch(url)
-            .then(response => response.text())
-            .then(html => {
-                element.innerHTML = html;
-                
-                // Initialize any new components
-                this.initializeNewComponents(element);
-            })
-            .catch(error => {
-                console.error('Error loading lazy content:', error);
-                element.innerHTML = '<div class="alert alert-warning">Failed to load content</div>';
-            });
-    }
-
-    initializeMemoryOptimization() {
-        // Clean up event listeners on navigation
-        window.addEventListener('beforeunload', () => {
-            this.cleanup();
-        });
-
-        // Periodic cache cleanup
-        setInterval(() => {
-            this.cleanupCache();
-        }, 300000); // 5 minutes
-    }
-
-    cleanupCache() {
-        const now = Date.now();
-        
-        // Clean API cache
-        for (const [key, value] of this.apiCache.entries()) {
-            if (now - value.timestamp > 600000) { // 10 minutes
-                this.apiCache.delete(key);
-            }
-        }
-
-        // Clean local storage cache
-        this.cleanupLocalStorageCache();
-    }
-
-    // Utility methods
-    debounce(func, wait) {
-        const key = func.toString();
-        
-        return (...args) => {
-            clearTimeout(this.debounceTimers[key]);
-            this.debounceTimers[key] = setTimeout(() => func.apply(this, args), wait);
-        };
-    }
-
-    throttle(func, limit) {
-        let inThrottle;
-        return function() {
-            const args = arguments;
-            const context = this;
-            if (!inThrottle) {
-                func.apply(context, args);
-                inThrottle = true;
-                setTimeout(() => inThrottle = false, limit);
-            }
-        };
-    }
-
-    // Local storage helpers
-    saveToLocalStorage(key, data) {
-        try {
-            localStorage.setItem(key, JSON.stringify(data));
-        } catch (e) {
-            console.warn('Failed to save to localStorage:', e);
-        }
-    }
-
-    getFromLocalStorage(key) {
-        try {
-            const data = localStorage.getItem(key);
-            return data ? JSON.parse(data) : null;
-        } catch (e) {
-            console.warn('Failed to read from localStorage:', e);
-            return null;
-        }
-    }
-
-    removeFromLocalStorage(key) {
-        try {
-            localStorage.removeItem(key);
-        } catch (e) {
-            console.warn('Failed to remove from localStorage:', e);
-        }
-    }
-
-    cleanupLocalStorageCache() {
-        const keys = Object.keys(localStorage);
-        keys.forEach(key => {
-            if (key.startsWith('form-data-') || key.startsWith('cache-')) {
-                try {
-                    const data = JSON.parse(localStorage.getItem(key));
-                    if (data.timestamp && Date.now() - data.timestamp > 86400000) { // 24 hours
-                        localStorage.removeItem(key);
-                    }
-                } catch (e) {
-                    // Invalid data, remove it
-                    localStorage.removeItem(key);
-                }
-            }
-        });
-    }
-
-    // Form helpers
-    extractFormData(form) {
-        const formData = new FormData(form);
-        const data = {};
-        
-        for (const [key, value] of formData.entries()) {
-            data[key] = value;
-        }
-        
-        return { data, timestamp: Date.now() };
-    }
-
-    populateFormFromCache(form, cachedData) {
-        if (!cachedData.data) return;
-        
-        Object.entries(cachedData.data).forEach(([key, value]) => {
-            const field = form.querySelector(`[name="${key}"]`);
-            if (field && field.type !== 'password') {
-                field.value = value;
-            }
-        });
-    }
-
-    setFieldError(field, message) {
-        field.classList.add('is-invalid');
-        
-        let feedback = field.parentElement.querySelector('.invalid-feedback');
-        if (!feedback) {
-            feedback = document.createElement('div');
-            feedback.className = 'invalid-feedback';
-            field.parentElement.appendChild(feedback);
-        }
-        
-        feedback.textContent = message;
-    }
-
-    clearFieldError(field) {
-        field.classList.remove('is-invalid');
-        
-        const feedback = field.parentElement.querySelector('.invalid-feedback');
-        if (feedback) {
-            feedback.remove();
-        }
-    }
-
-    initializeNewComponents(container) {
-        // Re-initialize modals, tooltips, etc. in the new content
-        if (typeof bootstrap !== 'undefined') {
-            // Initialize Bootstrap components
-            const tooltips = container.querySelectorAll('[data-bs-toggle="tooltip"]');
-            tooltips.forEach(el => new bootstrap.Tooltip(el));
-            
-            const popovers = container.querySelectorAll('[data-bs-toggle="popover"]');
-            popovers.forEach(el => new bootstrap.Popover(el));
-        }
-    }
-
-    sendPerformanceMetrics(metrics) {
-        // Send to analytics endpoint if configured
-        if (window.analytics && typeof window.analytics.track === 'function') {
-            window.analytics.track('Page Performance', metrics);
-        }
-    }
-
-    cleanup() {
-        // Clear all timers
-        Object.values(this.debounceTimers).forEach(timer => clearTimeout(timer));
-        
-        // Clear caches
+        this.debounceTimers.forEach(timer => clearTimeout(timer));
+        this.debounceTimers.clear();
+        this.observerCallbacks.clear();
         this.cache.clear();
-        this.apiCache.clear();
-        this.pendingRequests.clear();
         
-        // Restore original fetch
-        if (this.originalFetch) {
-            window.fetch = this.originalFetch;
-        }
+        this.initialized = false;
     }
 }
 
-// Initialize performance optimization
+// Initialize screening performance when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     window.screeningPerformance = new ScreeningPerformance();
 });
 
-// Export for use in other scripts
+// Handle page visibility changes to pause/resume optimizations
+document.addEventListener('visibilitychange', function() {
+    if (window.screeningPerformance) {
+        if (document.hidden) {
+            // Pause optimizations when page is hidden
+            window.screeningPerformance.clearCache();
+        } else {
+            // Resume optimizations when page is visible
+            window.screeningPerformance.init();
+        }
+    }
+});
+
+// Export for module systems
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = ScreeningPerformance;
 }
+

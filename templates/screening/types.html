@@ -1,196 +1,274 @@
 {% extends 'base_user.html' %}
 
-{% block title %}HealthPrep - Screening Types{% endblock %}
+{% block title %}{% if mode == 'add' %}Add{% else %}Edit{% endif %} Screening Type - HealthPrep{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1><i class="fas fa-stethoscope me-2"></i>Screening Types</h1>
-        {% if current_user.role == 'admin' %}
-            <a href="{{ url_for('add_screening_type') }}" class="btn btn-primary">
-                <i class="fas fa-plus me-1"></i>Add New Type
-            </a>
-        {% endif %}
-    </div>
-
-    {% if screening_types %}
-        <div class="row">
-            {% for screening_type in screening_types %}
-            <div class="col-lg-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">{{ screening_type.name }}</h5>
-                        <span class="badge bg-{{ 'success' if screening_type.status == 'active' else 'secondary' }}">
-                            {{ screening_type.status|title }}
-                        </span>
-                    </div>
-                    <div class="card-body">
-                        {% if screening_type.description %}
-                            <p class="card-text text-muted">{{ screening_type.description }}</p>
-                        {% endif %}
-
-                        <div class="row mb-3">
-                            <div class="col-sm-6">
-                                <strong>Frequency:</strong><br>
-                                <span class="badge bg-primary">
-                                    Every {{ screening_type.frequency_value }} {{ screening_type.frequency_unit }}
-                                </span>
-                            </div>
-                            <div class="col-sm-6">
-                                <strong>Gender:</strong><br>
-                                <span class="badge bg-secondary">
-                                    {{ screening_type.eligibility_criteria.gender|upper if screening_type.eligibility_criteria and screening_type.eligibility_criteria.gender != 'any' else 'Any' }}
-                                </span>
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="card-title mb-0">
+                    <i class="fas fa-{% if mode == 'add' %}plus{% else %}edit{% endif %} me-2"></i>
+                    {% if mode == 'add' %}Add New{% else %}Edit{% endif %} Screening Type
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">
+                                    <i class="fas fa-tag me-1"></i>Screening Name *
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="name" 
+                                       name="name" 
+                                       value="{{ form.name.data or '' }}" 
+                                       required 
+                                       placeholder="e.g., Mammogram, Colonoscopy">
+                                {% if form.name.errors %}
+                                    <div class="text-danger small">{{ form.name.errors[0] }}</div>
+                                {% endif %}
                             </div>
                         </div>
-
-                        {% if screening_type.eligibility_criteria and (screening_type.eligibility_criteria.min_age or screening_type.eligibility_criteria.max_age) %}
-                        <div class="mb-3">
-                            <strong>Age Range:</strong><br>
-                            {% set criteria = screening_type.eligibility_criteria %}
-                            {% if criteria.min_age and criteria.max_age %}
-                                {{ criteria.min_age }} - {{ criteria.max_age }} years
-                            {% elif criteria.min_age %}
-                                {{ criteria.min_age }}+ years
-                            {% elif criteria.max_age %}
-                                Up to {{ criteria.max_age }} years
-                            {% endif %}
-                        </div>
-                        {% endif %}
-
-                        {% if screening_type.keywords %}
-                        <div class="mb-3">
-                            <strong>Keywords:</strong><br>
-                            <div class="mt-1">
-                                {% for keyword in screening_type.keywords %}
-                                    <span class="badge bg-info me-1 mb-1">{{ keyword }}</span>
-                                {% endfor %}
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="fas fa-toggle-on me-1"></i>Status
+                                </label>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" 
+                                           type="checkbox" 
+                                           id="is_active" 
+                                           name="is_active" 
+                                           checked>
+                                    <label class="form-check-label" for="is_active">
+                                        Active
+                                    </label>
+                                </div>
                             </div>
-                        </div>
-                        {% endif %}
-
-                        {% if screening_type.trigger_conditions %}
-                        <div class="mb-3">
-                            <strong>Trigger Conditions:</strong><br>
-                            <div class="mt-1">
-                                {% for condition in screening_type.trigger_conditions %}
-                                    <span class="badge bg-warning text-dark me-1 mb-1">{{ condition }}</span>
-                                {% endfor %}
-                            </div>
-                        </div>
-                        {% endif %}
-
-                        <div class="text-muted small">
-                            <i class="fas fa-calendar me-1"></i>
-                            Created: {{ screening_type.created_at.strftime('%m/%d/%Y') if screening_type.created_at else 'Unknown' }}
-                            {% if screening_type.updated_at != screening_type.created_at %}
-                                <br>
-                                <i class="fas fa-edit me-1"></i>
-                                Updated: {{ screening_type.updated_at.strftime('%m/%d/%Y') }}
-                            {% endif %}
                         </div>
                     </div>
                     
-                    {% if current_user.role == 'admin' %}
-                    <div class="card-footer">
-                        <div class="btn-group w-100" role="group">
-                            <button type="button" class="btn btn-outline-primary" onclick="editScreeningType({{ screening_type.id }})">
-                                <i class="fas fa-edit me-1"></i>Edit
-                            </button>
-                            <button type="button" class="btn btn-outline-{{ 'warning' if screening_type.status == 'active' else 'success' }}" 
-                                    onclick="toggleScreeningType({{ screening_type.id }}, '{{ screening_type.status }}')">
-                                <i class="fas fa-{{ 'pause' if screening_type.status == 'active' else 'play' }} me-1"></i>
-                                {{ 'Deactivate' if screening_type.status == 'active' else 'Activate' }}
-                            </button>
-                            <button type="button" class="btn btn-outline-danger" onclick="deleteScreeningType({{ screening_type.id }}, '{{ screening_type.name }}')">
-                                <i class="fas fa-trash me-1"></i>Delete
-                            </button>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">
+                            <i class="fas fa-align-left me-1"></i>Description
+                        </label>
+                        <textarea class="form-control" 
+                                  id="description" 
+                                  name="description" 
+                                  rows="3" 
+                                  placeholder="Brief description of this screening type">{{ form.description.data or '' }}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="keywords" class="form-label">
+                            <i class="fas fa-search me-1"></i>Keywords (comma-separated)
+                        </label>
+                        <textarea class="form-control" 
+                                  id="keywords" 
+                                  name="keywords" 
+                                  rows="2" 
+                                  placeholder="e.g., mammogram, mammography, breast imaging">{{ form.keywords.data or '' }}</textarea>
+                        <div class="form-text">
+                            These keywords will be used to match documents to this screening type.
+                            Use medical terminology and common variations.
                         </div>
                     </div>
-                    {% endif %}
+                    
+                    <!-- Eligibility Criteria -->
+                    <h5 class="mt-4 mb-3">
+                        <i class="fas fa-users me-2"></i>Eligibility Criteria
+                    </h5>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="min_age" class="form-label">Minimum Age</label>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="min_age" 
+                                       name="min_age" 
+                                       min="0" 
+                                       max="120" 
+                                       value="{{ form.min_age.data or '' }}" 
+                                       placeholder="e.g., 40">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="max_age" class="form-label">Maximum Age</label>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="max_age" 
+                                       name="max_age" 
+                                       min="0" 
+                                       max="120" 
+                                       value="{{ form.max_age.data or '' }}" 
+                                       placeholder="e.g., 74">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="gender_restriction" class="form-label">Gender</label>
+                                <select class="form-select" id="gender_restriction" name="gender_restriction">
+                                    <option value="any" {% if form.gender_restriction.data == 'any' %}selected{% endif %}>Any</option>
+                                    <option value="male" {% if form.gender_restriction.data == 'male' %}selected{% endif %}>Male</option>
+                                    <option value="female" {% if form.gender_restriction.data == 'female' %}selected{% endif %}>Female</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Frequency Settings -->
+                    <h5 class="mt-4 mb-3">
+                        <i class="fas fa-clock me-2"></i>Frequency Settings
+                    </h5>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="frequency_value" class="form-label">Frequency Value *</label>
+                                <input type="number" 
+                                       class="form-control" 
+                                       id="frequency_value" 
+                                       name="frequency_value" 
+                                       min="1" 
+                                       value="{{ form.frequency_value.data or '' }}" 
+                                       required 
+                                       placeholder="e.g., 1, 2, 6">
+                                {% if form.frequency_value.errors %}
+                                    <div class="text-danger small">{{ form.frequency_value.errors[0] }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="frequency_unit" class="form-label">Frequency Unit *</label>
+                                <select class="form-select" id="frequency_unit" name="frequency_unit" required>
+                                    <option value="months" {% if form.frequency_unit.data == 'months' %}selected{% endif %}>Months</option>
+                                    <option value="years" {% if form.frequency_unit.data == 'years' %}selected{% endif %}>Years</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="trigger_conditions" class="form-label">
+                            <i class="fas fa-stethoscope me-1"></i>Trigger Conditions (comma-separated)
+                        </label>
+                        <textarea class="form-control" 
+                                  id="trigger_conditions" 
+                                  name="trigger_conditions" 
+                                  rows="2" 
+                                  placeholder="e.g., diabetes, hypertension">{{ form.trigger_conditions.data or '' }}</textarea>
+                        <div class="form-text">
+                            Leave empty if no specific conditions are required. 
+                            These conditions will trigger this screening for eligible patients.
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{{ url_for('screening_list', tab='types') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>
+                            {% if mode == 'add' %}Create{% else %}Update{% endif %} Screening Type
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Help Card -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-question-circle me-2"></i>Help & Examples
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Common Keyword Examples:</h6>
+                        <ul class="list-unstyled small">
+                            <li><strong>Mammogram:</strong> mammogram, mammography, breast imaging, breast screening</li>
+                            <li><strong>Colonoscopy:</strong> colonoscopy, colon screening, colorectal screening</li>
+                            <li><strong>A1C:</strong> a1c, hemoglobin a1c, hba1c, glycohemoglobin</li>
+                            <li><strong>Bone Density:</strong> dexa, dxa, bone density, bone scan</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Frequency Guidelines:</h6>
+                        <ul class="list-unstyled small">
+                            <li><strong>Annual screenings:</strong> 1 year</li>
+                            <li><strong>Biennial screenings:</strong> 2 years</li>
+                            <li><strong>Quarterly monitoring:</strong> 3 months</li>
+                            <li><strong>Colonoscopy:</strong> 10 years (normal risk)</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <h6>Trigger Conditions:</h6>
+                    <p class="small text-muted">
+                        Use medical condition names that might appear in patient records. 
+                        The system uses fuzzy matching to recognize variations like "diabetes" matching "diabetes mellitus" or "DM".
+                    </p>
                 </div>
             </div>
-            {% endfor %}
         </div>
-    {% else %}
-        <div class="text-center text-muted py-5">
-            <i class="fas fa-stethoscope fa-4x mb-3"></i>
-            <h3>No Screening Types</h3>
-            <p class="lead">No screening types have been configured yet.</p>
-            {% if current_user.role == 'admin' %}
-                <a href="{{ url_for('add_screening_type') }}" class="btn btn-primary btn-lg">
-                    <i class="fas fa-plus me-2"></i>Add First Screening Type
-                </a>
-            {% else %}
-                <p class="text-muted">Contact your administrator to set up screening types.</p>
-            {% endif %}
-        </div>
-    {% endif %}
+    </div>
 </div>
+{% endblock %}
 
-{% if current_user.role == 'admin' %}
+{% block extra_js %}
 <script>
-function editScreeningType(id) {
-    // In a full implementation, this would open an edit modal or navigate to edit page
-    window.location.href = `/screening/types/${id}/edit`;
-}
-
-function toggleScreeningType(id, currentStatus) {
-    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-    const action = currentStatus === 'active' ? 'deactivate' : 'activate';
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-suggest keywords based on screening name
+    const nameInput = document.getElementById('name');
+    const keywordsInput = document.getElementById('keywords');
     
-    if (confirm(`Are you sure you want to ${action} this screening type?`)) {
-        showLoading(`${action.charAt(0).toUpperCase() + action.slice(1)}ing screening type...`);
+    const keywordSuggestions = {
+        'mammogram': 'mammogram, mammography, breast imaging, breast screening',
+        'colonoscopy': 'colonoscopy, colon screening, colorectal screening, colo screening',
+        'pap': 'pap smear, pap test, cervical screening, cytology',
+        'a1c': 'a1c, hemoglobin a1c, hba1c, glycohemoglobin',
+        'cholesterol': 'cholesterol, lipid panel, lipids, lipid profile',
+        'bone density': 'dexa, dxa, bone density, bone scan, osteoporosis screening',
+        'blood pressure': 'blood pressure, bp check, hypertension screening',
+        'eye exam': 'eye exam, ophthalmology, vision screening, eye screening'
+    };
+    
+    nameInput.addEventListener('blur', function() {
+        const name = this.value.toLowerCase();
+        if (!keywordsInput.value) {
+            for (const [key, suggestions] of Object.entries(keywordSuggestions)) {
+                if (name.includes(key)) {
+                    keywordsInput.value = suggestions;
+                    break;
+                }
+            }
+        }
+    });
+    
+    // Form validation
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        const minAge = parseInt(document.getElementById('min_age').value);
+        const maxAge = parseInt(document.getElementById('max_age').value);
         
-        fetch(`/api/screening-types/${id}/toggle`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({status: newStatus})
-        })
-        .then(response => response.json())
-        .then(data => {
-            hideLoading();
-            if (data.success) {
-                location.reload();
-            } else {
-                alert('Error: ' + data.message);
-            }
-        })
-        .catch(error => {
-            hideLoading();
-            alert('Error: ' + error.message);
-        });
-    }
-}
-
-function deleteScreeningType(id, name) {
-    if (confirm(`Are you sure you want to permanently delete the screening type "${name}"?\n\nThis action cannot be undone and will affect all related screenings.`)) {
-        showLoading('Deleting screening type...');
-        
-        fetch(`/api/screening-types/${id}`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            hideLoading();
-            if (data.success) {
-                alert('Screening type deleted successfully');
-                location.reload();
-            } else {
-                alert('Error: ' + data.message);
-            }
-        })
-        .catch(error => {
-            hideLoading();
-            alert('Error: ' + error.message);
-        });
-    }
-}
+        if (minAge && maxAge && minAge >= maxAge) {
+            e.preventDefault();
+            alert('Maximum age must be greater than minimum age.');
+            return false;
+        }
+    });
+});
 </script>
-{% endif %}
 {% endblock %}

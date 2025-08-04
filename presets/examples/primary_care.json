@@ -1,137 +1,151 @@
 {
-  "name": "Primary Care Screening Preset",
-  "description": "Comprehensive screening protocols for primary care practice",
-  "specialty": "Primary Care",
-  "version": "1.0",
-  "created_date": "2025-01-01T00:00:00",
-  "screenings": [
+  "name": "Primary Care Screening Package",
+  "description": "Common screening types for primary care practices",
+  "created_at": "2025-01-01T00:00:00Z",
+  "screening_types": [
+    {
+      "name": "Annual Physical Exam",
+      "description": "Comprehensive annual physical examination",
+      "keywords": ["annual physical", "wellness exam", "physical exam", "checkup"],
+      "min_age": 18,
+      "max_age": null,
+      "gender_restriction": null,
+      "frequency_value": 1,
+      "frequency_unit": "years",
+      "trigger_conditions": [],
+      "is_active": true
+    },
     {
       "name": "Mammogram",
-      "description": "Breast cancer screening for women",
+      "description": "Breast cancer screening mammography",
       "keywords": ["mammogram", "mammography", "breast imaging", "breast screening"],
-      "eligibility": {
-        "gender": "F",
-        "min_age": 40,
-        "max_age": null
-      },
-      "frequency": {
-        "value": 12,
-        "unit": "months"
-      },
+      "min_age": 40,
+      "max_age": 74,
+      "gender_restriction": "female",
+      "frequency_value": 1,
+      "frequency_unit": "years",
       "trigger_conditions": [],
-      "status": "active"
+      "is_active": true
     },
     {
       "name": "Colonoscopy",
-      "description": "Colorectal cancer screening",
-      "keywords": ["colonoscopy", "colon screening", "colorectal screening", "colono"],
-      "eligibility": {
-        "gender": "any",
-        "min_age": 45,
-        "max_age": 75
-      },
-      "frequency": {
-        "value": 10,
-        "unit": "years"
-      },
+      "description": "Colorectal cancer screening colonoscopy",
+      "keywords": ["colonoscopy", "colon screening", "colo screening", "colorectal screening"],
+      "min_age": 45,
+      "max_age": 75,
+      "gender_restriction": null,
+      "frequency_value": 10,
+      "frequency_unit": "years",
       "trigger_conditions": [],
-      "status": "active"
+      "is_active": true
     },
     {
-      "name": "Cervical Cancer Screening",
-      "description": "Pap smear for cervical cancer screening",
-      "keywords": ["pap smear", "pap test", "cervical screening", "papanicolaou"],
-      "eligibility": {
-        "gender": "F",
-        "min_age": 21,
-        "max_age": 65
-      },
-      "frequency": {
-        "value": 36,
-        "unit": "months"
-      },
+      "name": "Pap Smear",
+      "description": "Cervical cancer screening",
+      "keywords": ["pap smear", "pap test", "cervical screening", "cytology"],
+      "min_age": 21,
+      "max_age": 65,
+      "gender_restriction": "female",
+      "frequency_value": 3,
+      "frequency_unit": "years",
       "trigger_conditions": [],
-      "status": "active"
+      "is_active": true
     },
     {
-      "name": "Bone Density Screening",
-      "description": "DEXA scan for osteoporosis screening",
-      "keywords": ["dexa", "dxa", "bone density", "bone scan", "osteoporosis screening"],
-      "eligibility": {
-        "gender": "F",
-        "min_age": 65,
-        "max_age": null
-      },
-      "frequency": {
-        "value": 24,
-        "unit": "months"
-      },
+      "name": "A1C Test",
+      "description": "Hemoglobin A1C diabetes monitoring",
+      "keywords": ["a1c", "hemoglobin a1c", "hba1c", "glycohemoglobin"],
+      "min_age": 18,
+      "max_age": null,
+      "gender_restriction": null,
+      "frequency_value": 6,
+      "frequency_unit": "months",
+      "trigger_conditions": ["diabetes"],
+      "is_active": true
+    },
+    {
+      "name": "A1C Test (Non-Diabetic)",
+      "description": "Hemoglobin A1C screening for non-diabetics",
+      "keywords": ["a1c", "hemoglobin a1c", "hba1c", "glycohemoglobin"],
+      "min_age": 45,
+      "max_age": null,
+      "gender_restriction": null,
+      "frequency_value": 3,
+      "frequency_unit": "years",
       "trigger_conditions": [],
-      "status": "active"
+      "is_active": true
     },
     {
       "name": "Lipid Panel",
-      "description": "Cholesterol screening",
-      "keywords": ["lipid panel", "cholesterol", "lipids", "hdl", "ldl", "triglycerides"],
-      "eligibility": {
-        "gender": "any",
-        "min_age": 20,
-        "max_age": null
-      },
-      "frequency": {
-        "value": 60,
-        "unit": "months"
-      },
-      "trigger_conditions": ["hyperlipidemia", "diabetes", "cardiovascular disease"],
-      "status": "active"
+      "description": "Cholesterol and lipid screening",
+      "keywords": ["lipid panel", "cholesterol", "lipids", "lipid profile"],
+      "min_age": 20,
+      "max_age": null,
+      "gender_restriction": null,
+      "frequency_value": 5,
+      "frequency_unit": "years",
+      "trigger_conditions": [],
+      "is_active": true
     },
     {
-      "name": "A1C",
-      "description": "Diabetes monitoring and screening",
-      "keywords": ["a1c", "hba1c", "hemoglobin a1c", "glycated hemoglobin"],
-      "eligibility": {
-        "gender": "any",
-        "min_age": 35,
-        "max_age": null
-      },
-      "frequency": {
-        "value": 36,
-        "unit": "months"
-      },
-      "trigger_conditions": ["diabetes", "prediabetes"],
-      "status": "active"
+      "name": "Bone Density Scan",
+      "description": "Osteoporosis screening DEXA scan",
+      "keywords": ["dexa", "dxa", "bone density", "bone scan", "osteoporosis screening"],
+      "min_age": 65,
+      "max_age": null,
+      "gender_restriction": "female",
+      "frequency_value": 2,
+      "frequency_unit": "years",
+      "trigger_conditions": [],
+      "is_active": true
     },
     {
       "name": "Blood Pressure Check",
-      "description": "Hypertension screening",
+      "description": "Regular blood pressure monitoring",
       "keywords": ["blood pressure", "bp check", "hypertension screening"],
-      "eligibility": {
-        "gender": "any",
-        "min_age": 18,
-        "max_age": null
-      },
-      "frequency": {
-        "value": 12,
-        "unit": "months"
-      },
+      "min_age": 18,
+      "max_age": null,
+      "gender_restriction": null,
+      "frequency_value": 1,
+      "frequency_unit": "years",
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Blood Pressure Check (Hypertensive)",
+      "description": "Frequent blood pressure monitoring for hypertensive patients",
+      "keywords": ["blood pressure", "bp check", "hypertension monitoring"],
+      "min_age": 18,
+      "max_age": null,
+      "gender_restriction": null,
+      "frequency_value": 3,
+      "frequency_unit": "months",
       "trigger_conditions": ["hypertension"],
-      "status": "active"
+      "is_active": true
     },
     {
       "name": "Eye Exam",
       "description": "Comprehensive eye examination",
-      "keywords": ["eye exam", "ophthalmology", "vision screening", "retinal exam"],
-      "eligibility": {
-        "gender": "any",
-        "min_age": 40,
-        "max_age": null
-      },
-      "frequency": {
-        "value": 24,
-        "unit": "months"
-      },
-      "trigger_conditions": ["diabetes", "hypertension", "glaucoma"],
-      "status": "active"
+      "keywords": ["eye exam", "ophthalmology", "vision screening", "eye screening"],
+      "min_age": 18,
+      "max_age": null,
+      "gender_restriction": null,
+      "frequency_value": 2,
+      "frequency_unit": "years",
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Diabetic Eye Exam",
+      "description": "Annual diabetic retinopathy screening",
+      "keywords": ["diabetic eye exam", "retinal screening", "fundoscopy", "retinopathy screening"],
+      "min_age": 18,
+      "max_age": null,
+      "gender_restriction": null,
+      "frequency_value": 1,
+      "frequency_unit": "years",
+      "trigger_conditions": ["diabetes"],
+      "is_active": true
     }
   ]
 }

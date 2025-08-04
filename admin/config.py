@@ -1,82 +1,64 @@
-"""
-Admin configuration management module.
-Handles system-wide configuration settings and admin preferences.
-"""
-
-import logging
-from typing import Dict, Any, Optional, List
-from datetime import datetime
-import json
-import os
-
+from models import ScreeningType, ChecklistSettings, PHIFilterSettings
 from app import db
-from models import ScreeningType, ChecklistSettings, PHISettings
-from admin.logs import log_admin_action
+from presets.loader import ScreeningPresetLoader
+import logging
 
-class AdminConfigManager:
-    """Manages admin configuration settings"""
+class AdminConfig:
+    """Administrative configuration management"""
     
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        self.preset_loader = ScreeningPresetLoader()
     
-    def get_system_config(self) -> Dict[str, Any]:
-        """Get current system configuration"""
+    def get_system_settings(self):
+        """Get all system configuration settings"""
         try:
-            # Get checklist settings
+            # Checklist settings
             checklist_settings = ChecklistSettings.query.first()
             if not checklist_settings:
                 checklist_settings = ChecklistSettings()
                 db.session.add(checklist_settings)
                 db.session.commit()
             
-            # Get PHI settings
-            phi_settings = PHISettings.query.first()
+            # PHI filter settings
+            phi_settings = PHIFilterSettings.query.first()
             if not phi_settings:
-                phi_settings = PHISettings()
+                phi_settings = PHIFilterSettings()
                 db.session.add(phi_settings)
                 db.session.commit()
             
-            # Get screening types configuration
-            active_screening_types = ScreeningType.query.filter_by(is_active=True).count()
+            # Screening type counts
             total_screening_types = ScreeningType.query.count()
+            active_screening_types = ScreeningType.query.filter_by(is_active=True).count()
             
             return {
                 'checklist_settings': {
-                    'cutoff_labs': checklist_settings.cutoff_labs,
-                    'cutoff_imaging': checklist_settings.cutoff_imaging,
-                    'cutoff_consults': checklist_settings.cutoff_consults,
-                    'cutoff_hospital': checklist_settings.cutoff_hospital,
-                    'last_updated': checklist_settings.updated_at.isoformat() if checklist_settings.updated_at else None
+                    'labs_cutoff_months': checklist_settings.labs_cutoff_months,
+                    'imaging_cutoff_months': checklist_settings.imaging_cutoff_months,
+                    'consults_cutoff_months': checklist_settings.consults_cutoff_months,
+                    'hospital_cutoff_months': checklist_settings.hospital_cutoff_months
                 },
                 'phi_settings': {
-                    'phi_filtering_enabled': phi_settings.phi_filtering_enabled,
+                    'filter_enabled': phi_settings.filter_enabled,
                     'filter_ssn': phi_settings.filter_ssn,
                     'filter_phone': phi_settings.filter_phone,
                     'filter_mrn': phi_settings.filter_mrn,
                     'filter_insurance': phi_settings.filter_insurance,
                     'filter_addresses': phi_settings.filter_addresses,
                     'filter_names': phi_settings.filter_names,
-                    'filter_dates': phi_settings.filter_dates,
-                    'last_updated': phi_settings.updated_at.isoformat() if phi_settings.updated_at else None
+                    'filter_dates': phi_settings.filter_dates
                 },
-                'screening_configuration': {
-                    'active_screening_types': active_screening_types,
-                    'total_screening_types': total_screening_types,
-                    'inactive_screening_types': total_screening_types - active_screening_types
-                },
-                'system_info': {
-                    'config_retrieved_at': datetime.utcnow().isoformat(),
-                    'upload_folder': os.getenv('UPLOAD_FOLDER', 'uploads'),
-                    'max_file_size_mb': 16,
-                    'supported_file_types': ['pdf', 'jpg', 'jpeg', 'png', 'tiff']
+                'screening_types': {
+                    'total': total_screening_types,
+                    'active': active_screening_types,
+                    'inactive': total_screening_types - active_screening_types
                 }
             }
             
         except Exception as e:
-            self.logger.error(f"Error getting system config: {str(e)}")
-            return {}
+            logging.error(f"Error getting system settings: {str(e)}")
+            return None
     
-    def update_checklist_settings(self, settings: Dict[str, int], user_id: int) -> bool:
+    def update_checklist_settings(self, settings_data):
         """Update checklist cutoff settings"""
         try:
             checklist_settings = ChecklistSettings.query.first()
@@ -85,327 +67,183 @@ class AdminConfigManager:
                 db.session.add(checklist_settings)
             
             # Update settings
-            old_values = {
-                'cutoff_labs': checklist_settings.cutoff_labs,
-                'cutoff_imaging': checklist_settings.cutoff_imaging,
-                'cutoff_consults': checklist_settings.cutoff_consults,
-                'cutoff_hospital': checklist_settings.cutoff_hospital
-            }
-            
-            checklist_settings.cutoff_labs = settings.get('cutoff_labs', checklist_settings.cutoff_labs)
-            checklist_settings.cutoff_imaging = settings.get('cutoff_imaging', checklist_settings.cutoff_imaging)
-            checklist_settings.cutoff_consults = settings.get('cutoff_consults', checklist_settings.cutoff_consults)
-            checklist_settings.cutoff_hospital = settings.get('cutoff_hospital', checklist_settings.cutoff_hospital)
-            checklist_settings.updated_at = datetime.utcnow()
+            if 'labs_cutoff_months' in settings_data:
+                checklist_settings.labs_cutoff_months = settings_data['labs_cutoff_months']
+            if 'imaging_cutoff_months' in settings_data:
+                checklist_settings.imaging_cutoff_months = settings_data['imaging_cutoff_months']
+            if 'consults_cutoff_months' in settings_data:
+                checklist_settings.consults_cutoff_months = settings_data['consults_cutoff_months']
+            if 'hospital_cutoff_months' in settings_data:
+                checklist_settings.hospital_cutoff_months = settings_data['hospital_cutoff_months']
             
             db.session.commit()
             
-            # Log the change
-            changes = {k: {'old': old_values[k], 'new': getattr(checklist_settings, k)} 
-                      for k in old_values if old_values[k] != getattr(checklist_settings, k)}
+            from admin.logs import log_admin_action
+            log_admin_action('UPDATE_CHECKLIST_SETTINGS', 'Updated prep sheet data cutoff settings')
             
-            log_admin_action(user_id, 'Checklist Settings Updated', f'Changes: {changes}')
-            
-            self.logger.info(f"Checklist settings updated by user {user_id}: {changes}")
             return True
             
         except Exception as e:
-            self.logger.error(f"Error updating checklist settings: {str(e)}")
+            logging.error(f"Error updating checklist settings: {str(e)}")
             db.session.rollback()
             return False
     
-    def update_phi_settings(self, settings: Dict[str, bool], user_id: int) -> bool:
+    def update_phi_settings(self, settings_data):
         """Update PHI filtering settings"""
         try:
-            phi_settings = PHISettings.query.first()
+            phi_settings = PHIFilterSettings.query.first()
             if not phi_settings:
-                phi_settings = PHISettings()
+                phi_settings = PHIFilterSettings()
                 db.session.add(phi_settings)
             
-            # Track changes
-            old_values = {
-                'phi_filtering_enabled': phi_settings.phi_filtering_enabled,
-                'filter_ssn': phi_settings.filter_ssn,
-                'filter_phone': phi_settings.filter_phone,
-                'filter_mrn': phi_settings.filter_mrn,
-                'filter_insurance': phi_settings.filter_insurance,
-                'filter_addresses': phi_settings.filter_addresses,
-                'filter_names': phi_settings.filter_names,
-                'filter_dates': phi_settings.filter_dates
-            }
-            
             # Update settings
-            phi_settings.phi_filtering_enabled = settings.get('phi_filtering_enabled', phi_settings.phi_filtering_enabled)
-            phi_settings.filter_ssn = settings.get('filter_ssn', phi_settings.filter_ssn)
-            phi_settings.filter_phone = settings.get('filter_phone', phi_settings.filter_phone)
-            phi_settings.filter_mrn = settings.get('filter_mrn', phi_settings.filter_mrn)
-            phi_settings.filter_insurance = settings.get('filter_insurance', phi_settings.filter_insurance)
-            phi_settings.filter_addresses = settings.get('filter_addresses', phi_settings.filter_addresses)
-            phi_settings.filter_names = settings.get('filter_names', phi_settings.filter_names)
-            phi_settings.filter_dates = settings.get('filter_dates', phi_settings.filter_dates)
-            phi_settings.updated_at = datetime.utcnow()
+            for key, value in settings_data.items():
+                if hasattr(phi_settings, key):
+                    setattr(phi_settings, key, value)
             
             db.session.commit()
             
-            # Log the change
-            changes = {k: {'old': old_values[k], 'new': getattr(phi_settings, k)} 
-                      for k in old_values if old_values[k] != getattr(phi_settings, k)}
+            from admin.logs import log_admin_action
+            log_admin_action('UPDATE_PHI_SETTINGS', 'Updated PHI filtering settings')
             
-            log_admin_action(user_id, 'PHI Settings Updated', f'Changes: {changes}')
-            
-            self.logger.info(f"PHI settings updated by user {user_id}: {changes}")
             return True
             
         except Exception as e:
-            self.logger.error(f"Error updating PHI settings: {str(e)}")
+            logging.error(f"Error updating PHI settings: {str(e)}")
             db.session.rollback()
             return False
     
-    def export_configuration(self) -> Dict[str, Any]:
-        """Export complete system configuration for backup"""
+    def import_screening_preset(self, preset_name, overwrite=False):
+        """Import screening type preset"""
         try:
-            config = self.get_system_config()
+            result = self.preset_loader.import_preset(preset_name, overwrite)
             
-            # Add screening types configuration
-            screening_types = ScreeningType.query.all()
-            screening_config = []
+            from admin.logs import log_admin_action
+            log_admin_action(
+                'IMPORT_SCREENING_PRESET',
+                f'Imported {result["imported_count"]} screening types from {preset_name}'
+            )
             
-            for st in screening_types:
-                screening_config.append({
-                    'name': st.name,
-                    'description': st.description,
-                    'keywords': st.get_keywords_list(),
-                    'eligible_genders': st.eligible_genders,
-                    'min_age': st.min_age,
-                    'max_age': st.max_age,
-                    'frequency_number': st.frequency_number,
-                    'frequency_unit': st.frequency_unit,
-                    'trigger_conditions': st.trigger_conditions,
-                    'is_active': st.is_active
-                })
-            
-            config['screening_types_export'] = screening_config
-            config['export_metadata'] = {
-                'exported_at': datetime.utcnow().isoformat(),
-                'export_version': '1.0',
-                'total_screening_types': len(screening_config)
-            }
-            
-            return config
+            return result
             
         except Exception as e:
-            self.logger.error(f"Error exporting configuration: {str(e)}")
-            return {}
+            logging.error(f"Error importing screening preset: {str(e)}")
+            return {
+                'imported_count': 0,
+                'errors': [str(e)]
+            }
     
-    def import_screening_presets(self, presets: List[Dict[str, Any]], user_id: int) -> Dict[str, Any]:
-        """Import screening type presets"""
+    def export_screening_types(self, screening_type_ids, preset_name):
+        """Export screening types to preset"""
         try:
-            imported_count = 0
-            failed_count = 0
-            errors = []
+            filename = self.preset_loader.export_preset(screening_type_ids, preset_name)
             
-            for preset in presets:
-                try:
-                    # Check if screening type already exists
-                    existing = ScreeningType.query.filter_by(name=preset['name']).first()
-                    if existing:
-                        errors.append(f"Screening type '{preset['name']}' already exists")
-                        failed_count += 1
-                        continue
-                    
-                    # Create new screening type
-                    screening_type = ScreeningType(
-                        name=preset['name'],
-                        description=preset.get('description', ''),
-                        keywords=json.dumps(preset.get('keywords', [])),
-                        eligible_genders=preset.get('eligible_genders', 'both'),
-                        min_age=preset.get('min_age'),
-                        max_age=preset.get('max_age'),
-                        frequency_number=preset.get('frequency_number', 12),
-                        frequency_unit=preset.get('frequency_unit', 'months'),
-                        trigger_conditions=preset.get('trigger_conditions'),
-                        is_active=preset.get('is_active', True)
-                    )
-                    
-                    db.session.add(screening_type)
-                    imported_count += 1
-                    
-                except Exception as preset_error:
-                    errors.append(f"Failed to import '{preset.get('name', 'Unknown')}': {str(preset_error)}")
-                    failed_count += 1
+            from admin.logs import log_admin_action
+            log_admin_action(
+                'EXPORT_SCREENING_PRESET',
+                f'Exported {len(screening_type_ids)} screening types to {filename}'
+            )
+            
+            return filename
+            
+        except Exception as e:
+            logging.error(f"Error exporting screening types: {str(e)}")
+            return None
+    
+    def get_available_presets(self):
+        """Get list of available screening presets"""
+        try:
+            return self.preset_loader.list_available_presets()
+        except Exception as e:
+            logging.error(f"Error getting available presets: {str(e)}")
+            return []
+    
+    def toggle_screening_type_status(self, screening_type_id, active=None):
+        """Toggle or set screening type active status"""
+        try:
+            screening_type = ScreeningType.query.get(screening_type_id)
+            if not screening_type:
+                return False
+            
+            if active is not None:
+                screening_type.is_active = active
+            else:
+                screening_type.is_active = not screening_type.is_active
             
             db.session.commit()
             
-            # Log the import
-            log_admin_action(user_id, 'Screening Presets Imported', 
-                           f'Imported: {imported_count}, Failed: {failed_count}')
+            from admin.logs import log_admin_action
+            status = 'activated' if screening_type.is_active else 'deactivated'
+            log_admin_action(
+                'TOGGLE_SCREENING_TYPE',
+                f'Screening type "{screening_type.name}" {status}'
+            )
             
-            return {
-                'imported_count': imported_count,
-                'failed_count': failed_count,
-                'total_processed': len(presets),
-                'errors': errors,
-                'success': imported_count > 0
-            }
+            return True
             
         except Exception as e:
-            self.logger.error(f"Error importing screening presets: {str(e)}")
+            logging.error(f"Error toggling screening type status: {str(e)}")
             db.session.rollback()
-            return {
-                'imported_count': 0,
-                'failed_count': len(presets),
-                'total_processed': len(presets),
-                'errors': [f"Import failed: {str(e)}"],
-                'success': False
-            }
+            return False
     
-    def get_default_screening_presets(self) -> List[Dict[str, Any]]:
-        """Get default screening type presets for common medical screenings"""
-        return [
-            {
-                'name': 'Mammogram',
-                'description': 'Breast cancer screening for women',
-                'keywords': ['mammogram', 'mammography', 'breast screening', 'breast imaging'],
-                'eligible_genders': 'F',
-                'min_age': 40,
-                'max_age': None,
-                'frequency_number': 12,
-                'frequency_unit': 'months',
-                'trigger_conditions': None,
-                'is_active': True
-            },
-            {
-                'name': 'Colonoscopy',
-                'description': 'Colorectal cancer screening',
-                'keywords': ['colonoscopy', 'colon screening', 'colorectal screening'],
-                'eligible_genders': 'both',
-                'min_age': 45,
-                'max_age': 75,
-                'frequency_number': 10,
-                'frequency_unit': 'years',
-                'trigger_conditions': None,
-                'is_active': True
-            },
-            {
-                'name': 'Cervical Cancer Screening',
-                'description': 'Pap smear and HPV testing',
-                'keywords': ['pap smear', 'cervical screening', 'cytology', 'hpv test'],
-                'eligible_genders': 'F',
-                'min_age': 21,
-                'max_age': 65,
-                'frequency_number': 3,
-                'frequency_unit': 'years',
-                'trigger_conditions': None,
-                'is_active': True
-            },
-            {
-                'name': 'Bone Density Screening',
-                'description': 'DEXA scan for osteoporosis screening',
-                'keywords': ['dexa', 'dxa', 'bone density', 'bone densitometry', 'osteoporosis screening'],
-                'eligible_genders': 'F',
-                'min_age': 65,
-                'max_age': None,
-                'frequency_number': 2,
-                'frequency_unit': 'years',
-                'trigger_conditions': None,
-                'is_active': True
-            },
-            {
-                'name': 'Prostate Screening',
-                'description': 'PSA testing for prostate cancer screening',
-                'keywords': ['psa', 'prostate specific antigen', 'prostate screening'],
-                'eligible_genders': 'M',
-                'min_age': 50,
-                'max_age': 70,
-                'frequency_number': 12,
-                'frequency_unit': 'months',
-                'trigger_conditions': None,
-                'is_active': True
-            },
-            {
-                'name': 'Diabetes Screening',
-                'description': 'A1C and glucose testing for diabetes monitoring',
-                'keywords': ['a1c', 'hemoglobin a1c', 'hba1c', 'glucose', 'diabetes screening'],
-                'eligible_genders': 'both',
-                'min_age': 35,
-                'max_age': None,
-                'frequency_number': 3,
-                'frequency_unit': 'years',
-                'trigger_conditions': None,
-                'is_active': True
-            },
-            {
-                'name': 'Lipid Screening',
-                'description': 'Cholesterol and lipid panel testing',
-                'keywords': ['lipid panel', 'cholesterol', 'ldl', 'hdl', 'triglycerides'],
-                'eligible_genders': 'both',
-                'min_age': 20,
-                'max_age': None,
-                'frequency_number': 5,
-                'frequency_unit': 'years',
-                'trigger_conditions': None,
-                'is_active': True
-            }
-        ]
-    
-    def validate_configuration(self) -> Dict[str, Any]:
-        """Validate current system configuration"""
+    def delete_screening_type(self, screening_type_id):
+        """Delete screening type and associated data"""
         try:
-            validation_results = {
-                'valid': True,
-                'warnings': [],
-                'errors': [],
-                'recommendations': []
-            }
+            screening_type = ScreeningType.query.get(screening_type_id)
+            if not screening_type:
+                return False
             
-            # Check checklist settings
-            checklist_settings = ChecklistSettings.query.first()
-            if not checklist_settings:
-                validation_results['warnings'].append('No checklist settings configured')
-            else:
-                if any(getattr(checklist_settings, field) <= 0 for field in 
-                      ['cutoff_labs', 'cutoff_imaging', 'cutoff_consults', 'cutoff_hospital']):
-                    validation_results['errors'].append('All cutoff periods must be positive')
-                    validation_results['valid'] = False
+            # Delete associated patient screenings first
+            from models import PatientScreening
+            PatientScreening.query.filter_by(screening_type_id=screening_type_id).delete()
             
-            # Check PHI settings
-            phi_settings = PHISettings.query.first()
-            if not phi_settings:
-                validation_results['warnings'].append('No PHI settings configured')
-            elif not phi_settings.phi_filtering_enabled:
-                validation_results['warnings'].append('PHI filtering is disabled - consider enabling for HIPAA compliance')
+            screening_name = screening_type.name
+            db.session.delete(screening_type)
+            db.session.commit()
             
-            # Check screening types
-            active_screenings = ScreeningType.query.filter_by(is_active=True).count()
-            if active_screenings == 0:
-                validation_results['errors'].append('No active screening types configured')
-                validation_results['valid'] = False
-            elif active_screenings < 3:
-                validation_results['warnings'].append('Very few screening types configured - consider adding more')
+            from admin.logs import log_admin_action
+            log_admin_action(
+                'DELETE_SCREENING_TYPE',
+                f'Deleted screening type "{screening_name}" and associated data'
+            )
             
-            # Check for screening types without keywords
-            no_keywords = ScreeningType.query.filter(
-                ScreeningType.is_active == True,
-                ScreeningType.keywords.is_(None)
-            ).count()
-            
-            if no_keywords > 0:
-                validation_results['warnings'].append(f'{no_keywords} active screening types have no keywords defined')
-            
-            # Generate recommendations
-            if validation_results['valid']:
-                validation_results['recommendations'].append('Configuration is valid and ready for production use')
-            
-            if not validation_results['errors'] and not validation_results['warnings']:
-                validation_results['recommendations'].append('Excellent configuration - all settings are optimal')
-            
-            return validation_results
+            return True
             
         except Exception as e:
-            self.logger.error(f"Error validating configuration: {str(e)}")
-            return {
-                'valid': False,
-                'warnings': [],
-                'errors': [f'Configuration validation failed: {str(e)}'],
-                'recommendations': ['Review system configuration and fix errors']
+            logging.error(f"Error deleting screening type: {str(e)}")
+            db.session.rollback()
+            return False
+    
+    def backup_configuration(self):
+        """Create backup of current system configuration"""
+        try:
+            config_data = {
+                'backup_date': datetime.utcnow().isoformat(),
+                'system_settings': self.get_system_settings(),
+                'screening_types': []
             }
+            
+            # Export all active screening types
+            active_screenings = ScreeningType.query.filter_by(is_active=True).all()
+            for screening in active_screenings:
+                config_data['screening_types'].append({
+                    'name': screening.name,
+                    'description': screening.description,
+                    'keywords': screening.keywords,
+                    'min_age': screening.min_age,
+                    'max_age': screening.max_age,
+                    'gender_restriction': screening.gender_restriction,
+                    'frequency_value': screening.frequency_value,
+                    'frequency_unit': screening.frequency_unit,
+                    'trigger_conditions': screening.trigger_conditions,
+                    'created_at': screening.created_at.isoformat()
+                })
+            
+            from admin.logs import log_admin_action
+            log_admin_action('BACKUP_CONFIGURATION', f'Created system configuration backup')
+            
+            return config_data
+            
+        except Exception as e:
+            logging.error(f"Error creating configuration backup: {str(e)}")
+            return None
