@@ -1,0 +1,53 @@
+next error - INFO:root:Database tables created successfully
+Traceback (most recent call last):
+File "/home/runner/workspace/main.py", line 1, in <module>
+from app import app
+File "/home/runner/workspace/app.py", line 117, in <module>
+app = create_app()
+^^^^^^^^^^^^
+File "/home/runner/workspace/app.py", line 58, in create_app
+from ui.routes import ui_bp
+File "/home/runner/workspace/ui/routes.py", line 8, in <module>
+from ui.views import UserViews
+File "/home/runner/workspace/ui/views.py", line 417
+`
+^
+SyntaxError: invalid syntax
+
+MF
+
+mitchfusillo
+Assistant
+7 minutes ago
+Looking at the error, there's a syntax error in ui/views.py at line 417. The issue is that there's a stray backtick character causing invalid syntax.
+
+Let me fix this:
+
+ui/views.py
+Checkpoint made
+Fix syntax error in ui/views.py
+6 minutes ago
+•
+next error - INFO:root:Database tables created successfully
+
+Serving Flask app 'app'
+Debug mode: on
+INFO:werkzeug:WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+Running on all addresses (0.0.0.0)
+Running on http://127.0.0.1:5000
+Running on http://172.31.94.162:5000
+INFO:werkzeug:Press CTRL+C to quit
+INFO:werkzeug: * Restarting with stat
+INFO:root:Database tables created successfully
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 116-329-566
+INFO:werkzeug:10.82.2.33 - - [04/Aug/2025 01:42:42] "GET / HTTP/1.1" 302 -
+INFO:werkzeug:10.82.2.33 - - [04/Aug/2025 01:42:43] "GET /dashboard HTTP/1.1" 200 -
+INFO:werkzeug:10.82.9.65 - - [04/Aug/2025 01:42:43] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.82.4.25 - - [04/Aug/2025 01:42:43] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.82.3.3 - - [04/Aug/2025 01:42:43] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:10.82.2.33 - - [04/Aug/2025 01:42:43] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+ERROR:routes.screening_routes:Error in screening list: Could not build url for endpoint 'dashboard'. Did you mean 'ui.dashboard' instead?
+INFO:werkzeug:10.82.2.33 - - [04/Aug/2025 01:42:57] "GET /screenings/list HTTP/1.1" 500 -
+INFO:werkzeug:10.82.2.33 - - [04/Aug/2025 01:42:58] "POST /admin/log-error HTTP/1.1" 404 -
+ERROR:routes.screening_routes:Error in screening list: Could not build url for endpoint 'd
