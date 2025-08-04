@@ -6,7 +6,7 @@ from flask_login import login_required, current_user
 from datetime import datetime
 import logging
 
-from models import Patient, Screening, MedicalDocument, ScreeningType
+from models import Patient, Screening, Document, ScreeningType
 from core.engine import ScreeningEngine
 from prep_sheet.generator import PrepSheetGenerator
 from forms import LoginForm
@@ -32,7 +32,7 @@ def dashboard():
 
         # Get basic statistics
         total_patients = Patient.query.count()
-        total_documents = MedicalDocument.query.count()
+        total_documents = Document.query.count()
 
         # Get screening statistics
         total_screenings = Screening.query.count()
@@ -49,7 +49,7 @@ def dashboard():
         }
 
         # Recent activity
-        recent_documents = MedicalDocument.query.order_by(MedicalDocument.created_at.desc()).limit(5).all()
+        recent_documents = Document.query.order_by(Document.created_at.desc()).limit(5).all()
         recent_screenings = Screening.query.order_by(Screening.created_at.desc()).limit(5).all()
 
         return render_template('dashboard.html',
@@ -142,9 +142,9 @@ def patient_detail(patient_id):
         ).join(ScreeningType).filter_by(is_active=True).all()
 
         # Get recent documents
-        recent_docs = MedicalDocument.query.filter_by(
+        recent_docs = Document.query.filter_by(
             patient_id=patient_id
-        ).order_by(MedicalDocument.upload_date.desc()).limit(10).all()
+        ).order_by(Document.created_at.desc()).limit(10).all()
 
         return render_template('patients/detail.html',
                              patient=patient,
@@ -245,9 +245,9 @@ def search():
 
         # Search documents
         if search_type in ['all', 'documents']:
-            results['documents'] = MedicalDocument.query.filter(
-                MedicalDocument.filename.contains(query) |
-                MedicalDocument.ocr_text.contains(query)
+            results['documents'] = Document.query.filter(
+                Document.filename.contains(query) |
+                Document.ocr_text.contains(query)
             ).limit(10).all()
 
         # Search screening types
@@ -303,7 +303,7 @@ def upload_document():
         from datetime import datetime, date
         from app import db
 
-        document = MedicalDocument(
+        document = Document(
             patient_id=patient_id,
             filename=file.filename,
             document_type=document_type,
