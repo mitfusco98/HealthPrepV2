@@ -4,6 +4,123 @@ from models import AdminLog, User
 from app import db
 import logging
 
+class AdminLogManager:
+    """Manager class for admin logging functionality"""
+    
+    def __init__(self):
+        pass
+    
+    def log_action(self, user_id, action, details=None, target_type=None, target_id=None):
+        """Log administrative actions for audit trail"""
+        try:
+            # Get IP address and user agent from request context
+            ip_address = request.remote_addr if request else 'system'
+            user_agent = request.headers.get('User-Agent') if request else 'system'
+            
+            log_entry = AdminLog(
+                user_id=user_id,
+                action=action,
+                description=str(details) if details else action,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                timestamp=datetime.utcnow()
+            )
+            
+            db.session.add(log_entry)
+            db.session.commit()
+            
+            logging.info(f"Admin action logged: {action} by user {user_id}")
+            
+        except Exception as e:
+            logging.error(f"Failed to log admin action: {str(e)}")
+            db.session.rollback()
+    
+    def get_recent_logs(self, limit=10):
+        """Get recent admin logs"""
+        try:
+            return AdminLog.query.order_by(AdminLog.timestamp.desc()).limit(limit).all()
+        except Exception as e:
+            logging.error(f"Error retrieving recent logs: {str(e)}")
+            return []
+    
+    def get_filtered_logs(self, filters, page=1, per_page=50):
+        """Get filtered admin logs with pagination"""
+        try:
+            query = AdminLog.query
+            
+            # Apply filters
+            if filters.get('action'):
+                query = query.filter(AdminLog.action.ilike(f'%{filters["action"]}%'))
+            
+            if filters.get('user_id'):
+                query = query.filter(AdminLog.user_id == filters['user_id'])
+            
+            if filters.get('start_date'):
+                query = query.filter(AdminLog.timestamp >= filters['start_date'])
+            
+            if filters.get('end_date'):
+                end_date = filters['end_date'] + timedelta(days=1)
+                query = query.filter(AdminLog.timestamp < end_date)
+            
+            # Order by most recent first
+            query = query.order_by(AdminLog.timestamp.desc())
+            
+            # Paginate
+            logs = query.paginate(
+                page=page, 
+                per_page=per_page, 
+                error_out=False
+            )
+            
+            return {
+                'logs': logs.items,
+                'pagination': logs
+            }
+            
+        except Exception as e:
+            logging.error(f"Error retrieving filtered logs: {str(e)}")
+            return {'logs': [], 'pagination': None}
+    
+    def get_event_types(self):
+        """Get list of unique event types for filtering"""
+        try:
+            actions = db.session.query(AdminLog.action).distinct().all()
+            return [action[0] for action in actions]
+        except Exception as e:
+            logging.error(f"Error getting event types: {str(e)}")
+            return []
+    
+    def export_logs(self, days=30, format_type='json'):
+        """Export admin logs"""
+        try:
+            cutoff_date = datetime.utcnow() - timedelta(days=days)
+            logs = AdminLog.query.filter(AdminLog.timestamp >= cutoff_date).all()
+            
+            export_data = []
+            for log in logs:
+                export_data.append({
+                    'id': log.id,
+                    'timestamp': log.timestamp.isoformat(),
+                    'user_id': log.user_id,
+                    'action': log.action,
+                    'description': log.description,
+                    'ip_address': log.ip_address,
+                    'user_agent': log.user_agent
+                })
+            
+            return {
+                'success': True,
+                'data': export_data,
+                'count': len(export_data)
+            }
+            
+        except Exception as e:
+            logging.error(f"Error exporting logs: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+
 def log_admin_action(action, description=None, user_id=None, ip_address=None):
     """Log administrative actions for audit trail"""
     try:
