@@ -36,6 +36,21 @@ def index():
         # Get screening summary
         total_screenings = Screening.query.count()
         complete_screenings = Screening.query.filter_by(status='complete').count()
+        due_screenings = Screening.query.filter_by(status='Due').count()
+        due_soon_screenings = Screening.query.filter_by(status='Due Soon').count()
+
+        # Get recent screening activity
+        recent_screenings = Screening.query.order_by(
+            Screening.updated_at.desc()
+        ).limit(10).all()
+
+        # Create stats structure expected by template
+        stats = {
+            'total_patients': total_patients,
+            'due_screenings': due_screenings,
+            'due_soon_screenings': due_soon_screenings,
+            'complete_screenings': complete_screenings
+        }
 
         dashboard_data = {
             'total_patients': total_patients,
@@ -44,12 +59,25 @@ def index():
             'recent_documents': recent_documents
         }
 
-        return render_template('dashboard.html', data=dashboard_data)
+        return render_template('dashboard.html', 
+                             data=dashboard_data, 
+                             stats=stats,
+                             recent_screenings=recent_screenings)
 
     except Exception as e:
         logger.error(f"Error in demo index: {str(e)}")
         flash('Error loading dashboard', 'error')
-        return render_template('dashboard.html', data={})
+        # Provide empty stats structure to prevent template errors
+        empty_stats = {
+            'total_patients': 0,
+            'due_screenings': 0,
+            'due_soon_screenings': 0,
+            'complete_screenings': 0
+        }
+        return render_template('dashboard.html', 
+                             data={}, 
+                             stats=empty_stats,
+                             recent_screenings=[])
 
 @demo_bp.route('/index') # Corrected route to avoid conflict and assuming this is the intended index route for the demo blueprint
 @login_required
