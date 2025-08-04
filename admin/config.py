@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional
 
 from app import db
-from models import (ScreeningType, ChecklistSettings, PHIFilterSettings, 
+from models import (ScreeningType, ChecklistSettings, PHISettings, 
                    User, Patient, PatientCondition)
 from admin.logs import log_admin_action
 
@@ -78,17 +78,15 @@ def initialize_default_settings():
             logger.info("Default checklist settings created")
         
         # Initialize PHI filter settings
-        if not PHIFilterSettings.query.first():
-            phi_settings = PHIFilterSettings(
+        if not PHISettings.query.first():
+            phi_settings = PHISettings(
                 filter_enabled=True,
                 filter_ssn=True,
                 filter_phone=True,
                 filter_mrn=True,
                 filter_addresses=True,
                 filter_names=True,
-                filter_dates=True,
-                filter_insurance=True,
-                preserve_medical_values=True
+                filter_dates=True
             )
             db.session.add(phi_settings)
             logger.info("Default PHI filter settings created")
