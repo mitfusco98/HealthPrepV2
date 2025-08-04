@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
-from wtforms import StringField, TextAreaField, IntegerField, SelectField, BooleanField, DateField, PasswordField, SubmitField
+from wtforms import StringField, TextAreaField, IntegerField, SelectField, BooleanField, DateField, PasswordField, SubmitField, FloatField
 from wtforms.validators import DataRequired, Email, Length, NumberRange, Optional, EqualTo
 from wtforms.widgets import TextArea
 
@@ -42,17 +42,26 @@ class ChangePasswordForm(FlaskForm):
     submit = SubmitField('Change Password')
 
 class ScreeningTypeForm(FlaskForm):
-    name = StringField('Screening Name', validators=[DataRequired(), Length(min=1, max=100)])
-    description = TextAreaField('Description')
-    keywords = TextAreaField('Keywords (one per line)', widget=TextArea())
+    name = StringField('Screening Name', validators=[DataRequired(), Length(min=2, max=100)])
+    description = TextAreaField('Description', validators=[Length(max=500)])
+    keywords = TextAreaField('Keywords (comma-separated)', validators=[Length(max=1000)])
+    eligible_genders = SelectField('Eligible Genders', 
+                                 choices=[('both', 'Both'), ('M', 'Male'), ('F', 'Female')],
+                                 default='both')
     min_age = IntegerField('Minimum Age', validators=[Optional(), NumberRange(min=0, max=150)])
     max_age = IntegerField('Maximum Age', validators=[Optional(), NumberRange(min=0, max=150)])
-    gender = SelectField('Gender', choices=[('', 'Both'), ('M', 'Male'), ('F', 'Female')])
-    frequency_value = IntegerField('Frequency', validators=[Optional(), NumberRange(min=1)])
-    frequency_unit = SelectField('Frequency Unit', choices=[('years', 'Years'), ('months', 'Months')])
-    trigger_conditions = TextAreaField('Trigger Conditions (one per line)', widget=TextArea())
-    is_active = BooleanField('Active', default=True)
+    frequency_years = FloatField('Frequency (Years)', validators=[DataRequired(), NumberRange(min=0.1, max=50)])
+    trigger_conditions = TextAreaField('Trigger Conditions (comma-separated)', validators=[Length(max=1000)])
     submit = SubmitField('Save Screening Type')
+
+class ChecklistSettingsForm(FlaskForm):
+    lab_cutoff_months = IntegerField('Lab Results Cutoff (months)', validators=[DataRequired(), NumberRange(min=1, max=120)], default=12)
+    imaging_cutoff_months = IntegerField('Imaging Cutoff (months)', validators=[DataRequired(), NumberRange(min=1, max=120)], default=12)
+    consult_cutoff_months = IntegerField('Consults Cutoff (months)', validators=[DataRequired(), NumberRange(min=1, max=120)], default=12)
+    hospital_cutoff_months = IntegerField('Hospital Visits Cutoff (months)', validators=[DataRequired(), NumberRange(min=1, max=120)], default=12)
+    default_status_options = TextAreaField('Default Status Options (one per line)', validators=[DataRequired()])
+    default_checklist_items = TextAreaField('Default Checklist Items (one per line)', validators=[DataRequired()])
+    submit = SubmitField('Save Settings')
 
 class PatientForm(FlaskForm):
     mrn = StringField('MRN', validators=[DataRequired(), Length(min=1, max=50)])
@@ -99,4 +108,3 @@ class PHIFilterForm(FlaskForm):
     filter_names = BooleanField('Filter Names', default=True)
     filter_dates = BooleanField('Filter Dates', default=True)
     submit = SubmitField('Save PHI Settings')
-

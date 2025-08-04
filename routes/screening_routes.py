@@ -38,7 +38,25 @@ def screening_list():
                                      'screening_type': ''
                                  })
 
-        
+        elif view_mode == 'checklist':
+            # Checklist settings view
+            from forms import ChecklistSettingsForm
+            from models import ChecklistSettings
+            
+            settings = ChecklistSettings.query.first()
+            if not settings:
+                settings = ChecklistSettings()
+            
+            form = ChecklistSettingsForm(obj=settings)
+            return render_template('screening/screening_list.html',
+                                 view_mode='checklist',
+                                 form=form,
+                                 settings=settings,
+                                 filters={
+                                     'patient': '',
+                                     'status': '',
+                                     'screening_type': ''
+                                 })
 
         else:
             # Main screening list view
@@ -325,6 +343,39 @@ def api_screening_status(patient_id):
             'success': False,
             'error': str(e)
         }), 500
+
+@screening_bp.route('/checklist-settings', methods=['POST'])
+@login_required
+def update_checklist_settings():
+    """Update checklist settings"""
+    try:
+        from forms import ChecklistSettingsForm
+        from models import ChecklistSettings
+        
+        settings = ChecklistSettings.query.first()
+        if not settings:
+            settings = ChecklistSettings()
+            db.session.add(settings)
+        
+        form = ChecklistSettingsForm()
+        
+        if form.validate_on_submit():
+            form.populate_obj(settings)
+            settings.updated_by = current_user.id
+            settings.updated_at = datetime.utcnow()
+            
+            db.session.commit()
+            
+            flash('Checklist settings updated successfully', 'success')
+        else:
+            flash('Error updating checklist settings', 'error')
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Update checklist settings error: {str(e)}")
+        flash('Error updating checklist settings', 'error')
+    
+    return redirect(url_for('screening.screening_list', view='checklist'))
 
 @screening_bp.route('/presets')
 @login_required

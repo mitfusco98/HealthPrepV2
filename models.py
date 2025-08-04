@@ -192,20 +192,38 @@ class Appointment(db.Model):
         return f'<Appointment {self.appointment_date} for {self.patient.name}>'
 
 class AdminLog(db.Model):
-    """Admin activity logging"""
-    __tablename__ = 'admin_log'
+    """Admin action logging"""
+    __tablename__ = 'admin_logs'
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     action = db.Column(db.String(100), nullable=False)
     details = db.Column(db.Text)
     ip_address = db.Column(db.String(45))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
-    user = db.relationship('User', backref='admin_logs')
+    user = db.relationship('User', backref=db.backref('admin_logs', lazy=True))
 
     def __repr__(self):
-        return f'<AdminLog {self.action} by {self.user.username if self.user else "Unknown"}>'
+        return f'<AdminLog {self.action} by {self.user_id}>'
+
+class ChecklistSettings(db.Model):
+    """Settings for prep sheet checklist data cutoffs"""
+    __tablename__ = 'checklist_settings'
+
+    id = db.Column(db.Integer, primary_key=True)
+    lab_cutoff_months = db.Column(db.Integer, default=12, nullable=False)
+    imaging_cutoff_months = db.Column(db.Integer, default=12, nullable=False)
+    consult_cutoff_months = db.Column(db.Integer, default=12, nullable=False)
+    hospital_cutoff_months = db.Column(db.Integer, default=12, nullable=False)
+    default_status_options = db.Column(db.Text, default="Due\nDue Soon\nComplete\nOverdue")
+    default_checklist_items = db.Column(db.Text, default="Review screening results\nDiscuss recommendations\nSchedule follow-up\nUpdate care plan")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+
+    def __repr__(self):
+        return f'<ChecklistSettings lab:{self.lab_cutoff_months}m imaging:{self.imaging_cutoff_months}m>'
 
 # Additional models for system functionality
 class PrepSheetSettings(db.Model):
