@@ -8,7 +8,8 @@ from datetime import datetime, timedelta
 import logging
 import functools
 
-from models import User, AdminLog, PHISettings, ChecklistSettings
+from models import User, AdminLog, PHIFilterSettings, ChecklistSettings
+from app import db
 from admin.logs import AdminLogManager
 from admin.analytics import HealthPrepAnalytics
 from admin.config import AdminConfigManager
