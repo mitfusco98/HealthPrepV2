@@ -6,10 +6,10 @@ from flask_login import login_required, current_user
 from datetime import datetime
 import logging
 
-from models import ScreeningType, Screening, Patient, ChecklistSettings
+from models import ScreeningType, Screening, Patient
 from core.engine import ScreeningEngine
 from admin.logs import AdminLogger
-from forms import ScreeningTypeForm, ChecklistSettingsForm
+from forms import ScreeningTypeForm
 from app import db
 
 logger = logging.getLogger(__name__)
@@ -38,22 +38,7 @@ def screening_list():
                                      'screening_type': ''
                                  })
 
-        elif view_mode == 'checklist':
-            # Checklist settings view
-            settings = ChecklistSettings.query.first()
-            if not settings:
-                settings = ChecklistSettings()
-
-            form = ChecklistSettingsForm(obj=settings)
-            return render_template('screening/screening_list.html',
-                                 view_mode='checklist',
-                                 form=form,
-                                 settings=settings,
-                                 filters={
-                                     'patient': '',
-                                     'status': '',
-                                     'screening_type': ''
-                                 })
+        
 
         else:
             # Main screening list view
@@ -265,43 +250,7 @@ def delete_screening_type(screening_type_id):
         flash('Error deleting screening type', 'error')
         return redirect(url_for('screening.screening_types'))
 
-@screening_bp.route('/settings', methods=['GET', 'POST'])
-@login_required
-def checklist_settings():
-    """Checklist settings management"""
-    try:
-        settings = ChecklistSettings.query.first()
-        form = ChecklistSettingsForm(obj=settings)
 
-        if form.validate_on_submit():
-            if not settings:
-                settings = ChecklistSettings()
-                db.session.add(settings)
-
-            settings.lab_cutoff_months = form.lab_cutoff_months.data
-            settings.imaging_cutoff_months = form.imaging_cutoff_months.data
-            settings.consult_cutoff_months = form.consult_cutoff_months.data
-            settings.hospital_cutoff_months = form.hospital_cutoff_months.data
-
-            db.session.commit()
-
-            # Log the action
-            AdminLogger.log(
-                user_id=current_user.id,
-                action='update_checklist_settings',
-                details=f'Updated checklist settings - Lab: {settings.lab_cutoff_months}, Imaging: {settings.imaging_cutoff_months}, Consult: {settings.consult_cutoff_months}, Hospital: {settings.hospital_cutoff_months}'
-            )
-
-            flash('Checklist settings updated successfully', 'success')
-            return redirect(url_for('screening.checklist_settings'))
-
-        return render_template('screening/checklist_settings.html',
-                             form=form, settings=settings)
-
-    except Exception as e:
-        logger.error(f"Error in checklist settings: {str(e)}")
-        flash('Error loading checklist settings', 'error')
-        return render_template('error/500.html'), 500
 
 @screening_bp.route('/refresh', methods=['POST'])
 @login_required

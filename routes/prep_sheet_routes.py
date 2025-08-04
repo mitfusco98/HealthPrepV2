@@ -373,8 +373,13 @@ def prep_sheet_settings():
         
         # GET request - show current settings
         settings = ChecklistSettings.query.first()
+        if not settings:
+            settings = ChecklistSettings()
+        
+        form = ChecklistSettingsForm(obj=settings)
         
         return render_template('prep_sheet/settings.html',
+                             form=form,
                              settings=settings)
         
     except Exception as e:
