@@ -9,7 +9,7 @@ deploymentTarget = "autoscale"
 run = ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
 
 [workflows]
-runButton = "Initialize and Run"
+runButton = "Clean Start"
 
 [[workflows.workflow]]
 name = "Flask Dev Server"
@@ -28,6 +28,15 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python reset_db.py"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py"
+
+[[workflows.workflow]]
+name = "Clean Start"
+author = 42133482
+mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
