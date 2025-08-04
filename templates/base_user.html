@@ -39,28 +39,18 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.dashboard') }}">
+                        <a class="nav-link" href="{{ url_for('demo.index') }}">
                             <i class="fas fa-tachometer-alt me-1"></i> Dashboard
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('demo.patients') }}">
-                            <i class="fas fa-users me-1"></i> Patients
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.screening_list') }}">
+                        <a class="nav-link" href="{{ url_for('demo.screening_list') }}">
                             <i class="fas fa-clipboard-check me-1"></i> Screenings
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('demo.documents') }}">
-                            <i class="fas fa-file-medical me-1"></i> Documents
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('prep_sheet.batch_generate') }}">
-                            <i class="fas fa-file-medical me-1"></i> Prep Sheets
+                        <a class="nav-link" href="{{ url_for('demo.analytics') }}">
+                            <i class="fas fa-chart-bar me-1"></i> Analytics
                         </a>
                     </li>
                 </ul>
