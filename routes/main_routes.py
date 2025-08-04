@@ -38,40 +38,7 @@ def index():
         logger.error(f"Error in index route: {str(e)}")
         return render_template('error/500.html'), 500
 
-@main_bp.route('/dashboard')
-@login_required
-def dashboard():
-    """Main dashboard for authenticated users"""
-    try:
-        # Get basic statistics
-        total_patients = Patient.query.count()
-        total_screenings = PatientScreening.query.count()
-        due_screenings = PatientScreening.query.filter_by(status='due').count()
-        recent_documents = MedicalDocument.query.filter(
-            MedicalDocument.created_at >= datetime.now().replace(day=1)
-        ).count()
 
-        # Get recent activity
-        recent_patients = Patient.query.order_by(
-            Patient.created_at.desc()
-        ).limit(5).all()
-
-        dashboard_data = {
-            'stats': {
-                'total_patients': total_patients,
-                'total_screenings': total_screenings,
-                'due_screenings': due_screenings,
-                'recent_documents': recent_documents
-            },
-            'recent_patients': recent_patients
-        }
-
-        return render_template('dashboard.html', **dashboard_data)
-
-    except Exception as e:
-        logger.error(f"Error in dashboard route: {str(e)}")
-        flash('Error loading dashboard', 'error')
-        return render_template('error/500.html'), 500
 
 @main_bp.route('/patients')
 @login_required
