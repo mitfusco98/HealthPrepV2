@@ -26,47 +26,8 @@ def index():
 @main_bp.route('/dashboard')
 @login_required
 def dashboard():
-    """Main dashboard view"""
-    try:
-        logger.info(f"Dashboard accessed by user: {current_user.username}")
-
-        # Get basic statistics
-        total_patients = Patient.query.count()
-        total_documents = Document.query.count()
-
-        # Get screening statistics  
-        total_screenings = Screening.query.count()
-        due_screenings = Screening.query.filter_by(status='Due').count()
-        complete_screenings = Screening.query.filter_by(status='Complete').count()
-
-        # Create stats object for template
-        stats = {
-            'total_patients': total_patients,
-            'total_documents': total_documents,
-            'total_screenings': total_screenings,
-            'due_screenings': due_screenings,
-            'complete_screenings': complete_screenings
-        }
-
-        # Recent activity
-        recent_documents = Document.query.order_by(Document.created_at.desc()).limit(5).all()
-        recent_screenings = Screening.query.order_by(Screening.created_at.desc()).limit(5).all()
-
-        return render_template('dashboard.html',
-                             stats=stats,
-                             total_patients=total_patients,
-                             total_documents=total_documents,
-                             total_screenings=total_screenings,
-                             due_screenings=due_screenings,
-                             complete_screenings=complete_screenings,
-                             recent_documents=recent_documents,
-                             recent_screenings=recent_screenings)
-
-    except Exception as e:
-        logger.error(f"Error in dashboard route: {e}")
-        flash('Error loading dashboard', 'error')
-        # Return a simple error response instead of trying to render error template
-        return f"Dashboard error: {str(e)}", 500
+    """Main dashboard view - redirect to demo dashboard"""
+    return redirect(url_for('demo.index'))
 
 @main_bp.route('/screening-list')
 @login_required
