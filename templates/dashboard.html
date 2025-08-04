@@ -97,7 +97,7 @@
                 Welcome back, {{ current_user.username }}!
             </h1>
             <p class="lead mb-0">
-                Your healthcare preparation dashboard is ready. 
+                Your healthcare preparation dashboard is ready.
                 {% if stats.due_screenings > 0 %}
                     <strong>{{ stats.due_screenings }} screening(s)</strong> need attention.
                 {% else %}
@@ -109,7 +109,7 @@
             <div class="progress-ring">
                 <svg width="120" height="120">
                     <circle class="background" cx="60" cy="60" r="50"></circle>
-                    <circle class="progress" cx="60" cy="60" r="50" 
+                    <circle class="progress" cx="60" cy="60" r="50"
                             style="stroke-dashoffset: {{ 314 - (314 * (stats.complete_screenings / (stats.total_patients or 1))) }}"></circle>
                 </svg>
                 <div class="position-absolute top-50 start-50 translate-middle text-center">
@@ -245,9 +245,19 @@
                     Sync EMR Data
                 </a>
 
-                <a href="{{ url_for('demo.patients') }}" class="btn btn-info w-100 mb-3">
-                    <i class="fas fa-plus me-2"></i>
-                    Add New Patient
+                <a href="{{ url_for('demo.screening_types') }}" class="btn btn-info w-100 mb-3">
+                    <i class="fas fa-cog me-2"></i>
+                    Manage Screening Types
+                </a>
+
+                <a href="{{ url_for('demo.add_screening_type') }}" class="btn btn-success w-100 mb-3">
+                    <i class="fas fa-plus-circle me-2"></i>
+                    Add Screening Type
+                </a>
+
+                <a href="{{ url_for('demo.screening_list') }}" class="btn btn-warning w-100 mb-3">
+                    <i class="fas fa-clipboard-list me-2"></i>
+                    Screening List
                 </a>
 
                 {% if current_user.is_admin %}

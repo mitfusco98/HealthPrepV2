@@ -191,10 +191,14 @@
                 <p class="text-muted mb-0">Manage patient records and view screening status</p>
             </div>
             <div>
-                <a href="#" class="btn btn-success" onclick="showAddPatientModal()">
-                    <i class="fas fa-user-plus me-1"></i>
-                    Add Patient
-                </a>
+                <button class="btn btn-success" onclick="syncEMRPatients()">
+                    <i class="fas fa-sync me-1"></i>
+                    Sync from EMR
+                </button>
+                <button class="btn btn-outline-info" onclick="showEMRSettings()">
+                    <i class="fas fa-cog me-1"></i>
+                    EMR Settings
+                </button>
             </div>
         </div>
 
@@ -360,11 +364,11 @@
                     <div class="empty-state-icon">
                         <i class="fas fa-users"></i>
                     </div>
-                    <h4 class="text-muted">No Patients Yet</h4>
-                    <p class="text-muted">Get started by adding your first patient to the system</p>
-                    <button class="btn btn-success" onclick="showAddPatientModal()">
-                        <i class="fas fa-user-plus me-1"></i>
-                        Add First Patient
+                    <h4 class="text-muted">No Patients Loaded</h4>
+                    <p class="text-muted">Sync patient data from your EMR system to get started</p>
+                    <button class="btn btn-success" onclick="syncEMRPatients()">
+                        <i class="fas fa-sync me-1"></i>
+                        Sync from EMR
                     </button>
                 {% endif %}
             </div>
@@ -375,7 +379,40 @@
 
 {% block extra_js %}
 <script>
-function showAddPatientModal() {
+function syncEMRPatients() {
+    // Show loading state
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Syncing...';
+    btn.disabled = true;
+    
+    // In a real implementation, this would call the EMR sync endpoint
+    fetch('/api/emr/sync-patients', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.showToast(`Successfully synced ${data.patient_count} patients from EMR`, 'success');
+            location.reload(); // Refresh to show new patients
+        } else {
+            window.showToast('Failed to sync EMR data: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        window.showToast('EMR sync functionality would be implemented here', 'info');
+        console.log('EMR sync would integrate with FHIR client');
+    })
+    .finally(() => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    });
+}
+
+function showEMRSettings() {
     const modal = document.createElement('div');
     modal.className = 'modal fade';
     modal.innerHTML = `
@@ -383,66 +420,43 @@ function showAddPatientModal() {
             <div class="modal-content bg-dark">
                 <div class="modal-header">
                     <h5 class="modal-title">
-                        <i class="fas fa-user-plus me-2 text-success"></i>
-                        Add New Patient
+                        <i class="fas fa-cog me-2 text-info"></i>
+                        EMR Integration Settings
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="add-patient-form">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="first_name" class="form-label">First Name *</label>
-                                    <input type="text" class="form-control" id="first_name" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="last_name" class="form-label">Last Name *</label>
-                                    <input type="text" class="form-control" id="last_name" required>
-                                </div>
-                            </div>
+                    <form id="emr-settings-form">
+                        <div class="mb-3">
+                            <label for="fhir_base_url" class="form-label">FHIR Base URL</label>
+                            <input type="url" class="form-control" id="fhir_base_url" 
+                                   placeholder="https://sandbox.epic.com/interconnect-fhir-oauth/api/FHIR/R4/">
                         </div>
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="mrn" class="form-label">Medical Record Number *</label>
-                                    <input type="text" class="form-control" id="mrn" required 
-                                           placeholder="e.g., MRN123456">
+                                    <label for="client_id" class="form-label">Client ID</label>
+                                    <input type="text" class="form-control" id="client_id">
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="date_of_birth" class="form-label">Date of Birth *</label>
-                                    <input type="date" class="form-control" id="date_of_birth" required>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="gender" class="form-label">Gender *</label>
-                                    <select class="form-select" id="gender" required>
-                                        <option value="">Select Gender</option>
-                                        <option value="M">Male</option>
-                                        <option value="F">Female</option>
-                                        <option value="Other">Other</option>
-                                    </select>
+                                    <label for="client_secret" class="form-label">Client Secret</label>
+                                    <input type="password" class="form-control" id="client_secret">
                                 </div>
                             </div>
                         </div>
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle me-2"></i>
-                            <small>* Required fields. Additional patient information can be added after creation.</small>
+                            <small>Configure your SMART on FHIR credentials to enable EMR synchronization.</small>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-success" onclick="saveNewPatient()">
+                    <button type="button" class="btn btn-primary" onclick="saveEMRSettings()">
                         <i class="fas fa-save me-1"></i>
-                        Add Patient
+                        Save Settings
                     </button>
                 </div>
             </div>
@@ -453,42 +467,14 @@ function showAddPatientModal() {
     const bsModal = new bootstrap.Modal(modal);
     bsModal.show();
     
-    // Focus first input
-    modal.querySelector('#first_name').focus();
-    
     // Clean up modal after it's hidden
     modal.addEventListener('hidden.bs.modal', () => {
         document.body.removeChild(modal);
     });
 }
 
-function saveNewPatient() {
-    const form = document.getElementById('add-patient-form');
-    const formData = new FormData(form);
-    
-    // Validate required fields
-    const requiredFields = ['first_name', 'last_name', 'mrn', 'date_of_birth', 'gender'];
-    let valid = true;
-    
-    requiredFields.forEach(field => {
-        const input = document.getElementById(field);
-        if (!input.value.trim()) {
-            input.classList.add('is-invalid');
-            valid = false;
-        } else {
-            input.classList.remove('is-invalid');
-        }
-    });
-    
-    if (!valid) {
-        window.showToast('Please fill in all required fields', 'warning');
-        return;
-    }
-    
-    // In a real implementation, this would submit to the server
-    window.showToast('Patient addition functionality would be implemented here', 'info');
-    
-    // Close modal
+function saveEMRSettings() {
+    window.showToast('EMR settings would be saved to environment variables', 'info');
     bootstrap.Modal.getInstance(document.querySelector('.modal')).hide();
 }
 
@@ -560,10 +546,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Add keyboard shortcuts
     document.addEventListener('keydown', function(e) {
-        // Ctrl+N for new patient
-        if (e.ctrlKey && e.key === 'n') {
+        // Ctrl+S for EMR sync
+        if (e.ctrlKey && e.key === 's') {
             e.preventDefault();
-            showAddPatientModal();
+            syncEMRPatients();
         }
         
         // Ctrl+F for search focus
