@@ -141,14 +141,14 @@
                 </div>
                 <div class="col-md-6">
                     <ul class="list-unstyled mb-0">
-                        <li><a href="{{ url_for('screening.screening_types') }}" class="text-decoration-none">
+                        <li><a href="/screening/types" class="text-decoration-none">
                             <i class="fas fa-cogs me-2"></i>Screening Types
                         </a></li>
-                        <li><a href="{{ url_for('patient.add_patient') }}" class="text-decoration-none">
+                        <li><a href="/patients/add" class="text-decoration-none">
                             <i class="fas fa-user-plus me-2"></i>Add Patient
                         </a></li>
                         {% if current_user.is_authenticated and current_user.is_admin %}
-                        <li><a href="{{ url_for('admin.dashboard') }}" class="text-decoration-none">
+                        <li><a href="/admin/dashboard" class="text-decoration-none">
                             <i class="fas fa-cogs me-2"></i>Admin Panel
                         </a></li>
                         {% endif %}
@@ -161,7 +161,7 @@
             <button type="button" class="btn btn-home btn-lg" onclick="goBack()">
                 <i class="fas fa-arrow-left me-2"></i>Go Back
             </button>
-            <a href="{{ url_for('main.index') }}" class="btn btn-outline-light">
+            <a href="/" class="btn btn-outline-light">
                 <i class="fas fa-home me-2"></i>Return to Dashboard
             </a>
             <button type="button" class="btn btn-outline-secondary" onclick="reportIssue()">
@@ -187,7 +187,7 @@
             if (window.history.length > 1) {
                 window.history.back();
             } else {
-                window.location.href = "{{ url_for('main.index') }}";
+                window.location.href = "/";
             }
         }
 
@@ -195,7 +195,7 @@
             const searchTerm = document.getElementById('searchInput').value.trim();
             if (searchTerm) {
                 // Redirect to a search results page (this would be implemented in the main app)
-                window.location.href = "{{ url_for('screening.screening_list') }}?search=" + encodeURIComponent(searchTerm);
+                window.location.href = "/screening-list?search=" + encodeURIComponent(searchTerm);
             }
         }
 
