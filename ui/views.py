@@ -8,7 +8,7 @@ import logging
 from flask import render_template, request, redirect, url_for, flash, jsonify, abort
 from flask_login import login_required, current_user
 from datetime import datetime, date
-from models import Patient, Screening, ScreeningType, Document, PatientCondition, PatientScreening # Added PatientScreening import
+from models import Patient, Screening, ScreeningType, Document, PatientCondition
 from core.engine import ScreeningEngine
 from prep_sheet.generator import PrepSheetGenerator
 from app import db
@@ -387,6 +387,30 @@ class UserViews:
             abort(404)
 
     def patient_list(self):
-        """Redirect to screening list since patients should be viewed through screenings"""
-        flash('Patient information is now accessed through the Screening List', 'info')
-        return redirect(url_for('ui.screening_list'))
+        """Patient list view"""
+        try:
+            search = request.args.get('search', '')
+
+            query = Patient.query
+
+            if search:
+                query = query.filter(
+                    db.or_(
+                        Patient.first_name.ilike(f'%{search}%'),
+                        Patient.last_name.ilike(f'%{search}%'),
+                        Patient.mrn.ilike(f'%{search}%')
+                    )
+                )
+
+            patients = query.order_by(Patient.last_name, Patient.first_name).all()
+
+            return render_template('patient_list.html',
+                                 patients=patients,
+                                 search=search)
+
+        except Exception as e:
+            logger.error(f"Error in patient list view: {str(e)}")
+            flash('Error loading patient list', 'error')
+            return render_template('patient_list.html',
+                                 patients=[],
+                                 search='')

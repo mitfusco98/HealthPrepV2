@@ -63,9 +63,33 @@ def screening_list():
 @main_bp.route('/patients')
 @login_required
 def patients():
-    """Redirect to screening list - patients should be viewed through screenings"""
-    flash('Patient information is now accessed through the Screening List', 'info')
-    return redirect(url_for('ui.screening_list'))
+    """Patient list page"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        search = request.args.get('search', '')
+
+        query = Patient.query
+
+        if search:
+            query = query.filter(
+                Patient.first_name.contains(search) |
+                Patient.last_name.contains(search) |
+                Patient.mrn.contains(search)
+            )
+
+        patients = query.order_by(
+            Patient.last_name, Patient.first_name
+        ).paginate(
+            page=page, per_page=20, error_out=False
+        )
+
+        return render_template('patients/list.html', 
+                             patients=patients, search=search)
+
+    except Exception as e:
+        logger.error(f"Error in patients route: {str(e)}")
+        flash('Error loading patients', 'error')
+        return render_template('error/500.html'), 500
 
 @main_bp.route('/patient/<int:patient_id>')
 @login_required
