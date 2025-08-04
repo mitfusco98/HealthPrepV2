@@ -54,3 +54,11 @@ class PHIFilterSettingsForm(FlaskForm):
     filter_addresses = BooleanField('Filter Addresses')
     filter_names = BooleanField('Filter Patient Names')
     filter_dates = BooleanField('Filter Dates (preserve medical values)')
+
+class DocumentUploadForm(FlaskForm):
+    file = StringField('Document File', validators=[DataRequired()])
+    document_type = SelectField('Document Type', 
+                               choices=[('lab', 'Lab Results'), ('imaging', 'Imaging'), 
+                                       ('consult', 'Consult Note'), ('hospital', 'Hospital Visit'),
+                                       ('other', 'Other')])
+    document_date = DateField('Document Date', validators=[Optional()])
