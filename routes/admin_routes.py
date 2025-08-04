@@ -91,7 +91,7 @@ def logs():
             query = query.filter(AdminLog.timestamp >= filters['start_date'])
         if filters.get('end_date'):
             query = query.filter(AdminLog.timestamp <= filters['end_date'])
-        
+
         logs_pagination = query.order_by(AdminLog.timestamp.desc()).paginate(
             page=page, per_page=50, error_out=False
         )
@@ -136,7 +136,7 @@ def export_logs():
         from datetime import timedelta
         start_date = datetime.utcnow() - timedelta(days=days)
         export_data = AdminLogger.export_logs(start_date=start_date)
-        
+
         result = {'success': True, 'data': export_data}
 
         if result['success']:

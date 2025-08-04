@@ -8,7 +8,7 @@ import logging
 
 from models import Patient, Appointment
 from prep_sheet.generator import PrepSheetGenerator
-from admin.logs import AdminLogManager
+from admin.logs import AdminLogger
 
 logger = logging.getLogger(__name__)
 
