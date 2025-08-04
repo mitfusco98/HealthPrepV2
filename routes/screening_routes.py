@@ -19,86 +19,50 @@ screening_bp = Blueprint('screening', __name__)
 @screening_bp.route('/list')
 @login_required
 def screening_list():
-    """Main screening list with multiple views"""
+    """Main screening list view"""
     try:
-        view_mode = request.args.get('view', 'list')  # list, types, checklist
         patient_filter = request.args.get('patient', '', type=str)
         status_filter = request.args.get('status', '', type=str)
         screening_type_filter = request.args.get('screening_type', '', type=str)
 
-        if view_mode == 'types':
-            # Screening types management view
-            screening_types = ScreeningType.query.order_by(ScreeningType.name).all()
-            return render_template('screening/screening_list.html',
-                                 view_mode='types',
-                                 screening_types=screening_types,
-                                 filters={
-                                     'patient': '',
-                                     'status': '',
-                                     'screening_type': ''
-                                 })
+        # Main screening list view
+        query = Screening.query.join(Patient).join(ScreeningType)
 
-        elif view_mode == 'settings':
-            # Screening settings view
-            from forms import ScreeningSettingsForm
-            from models import ScreeningSettings
-            
-            settings = ScreeningSettings.query.first()
-            if not settings:
-                settings = ScreeningSettings()
-            
-            form = ScreeningSettingsForm(obj=settings)
-            return render_template('screening/screening_list.html',
-                                 view_mode='settings',
-                                 form=form,
-                                 settings=settings,
-                                 filters={
-                                     'patient': '',
-                                     'status': '',
-                                     'screening_type': ''
-                                 })
-
-        else:
-            # Main screening list view
-            query = Screening.query.join(Patient).join(ScreeningType)
-
-            # Apply filters
-            if patient_filter:
-                query = query.filter(
-                    db.or_(
-                        Patient.name.contains(patient_filter),
-                        Patient.mrn.contains(patient_filter)
-                    )
+        # Apply filters
+        if patient_filter:
+            query = query.filter(
+                db.or_(
+                    Patient.name.contains(patient_filter),
+                    Patient.mrn.contains(patient_filter)
                 )
+            )
 
-            if status_filter:
-                query = query.filter(Screening.status == status_filter)
+        if status_filter:
+            query = query.filter(Screening.status == status_filter)
 
-            if screening_type_filter:
-                query = query.filter(ScreeningType.name.contains(screening_type_filter))
+        if screening_type_filter:
+            query = query.filter(ScreeningType.name.contains(screening_type_filter))
 
-            screenings = query.order_by(Patient.name, ScreeningType.name).all()
+        screenings = query.order_by(Patient.name, ScreeningType.name).all()
 
-            # Get filter options
-            patients = Patient.query.order_by(Patient.name).all()
-            screening_types = ScreeningType.query.filter_by(is_active=True).order_by(ScreeningType.name).all()
+        # Get filter options
+        patients = Patient.query.order_by(Patient.name).all()
+        screening_types = ScreeningType.query.filter_by(is_active=True).order_by(ScreeningType.name).all()
 
-            return render_template('screening/screening_list.html',
-                                 view_mode='list',
-                                 screenings=screenings,
-                                 patients=patients,
-                                 screening_types=screening_types,
-                                 filters={
-                                     'patient': patient_filter,
-                                     'status': status_filter,
-                                     'screening_type': screening_type_filter
-                                 })
+        return render_template('screening/list.html',
+                             screenings=screenings,
+                             patients=patients,
+                             screening_types=screening_types,
+                             filters={
+                                 'patient': patient_filter,
+                                 'status': status_filter,
+                                 'screening_type': screening_type_filter
+                             })
 
     except Exception as e:
         logger.error(f"Screening list error: {str(e)}")
         flash('Error loading screening data', 'error')
-        return render_template('screening/screening_list.html',
-                             view_mode='list',
+        return render_template('screening/list.html',
                              screenings=[],
                              patients=[],
                              screening_types=[],
@@ -115,12 +79,49 @@ def screening_types():
     try:
         screening_types = ScreeningType.query.order_by(ScreeningType.name).all()
 
-        return render_template('screening/screening_types.html',
+        return render_template('screening/types.html',
                              screening_types=screening_types)
 
     except Exception as e:
         logger.error(f"Error loading screening types: {str(e)}")
         flash('Error loading screening types', 'error')
+        return render_template('error/500.html'), 500
+
+@screening_bp.route('/settings', methods=['GET', 'POST'])
+@login_required
+def screening_settings():
+    """Screening settings management"""
+    try:
+        from forms import PrepSheetSettingsForm
+        from models import PrepSheetSettings
+        
+        settings = PrepSheetSettings.query.first()
+        if not settings:
+            settings = PrepSheetSettings()
+            db.session.add(settings)
+            db.session.commit()
+        
+        form = PrepSheetSettingsForm(obj=settings)
+        
+        if form.validate_on_submit():
+            form.populate_obj(settings)
+            db.session.commit()
+            
+            # Log the action
+            AdminLogger.log(
+                user_id=current_user.id,
+                action='update_screening_settings',
+                details='Updated screening settings'
+            )
+            
+            flash('Screening settings updated successfully', 'success')
+            return redirect(url_for('screening.screening_settings'))
+        
+        return render_template('screening/settings.html', form=form, settings=settings)
+        
+    except Exception as e:
+        logger.error(f"Error in screening settings: {str(e)}")
+        flash('Error loading screening settings', 'error')
         return render_template('error/500.html'), 500
 
 @screening_bp.route('/type/add', methods=['GET', 'POST'])

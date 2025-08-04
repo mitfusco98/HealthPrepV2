@@ -134,29 +134,26 @@
     <!-- Tab Navigation -->
     <ul class="nav nav-tabs mb-4" id="screeningTabs" role="tablist">
         <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="list-tab" data-bs-toggle="tab" data-bs-target="#list-content" type="button" role="tab">
+            <a class="nav-link active" href="{{ url_for('screening.screening_list') }}" role="tab">
                 <i class="fas fa-list me-1"></i>
                 Screening List
-            </button>
+            </a>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="types-tab" data-bs-toggle="tab" data-bs-target="#types-content" type="button" role="tab">
-                <i class="fas fa-cogs me-1"></i>
+            <a class="nav-link" href="{{ url_for('screening.screening_types') }}" role="tab">
+                <i class="fas fa-tags me-1"></i>
                 Screening Types
-            </button>
+            </a>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="checklist-tab" data-bs-toggle="tab" data-bs-target="#checklist-content" type="button" role="tab">
-                <i class="fas fa-clipboard-list me-1"></i>
-                Checklist Settings
-            </button>
+            <a class="nav-link" href="{{ url_for('screening.screening_settings') }}" role="tab">
+                <i class="fas fa-cog me-1"></i>
+                Settings
+            </a>
         </li>
     </ul>
 
-    <!-- Tab Content -->
-    <div class="tab-content" id="screeningTabContent">
-        <!-- Screening List Tab -->
-        <div class="tab-pane fade show active" id="list-content" role="tabpanel">
+    <!-- Screening List Content -->
             <!-- Filters -->
             <div class="filter-section">
                 <form method="GET" class="row g-3">
@@ -293,18 +290,7 @@
                 {% endif %}
             </div>
             {% endif %}
-        </div>
 
-        <!-- Screening Types Tab -->
-        <div class="tab-pane fade" id="types-content" role="tabpanel">
-            {% include 'screening/types.html' %}
-        </div>
-
-        <!-- Checklist Settings Tab -->
-        <div class="tab-pane fade" id="checklist-content" role="tabpanel">
-            {% include 'screening/checklist_settings.html' %}
-        </div>
-    </div>
 </div>
 
 <!-- Include screening modals JavaScript -->
