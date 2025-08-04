@@ -88,40 +88,27 @@ def api_screening_keywords(screening_type_id):
     """Get keywords for screening type"""
     return views.api_screening_keywords(screening_type_id)
 
-# Auth routes
+# Auth routes - redirect to proper auth blueprint
 @ui_bp.route('/login', methods=['GET', 'POST'])
 def login():
-    """Login page"""
-    from flask import request, redirect, url_for, flash
-    from flask_login import login_user
-    from werkzeug.security import check_password_hash
-    from models import User
-    
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        
-        if not username or not password:
-            flash('Please enter both username and password', 'error')
-            return render_template('auth/login.html')
-        
-        user = User.query.filter_by(username=username).first()
-        
-        if user and user.check_password(password):
-            login_user(user)
-            next_page = request.args.get('next')
-            return redirect(next_page if next_page else url_for('ui.dashboard'))
-        else:
-            flash('Invalid username or password', 'error')
-    
-    return render_template('auth/login.html')
+    """Redirect to auth login"""
+    from flask import redirect, url_for
+    return redirect(url_for('auth.login'))
 
 @ui_bp.route('/logout')
-@login_required
 def logout():
-    """Logout"""
+    """Redirect to auth logout"""
     from flask import redirect, url_for
-    from flask_login import logout_user
-    
-    logout_user()
-    return redirect(url_for('ui.login'))
+    return redirect(url_for('auth.logout'))
+
+@ui_bp.route('/register', methods=['GET', 'POST'])
+def register():
+    """Redirect to auth register"""
+    from flask import redirect, url_for
+    return redirect(url_for('auth.register'))
+
+@ui_bp.route('/home')
+@login_required
+def home():
+    """Home page after login"""
+    return views.dashboard()

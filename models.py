@@ -21,7 +21,7 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), default='user')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    is_active = db.Column(db.Boolean, default=True)
+    active = db.Column(db.Boolean, default=True)
     
     def set_password(self, password):
         """Set password hash"""
@@ -34,6 +34,11 @@ class User(UserMixin, db.Model):
     def is_admin(self):
         """Check if user has admin role"""
         return self.role == 'admin'
+    
+    @property
+    def is_active(self):
+        """Check if user is active (Flask-Login requirement)"""
+        return self.active
     
     def __repr__(self):
         return f'<User {self.username}>'

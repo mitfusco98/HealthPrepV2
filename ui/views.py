@@ -8,7 +8,7 @@ import logging
 from flask import render_template, request, redirect, url_for, flash, jsonify, abort
 from flask_login import login_required, current_user
 from datetime import datetime, date
-from models import Patient, PatientScreening, ScreeningType, MedicalDocument, PatientCondition
+from models import Patient, Screening, ScreeningType, Document, PatientCondition
 from core.engine import ScreeningEngine
 from prep_sheet.generator import PrepSheetGenerator
 from app import db

@@ -23,7 +23,7 @@ def login():
         from models import User
         user = User.query.filter_by(username=form.username.data).first()
 
-        if user and check_password_hash(user.password_hash, form.password.data):
+        if user and form.password.data and check_password_hash(user.password_hash, form.password.data):
             login_user(user)
 
             # Update last login
@@ -34,18 +34,63 @@ def login():
 
             flash('Login successful!', 'success')
 
-            # Redirect to next page or dashboard
+            # Redirect to next page or home
             next_page = request.args.get('next')
             if next_page:
                 return redirect(next_page)
-            elif user.is_admin:
-                return redirect(url_for('admin.dashboard'))
             else:
-                return redirect(url_for('index'))
+                return redirect(url_for('ui.home'))
         else:
             flash('Invalid username or password.', 'error')
 
     return render_template('auth/login.html', form=form)
+
+@auth_bp.route('/register', methods=['GET', 'POST'])
+def register():
+    """User registration page"""
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+
+    from forms import RegisterForm
+    form = RegisterForm()
+
+    if form.validate_on_submit():
+        from models import User
+        from app import db
+        
+        # Check if username already exists
+        existing_user = User.query.filter_by(username=form.username.data).first()
+        if existing_user:
+            flash('Username already exists. Please choose a different one.', 'error')
+            return render_template('auth/register.html', form=form)
+        
+        # Check if email already exists
+        existing_email = User.query.filter_by(email=form.email.data).first()
+        if existing_email:
+            flash('Email already registered. Please use a different email.', 'error')
+            return render_template('auth/register.html', form=form)
+        
+        # Create new user
+        user = User(
+            username=form.username.data,
+            email=form.email.data,
+            password_hash='',  # Will be set by set_password
+            role='user'  # Default role
+        )
+        user.set_password(form.password.data)
+        
+        try:
+            db.session.add(user)
+            db.session.commit()
+            
+            flash('Registration successful! Please log in.', 'success')
+            return redirect(url_for('auth.login'))
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Registration error: {e}")
+            flash('Registration failed. Please try again.', 'error')
+
+    return render_template('auth/register.html', form=form)
 
 @auth_bp.route('/logout')
 @login_required
@@ -71,25 +116,31 @@ def change_password():
     form = ChangePasswordForm()
 
     if form.validate_on_submit():
-        if check_password_hash(current_user.password_hash, form.current_password.data):
+        if form.current_password.data and check_password_hash(current_user.password_hash, form.current_password.data):
             # Update password
-            current_user.password_hash = generate_password_hash(form.new_password.data)
+            if form.new_password.data:
+                current_user.password_hash = generate_password_hash(form.new_password.data)
 
             from app import db
             db.session.commit()
 
             # Log password change
-            from admin.logs import AdminLogger
-            admin_logger = AdminLogger()
-            admin_logger.log_action(
-                user_id=current_user.id,
-                action='password_changed',
-                resource_type='user',
-                resource_id=current_user.id,
-                details={'username': current_user.username},
-                ip_address=request.remote_addr,
-                user_agent=request.user_agent.string
-            )
+            try:
+                from admin.logs import AdminLogger
+                admin_logger = AdminLogger()
+                if hasattr(admin_logger, 'log_action'):
+                    admin_logger.log_action(
+                        user_id=current_user.id,
+                        action='password_changed',
+                        resource_type='user',
+                        resource_id=current_user.id,
+                        details={'username': current_user.username},
+                        ip_address=request.remote_addr,
+                        user_agent=request.user_agent.string
+                    )
+            except ImportError:
+                # Admin logging not available
+                pass
 
             flash('Password changed successfully!', 'success')
             return redirect(url_for('auth.profile'))

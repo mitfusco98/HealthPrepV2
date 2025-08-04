@@ -61,7 +61,15 @@ templates/
 
 ### ✅ Completed
 - Database models for patients, screenings, documents, conditions
-- Basic Flask app structure with authentication
+- **User Authentication System** (January 2025)
+  - Flask-Login integration with session-based authentication
+  - Login, logout, and registration routes in `/auth` blueprint
+  - User registration with duplicate checking and validation
+  - Password hashing with Werkzeug security
+  - Role-based access control (admin/user roles)
+  - HIPAA-compliant login and registration templates
+  - Authentication redirects to `/home` after login
+  - Default admin and test users created
 - Error handling templates
 - Admin dashboard structure (logs, analytics, PHI settings)
 - OCR processing framework with confidence scoring
