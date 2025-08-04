@@ -1,4 +1,4 @@
-
+"""Fixes the screening_types method to include the form variable for rendering the template."""
 """
 User interface views for the main application.
 Handles user-facing screens including screening lists, prep sheets, and patient management.
@@ -128,16 +128,22 @@ class UserViews:
     def screening_types(self):
         """Screening types management view"""
         try:
+            from forms import ScreeningTypeForm
+
+            # Get all screening types
             screening_types = ScreeningType.query.order_by(ScreeningType.name).all()
 
+            # Create empty form for the template
+            form = ScreeningTypeForm()
+
             return render_template('screening/types.html',
-                                 screening_types=screening_types)
+                                 screening_types=screening_types,
+                                 form=form)
 
         except Exception as e:
             logger.error(f"Error in screening types view: {str(e)}")
             flash('Error loading screening types', 'error')
-            return render_template('screening/types.html',
-                                 screening_types=[])
+            return render_template('error/500.html'), 500
 
     def add_screening_type(self):
         """Add new screening type view"""
@@ -408,3 +414,4 @@ class UserViews:
             return render_template('patient_list.html',
                                  patients=[],
                                  search='')
+`
