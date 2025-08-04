@@ -6,7 +6,7 @@ from flask_login import login_required, current_user
 from datetime import datetime
 import logging
 
-from models import Patient, Screening, MedicalDocument, ScreeningType
+from models import Patient, PatientScreening, MedicalDocument, ScreeningType
 from core.engine import ScreeningEngine
 from prep_sheet.generator import PrepSheetGenerator
 from forms import LoginForm
