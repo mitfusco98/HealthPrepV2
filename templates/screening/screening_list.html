@@ -284,7 +284,7 @@
                             </td>
                         </tr>
                         {% endfor %}
-                        
+
                         {% if not screenings %}
                         <tr>
                             <td colspan="6" class="text-center py-5">
@@ -343,7 +343,7 @@
                             {% if screening_type.description %}
                             <p class="text-muted small mb-2">{{ screening_type.description }}</p>
                             {% endif %}
-                            
+
                             <div class="row text-center mb-3">
                                 <div class="col-4">
                                     <div class="border-end">
@@ -629,21 +629,21 @@ function clearFilters() {
     const searchInput = document.querySelector('[data-search-target]');
     const statusSelect = document.querySelector('[data-filter-target="[data-filter-value]"]');
     const typeSelect = document.querySelector('[data-filter-target="[data-screening-type]"]');
-    
+
     if (searchInput) {
         searchInput.value = '';
         if (window.screeningPerformance) {
             window.screeningPerformance.performSearch(searchInput);
         }
     }
-    
+
     if (statusSelect) {
         statusSelect.value = '';
         if (window.screeningPerformance) {
             window.screeningPerformance.performFilter(statusSelect);
         }
     }
-    
+
     if (typeSelect) {
         typeSelect.value = '';
         if (window.screeningPerformance) {
@@ -671,7 +671,7 @@ function exportSettings() {
         hospital_cutoff: document.getElementById('hospital_cutoff').value,
         exported_at: new Date().toISOString()
     };
-    
+
     const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -688,11 +688,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const triggerTabList = [].slice.call(document.querySelectorAll('#screeningTabs button'));
     triggerTabList.forEach(function(triggerEl) {
         const tabTrigger = new bootstrap.Tab(triggerEl);
-        
+
         triggerEl.addEventListener('click', function(event) {
             event.preventDefault();
             tabTrigger.show();
-            
+
             // Update URL without page reload
             const tabId = event.target.getAttribute('data-bs-target').replace('#', '').replace('-pane', '');
             const url = new URL(window.location);
@@ -700,7 +700,7 @@ document.addEventListener('DOMContentLoaded', function() {
             window.history.pushState({}, '', url);
         });
     });
-    
+
     // Show tab based on URL parameter
     const urlParams = new URLSearchParams(window.location.search);
     const activeTab = urlParams.get('tab');
@@ -714,4 +714,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-
