@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Any
 from sqlalchemy import func, and_, or_
 
 from app import db
-from models import (Patient, PatientScreening, MedicalDocument, AdminLog, User, 
+from models import (Patient, Screening, MedicalDocument, AdminLog, User, 
                    ScreeningType, ScreeningDocumentMatch)
 
 logger = logging.getLogger(__name__)
@@ -112,7 +112,7 @@ class AdminAnalytics:
             start_date = datetime.utcnow() - timedelta(days=days)
 
             # Get all patient screenings
-            all_screenings = PatientScreening.query.join(ScreeningType).all()
+            all_screenings = Screening.query.join(ScreeningType).all()
 
             # Analyze screening status distribution
             status_counts = {
@@ -273,7 +273,7 @@ class AdminAnalytics:
 
             # Screening engine utilization
             total_patients = Patient.query.count()
-            patients_with_screenings = db.session.query(PatientScreening.patient_id).distinct().count()
+            patients_with_screenings = db.session.query(Screening.patient_id).distinct().count()
 
             # Admin activity
             admin_actions = AdminLog.query.filter(AdminLog.timestamp >= start_date).count()
@@ -302,7 +302,7 @@ class AdminAnalytics:
                     'total_patients': total_patients,
                     'patients_with_screenings': patients_with_screenings,
                     'coverage_rate': round(patient_coverage_rate, 1),
-                    'screening_density': round(PatientScreening.query.count() / max(total_patients, 1), 1)
+                    'screening_density': round(Screening.query.count() / max(total_patients, 1), 1)
                 },
                 'system_activity': {
                     'admin_actions': admin_actions,
@@ -386,7 +386,7 @@ class AdminAnalytics:
 
     def _count_screenings_processed(self, start_date: datetime) -> int:
         """Count screenings processed since start date"""
-        return PatientScreening.query.filter(PatientScreening.updated_at >= start_date).count()
+        return Screening.query.filter(Screening.updated_at >= start_date).count()
 
     def _count_ocr_processed(self, start_date: datetime) -> int:
         """Count documents OCR processed since start date"""
@@ -399,10 +399,10 @@ class AdminAnalytics:
 
     def _count_gaps_identified(self, start_date: datetime) -> int:
         """Count care gaps identified since start date"""
-        return PatientScreening.query.filter(
+        return Screening.query.filter(
             and_(
-                PatientScreening.updated_at >= start_date,
-                PatientScreening.status.in_(['Due', 'Due Soon'])
+                Screening.updated_at >= start_date,
+                Screening.status.in_(['Due', 'Due Soon'])
             )
         ).count()
 
@@ -438,7 +438,7 @@ class AdminAnalytics:
         if total_screenings == 0:
             return 0.0
 
-        complete_screenings = PatientScreening.query.filter_by(status='Complete').count()
+        complete_screenings = Screening.query.filter_by(status='Complete').count()
         return round((complete_screenings / total_screenings) * 100, 1)
 
     def _get_population_health_grade(self, compliance_rate: float) -> str:
