@@ -1,202 +1,138 @@
 {% extends 'base_user.html' %}
 
-{% block title %}HealthPrep - Login{% endblock %}
-
-{% block extra_css %}
-<style>
-    .login-container {
-        max-width: 400px;
-        margin: 5rem auto;
-    }
-    
-    .login-card {
-        border: none;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        background: var(--bs-dark);
-    }
-    
-    .login-header {
-        background: linear-gradient(135deg, #dc3545, #c82333);
-        color: white;
-        text-align: center;
-        padding: 2rem;
-        border-radius: 0.375rem 0.375rem 0 0;
-    }
-    
-    .login-header .fa-heartbeat {
-        font-size: 3rem;
-        margin-bottom: 1rem;
-        animation: heartbeat 2s infinite;
-    }
-    
-    @keyframes heartbeat {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.1); }
-    }
-    
-    .form-floating > .form-control {
-        background-color: var(--bs-gray-800);
-        border-color: var(--bs-gray-600);
-        color: var(--bs-light);
-    }
-    
-    .form-floating > .form-control:focus {
-        background-color: var(--bs-gray-700);
-        border-color: #dc3545;
-        box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
-    }
-    
-    .form-floating > label {
-        color: var(--bs-gray-400);
-    }
-    
-    .btn-login {
-        background: linear-gradient(135deg, #dc3545, #c82333);
-        border: none;
-        padding: 0.75rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .btn-login:hover {
-        background: linear-gradient(135deg, #c82333, #a71e2a);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    }
-    
-    .security-notice {
-        background-color: rgba(255, 193, 7, 0.1);
-        border: 1px solid rgba(255, 193, 7, 0.3);
-        border-radius: 0.375rem;
-        padding: 1rem;
-        margin-top: 1.5rem;
-    }
-    
-    .security-notice .fa-shield-alt {
-        color: #ffc107;
-    }
-</style>
-{% endblock %}
+{% block title %}Login - HealthPrep{% endblock %}
 
 {% block content %}
-<div class="login-container">
-    <div class="card login-card">
-        <div class="login-header">
-            <i class="fas fa-heartbeat"></i>
-            <h2 class="mb-0">HealthPrep</h2>
-            <p class="mb-0 opacity-75">Patient Visit Preparation System</p>
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="card shadow">
+            <div class="card-header text-center bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-stethoscope me-2"></i>
+                    HealthPrep Login
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ form.username.label(class="form-label") }}
+                        {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else "")) }}
+                        {% if form.username.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.username.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.password.label(class="form-label") }}
+                        {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else "")) }}
+                        {% if form.password.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.password.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-sign-in-alt me-2"></i>
+                            Sign In
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer text-center text-muted">
+                <small>
+                    <i class="fas fa-shield-alt me-1"></i>
+                    Secure HIPAA-compliant access
+                </small>
+            </div>
         </div>
         
-        <div class="card-body p-4">
-            <form method="POST" action="{{ url_for('auth.login') }}">
-                {{ form.hidden_tag() }}
-                
-                <!-- Username field -->
-                <div class="form-floating mb-3">
-                    {{ form.username(class="form-control", placeholder="Username") }}
-                    {{ form.username.label }}
-                    {% if form.username.errors %}
-                        <div class="invalid-feedback d-block">
-                            {% for error in form.username.errors %}
-                                <small>{{ error }}</small>
-                            {% endfor %}
+        <!-- Security Notice -->
+        <div class="alert alert-info mt-3" role="alert">
+            <h6 class="alert-heading">
+                <i class="fas fa-info-circle me-1"></i>
+                Security Notice
+            </h6>
+            <ul class="mb-0">
+                <li>Sessions automatically expire after 60 minutes of inactivity</li>
+                <li>All access is logged for compliance and audit purposes</li>
+                <li>Use of this system constitutes acceptance of monitoring</li>
+            </ul>
+        </div>
+        
+        <!-- System Status -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-heartbeat me-1"></i>
+                    System Status
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="text-success">
+                            <i class="fas fa-check-circle fa-2x"></i>
+                            <div class="small mt-1">Database</div>
                         </div>
-                    {% endif %}
-                </div>
-                
-                <!-- Password field -->
-                <div class="form-floating mb-3">
-                    {{ form.password(class="form-control", placeholder="Password") }}
-                    {{ form.password.label }}
-                    {% if form.password.errors %}
-                        <div class="invalid-feedback d-block">
-                            {% for error in form.password.errors %}
-                                <small>{{ error }}</small>
-                            {% endfor %}
+                    </div>
+                    <div class="col-4">
+                        <div class="text-success">
+                            <i class="fas fa-eye fa-2x"></i>
+                            <div class="small mt-1">OCR Service</div>
                         </div>
-                    {% endif %}
-                </div>
-                
-                <!-- Remember me checkbox -->
-                <div class="form-check mb-3">
-                    {{ form.remember_me(class="form-check-input") }}
-                    {{ form.remember_me.label(class="form-check-label") }}
-                </div>
-                
-                <!-- Login button -->
-                <button type="submit" class="btn btn-login btn-lg w-100">
-                    <i class="fas fa-sign-in-alt me-2"></i>
-                    Sign In
-                </button>
-            </form>
-            
-            <!-- Security notice -->
-            <div class="security-notice">
-                <div class="d-flex align-items-center">
-                    <i class="fas fa-shield-alt me-2"></i>
-                    <div>
-                        <strong>Security Notice</strong>
-                        <p class="mb-0 small">
-                            This system contains Protected Health Information (PHI). 
-                            Unauthorized access is prohibited and monitored.
-                        </p>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-success">
+                            <i class="fas fa-shield-alt fa-2x"></i>
+                            <div class="small mt-1">Security</div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-        
-        <div class="card-footer text-center bg-transparent border-top-0">
-            <small class="text-muted">
-                <i class="fas fa-lock me-1"></i>
-                HIPAA Compliant • Secure Authentication
-            </small>
-        </div>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Focus on username field
-    const usernameField = document.getElementById('username');
-    if (usernameField) {
-        usernameField.focus();
-    }
-    
-    // Add loading state to login button
-    const loginForm = document.querySelector('form');
-    const loginButton = document.querySelector('.btn-login');
-    
-    loginForm.addEventListener('submit', function() {
-        loginButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Signing In...';
-        loginButton.disabled = true;
-    });
-    
-    // Show caps lock warning
-    function checkCapsLock(event) {
-        const capsLockOn = event.getModifierState && event.getModifierState('CapsLock');
-        const warning = document.getElementById('capsLockWarning');
-        
-        if (capsLockOn) {
-            if (!warning) {
-                const warningDiv = document.createElement('div');
-                warningDiv.id = 'capsLockWarning';
-                warningDiv.className = 'alert alert-warning alert-sm mt-2';
-                warningDiv.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Caps Lock is on';
-                event.target.parentNode.appendChild(warningDiv);
-            }
-        } else if (warning) {
-            warning.remove();
-        }
-    }
-    
-    const passwordField = document.getElementById('password');
-    if (passwordField) {
-        passwordField.addEventListener('keydown', checkCapsLock);
-        passwordField.addEventListener('keyup', checkCapsLock);
-    }
-});
-</script>
+<!-- Background pattern -->
+<style>
+body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+
+.card {
+    border: none;
+    border-radius: 15px;
+}
+
+.card-header {
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
+}
+
+.form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+.btn-primary {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    border: none;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(45deg, #5a6fd8, #6a4190);
+    transform: translateY(-1px);
+}
+</style>
 {% endblock %}

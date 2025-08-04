@@ -1,349 +1,261 @@
 """
-OCR processing with Tesseract integration for medical document text extraction.
-Includes quality scoring, confidence assessment, and automated processing.
+Tesseract integration and text cleanup for medical documents
 """
-
 import os
-import logging
-import tempfile
 import subprocess
-from typing import Dict, Optional, Tuple, List
-from datetime import datetime
-import pytesseract
+import tempfile
 from PIL import Image
 import pdf2image
-import io
-
 from app import db
-from models import MedicalDocument
+from models import Document
+from .phi_filter import PHIFilter
+import logging
 
 class OCRProcessor:
-    """Handles OCR processing for medical documents with quality assessment."""
+    """Handles OCR processing of medical documents using Tesseract"""
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self.phi_filter = PHIFilter()
         
-        # Configure Tesseract path from environment or default
-        tesseract_path = os.getenv('TESSERACT_PATH', '/usr/bin/tesseract')
-        if os.path.exists(tesseract_path):
-            pytesseract.pytesseract.tesseract_cmd = tesseract_path
-        
-        # OCR configuration optimized for medical documents
-        self.tesseract_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,()-/:%'
-        
-        # Quality thresholds
-        self.high_confidence_threshold = 80.0
-        self.medium_confidence_threshold = 60.0
-        self.low_confidence_threshold = 40.0
-        
-        # Processing statistics
-        self.processing_stats = {
-            'total_processed': 0,
-            'successful_extractions': 0,
-            'failed_extractions': 0,
-            'high_confidence_count': 0,
-            'medium_confidence_count': 0,
-            'low_confidence_count': 0,
-            'average_confidence': 0.0,
-            'last_processed': None
-        }
+        # Tesseract configuration for medical documents
+        self.tesseract_config = '--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,()[]{}:;/\\-+=%$@#!?"\' \n\t'
     
-    def process_document(self, document: MedicalDocument, file_content: bytes) -> Dict[str, any]:
-        """Process a document and extract text with OCR."""
+    def process_document(self, document_id):
+        """Process a document with OCR and PHI filtering"""
+        document = Document.query.get(document_id)
+        if not document:
+            self.logger.error(f"Document {document_id} not found")
+            return False
         
         try:
-            self.logger.info(f"Starting OCR processing for document {document.id}")
+            # Extract text using OCR
+            ocr_text, confidence = self._extract_text(document.file_path)
             
-            # Determine file type and convert to image if needed
-            images = self._prepare_images_from_content(file_content, document.filename)
-            
-            if not images:
-                return self._create_error_result("Unable to convert document to processable format")
-            
-            # Process each page/image
-            extracted_text = ""
-            total_confidence = 0.0
-            confidence_scores = []
-            
-            for i, image in enumerate(images):
-                try:
-                    # Extract text with confidence data
-                    text, confidence = self._extract_text_with_confidence(image)
-                    
-                    if text.strip():
-                        extracted_text += f"\n--- Page {i+1} ---\n{text}\n"
-                        confidence_scores.append(confidence)
-                        total_confidence += confidence
-                    
-                except Exception as e:
-                    self.logger.warning(f"Error processing page {i+1} of document {document.id}: {e}")
-                    continue
-            
-            # Calculate overall confidence
-            overall_confidence = total_confidence / len(confidence_scores) if confidence_scores else 0.0
-            
-            # Apply PHI filtering if enabled
-            from .phi_filter import PHIFilter
-            phi_filter = PHIFilter()
-            
-            if phi_filter.is_filtering_enabled():
-                filtered_text = phi_filter.filter_text(extracted_text)
-                document.has_phi_filtered = True
+            if ocr_text:
+                # Apply PHI filtering if enabled
+                filtered_text = self.phi_filter.filter_phi(ocr_text)
+                
+                # Update document record
+                document.ocr_text = filtered_text
+                document.ocr_confidence = confidence
+                document.phi_filtered = True
+                document.processed_at = datetime.utcnow()
+                
+                db.session.commit()
+                
+                self.logger.info(f"Successfully processed document {document_id} with confidence {confidence:.2f}")
+                
+                # Trigger screening engine update
+                from core.engine import ScreeningEngine
+                engine = ScreeningEngine()
+                engine.process_new_document(document_id)
+                
+                return True
             else:
-                filtered_text = extracted_text
-                document.has_phi_filtered = False
-            
-            # Update document with extracted content
-            document.content = filtered_text
-            document.confidence_score = overall_confidence / 100.0  # Store as 0-1 range
-            
-            # Update processing statistics
-            self._update_processing_stats(overall_confidence, True)
-            
-            db.session.commit()
-            
-            result = {
-                'success': True,
-                'extracted_text': filtered_text,
-                'confidence_score': overall_confidence,
-                'page_count': len(images),
-                'character_count': len(filtered_text),
-                'quality_assessment': self._assess_quality(overall_confidence),
-                'phi_filtered': document.has_phi_filtered,
-                'processing_time': datetime.utcnow().isoformat()
-            }
-            
-            self.logger.info(f"Successfully processed document {document.id} with {overall_confidence:.1f}% confidence")
-            return result
-            
+                self.logger.warning(f"No text extracted from document {document_id}")
+                return False
+                
         except Exception as e:
-            self.logger.error(f"Error processing document {document.id}: {e}")
-            self._update_processing_stats(0.0, False)
-            return self._create_error_result(f"OCR processing failed: {str(e)}")
+            self.logger.error(f"Error processing document {document_id}: {str(e)}")
+            return False
     
-    def _prepare_images_from_content(self, file_content: bytes, filename: str) -> List[Image.Image]:
-        """Convert file content to processable images."""
+    def _extract_text(self, file_path):
+        """Extract text from document using Tesseract OCR"""
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Document file not found: {file_path}")
         
-        images = []
-        file_extension = os.path.splitext(filename.lower())[1]
+        file_ext = os.path.splitext(file_path)[1].lower()
         
         try:
-            if file_extension == '.pdf':
+            if file_ext == '.pdf':
+                return self._process_pdf(file_path)
+            elif file_ext in ['.png', '.jpg', '.jpeg', '.tiff', '.bmp']:
+                return self._process_image(file_path)
+            else:
+                raise ValueError(f"Unsupported file type: {file_ext}")
+                
+        except Exception as e:
+            self.logger.error(f"Error extracting text from {file_path}: {str(e)}")
+            return None, 0.0
+    
+    def _process_pdf(self, pdf_path):
+        """Process PDF document and extract text"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            try:
                 # Convert PDF to images
-                with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
-                    temp_file.write(file_content)
-                    temp_file.flush()
+                images = pdf2image.convert_from_path(pdf_path)
+                
+                all_text = []
+                confidences = []
+                
+                for i, image in enumerate(images):
+                    # Save image temporarily
+                    image_path = os.path.join(temp_dir, f"page_{i}.png")
+                    image.save(image_path, 'PNG')
                     
-                    # Convert PDF pages to images
-                    pdf_images = pdf2image.convert_from_path(
-                        temp_file.name,
-                        dpi=300,  # High DPI for better OCR accuracy
-                        fmt='jpeg'
-                    )
-                    images.extend(pdf_images)
+                    # Extract text from image
+                    text, confidence = self._process_image(image_path)
                     
-                    # Clean up temp file
-                    os.unlink(temp_file.name)
-            
-            elif file_extension in ['.jpg', '.jpeg', '.png', '.tiff', '.bmp']:
-                # Direct image processing
-                image = Image.open(io.BytesIO(file_content))
-                images.append(image)
-            
-            else:
-                self.logger.warning(f"Unsupported file format: {file_extension}")
-                return []
-            
-        except Exception as e:
-            self.logger.error(f"Error preparing images from {filename}: {e}")
-            return []
-        
-        return images
+                    if text:
+                        all_text.append(text)
+                        confidences.append(confidence)
+                
+                # Combine all text and calculate average confidence
+                combined_text = '\n'.join(all_text)
+                avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
+                
+                return combined_text, avg_confidence
+                
+            except Exception as e:
+                self.logger.error(f"Error processing PDF {pdf_path}: {str(e)}")
+                return None, 0.0
     
-    def _extract_text_with_confidence(self, image: Image.Image) -> Tuple[str, float]:
-        """Extract text from image with confidence scoring."""
-        
+    def _process_image(self, image_path):
+        """Process image and extract text using Tesseract"""
         try:
             # Preprocess image for better OCR results
-            processed_image = self._preprocess_image(image)
+            processed_image_path = self._preprocess_image(image_path)
             
-            # Extract text
-            text = pytesseract.image_to_string(processed_image, config=self.tesseract_config)
+            # Run Tesseract OCR
+            cmd = [
+                'tesseract',
+                processed_image_path,
+                'stdout',
+                '--oem', '3',
+                '--psm', '6'
+            ]
             
-            # Get confidence data
-            confidence_data = pytesseract.image_to_data(
-                processed_image, 
-                config=self.tesseract_config,
-                output_type=pytesseract.Output.DICT
-            )
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
             
-            # Calculate weighted confidence score
-            confidence_score = self._calculate_confidence_score(confidence_data)
-            
-            return text, confidence_score
-            
-        except Exception as e:
-            self.logger.error(f"Error extracting text from image: {e}")
-            return "", 0.0
-    
-    def _preprocess_image(self, image: Image.Image) -> Image.Image:
-        """Preprocess image for optimal OCR results."""
-        
-        try:
-            # Convert to grayscale if not already
-            if image.mode != 'L':
-                image = image.convert('L')
-            
-            # Enhance contrast and sharpness for medical documents
-            from PIL import ImageEnhance, ImageFilter
-            
-            # Enhance contrast
-            enhancer = ImageEnhance.Contrast(image)
-            image = enhancer.enhance(1.2)
-            
-            # Sharpen image
-            image = image.filter(ImageFilter.SHARPEN)
-            
-            # Resize if too small (improves OCR accuracy)
-            width, height = image.size
-            if width < 1000 or height < 1000:
-                scale_factor = max(1000 / width, 1000 / height)
-                new_size = (int(width * scale_factor), int(height * scale_factor))
-                image = image.resize(new_size, Image.Resampling.LANCZOS)
-            
-            return image
-            
-        except Exception as e:
-            self.logger.warning(f"Error preprocessing image: {e}")
-            return image  # Return original if preprocessing fails
-    
-    def _calculate_confidence_score(self, confidence_data: Dict) -> float:
-        """Calculate weighted confidence score from Tesseract output."""
-        
-        try:
-            confidences = confidence_data['conf']
-            texts = confidence_data['text']
-            
-            # Filter out empty/invalid confidence scores
-            valid_confidences = []
-            total_chars = 0
-            
-            for i, (conf, text) in enumerate(zip(confidences, texts)):
-                if conf > 0 and text.strip():  # Valid confidence and non-empty text
-                    char_count = len(text.strip())
-                    valid_confidences.extend([conf] * char_count)  # Weight by character count
-                    total_chars += char_count
-            
-            if not valid_confidences:
-                return 0.0
-            
-            # Calculate weighted average
-            weighted_confidence = sum(valid_confidences) / len(valid_confidences)
-            
-            return min(weighted_confidence, 100.0)  # Cap at 100%
-            
-        except Exception as e:
-            self.logger.warning(f"Error calculating confidence score: {e}")
-            return 50.0  # Default moderate confidence
-    
-    def _assess_quality(self, confidence_score: float) -> str:
-        """Assess OCR quality based on confidence score."""
-        
-        if confidence_score >= self.high_confidence_threshold:
-            return "High"
-        elif confidence_score >= self.medium_confidence_threshold:
-            return "Medium"
-        elif confidence_score >= self.low_confidence_threshold:
-            return "Low"
-        else:
-            return "Very Low"
-    
-    def _update_processing_stats(self, confidence_score: float, success: bool):
-        """Update processing statistics."""
-        
-        self.processing_stats['total_processed'] += 1
-        self.processing_stats['last_processed'] = datetime.utcnow()
-        
-        if success:
-            self.processing_stats['successful_extractions'] += 1
-            
-            # Update confidence counters
-            if confidence_score >= self.high_confidence_threshold:
-                self.processing_stats['high_confidence_count'] += 1
-            elif confidence_score >= self.medium_confidence_threshold:
-                self.processing_stats['medium_confidence_count'] += 1
+            if result.returncode == 0:
+                text = result.stdout.strip()
+                
+                # Get confidence score
+                confidence = self._calculate_confidence(processed_image_path)
+                
+                return text, confidence
             else:
-                self.processing_stats['low_confidence_count'] += 1
-            
-            # Update average confidence
-            total_successful = self.processing_stats['successful_extractions']
-            current_avg = self.processing_stats['average_confidence']
-            self.processing_stats['average_confidence'] = (
-                (current_avg * (total_successful - 1) + confidence_score) / total_successful
-            )
-        else:
-            self.processing_stats['failed_extractions'] += 1
+                self.logger.error(f"Tesseract failed with return code {result.returncode}: {result.stderr}")
+                return None, 0.0
+                
+        except subprocess.TimeoutExpired:
+            self.logger.error(f"Tesseract timeout processing {image_path}")
+            return None, 0.0
+        except Exception as e:
+            self.logger.error(f"Error processing image {image_path}: {str(e)}")
+            return None, 0.0
     
-    def _create_error_result(self, error_message: str) -> Dict[str, any]:
-        """Create standardized error result."""
-        
-        return {
-            'success': False,
-            'error': error_message,
-            'extracted_text': "",
-            'confidence_score': 0.0,
-            'page_count': 0,
-            'character_count': 0,
-            'quality_assessment': "Failed",
-            'phi_filtered': False,
-            'processing_time': datetime.utcnow().isoformat()
-        }
-    
-    def get_processing_stats(self) -> Dict[str, any]:
-        """Get current processing statistics."""
-        
-        return {
-            **self.processing_stats,
-            'success_rate': (
-                self.processing_stats['successful_extractions'] / 
-                max(self.processing_stats['total_processed'], 1) * 100
-            ),
-            'confidence_distribution': {
-                'high': self.processing_stats['high_confidence_count'],
-                'medium': self.processing_stats['medium_confidence_count'],
-                'low': self.processing_stats['low_confidence_count']
-            }
-        }
-    
-    def test_ocr_capability(self) -> Dict[str, any]:
-        """Test OCR system capabilities and configuration."""
-        
+    def _preprocess_image(self, image_path):
+        """Preprocess image to improve OCR accuracy"""
         try:
-            # Test Tesseract installation
-            version = pytesseract.get_tesseract_version()
+            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
+                temp_path = temp_file.name
             
-            # Test with a simple image
-            test_image = Image.new('L', (200, 50), color=255)
-            from PIL import ImageDraw, ImageFont
+            # Open and preprocess image
+            with Image.open(image_path) as image:
+                # Convert to grayscale
+                if image.mode != 'L':
+                    image = image.convert('L')
+                
+                # Enhance contrast and resize if needed
+                from PIL import ImageEnhance
+                
+                # Enhance contrast
+                enhancer = ImageEnhance.Contrast(image)
+                image = enhancer.enhance(1.5)
+                
+                # Resize if image is too small
+                width, height = image.size
+                if width < 800 or height < 600:
+                    scale_factor = max(800 / width, 600 / height)
+                    new_width = int(width * scale_factor)
+                    new_height = int(height * scale_factor)
+                    image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                
+                # Save preprocessed image
+                image.save(temp_path, 'PNG')
             
-            draw = ImageDraw.Draw(test_image)
-            draw.text((10, 10), "Test OCR 123", fill=0)
-            
-            test_text = pytesseract.image_to_string(test_image, config=self.tesseract_config)
-            
-            return {
-                'success': True,
-                'tesseract_version': str(version),
-                'test_extraction': test_text.strip(),
-                'configuration': self.tesseract_config,
-                'supported_formats': ['.pdf', '.jpg', '.jpeg', '.png', '.tiff', '.bmp']
-            }
+            return temp_path
             
         except Exception as e:
-            self.logger.error(f"OCR capability test failed: {e}")
-            return {
-                'success': False,
-                'error': str(e),
-                'tesseract_version': None,
-                'test_extraction': None
-            }
+            self.logger.error(f"Error preprocessing image {image_path}: {str(e)}")
+            return image_path  # Return original if preprocessing fails
+    
+    def _calculate_confidence(self, image_path):
+        """Calculate OCR confidence score"""
+        try:
+            cmd = [
+                'tesseract',
+                image_path,
+                'stdout',
+                '--oem', '3',
+                '--psm', '6',
+                'tsv'
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0:
+                lines = result.stdout.strip().split('\n')
+                confidences = []
+                
+                for line in lines[1:]:  # Skip header
+                    parts = line.split('\t')
+                    if len(parts) >= 11 and parts[10].strip():  # Confidence is in column 10
+                        try:
+                            conf = float(parts[10])
+                            if conf > 0:  # Only include positive confidences
+                                confidences.append(conf)
+                        except ValueError:
+                            continue
+                
+                if confidences:
+                    return sum(confidences) / len(confidences) / 100.0  # Convert to 0-1 scale
+                else:
+                    return 0.5  # Default confidence if no data
+            else:
+                return 0.5  # Default confidence on error
+                
+        except Exception as e:
+            self.logger.error(f"Error calculating confidence for {image_path}: {str(e)}")
+            return 0.5  # Default confidence on error
+    
+    def reprocess_document(self, document_id):
+        """Reprocess an existing document"""
+        return self.process_document(document_id)
+    
+    def get_processing_stats(self):
+        """Get OCR processing statistics"""
+        total_docs = Document.query.count()
+        processed_docs = Document.query.filter(Document.ocr_text.isnot(None)).count()
+        
+        # Calculate average confidence
+        avg_confidence = db.session.query(db.func.avg(Document.ocr_confidence)).scalar() or 0.0
+        
+        # Count low confidence documents
+        low_confidence_docs = Document.query.filter(Document.ocr_confidence < 0.6).count()
+        
+        return {
+            'total_documents': total_docs,
+            'processed_documents': processed_docs,
+            'processing_rate': (processed_docs / total_docs * 100) if total_docs > 0 else 0,
+            'average_confidence': avg_confidence,
+            'low_confidence_documents': low_confidence_docs
+        }
+    
+    def cleanup_temp_files(self):
+        """Clean up any temporary files created during processing"""
+        temp_dir = tempfile.gettempdir()
+        
+        try:
+            for filename in os.listdir(temp_dir):
+                if filename.startswith('tesseract_') or filename.startswith('ocr_'):
+                    file_path = os.path.join(temp_dir, filename)
+                    if os.path.isfile(file_path):
+                        os.remove(file_path)
+                        
+        except Exception as e:
+            self.logger.warning(f"Error cleaning up temp files: {str(e)}")
+
+from datetime import datetime

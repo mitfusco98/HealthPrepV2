@@ -1,669 +1,430 @@
 {% extends 'base_user.html' %}
 
-{% block title %}HealthPrep - Prep Sheet for {{ patient.full_name }}{% endblock %}
+{% block title %}Prep Sheet - {{ patient.full_name }} - HealthPrep{% endblock %}
 
 {% block extra_css %}
 <style>
-    .prep-sheet-container {
-        background: white;
-        color: #333;
-        padding: 2rem;
-        border-radius: 0.5rem;
-        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-        margin-bottom: 2rem;
-    }
-    
-    .prep-sheet-header {
-        border-bottom: 3px solid #0d6efd;
-        padding-bottom: 1rem;
-        margin-bottom: 2rem;
-    }
-    
-    .patient-info-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-bottom: 2rem;
-    }
-    
-    .info-item {
-        display: flex;
-        flex-direction: column;
-    }
-    
-    .info-label {
-        font-weight: 600;
-        color: #495057;
-        font-size: 0.875rem;
-        margin-bottom: 0.25rem;
-    }
-    
-    .info-value {
-        font-size: 1rem;
-        color: #212529;
-    }
-    
-    .prep-section {
-        margin-bottom: 2rem;
-        page-break-inside: avoid;
-    }
-    
-    .section-header {
-        background: linear-gradient(135deg, #0d6efd, #6610f2);
-        color: white;
-        padding: 0.75rem 1rem;
-        border-radius: 0.375rem 0.375rem 0 0;
-        margin-bottom: 0;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-    
-    .section-content {
-        border: 1px solid #dee2e6;
-        border-top: none;
-        padding: 1rem;
-        border-radius: 0 0 0.375rem 0.375rem;
-        background: #f8f9fa;
-    }
-    
-    .screening-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 1rem;
-    }
-    
-    .screening-item {
-        background: white;
-        border: 1px solid #dee2e6;
-        border-radius: 0.375rem;
-        padding: 1rem;
-        position: relative;
-    }
-    
-    .screening-status {
-        position: absolute;
-        top: 0.5rem;
-        right: 0.5rem;
-        padding: 0.25rem 0.5rem;
-        border-radius: 0.25rem;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-    
-    .status-complete {
-        background: #d4edda;
-        color: #155724;
-        border: 1px solid #c3e6cb;
-    }
-    
-    .status-due-soon {
-        background: #fff3cd;
-        color: #856404;
-        border: 1px solid #ffeaa7;
-    }
-    
-    .status-due {
-        background: #f8d7da;
-        color: #721c24;
-        border: 1px solid #f5c6cb;
-    }
-    
-    .document-links {
-        margin-top: 0.5rem;
-    }
-    
-    .document-link {
-        display: inline-block;
-        padding: 0.25rem 0.5rem;
-        margin: 0.125rem;
-        border-radius: 0.25rem;
-        text-decoration: none;
-        font-size: 0.75rem;
-        color: white;
-        transition: all 0.2s;
-    }
-    
-    .document-link:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.2);
-        color: white;
-    }
-    
-    .confidence-high {
-        background: #28a745;
-    }
-    
-    .confidence-medium {
-        background: #ffc107;
-        color: #212529 !important;
-    }
-    
-    .confidence-low {
-        background: #dc3545;
-    }
-    
-    .medical-data-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 1rem;
-    }
-    
-    .medical-data-table th,
-    .medical-data-table td {
-        padding: 0.5rem;
-        border: 1px solid #dee2e6;
-        text-align: left;
-    }
-    
-    .medical-data-table th {
-        background: #e9ecef;
-        font-weight: 600;
-    }
-    
-    .medical-data-table tbody tr:nth-child(even) {
-        background: #f8f9fa;
-    }
-    
-    .conditions-list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-    }
-    
-    .condition-item {
-        background: white;
-        border: 1px solid #dee2e6;
-        border-radius: 0.25rem;
-        padding: 0.75rem;
-        margin-bottom: 0.5rem;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    .condition-name {
-        font-weight: 600;
-        color: #495057;
-    }
-    
-    .condition-details {
-        font-size: 0.875rem;
-        color: #6c757d;
-    }
-    
-    .print-controls {
-        background: var(--bs-dark);
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin-bottom: 1rem;
-        display: flex;
-        justify-content: between;
-        align-items: center;
-        color: white;
-    }
-    
-    .summary-stats {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 1rem;
-        margin-bottom: 2rem;
-    }
-    
-    .stat-item {
-        text-align: center;
-        background: white;
-        border: 1px solid #dee2e6;
-        border-radius: 0.375rem;
-        padding: 1rem;
-    }
-    
-    .stat-value {
-        font-size: 2rem;
-        font-weight: bold;
-        color: #0d6efd;
-        margin-bottom: 0.25rem;
-    }
-    
-    .stat-label {
-        font-size: 0.875rem;
-        color: #6c757d;
-    }
-    
-    @media print {
-        .print-controls,
-        .navbar,
-        footer {
-            display: none !important;
-        }
-        
-        .prep-sheet-container {
-            box-shadow: none;
-            margin: 0;
-            padding: 1rem;
-        }
-        
-        body {
-            background: white !important;
-        }
-        
-        .prep-section {
-            page-break-inside: avoid;
-        }
-        
-        .section-header {
-            background: #0d6efd !important;
-            -webkit-print-color-adjust: exact;
-            color-adjust: exact;
-        }
-    }
+@media print {
+    .no-print { display: none !important; }
+    .card { border: 1px solid #000 !important; box-shadow: none !important; }
+    .prep-sheet { font-size: 12px; }
+}
+
+.prep-sheet-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem;
+    border-radius: 8px 8px 0 0;
+}
+
+.confidence-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 5px;
+}
+
+.confidence-high { background-color: #28a745; }
+.confidence-medium { background-color: #ffc107; }
+.confidence-low { background-color: #dc3545; }
+
+.screening-status-complete { color: #28a745; }
+.screening-status-due { color: #007bff; }
+.screening-status-due_soon { color: #ffc107; }
+.screening-status-overdue { color: #dc3545; }
+
+.document-item {
+    border-left: 4px solid #e9ecef;
+    padding: 0.5rem 1rem;
+    margin-bottom: 0.5rem;
+    background-color: rgba(0,0,0,0.02);
+}
+
+.document-item.high-confidence { border-left-color: #28a745; }
+.document-item.medium-confidence { border-left-color: #ffc107; }
+.document-item.low-confidence { border-left-color: #dc3545; }
+
+.prep-section {
+    page-break-inside: avoid;
+    margin-bottom: 2rem;
+}
+
+.checklist-item {
+    padding: 0.75rem;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    background-color: #f8f9fa;
+}
+
+.signature-box {
+    border: 1px solid #000;
+    height: 60px;
+    margin-top: 1rem;
+    padding: 0.5rem;
+    background-color: #fff;
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Print Controls -->
-<div class="print-controls d-print-none">
-    <div class="d-flex justify-content-between align-items-center w-100">
-        <div>
-            <h5 class="mb-0">
-                <i class="fas fa-file-medical-alt me-2"></i>
-                Prep Sheet for {{ patient.full_name }}
-            </h5>
-            <small class="text-muted">
-                Generated on {{ generated_at.strftime('%B %d, %Y at %I:%M %p') }}
-            </small>
-        </div>
+<div class="prep-sheet">
+    <!-- Header Controls -->
+    <div class="d-flex justify-content-between align-items-center mb-4 no-print">
+        <h1>
+            <i class="fas fa-file-medical me-2 text-primary"></i>
+            Medical Preparation Sheet
+        </h1>
         <div class="btn-group">
-            <a href="{{ url_for('patient.patient_detail', patient_id=patient.id) }}" class="btn btn-outline-light">
-                <i class="fas fa-arrow-left me-1"></i>Back to Patient
+            <button type="button" class="btn btn-outline-primary" onclick="window.print()">
+                <i class="fas fa-print me-1"></i>
+                Print
+            </button>
+            <a href="{{ url_for('prep_sheet.regenerate', patient_id=patient.id) }}" class="btn btn-outline-success">
+                <i class="fas fa-sync me-1"></i>
+                Regenerate
             </a>
-            <button type="button" class="btn btn-outline-light" onclick="window.print()">
-                <i class="fas fa-print me-1"></i>Print
-            </button>
-            <button type="button" class="btn btn-outline-light" onclick="downloadPDF()">
-                <i class="fas fa-file-pdf me-1"></i>Download PDF
-            </button>
-            <button type="button" class="btn btn-light" onclick="refreshPrepSheet()">
-                <i class="fas fa-sync-alt me-1"></i>Refresh
-            </button>
+            <a href="{{ url_for('main.patient_detail', patient_id=patient.id) }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>
+                Back to Patient
+            </a>
         </div>
     </div>
-</div>
 
-<div class="prep-sheet-container">
     <!-- Patient Header -->
-    <div class="prep-sheet-header">
-        <div class="d-flex justify-content-between align-items-start">
-            <div>
-                <h1 class="mb-2">{{ patient.full_name }}</h1>
-                <p class="text-muted mb-0">Patient Visit Preparation Sheet</p>
-            </div>
-            <div class="text-end">
-                <p class="mb-1"><strong>Prep Date:</strong> {{ prep_data.patient_header.prep_date.strftime('%B %d, %Y') }}</p>
-                <p class="mb-0"><strong>Generated at:</strong> {{ generated_at.strftime('%I:%M %p') }}</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Patient Information Grid -->
-    <div class="patient-info-grid">
-        <div class="info-item">
-            <div class="info-label">Medical Record Number</div>
-            <div class="info-value">{{ patient.mrn }}</div>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Date of Birth</div>
-            <div class="info-value">{{ prep_data.patient_header.date_of_birth.strftime('%m/%d/%Y') }}</div>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Age</div>
-            <div class="info-value">{{ prep_data.patient_header.age }} years</div>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Gender</div>
-            <div class="info-value">{{ 'Male' if prep_data.patient_header.gender == 'M' else 'Female' if prep_data.patient_header.gender == 'F' else prep_data.patient_header.gender }}</div>
-        </div>
-        <div class="info-item">
-            <div class="info-label">Last Visit</div>
-            <div class="info-value">
-                {% if prep_data.patient_header.last_visit %}
-                    {{ prep_data.patient_header.last_visit.strftime('%m/%d/%Y') }}
-                {% else %}
-                    <em>No previous visits</em>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
-    <!-- Summary Statistics -->
-    <div class="summary-stats">
-        <div class="stat-item">
-            <div class="stat-value">{{ prep_data.quality_checklist.total_screenings }}</div>
-            <div class="stat-label">Total Screenings</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-value text-danger">{{ prep_data.quality_checklist.due_count }}</div>
-            <div class="stat-label">Due Now</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-value text-warning">{{ prep_data.quality_checklist.due_soon_count }}</div>
-            <div class="stat-label">Due Soon</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-value text-success">{{ prep_data.quality_checklist.complete_count }}</div>
-            <div class="stat-label">Complete</div>
-        </div>
-    </div>
-
-    <!-- Active Conditions -->
-    {% if prep_data.patient_summary.active_conditions %}
-    <div class="prep-section">
-        <div class="section-header">
-            <h4 class="mb-0"><i class="fas fa-diagnoses me-2"></i>Active Medical Conditions</h4>
-            <span class="badge bg-light text-dark">{{ prep_data.patient_summary.active_conditions|length }} condition(s)</span>
-        </div>
-        <div class="section-content">
-            <ul class="conditions-list">
-                {% for condition in prep_data.patient_summary.active_conditions %}
-                <li class="condition-item">
-                    <div>
-                        <div class="condition-name">{{ condition.name }}</div>
-                        {% if condition.icd_code %}
-                            <div class="condition-details">ICD Code: {{ condition.icd_code }}</div>
+    <div class="card mb-4">
+        <div class="prep-sheet-header">
+            <div class="row">
+                <div class="col-md-8">
+                    <h2 class="mb-3">{{ patient.full_name }}</h2>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>MRN:</strong> {{ patient.mrn }}<br>
+                            <strong>DOB:</strong> {{ patient.date_of_birth.strftime('%m/%d/%Y') }}<br>
+                            <strong>Age:</strong> {{ patient.age }} years
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Gender:</strong> {{ patient.gender }}<br>
+                            {% if patient.phone %}
+                                <strong>Phone:</strong> {{ patient.phone }}<br>
+                            {% endif %}
+                            {% if patient.email %}
+                                <strong>Email:</strong> {{ patient.email }}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 text-end">
+                    <div class="text-white-50">
+                        <strong>Prep Sheet Generated:</strong><br>
+                        {{ prep_sheet.generated_at.strftime('%m/%d/%Y %I:%M %p') }}
+                        <br><br>
+                        {% if prep_sheet.appointment_date %}
+                            <strong>Appointment Date:</strong><br>
+                            {{ prep_sheet.appointment_date.strftime('%m/%d/%Y') }}
                         {% endif %}
                     </div>
-                    <div class="text-end">
-                        {% if condition.onset_date %}
-                            <small class="text-muted">Since {{ condition.onset_date.strftime('%m/%d/%Y') }}</small>
-                        {% endif %}
-                    </div>
-                </li>
-                {% endfor %}
-            </ul>
+                </div>
+            </div>
         </div>
     </div>
-    {% endif %}
 
-    <!-- Quality Checklist - Screening Status -->
-    <div class="prep-section">
-        <div class="section-header">
-            <h4 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>Screening Checklist</h4>
-            <span class="badge bg-light text-dark">
-                {{ prep_data.quality_checklist.complete_count }}/{{ prep_data.quality_checklist.total_screenings }} Complete
-            </span>
+    <!-- Generation Summary -->
+    <div class="row g-4 mb-4 no-print">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4 class="text-primary">{{ prep_sheet.documents_processed or 0 }}</h4>
+                    <small class="text-muted">Documents Processed</small>
+                </div>
+            </div>
         </div>
-        <div class="section-content">
-            {% if prep_data.quality_checklist.screenings %}
-                <div class="screening-grid">
-                    {% for screening in prep_data.quality_checklist.screenings %}
-                    <div class="screening-item">
-                        <div class="screening-status status-{{ screening.status.lower().replace(' ', '-') }}">
-                            {% if screening.status == 'Complete' %}
-                                <i class="fas fa-check-circle me-1"></i>{{ screening.status }}
-                            {% elif screening.status == 'Due Soon' %}
-                                <i class="fas fa-clock me-1"></i>{{ screening.status }}
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4 class="text-success">{{ prep_sheet.screenings_included or 0 }}</h4>
+                    <small class="text-muted">Screenings Reviewed</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4 class="text-info">{{ "%.1f"|format(prep_sheet.generation_time_seconds or 0) }}s</h4>
+                    <small class="text-muted">Generation Time</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4 class="text-warning">
+                        <i class="fas fa-shield-alt"></i>
+                    </h4>
+                    <small class="text-muted">HIPAA Compliant</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prep Sheet Content -->
+    <div class="card">
+        <div class="card-body">
+            {% if prep_sheet.content %}
+                {{ prep_sheet.content|safe }}
+            {% else %}
+                <!-- Fallback content structure -->
+                <div class="prep-section">
+                    <h3 class="border-bottom pb-2 mb-3">
+                        <i class="fas fa-user-md me-2"></i>
+                        Patient Summary
+                    </h3>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Active Conditions</h5>
+                            {% set conditions = patient.conditions|selectattr('status', 'equalto', 'active')|list %}
+                            {% if conditions %}
+                                <ul class="list-unstyled">
+                                    {% for condition in conditions %}
+                                    <li class="mb-2">
+                                        <strong>{{ condition.condition_name }}</strong>
+                                        {% if condition.icd_code %}
+                                            <span class="badge bg-secondary">{{ condition.icd_code }}</span>
+                                        {% endif %}
+                                        {% if condition.diagnosis_date %}
+                                            <br><small class="text-muted">Diagnosed: {{ condition.diagnosis_date.strftime('%m/%d/%Y') }}</small>
+                                        {% endif %}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
                             {% else %}
-                                <i class="fas fa-exclamation-triangle me-1"></i>{{ screening.status }}
+                                <p class="text-muted">No active conditions recorded</p>
                             {% endif %}
                         </div>
                         
-                        <h6 class="mb-2">{{ screening.name }}</h6>
-                        
+                        <div class="col-md-6">
+                            <h5>Contact Information</h5>
+                            {% if patient.emergency_contact %}
+                                <p><strong>Emergency Contact:</strong> {{ patient.emergency_contact }}</p>
+                            {% endif %}
+                            {% if patient.address %}
+                                <p><strong>Address:</strong><br>{{ patient.address }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="prep-section">
+                    <h3 class="border-bottom pb-2 mb-3">
+                        <i class="fas fa-clipboard-check me-2"></i>
+                        Screening Status
+                    </h3>
+                    
+                    {% set screenings = patient.screenings %}
+                    {% if screenings %}
                         <div class="row">
-                            <div class="col-6">
-                                <small class="text-muted">Last Completed:</small>
+                            {% for screening in screenings %}
+                            <div class="col-md-6 mb-3">
+                                <div class="card border-start border-4 border-{% if screening.status == 'complete' %}success{% elif screening.status == 'due_soon' %}warning{% elif screening.status == 'overdue' %}danger{% else %}primary{% endif %}">
+                                    <div class="card-body">
+                                        <h6 class="card-title">{{ screening.screening_type.name }}</h6>
+                                        <p class="card-text">
+                                            <span class="badge bg-{% if screening.status == 'complete' %}success{% elif screening.status == 'due_soon' %}warning{% elif screening.status == 'overdue' %}danger{% else %}primary{% endif %}">
+                                                {{ screening.status.replace('_', ' ').title() }}
+                                            </span>
+                                        </p>
+                                        {% if screening.last_completed_date %}
+                                            <small class="text-muted">Last completed: {{ screening.last_completed_date.strftime('%m/%d/%Y') }}</small>
+                                        {% else %}
+                                            <small class="text-muted">Never completed</small>
+                                        {% endif %}
+                                        {% if screening.next_due_date %}
+                                            <br><small class="text-muted">Next due: {{ screening.next_due_date.strftime('%m/%d/%Y') }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No screenings configured for this patient</p>
+                    {% endif %}
+                </div>
+
+                <div class="prep-section">
+                    <h3 class="border-bottom pb-2 mb-3">
+                        <i class="fas fa-file-medical me-2"></i>
+                        Recent Medical Documents
+                    </h3>
+                    
+                    {% set recent_documents = patient.documents|sort(attribute='document_date', reverse=true)|list %}
+                    {% if recent_documents %}
+                        {% for doc in recent_documents[:10] %}
+                        <div class="document-item {{ 'high-confidence' if doc.ocr_confidence and doc.ocr_confidence >= 0.8 else 'medium-confidence' if doc.ocr_confidence and doc.ocr_confidence >= 0.6 else 'low-confidence' }}">
+                            <div class="d-flex justify-content-between align-items-center">
                                 <div>
-                                    {% if screening.last_completed %}
-                                        {{ screening.last_completed.strftime('%m/%d/%Y') }}
+                                    <strong>{{ doc.original_filename or doc.filename }}</strong>
+                                    <span class="badge bg-secondary">{{ doc.document_type.title() if doc.document_type else 'Unknown' }}</span>
+                                    {% if doc.ocr_confidence %}
+                                        <span class="confidence-indicator {{ 'confidence-high' if doc.ocr_confidence >= 0.8 else 'confidence-medium' if doc.ocr_confidence >= 0.6 else 'confidence-low' }}"></span>
+                                    {% endif %}
+                                </div>
+                                <div class="text-end">
+                                    {% if doc.document_date %}
+                                        <small class="text-muted">{{ doc.document_date.strftime('%m/%d/%Y') }}</small>
                                     {% else %}
-                                        <em>Never</em>
+                                        <small class="text-muted">{{ doc.upload_date.strftime('%m/%d/%Y') }}</small>
                                     {% endif %}
                                 </div>
                             </div>
-                            <div class="col-6">
-                                <small class="text-muted">Frequency:</small>
-                                <div>{{ screening.frequency }}</div>
-                            </div>
                         </div>
+                        {% endfor %}
                         
-                        {% if screening.next_due %}
-                        <div class="mt-2">
-                            <small class="text-muted">Next Due:</small>
-                            <div><strong>{{ screening.next_due.strftime('%m/%d/%Y') }}</strong></div>
-                        </div>
+                        {% if recent_documents|length > 10 %}
+                            <p class="text-muted text-center mt-3">
+                                ... and {{ recent_documents|length - 10 }} more documents
+                            </p>
                         {% endif %}
-                        
-                        {% if screening.matched_documents %}
-                        <div class="document-links">
-                            <small class="text-muted">Related Documents:</small>
-                            <div class="mt-1">
-                                {% for doc in screening.matched_documents %}
-                                    <a href="{{ url_for('patient.view_document', document_id=doc.id) }}" 
-                                       class="document-link confidence-{{ doc.confidence_level }}" 
-                                       target="_blank"
-                                       title="Confidence: {{ (doc.confidence * 100)|round(1) if doc.confidence else 'Unknown' }}%">
-                                        <i class="fas fa-file-medical me-1"></i>
-                                        {{ doc.filename[:20] }}{% if doc.filename|length > 20 %}...{% endif %}
-                                    </a>
-                                {% endfor %}
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No medical documents available</p>
+                    {% endif %}
                 </div>
-            {% else %}
-                <div class="text-center py-4">
-                    <i class="fas fa-clipboard-list fa-2x text-muted mb-2"></i>
-                    <p class="text-muted">No screenings configured for this patient.</p>
+
+                <div class="prep-section">
+                    <h3 class="border-bottom pb-2 mb-3">
+                        <i class="fas fa-tasks me-2"></i>
+                        Pre-Visit Checklist
+                    </h3>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="checklist-item">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="vitals">
+                                    <label class="form-check-label" for="vitals">
+                                        Obtain vital signs (weight, height, BP, temp)
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="checklist-item">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="medications">
+                                    <label class="form-check-label" for="medications">
+                                        Review current medications and allergies
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="checklist-item">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="insurance">
+                                    <label class="form-check-label" for="insurance">
+                                        Verify insurance and contact information
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="checklist-item">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="screening-review">
+                                    <label class="form-check-label" for="screening-review">
+                                        Review screening recommendations
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="checklist-item">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="lab-review">
+                                    <label class="form-check-label" for="lab-review">
+                                        Review recent lab results and imaging
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="checklist-item">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="concerns">
+                                    <label class="form-check-label" for="concerns">
+                                        Address patient questions and concerns
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Signature Section -->
+                <div class="prep-section">
+                    <h3 class="border-bottom pb-2 mb-3">
+                        <i class="fas fa-signature me-2"></i>
+                        Provider Notes & Signature
+                    </h3>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Additional Notes:</strong></label>
+                        <div class="signature-box">
+                            <!-- Space for handwritten notes -->
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label"><strong>Provider Signature:</strong></label>
+                            <div class="signature-box">
+                                <!-- Space for signature -->
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"><strong>Date:</strong></label>
+                            <div class="signature-box">
+                                <!-- Space for date -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
             {% endif %}
         </div>
     </div>
 
-    <!-- Recent Medical Data -->
-    {% for section_name, section_title, icon in [
-        ('lab_results', 'Recent Laboratory Results', 'fas fa-vial'),
-        ('imaging_results', 'Recent Imaging Studies', 'fas fa-x-ray'),
-        ('consult_results', 'Recent Specialist Consults', 'fas fa-user-md'),
-        ('hospital_results', 'Recent Hospital Records', 'fas fa-hospital')
-    ] %}
-        {% set section_data = prep_data.medical_data.get(section_name, []) %}
-        {% if section_data %}
-        <div class="prep-section">
-            <div class="section-header">
-                <h4 class="mb-0"><i class="{{ icon }} me-2"></i>{{ section_title }}</h4>
-                <span class="badge bg-light text-dark">{{ section_data|length }} record(s)</span>
-            </div>
-            <div class="section-content">
-                <table class="medical-data-table">
-                    <thead>
-                        <tr>
-                            <th>Document</th>
-                            <th>Date</th>
-                            <th>Quality</th>
-                            <th>Preview</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in section_data %}
-                        <tr>
-                            <td>
-                                <strong>{{ item.filename }}</strong>
-                            </td>
-                            <td>
-                                {% if item.date %}
-                                    {{ item.date.strftime('%m/%d/%Y') }}
-                                {% else %}
-                                    <em>Date unknown</em>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if item.confidence is not none %}
-                                    <span class="badge confidence-{{ item.confidence_level }}">
-                                        {{ (item.confidence * 100)|round(1) }}%
-                                    </span>
-                                {% else %}
-                                    <span class="badge bg-secondary">Pending</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <small>{{ item.content_preview }}</small>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        {% endif %}
-    {% endfor %}
-
     <!-- Footer -->
-    <div class="prep-section">
-        <div class="section-header">
-            <h4 class="mb-0"><i class="fas fa-info-circle me-2"></i>Preparation Notes</h4>
-        </div>
-        <div class="section-content">
-            <div class="row">
-                <div class="col-md-6">
-                    <h6>Document Quality Legend:</h6>
-                    <ul class="list-unstyled">
-                        <li><span class="badge confidence-high me-2">High</span>≥80% OCR confidence</li>
-                        <li><span class="badge confidence-medium me-2">Medium</span>60-79% OCR confidence</li>
-                        <li><span class="badge confidence-low me-2">Low</span><60% OCR confidence</li>
-                    </ul>
-                </div>
-                <div class="col-md-6">
-                    <h6>System Information:</h6>
-                    <ul class="list-unstyled">
-                        <li><strong>Data Cutoffs:</strong></li>
-                        <li>• Labs: {{ settings.lab_cutoff_months }} months</li>
-                        <li>• Imaging: {{ settings.imaging_cutoff_months }} months</li>
-                        <li>• Consults: {{ settings.consult_cutoff_months }} months</li>
-                        <li>• Hospital: {{ settings.hospital_cutoff_months }} months</li>
-                    </ul>
-                </div>
-            </div>
-            
-            <div class="mt-3 p-3" style="background: #fff3cd; border-radius: 0.375rem; border: 1px solid #ffeaa7;">
-                <h6 class="text-warning mb-2"><i class="fas fa-exclamation-triangle me-2"></i>Important Notes:</h6>
-                <ul class="mb-0">
-                    <li>Review all "Due" and "Due Soon" screenings with the patient</li>
-                    <li>Verify accuracy of low-confidence documents before clinical decisions</li>
-                    <li>Consider patient's current conditions when scheduling follow-ups</li>
-                    <li>This prep sheet was automatically generated - clinical judgment always takes precedence</li>
-                </ul>
-            </div>
-        </div>
+    <div class="text-center mt-4 text-muted">
+        <small>
+            Generated by HealthPrep HIPAA-Compliant Preparation System | 
+            Generated on {{ prep_sheet.generated_at.strftime('%m/%d/%Y at %I:%M %p') }}
+        </small>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-function refreshPrepSheet() {
-    const button = event.target;
-    const originalText = button.innerHTML;
-    
-    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Refreshing...';
-    button.disabled = true;
-    
-    // Reload the page to refresh data
-    setTimeout(() => {
-        window.location.reload();
-    }, 1000);
-}
-
-function downloadPDF() {
-    const button = event.target;
-    const originalText = button.innerHTML;
-    
-    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Generating...';
-    button.disabled = true;
-    
-    // In a real implementation, this would call a PDF generation service
-    // For now, we'll open the print dialog
-    setTimeout(() => {
-        window.print();
-        button.innerHTML = originalText;
-        button.disabled = false;
-    }, 1000);
-}
-
-// Print optimization
+// Print functionality
 window.addEventListener('beforeprint', function() {
-    // Hide interactive elements
-    document.querySelectorAll('.document-link').forEach(link => {
-        link.style.display = 'none';
-    });
-    
-    // Expand all content
-    document.querySelectorAll('.screening-item').forEach(item => {
-        item.style.pageBreakInside = 'avoid';
-    });
+    document.title = `PrepSheet_${document.querySelector('.prep-sheet-header h2').textContent.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}`;
 });
 
-window.addEventListener('afterprint', function() {
-    // Restore interactive elements
-    document.querySelectorAll('.document-link').forEach(link => {
-        link.style.display = 'inline-block';
-    });
-});
-
-// Auto-expand sections with critical items
+// Auto-save checklist state
 document.addEventListener('DOMContentLoaded', function() {
-    // Highlight overdue items
-    const overdueItems = document.querySelectorAll('.status-due');
-    overdueItems.forEach(item => {
-        item.closest('.screening-item').style.borderLeft = '4px solid #dc3545';
-        item.closest('.screening-item').style.backgroundColor = '#fff5f5';
-    });
+    const checkboxes = document.querySelectorAll('.form-check-input[type="checkbox"]');
     
-    // Highlight due soon items
-    const dueSoonItems = document.querySelectorAll('.status-due-soon');
-    dueSoonItems.forEach(item => {
-        item.closest('.screening-item').style.borderLeft = '4px solid #ffc107';
-        item.closest('.screening-item').style.backgroundColor = '#fffbf0';
-    });
-    
-    // Calculate and display data freshness
-    updateDataFreshness();
-});
-
-function updateDataFreshness() {
-    const generatedTime = new Date('{{ generated_at.isoformat() }}');
-    const now = new Date();
-    const diffMinutes = Math.floor((now - generatedTime) / (1000 * 60));
-    
-    if (diffMinutes > 30) {
-        // Show freshness warning
-        const warning = document.createElement('div');
-        warning.className = 'alert alert-warning d-print-none';
-        warning.innerHTML = `
-            <i class="fas fa-clock me-2"></i>
-            <strong>Data Freshness Notice:</strong> This prep sheet was generated ${diffMinutes} minutes ago. 
-            Consider refreshing for the most current information.
-        `;
+    checkboxes.forEach(checkbox => {
+        // Load saved state
+        const saved = localStorage.getItem(`checklist_${checkbox.id}`);
+        if (saved === 'true') {
+            checkbox.checked = true;
+        }
         
-        const container = document.querySelector('.prep-sheet-container');
-        container.insertBefore(warning, container.firstChild);
-    }
-}
-
-// Keyboard shortcuts
-document.addEventListener('keydown', function(e) {
-    // Ctrl/Cmd + P for print
-    if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
-        e.preventDefault();
-        window.print();
-    }
-    
-    // Ctrl/Cmd + R for refresh
-    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
-        e.preventDefault();
-        refreshPrepSheet();
-    }
+        // Save state on change
+        checkbox.addEventListener('change', function() {
+            localStorage.setItem(`checklist_${this.id}`, this.checked);
+        });
+    });
 });
 </script>
 {% endblock %}

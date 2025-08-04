@@ -1,306 +1,301 @@
 {% extends 'base_admin.html' %}
 
-{% block title %}OCR Dashboard - HealthPrep Admin{% endblock %}
+{% block title %}OCR Dashboard - HealthPrep{% endblock %}
+
+{% block extra_css %}
+<style>
+.ocr-stat-card {
+    border-left: 4px solid;
+    transition: transform 0.2s;
+}
+
+.ocr-stat-card:hover {
+    transform: translateY(-2px);
+}
+
+.confidence-excellent { border-left-color: #28a745; }
+.confidence-good { border-left-color: #17a2b8; }
+.confidence-fair { border-left-color: #ffc107; }
+.confidence-poor { border-left-color: #fd7e14; }
+.confidence-very-poor { border-left-color: #dc3545; }
+
+.progress-stacked {
+    height: 8px;
+}
+
+.document-queue {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.processing-timeline {
+    max-height: 300px;
+    overflow-y: auto;
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<!-- OCR Dashboard Header -->
-<div class="admin-header">
-    <div class="row align-items-center">
-        <div class="col-md-8">
-            <h1 class="h3 mb-1">
-                <i class="fas fa-eye me-2"></i>
-                OCR Processing Dashboard
-            </h1>
-            <p class="mb-0 opacity-75">
-                Monitor document processing quality, confidence levels, and system performance
-            </p>
-        </div>
-        <div class="col-md-4 text-end">
-            <button type="button" class="btn btn-primary" onclick="triggerBatchOCR()">
-                <i class="fas fa-play me-1"></i>Batch Process
-            </button>
-        </div>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>
+        <i class="fas fa-eye me-2"></i>
+        OCR Processing Dashboard
+    </h1>
+    <div class="btn-group">
+        <button type="button" class="btn btn-outline-primary" onclick="refreshDashboard()">
+            <i class="fas fa-sync me-1"></i>
+            Refresh
+        </button>
+        <button type="button" class="btn btn-outline-success" onclick="processQueue()">
+            <i class="fas fa-play me-1"></i>
+            Process Queue
+        </button>
     </div>
 </div>
 
-<!-- Processing Overview -->
+<!-- Processing Statistics -->
 <div class="row g-4 mb-4">
-    <div class="col-lg-3 col-md-6">
-        <div class="metric-card p-4">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h3 class="text-primary mb-1">
-                        {{ ocr_metrics.overview.processed_documents if ocr_metrics else 0 }}
-                    </h3>
-                    <p class="text-muted mb-0">Processed</p>
-                    <small class="text-primary">
-                        <i class="fas fa-percentage me-1"></i>
-                        {{ ocr_metrics.overview.processing_rate if ocr_metrics else 0 }}% rate
-                    </small>
-                </div>
-                <div class="text-primary">
-                    <i class="fas fa-check-circle fa-2x opacity-50"></i>
+    <div class="col-md-3">
+        <div class="card ocr-stat-card confidence-excellent">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted">Documents Processed</h6>
+                        <h3 class="text-success">{{ processing_stats.total_processed or 0 }}</h3>
+                        <small class="text-muted">Last 7 days</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-file-alt fa-2x text-success opacity-75"></i>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
     
-    <div class="col-lg-3 col-md-6">
-        <div class="metric-card p-4">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h3 class="text-warning mb-1">
-                        {{ ocr_metrics.overview.pending_documents if ocr_metrics else 0 }}
-                    </h3>
-                    <p class="text-muted mb-0">Pending</p>
-                    <small class="text-warning">
-                        <i class="fas fa-clock me-1"></i>
-                        Awaiting processing
-                    </small>
-                </div>
-                <div class="text-warning">
-                    <i class="fas fa-hourglass-half fa-2x opacity-50"></i>
+    <div class="col-md-3">
+        <div class="card ocr-stat-card confidence-good">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted">Average Confidence</h6>
+                        <h3 class="text-info">{{ "%.1f"|format(processing_stats.average_confidence * 100 if processing_stats.average_confidence else 0) }}%</h3>
+                        <small class="text-muted">OCR quality score</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-chart-line fa-2x text-info opacity-75"></i>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
     
-    <div class="col-lg-3 col-md-6">
-        <div class="metric-card p-4">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h3 class="text-success mb-1">
-                        {{ (ocr_metrics.confidence_distribution.statistics.average_confidence * 100)|round(1) if ocr_metrics else 0 }}%
-                    </h3>
-                    <p class="text-muted mb-0">Avg Confidence</p>
-                    <small class="text-success">
-                        <i class="fas fa-chart-line me-1"></i>
-                        Quality score
-                    </small>
-                </div>
-                <div class="text-success">
-                    <i class="fas fa-award fa-2x opacity-50"></i>
+    <div class="col-md-3">
+        <div class="card ocr-stat-card confidence-fair">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted">Processing Time</h6>
+                        <h3 class="text-warning">{{ "%.1f"|format(processing_stats.average_processing_time if processing_stats.average_processing_time else 0) }}s</h3>
+                        <small class="text-muted">Per document</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-clock fa-2x text-warning opacity-75"></i>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
     
-    <div class="col-lg-3 col-md-6">
-        <div class="metric-card p-4">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h3 class="text-info mb-1">
-                        {{ processing_stats.low_confidence_count if processing_stats else 0 }}
-                    </h3>
-                    <p class="text-muted mb-0">Low Quality</p>
-                    <small class="text-info">
-                        <i class="fas fa-exclamation-triangle me-1"></i>
-                        Need review
-                    </small>
-                </div>
-                <div class="text-info">
-                    <i class="fas fa-exclamation-circle fa-2x opacity-50"></i>
+    <div class="col-md-3">
+        <div class="card ocr-stat-card confidence-poor">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted">PHI Instances</h6>
+                        <h3 class="text-danger">{{ processing_stats.phi_instances_filtered or 0 }}</h3>
+                        <small class="text-muted">Filtered & redacted</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-shield-alt fa-2x text-danger opacity-75"></i>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Quality Distribution -->
-<div class="row g-4 mb-4">
-    <div class="col-lg-8">
-        <div class="admin-card">
+<div class="row g-4">
+    <!-- Quality Distribution -->
+    <div class="col-lg-6">
+        <div class="card">
             <div class="card-header">
                 <h5 class="mb-0">
-                    <i class="fas fa-chart-bar text-primary me-2"></i>
+                    <i class="fas fa-chart-pie me-2"></i>
                     Quality Distribution
                 </h5>
             </div>
             <div class="card-body">
-                {% if ocr_metrics and ocr_metrics.confidence_distribution %}
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-4">
-                            <div class="border border-success rounded p-3 text-center">
-                                <h4 class="text-success mb-1">{{ ocr_metrics.confidence_distribution.high_confidence.count }}</h4>
-                                <p class="mb-1">High Quality</p>
-                                <small class="text-muted">{{ ocr_metrics.confidence_distribution.high_confidence.description }}</small>
-                                <div class="progress mt-2">
-                                    <div class="progress-bar bg-success" style="width: {{ (ocr_metrics.confidence_distribution.high_confidence.count / (ocr_metrics.overview.processed_documents or 1) * 100)|round }}%"></div>
-                                </div>
+                {% if quality_stats and quality_stats.confidence_breakdown %}
+                    {% set breakdown = quality_stats.confidence_breakdown %}
+                    <div class="row text-center mb-3">
+                        <div class="col">
+                            <div class="text-success">
+                                <h4>{{ breakdown.excellent.count or 0 }}</h4>
+                                <small>Excellent (≥90%)</small>
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <div class="border border-warning rounded p-3 text-center">
-                                <h4 class="text-warning mb-1">{{ ocr_metrics.confidence_distribution.medium_confidence.count }}</h4>
-                                <p class="mb-1">Medium Quality</p>
-                                <small class="text-muted">{{ ocr_metrics.confidence_distribution.medium_confidence.description }}</small>
-                                <div class="progress mt-2">
-                                    <div class="progress-bar bg-warning" style="width: {{ (ocr_metrics.confidence_distribution.medium_confidence.count / (ocr_metrics.overview.processed_documents or 1) * 100)|round }}%"></div>
-                                </div>
+                        <div class="col">
+                            <div class="text-info">
+                                <h4>{{ breakdown.good.count or 0 }}</h4>
+                                <small>Good (80-89%)</small>
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <div class="border border-danger rounded p-3 text-center">
-                                <h4 class="text-danger mb-1">{{ ocr_metrics.confidence_distribution.low_confidence.count }}</h4>
-                                <p class="mb-1">Low Quality</p>
-                                <small class="text-muted">{{ ocr_metrics.confidence_distribution.low_confidence.description }}</small>
-                                <div class="progress mt-2">
-                                    <div class="progress-bar bg-danger" style="width: {{ (ocr_metrics.confidence_distribution.low_confidence.count / (ocr_metrics.overview.processed_documents or 1) * 100)|round }}%"></div>
-                                </div>
+                        <div class="col">
+                            <div class="text-warning">
+                                <h4>{{ breakdown.fair.count or 0 }}</h4>
+                                <small>Fair (70-79%)</small>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="text-danger">
+                                <h4>{{ breakdown.poor.count + breakdown.very_poor.count if breakdown.poor and breakdown.very_poor else 0 }}</h4>
+                                <small>Poor (<70%)</small>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="alert alert-info border-0">
-                        <h6 class="alert-heading">Quality Guidelines</h6>
-                        <ul class="mb-0 ps-3">
-                            <li><strong>High Quality (≥85%):</strong> Text is highly reliable, minimal errors expected</li>
-                            <li><strong>Medium Quality (70-84%):</strong> Generally reliable with minor errors possible</li>
-                            <li><strong>Low Quality (&lt;70%):</strong> May contain significant errors, manual review recommended</li>
-                        </ul>
+                    <!-- Progress bar -->
+                    {% set total = quality_stats.total_processed %}
+                    {% if total > 0 %}
+                    <div class="progress progress-stacked">
+                        <div class="progress-bar bg-success" style="width: {{ breakdown.excellent.count / total * 100 }}%"></div>
+                        <div class="progress-bar bg-info" style="width: {{ breakdown.good.count / total * 100 }}%"></div>
+                        <div class="progress-bar bg-warning" style="width: {{ breakdown.fair.count / total * 100 }}%"></div>
+                        <div class="progress-bar bg-danger" style="width: {{ (breakdown.poor.count + breakdown.very_poor.count) / total * 100 }}%"></div>
                     </div>
-                {% else %}
-                    <div class="text-center py-4">
-                        <i class="fas fa-chart-bar text-muted fa-3x mb-3"></i>
-                        <p class="text-muted">No OCR quality data available.</p>
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-lg-4">
-        <div class="admin-card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-clock text-warning me-2"></i>
-                    Recent Activity
-                </h5>
-            </div>
-            <div class="card-body">
-                {% if ocr_metrics and ocr_metrics.recent_activity %}
-                    <div class="recent-documents">
-                        {% for doc in ocr_metrics.recent_activity.recent_documents %}
-                            <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
-                                <div class="flex-grow-1">
-                                    <div class="fw-bold">{{ doc.filename[:30] }}{% if doc.filename|length > 30 %}...{% endif %}</div>
-                                    <small class="text-muted">{{ doc.processed_at }}</small>
-                                </div>
-                                <span class="badge bg-{{ 'success' if doc.confidence_level == 'high' else 'warning' if doc.confidence_level == 'medium' else 'danger' }}">
-                                    {{ (doc.confidence * 100)|round }}%
-                                </span>
-                            </div>
-                        {% endfor %}
-                    </div>
-                    
-                    <div class="text-center mt-3">
-                        <small class="text-muted">
-                            {{ ocr_metrics.recent_activity.total_this_week }} documents processed this week
-                        </small>
-                    </div>
-                {% else %}
-                    <div class="text-center py-4">
-                        <i class="fas fa-clock text-muted fa-3x mb-3"></i>
-                        <p class="text-muted">No recent activity.</p>
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Processing Queue and Alerts -->
-<div class="row g-4">
-    <div class="col-lg-6">
-        <div class="admin-card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-list text-info me-2"></i>
-                    Processing Queue
-                </h5>
-            </div>
-            <div class="card-body">
-                {% if processing_stats %}
-                    <div class="queue-stats mb-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span>Queue Progress:</span>
-                            <span class="fw-bold">{{ processing_stats.processed_documents }}/{{ processing_stats.total_documents }}</span>
-                        </div>
-                        <div class="progress mb-3">
-                            <div class="progress-bar bg-info" style="width: {{ processing_stats.processing_rate }}%"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="row g-2 text-center">
-                        <div class="col-6">
-                            <div class="border rounded p-2">
-                                <div class="h6 text-success mb-0">{{ processing_stats.processed_documents }}</div>
-                                <small class="text-muted">Completed</small>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="border rounded p-2">
-                                <div class="h6 text-warning mb-0">{{ processing_stats.pending_documents }}</div>
-                                <small class="text-muted">Pending</small>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    {% if processing_stats.pending_documents > 0 %}
-                        <div class="mt-3">
-                            <button type="button" class="btn btn-primary w-100" onclick="triggerBatchOCR()">
-                                <i class="fas fa-play me-1"></i>
-                                Process {{ processing_stats.pending_documents }} Pending Documents
-                            </button>
-                        </div>
                     {% endif %}
                 {% else %}
-                    <div class="text-center py-4">
-                        <i class="fas fa-list text-muted fa-3x mb-3"></i>
-                        <p class="text-muted">No queue information available.</p>
+                    <p class="text-muted text-center">No quality data available</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Activity -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>
+                    Recent Processing Activity
+                </h5>
+            </div>
+            <div class="card-body processing-timeline">
+                {% if recent_activity %}
+                    {% for activity in recent_activity %}
+                    <div class="d-flex justify-content-between align-items-center mb-3 p-2 bg-dark rounded">
+                        <div class="flex-grow-1">
+                            <strong>{{ activity.filename }}</strong>
+                            <br>
+                            <small class="text-muted">{{ activity.patient_name }}</small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-{% if activity.confidence_category == 'excellent' %}success{% elif activity.confidence_category == 'good' %}info{% elif activity.confidence_category == 'fair' %}warning{% else %}danger{% endif %}">
+                                {{ "%.0f"|format(activity.confidence * 100) }}%
+                            </span>
+                            <br>
+                            <small class="text-muted">{{ activity.processed_at }}</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center">No recent activity</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Processing Queue and Low Quality Documents -->
+<div class="row g-4 mt-4">
+    <!-- Processing Queue -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    Processing Queue
+                </h5>
+                <span class="badge bg-primary">{{ pending_queue|length if pending_queue else 0 }} pending</span>
+            </div>
+            <div class="card-body document-queue">
+                {% if pending_queue %}
+                    {% for doc in pending_queue %}
+                    <div class="d-flex justify-content-between align-items-center mb-3 p-2 border rounded">
+                        <div class="flex-grow-1">
+                            <strong>{{ doc.filename }}</strong>
+                            <br>
+                            <small class="text-muted">
+                                {{ doc.patient_name }} • 
+                                {{ doc.document_type.title() }} • 
+                                Waiting {{ "%.1f"|format(doc.waiting_time_hours) }}h
+                            </small>
+                        </div>
+                        <div class="text-end">
+                            {% if doc.file_size %}
+                                <small class="text-muted">{{ "%.1f"|format(doc.file_size / 1024) }} KB</small>
+                            {% endif %}
+                            <br>
+                            <button class="btn btn-sm btn-outline-primary" onclick="processDocument({{ doc.document_id }})">
+                                <i class="fas fa-play"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-muted">
+                        <i class="fas fa-check-circle fa-3x mb-3"></i>
+                        <p>No documents in processing queue</p>
                     </div>
                 {% endif %}
             </div>
         </div>
     </div>
     
+    <!-- Low Quality Documents -->
     <div class="col-lg-6">
-        <div class="admin-card">
+        <div class="card">
             <div class="card-header">
                 <h5 class="mb-0">
-                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
-                    Quality Alerts
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Low Quality Documents
                 </h5>
             </div>
-            <div class="card-body">
-                {% if ocr_metrics and ocr_metrics.quality_alerts %}
-                    <div class="alerts-list">
-                        {% for alert in ocr_metrics.quality_alerts %}
-                            <div class="alert alert-{{ 'warning' if alert.severity == 'warning' else 'info' if alert.severity == 'info' else 'danger' }} border-0 mb-3">
-                                <div class="d-flex align-items-start">
-                                    <i class="fas fa-{{ 'exclamation-triangle' if alert.severity == 'warning' else 'info-circle' if alert.severity == 'info' else 'exclamation-circle' }} me-2 mt-1"></i>
-                                    <div>
-                                        <div class="fw-bold">{{ alert.message }}</div>
-                                        <small>{{ alert.action }}</small>
-                                        {% if alert.count %}
-                                            <div class="mt-1">
-                                                <span class="badge bg-secondary">{{ alert.count }} items</span>
-                                            </div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <div class="alert alert-success border-0">
-                        <div class="d-flex align-items-center">
-                            <i class="fas fa-check-circle fa-2x text-success me-3"></i>
-                            <div>
-                                <h6 class="alert-heading mb-1">All Systems Normal</h6>
-                                <p class="mb-0">No quality alerts or processing issues detected.</p>
-                            </div>
+            <div class="card-body document-queue">
+                {% if quality_stats and quality_stats.low_quality_documents %}
+                    {% for doc in quality_stats.low_quality_documents %}
+                    <div class="d-flex justify-content-between align-items-center mb-3 p-2 border border-warning rounded">
+                        <div class="flex-grow-1">
+                            <strong>{{ doc.filename }}</strong>
+                            <br>
+                            <small class="text-muted">
+                                {{ doc.patient_name }} • 
+                                {{ doc.document_type.title() }}
+                            </small>
                         </div>
+                        <div class="text-end">
+                            <span class="badge bg-danger">{{ "%.0f"|format(doc.confidence * 100) }}%</span>
+                            <br>
+                            <button class="btn btn-sm btn-outline-warning" onclick="reprocessDocument({{ doc.document_id }})">
+                                <i class="fas fa-redo"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-muted">
+                        <i class="fas fa-thumbs-up fa-3x mb-3"></i>
+                        <p>No low quality documents found</p>
                     </div>
                 {% endif %}
             </div>
@@ -308,62 +303,90 @@
     </div>
 </div>
 
-<!-- System Performance -->
-<div class="row g-4 mt-2">
+<!-- Daily Processing Chart -->
+<div class="row mt-4">
     <div class="col-12">
-        <div class="admin-card">
+        <div class="card">
             <div class="card-header">
                 <h5 class="mb-0">
-                    <i class="fas fa-tachometer-alt text-primary me-2"></i>
-                    System Performance Metrics
+                    <i class="fas fa-chart-bar me-2"></i>
+                    Daily Processing Volume
                 </h5>
             </div>
             <div class="card-body">
-                {% if processing_stats %}
-                    <div class="row g-4">
-                        <div class="col-md-3 text-center">
-                            <div class="border rounded p-3">
-                                <h4 class="text-primary mb-1">{{ processing_stats.average_confidence|round(1) }}%</h4>
-                                <p class="mb-0">Average Confidence</p>
-                            </div>
-                        </div>
-                        <div class="col-md-3 text-center">
-                            <div class="border rounded p-3">
-                                <h4 class="text-success mb-1">{{ processing_stats.processing_rate|round(1) }}%</h4>
-                                <p class="mb-0">Processing Rate</p>
-                            </div>
-                        </div>
-                        <div class="col-md-3 text-center">
-                            <div class="border rounded p-3">
-                                <h4 class="text-info mb-1">~5 min</h4>
-                                <p class="mb-0">Avg Processing Time</p>
-                            </div>
-                        </div>
-                        <div class="col-md-3 text-center">
-                            <div class="border rounded p-3">
-                                <h4 class="text-warning mb-1">99.8%</h4>
-                                <p class="mb-0">System Uptime</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="alert alert-info border-0 mt-4">
-                        <h6 class="alert-heading">Performance Notes</h6>
-                        <ul class="mb-0 ps-3">
-                            <li>OCR processing typically takes 2-5 minutes per document depending on size and complexity</li>
-                            <li>High-quality scans (300+ DPI) produce better confidence scores</li>
-                            <li>PDF documents generally process faster than image files</li>
-                            <li>PHI filtering adds minimal processing overhead (&lt;1 second per document)</li>
-                        </ul>
+                {% if processing_stats and processing_stats.daily_breakdown %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Documents</th>
+                                    <th>Avg Confidence</th>
+                                    <th>Processing Time</th>
+                                    <th>Low Quality</th>
+                                    <th>PHI Filtered</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for day in processing_stats.daily_breakdown %}
+                                <tr>
+                                    <td>{{ day.date }}</td>
+                                    <td>{{ day.documents_processed }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if day.average_confidence >= 0.9 %}success{% elif day.average_confidence >= 0.8 %}info{% elif day.average_confidence >= 0.7 %}warning{% else %}danger{% endif %}">
+                                            {{ "%.1f"|format(day.average_confidence * 100) }}%
+                                        </span>
+                                    </td>
+                                    <td>{{ "%.1f"|format(day.processing_time) }}s</td>
+                                    <td>{{ day.low_confidence_count }}</td>
+                                    <td>{{ day.phi_instances }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                 {% else %}
-                    <div class="text-center py-4">
-                        <i class="fas fa-tachometer-alt text-muted fa-3x mb-3"></i>
-                        <p class="text-muted">No performance data available.</p>
-                    </div>
+                    <p class="text-muted text-center">No daily processing data available</p>
                 {% endif %}
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function refreshDashboard() {
+    location.reload();
+}
+
+function processQueue() {
+    if (confirm('Process all documents in the queue? This may take some time.')) {
+        // Implement queue processing
+        alert('Queue processing would be implemented here.');
+    }
+}
+
+function processDocument(documentId) {
+    if (confirm('Process this document now?')) {
+        // Implement individual document processing
+        alert(`Processing document ${documentId}...`);
+    }
+}
+
+function reprocessDocument(documentId) {
+    if (confirm('Reprocess this document? This will overwrite existing OCR results.')) {
+        // Implement document reprocessing
+        alert(`Reprocessing document ${documentId}...`);
+    }
+}
+
+// Auto-refresh every 30 seconds
+setInterval(function() {
+    // Only refresh if user is active
+    if (document.visibilityState === 'visible') {
+        refreshDashboard();
+    }
+}, 30000);
+</script>
 {% endblock %}

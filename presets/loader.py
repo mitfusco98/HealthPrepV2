@@ -1,184 +1,366 @@
+"""
+Screening type preset loader
+Handles importing and managing screening presets for different specialties
+"""
+import logging
 import json
 import os
-from models import ScreeningType
-from app import db
-import logging
+from typing import Dict, List, Any, Optional
 
-class ScreeningPresetLoader:
+from app import db
+from models import ScreeningType, User
+
+class PresetLoader:
     """Loads and manages screening type presets"""
     
     def __init__(self):
+        self.logger = logging.getLogger(__name__)
         self.presets_dir = os.path.join(os.path.dirname(__file__), 'examples')
     
-    def load_preset_file(self, filename):
-        """Load screening types from a preset file"""
-        file_path = os.path.join(self.presets_dir, filename)
+    def get_available_presets(self) -> List[Dict[str, Any]]:
+        """Get list of available preset files"""
         
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"Preset file not found: {filename}")
+        presets = []
         
         try:
-            with open(file_path, 'r') as f:
+            if not os.path.exists(self.presets_dir):
+                self.logger.warning(f"Presets directory not found: {self.presets_dir}")
+                return []
+            
+            for filename in os.listdir(self.presets_dir):
+                if filename.endswith('.json'):
+                    preset_path = os.path.join(self.presets_dir, filename)
+                    
+                    try:
+                        with open(preset_path, 'r') as f:
+                            preset_data = json.load(f)
+                        
+                        presets.append({
+                            'filename': filename,
+                            'name': preset_data.get('name', filename.replace('.json', '')),
+                            'description': preset_data.get('description', 'No description available'),
+                            'specialty': preset_data.get('specialty', 'General'),
+                            'screening_count': len(preset_data.get('screening_types', [])),
+                            'version': preset_data.get('version', '1.0')
+                        })
+                        
+                    except Exception as e:
+                        self.logger.error(f"Error reading preset file {filename}: {str(e)}")
+            
+            return sorted(presets, key=lambda x: x['name'])
+            
+        except Exception as e:
+            self.logger.error(f"Error getting available presets: {str(e)}")
+            return []
+    
+    def load_preset(self, filename: str) -> Optional[Dict[str, Any]]:
+        """Load a specific preset file"""
+        
+        try:
+            preset_path = os.path.join(self.presets_dir, filename)
+            
+            if not os.path.exists(preset_path):
+                self.logger.error(f"Preset file not found: {filename}")
+                return None
+            
+            with open(preset_path, 'r') as f:
                 preset_data = json.load(f)
             
-            return self._process_preset_data(preset_data)
+            # Validate preset structure
+            if not self._validate_preset(preset_data):
+                self.logger.error(f"Invalid preset format: {filename}")
+                return None
             
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in preset file {filename}: {str(e)}")
+            return preset_data
+            
         except Exception as e:
-            raise Exception(f"Error loading preset file {filename}: {str(e)}")
+            self.logger.error(f"Error loading preset {filename}: {str(e)}")
+            return None
     
-    def import_preset(self, preset_name, overwrite=False):
-        """Import a preset into the database"""
-        filename = f"{preset_name}.json"
-        screening_types = self.load_preset_file(filename)
+    def import_preset(self, filename: str, user_id: int, 
+                     overwrite_existing: bool = False) -> Dict[str, Any]:
+        """
+        Import a preset into the database
         
-        imported_count = 0
-        errors = []
+        Args:
+            filename: Preset filename to import
+            user_id: ID of user importing the preset
+            overwrite_existing: Whether to overwrite existing screening types
+            
+        Returns:
+            Import results
+        """
         
-        for screening_data in screening_types:
-            try:
-                # Check if screening type already exists
-                existing = ScreeningType.query.filter_by(name=screening_data['name']).first()
-                
-                if existing and not overwrite:
-                    continue
-                
-                if existing and overwrite:
-                    # Update existing
-                    for key, value in screening_data.items():
-                        if hasattr(existing, key):
-                            setattr(existing, key, value)
-                    screening_type = existing
-                else:
-                    # Create new
-                    screening_type = ScreeningType(**screening_data)
-                    db.session.add(screening_type)
-                
-                imported_count += 1
-                
-            except Exception as e:
-                errors.append(f"Error importing {screening_data.get('name', 'Unknown')}: {str(e)}")
+        results = {
+            'success': False,
+            'imported_count': 0,
+            'skipped_count': 0,
+            'updated_count': 0,
+            'errors': []
+        }
         
         try:
-            db.session.commit()
-            logging.info(f"Successfully imported {imported_count} screening types from {preset_name}")
+            preset_data = self.load_preset(filename)
+            if not preset_data:
+                results['errors'].append(f"Failed to load preset: {filename}")
+                return results
+            
+            screening_types = preset_data.get('screening_types', [])
+            
+            for st_data in screening_types:
+                try:
+                    result = self._import_screening_type(st_data, user_id, overwrite_existing)
+                    
+                    if result == 'imported':
+                        results['imported_count'] += 1
+                    elif result == 'updated':
+                        results['updated_count'] += 1
+                    elif result == 'skipped':
+                        results['skipped_count'] += 1
+                        
+                except Exception as e:
+                    error_msg = f"Error importing {st_data.get('name', 'unknown')}: {str(e)}"
+                    results['errors'].append(error_msg)
+                    self.logger.error(error_msg)
+            
+            if results['imported_count'] > 0 or results['updated_count'] > 0:
+                db.session.commit()
+                results['success'] = True
+                
+                self.logger.info(f"Preset import completed: {results['imported_count']} imported, "
+                               f"{results['updated_count']} updated, {results['skipped_count']} skipped")
+            else:
+                db.session.rollback()
+                if not results['errors']:
+                    results['errors'].append("No screening types were imported")
+            
+            return results
             
         except Exception as e:
             db.session.rollback()
-            raise Exception(f"Database error during import: {str(e)}")
-        
-        return {
-            'imported_count': imported_count,
-            'errors': errors
-        }
+            error_msg = f"Critical error importing preset: {str(e)}"
+            results['errors'].append(error_msg)
+            self.logger.error(error_msg)
+            return results
     
-    def export_preset(self, screening_type_ids, preset_name):
-        """Export screening types to a preset file"""
-        screening_types = ScreeningType.query.filter(
-            ScreeningType.id.in_(screening_type_ids)
-        ).all()
+    def _import_screening_type(self, st_data: Dict[str, Any], user_id: int, 
+                              overwrite_existing: bool) -> str:
+        """Import a single screening type"""
         
-        if not screening_types:
-            raise ValueError("No screening types found with provided IDs")
+        name = st_data.get('name')
+        if not name:
+            raise ValueError("Screening type name is required")
         
-        preset_data = {
-            'name': preset_name,
-            'description': f'Exported screening types preset - {preset_name}',
-            'created_at': datetime.utcnow().isoformat(),
-            'screening_types': []
-        }
+        # Check if exists
+        existing = ScreeningType.query.filter_by(name=name).first()
         
-        for screening_type in screening_types:
-            screening_data = {
-                'name': screening_type.name,
-                'description': screening_type.description,
-                'keywords': screening_type.keywords,
-                'min_age': screening_type.min_age,
-                'max_age': screening_type.max_age,
-                'gender_restriction': screening_type.gender_restriction,
-                'frequency_value': screening_type.frequency_value,
-                'frequency_unit': screening_type.frequency_unit,
-                'trigger_conditions': screening_type.trigger_conditions,
-                'is_active': screening_type.is_active
-            }
-            preset_data['screening_types'].append(screening_data)
+        if existing:
+            if not overwrite_existing:
+                return 'skipped'
+            
+            # Update existing
+            screening_type = existing
+            action = 'updated'
+        else:
+            # Create new
+            screening_type = ScreeningType(created_by=user_id)
+            db.session.add(screening_type)
+            action = 'imported'
         
-        # Save to file
-        filename = f"{preset_name.lower().replace(' ', '_')}.json"
-        file_path = os.path.join(self.presets_dir, filename)
+        # Set properties
+        screening_type.name = name
+        screening_type.description = st_data.get('description', '')
+        screening_type.gender_criteria = st_data.get('gender_criteria', 'both')
+        screening_type.age_min = st_data.get('age_min')
+        screening_type.age_max = st_data.get('age_max')
+        screening_type.frequency_number = st_data.get('frequency_number')
+        screening_type.frequency_unit = st_data.get('frequency_unit')
+        screening_type.is_active = st_data.get('is_active', True)
+        
+        # Set keywords and trigger conditions
+        screening_type.set_keywords(st_data.get('keywords', []))
+        screening_type.set_trigger_conditions(st_data.get('trigger_conditions', []))
+        
+        return action
+    
+    def export_preset(self, screening_type_ids: List[int], preset_name: str,
+                     description: str = '', specialty: str = 'Custom') -> Dict[str, Any]:
+        """
+        Export selected screening types as a preset
+        
+        Args:
+            screening_type_ids: List of screening type IDs to export
+            preset_name: Name for the preset
+            description: Description of the preset
+            specialty: Specialty category
+            
+        Returns:
+            Preset data for export
+        """
         
         try:
-            with open(file_path, 'w') as f:
-                json.dump(preset_data, f, indent=2)
+            screening_types = ScreeningType.query.filter(
+                ScreeningType.id.in_(screening_type_ids)
+            ).all()
             
-            logging.info(f"Exported {len(screening_types)} screening types to {filename}")
-            return filename
+            if not screening_types:
+                return {'error': 'No screening types found to export'}
             
-        except Exception as e:
-            raise Exception(f"Error saving preset file: {str(e)}")
-    
-    def list_available_presets(self):
-        """List all available preset files"""
-        if not os.path.exists(self.presets_dir):
-            return []
-        
-        presets = []
-        for filename in os.listdir(self.presets_dir):
-            if filename.endswith('.json'):
-                try:
-                    preset_info = self._get_preset_info(filename)
-                    presets.append(preset_info)
-                except Exception as e:
-                    logging.warning(f"Could not read preset file {filename}: {str(e)}")
-        
-        return presets
-    
-    def _process_preset_data(self, preset_data):
-        """Process raw preset data into screening type objects"""
-        if 'screening_types' not in preset_data:
-            raise ValueError("Preset file must contain 'screening_types' array")
-        
-        screening_types = []
-        
-        for item in preset_data['screening_types']:
-            # Validate required fields
-            required_fields = ['name', 'frequency_value', 'frequency_unit']
-            for field in required_fields:
-                if field not in item:
-                    raise ValueError(f"Missing required field '{field}' in screening type")
-            
-            # Set defaults for optional fields
-            screening_data = {
-                'name': item['name'],
-                'description': item.get('description', ''),
-                'keywords': item.get('keywords', []),
-                'min_age': item.get('min_age'),
-                'max_age': item.get('max_age'),
-                'gender_restriction': item.get('gender_restriction'),
-                'frequency_value': item['frequency_value'],
-                'frequency_unit': item['frequency_unit'],
-                'trigger_conditions': item.get('trigger_conditions', []),
-                'is_active': item.get('is_active', True)
+            preset_data = {
+                'name': preset_name,
+                'description': description,
+                'specialty': specialty,
+                'version': '2.0',
+                'created_date': datetime.utcnow().isoformat(),
+                'screening_types': []
             }
             
-            screening_types.append(screening_data)
-        
-        return screening_types
+            for st in screening_types:
+                st_export = {
+                    'name': st.name,
+                    'description': st.description,
+                    'keywords': st.get_keywords(),
+                    'gender_criteria': st.gender_criteria,
+                    'age_min': st.age_min,
+                    'age_max': st.age_max,
+                    'frequency_number': st.frequency_number,
+                    'frequency_unit': st.frequency_unit,
+                    'trigger_conditions': st.get_trigger_conditions(),
+                    'is_active': st.is_active
+                }
+                preset_data['screening_types'].append(st_export)
+            
+            return preset_data
+            
+        except Exception as e:
+            self.logger.error(f"Error exporting preset: {str(e)}")
+            return {'error': str(e)}
     
-    def _get_preset_info(self, filename):
-        """Get basic information about a preset file"""
-        file_path = os.path.join(self.presets_dir, filename)
+    def save_preset_file(self, preset_data: Dict[str, Any], filename: str) -> bool:
+        """Save preset data to a file"""
         
-        with open(file_path, 'r') as f:
-            data = json.load(f)
+        try:
+            # Ensure presets directory exists
+            os.makedirs(self.presets_dir, exist_ok=True)
+            
+            preset_path = os.path.join(self.presets_dir, filename)
+            
+            with open(preset_path, 'w') as f:
+                json.dump(preset_data, f, indent=2)
+            
+            self.logger.info(f"Preset saved to {filename}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error saving preset file {filename}: {str(e)}")
+            return False
+    
+    def delete_preset_file(self, filename: str) -> bool:
+        """Delete a preset file"""
         
-        screening_count = len(data.get('screening_types', []))
+        try:
+            preset_path = os.path.join(self.presets_dir, filename)
+            
+            if os.path.exists(preset_path):
+                os.remove(preset_path)
+                self.logger.info(f"Preset file deleted: {filename}")
+                return True
+            else:
+                self.logger.warning(f"Preset file not found: {filename}")
+                return False
+            
+        except Exception as e:
+            self.logger.error(f"Error deleting preset file {filename}: {str(e)}")
+            return False
+    
+    def _validate_preset(self, preset_data: Dict[str, Any]) -> bool:
+        """Validate preset data structure"""
         
-        return {
-            'filename': filename,
-            'name': data.get('name', filename.replace('.json', '')),
-            'description': data.get('description', 'No description available'),
-            'screening_count': screening_count,
-            'created_at': data.get('created_at')
-        }
+        required_fields = ['name', 'screening_types']
+        
+        # Check top-level required fields
+        for field in required_fields:
+            if field not in preset_data:
+                self.logger.error(f"Missing required field: {field}")
+                return False
+        
+        # Validate screening types
+        screening_types = preset_data.get('screening_types', [])
+        if not isinstance(screening_types, list):
+            self.logger.error("screening_types must be a list")
+            return False
+        
+        # Validate each screening type
+        required_st_fields = ['name', 'frequency_number', 'frequency_unit']
+        
+        for i, st in enumerate(screening_types):
+            if not isinstance(st, dict):
+                self.logger.error(f"Screening type {i} must be a dictionary")
+                return False
+            
+            for field in required_st_fields:
+                if field not in st:
+                    self.logger.error(f"Screening type {i} missing required field: {field}")
+                    return False
+            
+            # Validate frequency unit
+            valid_units = ['days', 'months', 'years']
+            if st.get('frequency_unit') not in valid_units:
+                self.logger.error(f"Screening type {i} has invalid frequency_unit")
+                return False
+            
+            # Validate gender criteria
+            valid_genders = ['M', 'F', 'both']
+            if st.get('gender_criteria', 'both') not in valid_genders:
+                self.logger.error(f"Screening type {i} has invalid gender_criteria")
+                return False
+        
+        return True
+    
+    def get_preset_preview(self, filename: str) -> Dict[str, Any]:
+        """Get a preview of preset contents without importing"""
+        
+        try:
+            preset_data = self.load_preset(filename)
+            if not preset_data:
+                return {'error': 'Failed to load preset'}
+            
+            preview = {
+                'name': preset_data.get('name'),
+                'description': preset_data.get('description'),
+                'specialty': preset_data.get('specialty'),
+                'version': preset_data.get('version'),
+                'screening_count': len(preset_data.get('screening_types', [])),
+                'screening_types': []
+            }
+            
+            # Add screening type summaries
+            for st in preset_data.get('screening_types', []):
+                st_summary = {
+                    'name': st.get('name'),
+                    'description': st.get('description', ''),
+                    'frequency': f"Every {st.get('frequency_number')} {st.get('frequency_unit')}",
+                    'gender_criteria': st.get('gender_criteria', 'both'),
+                    'age_range': self._format_age_range(st.get('age_min'), st.get('age_max')),
+                    'keyword_count': len(st.get('keywords', [])),
+                    'has_conditions': bool(st.get('trigger_conditions'))
+                }
+                preview['screening_types'].append(st_summary)
+            
+            return preview
+            
+        except Exception as e:
+            self.logger.error(f"Error getting preset preview: {str(e)}")
+            return {'error': str(e)}
+    
+    def _format_age_range(self, age_min: Optional[int], age_max: Optional[int]) -> str:
+        """Format age range for display"""
+        
+        if age_min is not None and age_max is not None:
+            return f"{age_min}-{age_max} years"
+        elif age_min is not None:
+            return f"{age_min}+ years"
+        elif age_max is not None:
+            return f"Up to {age_max} years"
+        else:
+            return "All ages"

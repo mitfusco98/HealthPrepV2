@@ -1,385 +1,341 @@
 {% extends 'base_admin.html' %}
 
-{% block title %}Audit Logs - HealthPrep Admin{% endblock %}
+{% block title %}Admin Logs - HealthPrep{% endblock %}
 
 {% block extra_css %}
 <style>
-    .log-entry {
-        transition: all 0.2s ease;
-    }
-    .log-entry:hover {
-        background-color: rgba(31, 111, 235, 0.1);
-        border-radius: 4px;
-    }
-    .log-icon {
-        width: 32px;
-        height: 32px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 50%;
-        font-size: 0.875rem;
-    }
-    .filter-card {
-        background: rgba(13, 17, 23, 0.8);
-        border: 1px solid #21262d;
-    }
+.log-filters {
+    background-color: rgba(0,0,0,0.1);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.log-entry {
+    border-left: 4px solid;
+    padding-left: 1rem;
+}
+
+.log-entry.log-success {
+    border-left-color: #28a745;
+}
+
+.log-entry.log-warning {
+    border-left-color: #ffc107;
+}
+
+.log-entry.log-error {
+    border-left-color: #dc3545;
+}
+
+.log-entry.log-info {
+    border-left-color: #17a2b8;
+}
+
+.log-details {
+    max-width: 300px;
+    word-wrap: break-word;
+}
+
+.loading-overlay {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Logs Header -->
-<div class="admin-header">
-    <div class="row align-items-center">
-        <div class="col-md-8">
-            <h1 class="h3 mb-1">
-                <i class="fas fa-clipboard-list me-2"></i>
-                Audit Logs
-            </h1>
-            <p class="mb-0 opacity-75">
-                HIPAA-compliant activity logging and security audit trail
-            </p>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>
+        <i class="fas fa-history me-2"></i>
+        Admin Audit Logs
+    </h1>
+    <div class="btn-group">
+        <a href="{{ url_for('admin.export_logs') }}" class="btn btn-outline-success">
+            <i class="fas fa-download me-1"></i>
+            Export Logs
+        </a>
+        <button type="button" class="btn btn-outline-danger" onclick="showCleanupModal()">
+            <i class="fas fa-trash me-1"></i>
+            Cleanup Old Logs
+        </button>
+    </div>
+</div>
+
+<!-- Log Statistics -->
+{% if log_stats %}
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <h4>{{ log_stats.total_logs or 0 }}</h4>
+                <small>Total Logs</small>
+            </div>
         </div>
-        <div class="col-md-4 text-end">
-            <div class="btn-group" role="group">
-                <button type="button" class="btn btn-outline-primary" onclick="exportLogs()">
-                    <i class="fas fa-download me-1"></i>Export
-                </button>
-                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#filterCollapse">
-                    <i class="fas fa-filter me-1"></i>Filters
-                </button>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <h4>{{ log_stats.recent_24h or 0 }}</h4>
+                <small>Last 24 Hours</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <h4>{{ log_stats.top_users|length or 0 }}</h4>
+                <small>Active Users</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body text-center">
+                <h4>{{ log_stats.action_breakdown|length or 0 }}</h4>
+                <small>Action Types</small>
             </div>
         </div>
     </div>
 </div>
+{% endif %}
 
-<!-- Statistics Cards -->
-<div class="row g-4 mb-4">
-    <div class="col-lg-3 col-md-6">
-        <div class="metric-card p-4">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h3 class="text-primary mb-1">{{ log_stats.total_logs if log_stats else 0 }}</h3>
-                    <p class="text-muted mb-0">Total Logs</p>
-                    <small class="text-primary">Last 30 days</small>
-                </div>
-                <div class="text-primary">
-                    <i class="fas fa-list fa-2x opacity-50"></i>
-                </div>
+<!-- Filters -->
+<div class="log-filters">
+    <form method="GET" id="filterForm">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Event Type</label>
+                <select name="event_type" class="form-select">
+                    <option value="">All Event Types</option>
+                    {% for event_type in event_types %}
+                        <option value="{{ event_type }}" 
+                                {{ 'selected' if filters.event_type == event_type else '' }}>
+                            {{ event_type.replace('_', ' ').title() }}
+                        </option>
+                    {% endfor %}
+                </select>
             </div>
-        </div>
-    </div>
-    
-    <div class="col-lg-3 col-md-6">
-        <div class="metric-card p-4">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h3 class="text-success mb-1">{{ log_stats.user_breakdown|length if log_stats else 0 }}</h3>
-                    <p class="text-muted mb-0">Active Users</p>
-                    <small class="text-success">Contributing to logs</small>
-                </div>
-                <div class="text-success">
-                    <i class="fas fa-users fa-2x opacity-50"></i>
-                </div>
+            <div class="col-md-3">
+                <label class="form-label">User</label>
+                <select name="user_id" class="form-select">
+                    <option value="">All Users</option>
+                    {% for user in users %}
+                        <option value="{{ user.id }}" 
+                                {{ 'selected' if filters.user_id == user.id else '' }}>
+                            {{ user.username }}
+                        </option>
+                    {% endfor %}
+                </select>
             </div>
-        </div>
-    </div>
-    
-    <div class="col-lg-3 col-md-6">
-        <div class="metric-card p-4">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h3 class="text-warning mb-1">{{ log_stats.action_breakdown|length if log_stats else 0 }}</h3>
-                    <p class="text-muted mb-0">Action Types</p>
-                    <small class="text-warning">Different activities</small>
-                </div>
-                <div class="text-warning">
-                    <i class="fas fa-cogs fa-2x opacity-50"></i>
-                </div>
+            <div class="col-md-2">
+                <label class="form-label">Date From</label>
+                <input type="date" name="date_from" class="form-control" 
+                       value="{{ filters.date_from.strftime('%Y-%m-%d') if filters.date_from else '' }}">
             </div>
-        </div>
-    </div>
-    
-    <div class="col-lg-3 col-md-6">
-        <div class="metric-card p-4">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h3 class="text-info mb-1">{{ log_stats.most_active_day if log_stats else 'Today' }}</h3>
-                    <p class="text-muted mb-0">Most Active Day</p>
-                    <small class="text-info">Peak activity</small>
-                </div>
-                <div class="text-info">
-                    <i class="fas fa-chart-line fa-2x opacity-50"></i>
-                </div>
+            <div class="col-md-2">
+                <label class="form-label">Date To</label>
+                <input type="date" name="date_to" class="form-control" 
+                       value="{{ filters.date_to.strftime('%Y-%m-%d') if filters.date_to else '' }}">
             </div>
-        </div>
-    </div>
-</div>
-
-<!-- Filter Controls -->
-<div class="collapse mb-4" id="filterCollapse">
-    <div class="filter-card p-4 rounded">
-        <form method="GET" action="{{ url_for('admin.admin_logs') }}">
-            <div class="row g-3">
-                <div class="col-md-3">
-                    <label for="event_type" class="form-label">Event Type</label>
-                    <select class="form-select" id="event_type" name="event_type">
-                        <option value="all" {{ 'selected' if filters.event_type == 'all' else '' }}>All Events</option>
-                        {% for event_type in event_types %}
-                            <option value="{{ event_type }}" {{ 'selected' if filters.event_type == event_type else '' }}>
-                                {{ event_type.replace('_', ' ').title() }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="col-md-3">
-                    <label for="user_id" class="form-label">User</label>
-                    <select class="form-select" id="user_id" name="user_id">
-                        <option value="">All Users</option>
-                        {% for user in admin_users %}
-                            <option value="{{ user.id }}" {{ 'selected' if filters.user_id == user.id else '' }}>
-                                {{ user.username }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="col-md-2">
-                    <label for="start_date" class="form-label">Start Date</label>
-                    <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filters.start_date }}">
-                </div>
-                
-                <div class="col-md-2">
-                    <label for="end_date" class="form-label">End Date</label>
-                    <input type="date" class="form-control" id="end_date" name="end_date" value="{{ filters.end_date }}">
-                </div>
-                
-                <div class="col-md-2 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="fas fa-search me-1"></i>Apply
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search me-1"></i>
+                        Apply Filters
                     </button>
                 </div>
             </div>
-            
-            <div class="row g-3 mt-2">
-                <div class="col-md-10">
-                    <label for="search" class="form-label">Search</label>
-                    <input type="text" class="form-control" id="search" name="search" 
-                           placeholder="Search in actions, details, or usernames..." 
-                           value="{{ filters.search }}">
-                </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <a href="{{ url_for('admin.admin_logs') }}" class="btn btn-outline-secondary w-100">
-                        <i class="fas fa-times me-1"></i>Clear
-                    </a>
-                </div>
-            </div>
-        </form>
-    </div>
+        </div>
+    </form>
 </div>
 
-<!-- Logs List -->
-<div class="admin-card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">
-            <i class="fas fa-history text-info me-2"></i>
-            Activity Log
-        </h5>
-        <div>
-            {% if logs_data.pagination.total %}
-                <small class="text-muted">
-                    Showing {{ (logs_data.pagination.page - 1) * logs_data.pagination.per_page + 1 }} - 
-                    {{ [logs_data.pagination.page * logs_data.pagination.per_page, logs_data.pagination.total]|min }} 
-                    of {{ logs_data.pagination.total }} entries
-                </small>
-            {% endif %}
+<!-- Logs Table -->
+<div class="card">
+    <div class="card-body position-relative">
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="d-flex justify-content-center align-items-center h-100">
+                <div class="spinner-border text-light" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
         </div>
-    </div>
-    <div class="card-body p-0">
-        {% if logs_data.logs %}
+        
+        {% if logs and logs.items %}
             <div class="table-responsive">
-                <table class="table table-dark table-hover mb-0">
+                <table class="table table-hover">
                     <thead>
                         <tr>
-                            <th style="width: 50px;"></th>
                             <th>Timestamp</th>
                             <th>User</th>
                             <th>Action</th>
+                            <th>Resource</th>
                             <th>Details</th>
                             <th>IP Address</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for log in logs_data.logs %}
-                            <tr class="log-entry">
-                                <td>
-                                    <div class="log-icon bg-{{ 'danger' if 'error' in log.action else 'warning' if 'security' in log.action else 'success' if 'login' in log.action else 'primary' }}">
-                                        <i class="fas fa-{{ 
-                                            'exclamation-triangle' if 'error' in log.action else
-                                            'shield-alt' if 'security' in log.action else
-                                            'sign-in-alt' if 'login' in log.action else
-                                            'user-shield' if 'admin' in log.action else
-                                            'file' if 'document' in log.action else
-                                            'cog'
-                                        }}"></i>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="fw-bold">{{ log.formatted_timestamp }}</div>
-                                </td>
-                                <td>
-                                    <span class="badge bg-secondary">{{ log.user }}</span>
-                                </td>
-                                <td>
-                                    <span class="fw-bold">{{ log.action.replace('_', ' ').title() }}</span>
-                                    {% if log.target_type %}
-                                        <br><small class="text-muted">{{ log.target_type }}{% if log.target_id %} #{{ log.target_id }}{% endif %}</small>
+                        {% for log in logs.items %}
+                        <tr class="log-entry log-{{ 'error' if 'ERROR' in log.action else 'success' if 'CREATE' in log.action else 'warning' if 'UPDATE' in log.action or 'DELETE' in log.action else 'info' }}">
+                            <td>
+                                <small>{{ log.timestamp.strftime('%m/%d/%Y %H:%M:%S') }}</small>
+                            </td>
+                            <td>
+                                {% if log.user %}
+                                    <strong>{{ log.user.username }}</strong>
+                                    {% if log.user.role == 'admin' %}
+                                        <span class="badge bg-danger">Admin</span>
                                     {% endif %}
-                                </td>
-                                <td>
-                                    {% if log.details %}
-                                        <span class="text-muted">{{ log.details[:100] }}{% if log.details|length > 100 %}...{% endif %}</span>
-                                    {% else %}
-                                        <span class="text-muted">No details</span>
+                                {% else %}
+                                    <span class="text-muted">System</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-{% if 'ERROR' in log.action %}danger{% elif 'CREATE' in log.action %}success{% elif 'UPDATE' in log.action or 'DELETE' in log.action %}warning{% elif 'LOGIN' in log.action %}info{% else %}secondary{% endif %}">
+                                    {{ log.action.replace('_', ' ').title() }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if log.resource_type %}
+                                    {{ log.resource_type.replace('_', ' ').title() }}
+                                    {% if log.resource_id %}
+                                        <small class="text-muted">#{{ log.resource_id }}</small>
                                     {% endif %}
-                                </td>
-                                <td>
-                                    <small class="font-monospace">{{ log.ip_address or 'Unknown' }}</small>
-                                </td>
-                            </tr>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="log-details">
+                                {% if log.details %}
+                                    <small>{{ log.details[:100] }}{% if log.details|length > 100 %}...{% endif %}</small>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.ip_address %}
+                                    <small class="font-monospace">{{ log.ip_address }}</small>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
             
             <!-- Pagination -->
-            {% if logs_data.pagination.pages > 1 %}
-                <div class="card-footer">
-                    <nav aria-label="Log pagination">
-                        <ul class="pagination justify-content-center mb-0">
-                            {% if logs_data.pagination.has_prev %}
-                                <li class="page-item">
-                                    <a class="page-link" href="{{ url_for('admin.admin_logs', page=logs_data.pagination.page-1, **filters) }}">
-                                        <i class="fas fa-chevron-left"></i>
-                                    </a>
+            {% if logs.pages > 1 %}
+                <nav aria-label="Log pagination">
+                    <ul class="pagination justify-content-center">
+                        {% if logs.has_prev %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('admin.logs', page=logs.prev_num, **filters) }}">
+                                    <i class="fas fa-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                        
+                        {% for page_num in logs.iter_pages() %}
+                            {% if page_num %}
+                                {% if page_num != logs.page %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ url_for('admin.logs', page=page_num, **filters) }}">{{ page_num }}</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ page_num }}</span>
+                                    </li>
+                                {% endif %}
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">…</span>
                                 </li>
                             {% endif %}
-                            
-                            {% for page_num in range(max(1, logs_data.pagination.page - 2), min(logs_data.pagination.pages + 1, logs_data.pagination.page + 3)) %}
-                                <li class="page-item {{ 'active' if page_num == logs_data.pagination.page else '' }}">
-                                    <a class="page-link" href="{{ url_for('admin.admin_logs', page=page_num, **filters) }}">
-                                        {{ page_num }}
-                                    </a>
-                                </li>
-                            {% endfor %}
-                            
-                            {% if logs_data.pagination.has_next %}
-                                <li class="page-item">
-                                    <a class="page-link" href="{{ url_for('admin.admin_logs', page=logs_data.pagination.page+1, **filters) }}">
-                                        <i class="fas fa-chevron-right"></i>
-                                    </a>
-                                </li>
-                            {% endif %}
-                        </ul>
-                    </nav>
-                </div>
+                        {% endfor %}
+                        
+                        {% if logs.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('admin.logs', page=logs.next_num, **filters) }}">
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
             {% endif %}
-            
         {% else %}
-            <!-- Empty State -->
-            <div class="text-center py-5">
-                <div class="mb-4">
-                    <i class="fas fa-search text-muted" style="font-size: 4rem;"></i>
-                </div>
-                <h4 class="text-muted">No logs found</h4>
-                <p class="text-muted">
-                    {% if filters.start_date or filters.end_date or filters.event_type != 'all' or filters.user_id or filters.search %}
+            <div class="alert alert-info">
+                <h6 class="alert-heading">No Logs Found</h6>
+                <p class="mb-0">
+                    {% if filters.event_type or filters.user_id or filters.date_from or filters.date_to %}
                         No logs match your current filters. Try adjusting your search criteria.
                     {% else %}
-                        No audit logs are available yet. System activity will appear here.
+                        No audit logs are available yet.
                     {% endif %}
                 </p>
-                {% if filters.start_date or filters.end_date or filters.event_type != 'all' or filters.user_id or filters.search %}
-                    <a href="{{ url_for('admin.admin_logs') }}" class="btn btn-outline-primary">
-                        <i class="fas fa-times me-1"></i>Clear All Filters
-                    </a>
-                {% endif %}
             </div>
         {% endif %}
     </div>
 </div>
 
-<!-- Daily Activity Chart (if statistics available) -->
-{% if log_stats and log_stats.daily_activity %}
-    <div class="row g-4 mt-2">
-        <div class="col-12">
-            <div class="admin-card">
-                <div class="card-header">
-                    <h5 class="mb-0">
-                        <i class="fas fa-chart-area text-primary me-2"></i>
-                        Daily Activity (Last 7 Days)
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="row g-2">
-                        {% for date, count in log_stats.daily_activity.items() %}
-                            <div class="col text-center">
-                                <div class="border rounded p-2">
-                                    <div class="h6 text-primary mb-1">{{ count }}</div>
-                                    <small class="text-muted">{{ date[-5:] }}</small>
-                                </div>
-                            </div>
-                        {% endfor %}
+<!-- Action Breakdown -->
+{% if log_stats and log_stats.action_breakdown %}
+<div class="row mt-4">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Action Breakdown</h6>
+            </div>
+            <div class="card-body">
+                {% for action, count in log_stats.action_breakdown.items() %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>{{ action.replace('_', ' ').title() }}</span>
+                        <span class="badge bg-secondary">{{ count }}</span>
                     </div>
-                </div>
+                {% endfor %}
             </div>
         </div>
     </div>
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Top Users</h6>
+            </div>
+            <div class="card-body">
+                {% for user in log_stats.top_users %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>{{ user.username }}</span>
+                        <span class="badge bg-primary">{{ user.count }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
 {% endif %}
+{% endblock %}
 
+{% block extra_js %}
 <script>
-// Auto-refresh logs every 30 seconds
-let autoRefreshInterval;
-
-function startAutoRefresh() {
-    autoRefreshInterval = setInterval(() => {
-        // Only refresh if no filters are applied and user is on first page
-        const urlParams = new URLSearchParams(window.location.search);
-        if (!urlParams.has('page') || urlParams.get('page') === '1') {
-            if (!urlParams.has('event_type') || urlParams.get('event_type') === 'all') {
-                if (!urlParams.has('user_id') && !urlParams.has('start_date') && !urlParams.has('search')) {
-                    location.reload();
-                }
-            }
-        }
-    }, 30000);
-}
-
-function stopAutoRefresh() {
-    if (autoRefreshInterval) {
-        clearInterval(autoRefreshInterval);
-    }
-}
-
-// Start auto-refresh when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    startAutoRefresh();
-    
-    // Stop auto-refresh when user interacts with filters
-    const filterInputs = document.querySelectorAll('#filterCollapse input, #filterCollapse select');
-    filterInputs.forEach(input => {
-        input.addEventListener('focus', stopAutoRefresh);
-    });
+// Show loading overlay when filtering
+document.getElementById('filterForm').addEventListener('submit', function() {
+    document.getElementById('loadingOverlay').style.display = 'flex';
 });
 
-// Handle page visibility changes
-document.addEventListener('visibilitychange', function() {
-    if (document.hidden) {
-        stopAutoRefresh();
-    } else {
-        startAutoRefresh();
+function showCleanupModal() {
+    if (confirm('This will permanently delete audit logs older than 7 years. This action cannot be undone. Continue?')) {
+        // Implement cleanup functionality
+        alert('Log cleanup functionality would be implemented here.');
     }
-});
+}
 </script>
 {% endblock %}

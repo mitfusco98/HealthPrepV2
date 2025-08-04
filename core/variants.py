@@ -1,285 +1,169 @@
 """
-Handles screening type variants for different patient conditions and protocols.
-Allows creation of condition-specific screening protocols under the same screening type.
+Handles screening type variants for different patient conditions
 """
-
+from app import db
+from models import ScreeningType, Patient, PatientCondition
 import logging
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
-from datetime import date
 
-from models import Patient, ScreeningType, PatientCondition
-
-@dataclass
-class ScreeningVariant:
-    """Represents a variant of a screening type for specific conditions."""
-    condition: str
-    frequency_value: int
-    frequency_unit: str
-    keywords: List[str]
-    description: str
-    priority: int = 0  # Higher priority variants override lower ones
-
-class ScreeningVariantManager:
-    """Manages screening type variants and determines which variant applies to a patient."""
+class ScreeningVariants:
+    """Manages screening type variants based on patient trigger conditions"""
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        
-        # Define built-in variant rules
-        self.built_in_variants = {
-            'a1c': [
-                ScreeningVariant(
-                    condition='diabetes',
-                    frequency_value=3,
-                    frequency_unit='months',
-                    keywords=['a1c', 'hba1c', 'hemoglobin a1c'],
-                    description='Diabetic patients require A1C every 3 months',
-                    priority=10
-                ),
-                ScreeningVariant(
-                    condition='prediabetes',
-                    frequency_value=6,
-                    frequency_unit='months',
-                    keywords=['a1c', 'hba1c', 'hemoglobin a1c'],
-                    description='Prediabetic patients require A1C every 6 months',
-                    priority=5
-                )
-            ],
-            'lipid panel': [
-                ScreeningVariant(
-                    condition='diabetes',
-                    frequency_value=6,
-                    frequency_unit='months',
-                    keywords=['lipid', 'cholesterol', 'lipid panel', 'lipid profile'],
-                    description='Diabetic patients require lipid panel every 6 months',
-                    priority=8
-                ),
-                ScreeningVariant(
-                    condition='heart disease',
-                    frequency_value=3,
-                    frequency_unit='months',
-                    keywords=['lipid', 'cholesterol', 'lipid panel', 'lipid profile'],
-                    description='Heart disease patients require lipid panel every 3 months',
-                    priority=10
-                ),
-                ScreeningVariant(
-                    condition='hypertension',
-                    frequency_value=6,
-                    frequency_unit='months',
-                    keywords=['lipid', 'cholesterol', 'lipid panel', 'lipid profile'],
-                    description='Hypertensive patients require lipid panel every 6 months',
-                    priority=6
-                )
-            ],
-            'eye exam': [
-                ScreeningVariant(
-                    condition='diabetes',
-                    frequency_value=12,
-                    frequency_unit='months',
-                    keywords=['eye exam', 'ophthalmology', 'retinal', 'dilated fundus'],
-                    description='Diabetic patients require annual eye exams',
-                    priority=10
-                )
-            ],
-            'foot exam': [
-                ScreeningVariant(
-                    condition='diabetes',
-                    frequency_value=6,
-                    frequency_unit='months',
-                    keywords=['foot exam', 'diabetic foot', 'podiatry'],
-                    description='Diabetic patients require foot exams every 6 months',
-                    priority=10
-                )
-            ],
-            'microalbumin': [
-                ScreeningVariant(
-                    condition='diabetes',
-                    frequency_value=12,
-                    frequency_unit='months',
-                    keywords=['microalbumin', 'urine albumin', 'proteinuria'],
-                    description='Diabetic patients require annual microalbumin testing',
-                    priority=10
-                )
-            ]
-        }
     
-    def get_applicable_variant(self, patient: Patient, screening_type: ScreeningType) -> Optional[ScreeningVariant]:
-        """Get the most applicable variant for a patient and screening type."""
+    def get_applicable_variant(self, patient, base_screening_type):
+        """Get the most applicable screening variant for a patient"""
         
-        # Get patient's active conditions
-        patient_conditions = PatientCondition.query.filter_by(
-            patient_id=patient.id,
-            is_active=True
+        # Get all variants of this screening type
+        variants = ScreeningType.query.filter(
+            ScreeningType.name.like(f"{base_screening_type.name}%"),
+            ScreeningType.is_active == True
         ).all()
         
-        if not patient_conditions:
-            return None
+        if not variants:
+            return base_screening_type
         
-        condition_names = [c.condition_name.lower().strip() for c in patient_conditions]
-        screening_name = screening_type.name.lower().strip()
+        # Check each variant for trigger condition matches
+        best_match = None
+        max_matched_conditions = 0
         
-        # Find matching variants
-        applicable_variants = []
-        
-        # Check built-in variants
-        for variant_key, variants in self.built_in_variants.items():
-            if variant_key in screening_name or any(keyword in screening_name for keyword in variant_key.split()):
-                for variant in variants:
-                    if any(variant.condition.lower() in condition for condition in condition_names):
-                        applicable_variants.append(variant)
-        
-        # Return highest priority variant
-        if applicable_variants:
-            return max(applicable_variants, key=lambda v: v.priority)
-        
-        return None
-    
-    def apply_variant_to_screening(self, screening_type: ScreeningType, variant: ScreeningVariant) -> Dict:
-        """Apply a variant to a screening type and return the modified parameters."""
-        
-        # Create modified screening parameters
-        modified_params = {
-            'original_frequency_value': screening_type.frequency_value,
-            'original_frequency_unit': screening_type.frequency_unit,
-            'original_keywords': screening_type.get_keywords_list(),
+        for variant in variants:
+            matched_conditions = self._count_matched_conditions(patient, variant)
             
-            # Applied variant parameters
-            'frequency_value': variant.frequency_value,
-            'frequency_unit': variant.frequency_unit,
-            'keywords': variant.keywords,
-            'variant_condition': variant.condition,
-            'variant_description': variant.description,
-            'variant_applied': True
-        }
+            if matched_conditions > max_matched_conditions:
+                max_matched_conditions = matched_conditions
+                best_match = variant
         
-        return modified_params
+        return best_match or base_screening_type
     
-    def get_variant_summary(self, patient: Patient, screening_type: ScreeningType) -> Dict:
-        """Get a summary of variant application for a patient and screening."""
+    def create_screening_variant(self, base_screening_type, variant_name, trigger_conditions, 
+                               frequency_value=None, frequency_unit=None):
+        """Create a new screening variant"""
         
-        variant = self.get_applicable_variant(patient, screening_type)
-        
-        if variant:
-            modified_params = self.apply_variant_to_screening(screening_type, variant)
-            
-            return {
-                'has_variant': True,
-                'variant': variant,
-                'modified_params': modified_params,
-                'frequency_changed': (variant.frequency_value != screening_type.frequency_value or 
-                                    variant.frequency_unit != screening_type.frequency_unit),
-                'keywords_changed': set(variant.keywords) != set(screening_type.get_keywords_list())
-            }
-        else:
-            return {
-                'has_variant': False,
-                'variant': None,
-                'modified_params': None,
-                'frequency_changed': False,
-                'keywords_changed': False
-            }
-    
-    def create_custom_variant(self, screening_type_name: str, condition: str, 
-                            frequency_value: int, frequency_unit: str,
-                            keywords: List[str], description: str = None) -> ScreeningVariant:
-        """Create a custom variant for specific use cases."""
-        
-        if description is None:
-            description = f"Custom variant for {condition} patients"
-        
-        variant = ScreeningVariant(
-            condition=condition.lower().strip(),
-            frequency_value=frequency_value,
-            frequency_unit=frequency_unit,
-            keywords=keywords,
-            description=description,
-            priority=5  # Medium priority for custom variants
+        variant = ScreeningType(
+            name=f"{base_screening_type.name} - {variant_name}",
+            description=f"{base_screening_type.description} (Variant: {variant_name})",
+            keywords=base_screening_type.keywords,
+            min_age=base_screening_type.min_age,
+            max_age=base_screening_type.max_age,
+            gender=base_screening_type.gender,
+            frequency_value=frequency_value or base_screening_type.frequency_value,
+            frequency_unit=frequency_unit or base_screening_type.frequency_unit,
+            trigger_conditions='\n'.join(trigger_conditions) if isinstance(trigger_conditions, list) else trigger_conditions,
+            is_active=True
         )
         
-        # Add to built-in variants if not exists
-        screening_key = screening_type_name.lower().strip()
-        if screening_key not in self.built_in_variants:
-            self.built_in_variants[screening_key] = []
+        db.session.add(variant)
+        db.session.commit()
         
-        self.built_in_variants[screening_key].append(variant)
-        
-        self.logger.info(f"Created custom variant for {screening_type_name} with condition {condition}")
-        
+        self.logger.info(f"Created screening variant: {variant.name}")
         return variant
     
-    def get_all_variants_for_screening(self, screening_type_name: str) -> List[ScreeningVariant]:
-        """Get all available variants for a screening type."""
-        screening_key = screening_type_name.lower().strip()
+    def get_variant_recommendations(self, screening_type_name):
+        """Get common variant recommendations for a screening type"""
         
-        variants = []
-        for variant_key, variant_list in self.built_in_variants.items():
-            if variant_key in screening_key or any(keyword in screening_key for keyword in variant_key.split()):
-                variants.extend(variant_list)
+        variant_recommendations = {
+            'A1C': [
+                {
+                    'name': 'Diabetic',
+                    'trigger_conditions': ['diabetes', 'type 1 diabetes', 'type 2 diabetes'],
+                    'frequency_value': 3,
+                    'frequency_unit': 'months'
+                },
+                {
+                    'name': 'Pre-diabetic',
+                    'trigger_conditions': ['prediabetes', 'impaired glucose tolerance'],
+                    'frequency_value': 6,
+                    'frequency_unit': 'months'
+                }
+            ],
+            'Mammogram': [
+                {
+                    'name': 'High Risk',
+                    'trigger_conditions': ['BRCA', 'family history breast cancer', 'breast cancer history'],
+                    'frequency_value': 6,
+                    'frequency_unit': 'months'
+                }
+            ],
+            'Colonoscopy': [
+                {
+                    'name': 'High Risk',
+                    'trigger_conditions': ['family history colon cancer', 'inflammatory bowel disease', 'polyps'],
+                    'frequency_value': 3,
+                    'frequency_unit': 'years'
+                }
+            ],
+            'Echocardiogram': [
+                {
+                    'name': 'Heart Disease',
+                    'trigger_conditions': ['heart failure', 'coronary artery disease', 'cardiomyopathy'],
+                    'frequency_value': 6,
+                    'frequency_unit': 'months'
+                }
+            ]
+        }
         
-        # Sort by priority (highest first)
-        return sorted(variants, key=lambda v: v.priority, reverse=True)
+        return variant_recommendations.get(screening_type_name, [])
     
-    def validate_variant_logic(self, patient: Patient) -> Dict:
-        """Validate variant logic for a patient across all their conditions."""
+    def _count_matched_conditions(self, patient, screening_type):
+        """Count how many trigger conditions match patient conditions"""
+        if not screening_type.trigger_conditions_list:
+            return 0
         
-        patient_conditions = PatientCondition.query.filter_by(
-            patient_id=patient.id,
-            is_active=True
+        patient_conditions = [c.condition_name.lower() for c in patient.conditions if c.is_active]
+        matched_count = 0
+        
+        for trigger_condition in screening_type.trigger_conditions_list:
+            trigger_condition = trigger_condition.lower().strip()
+            
+            for patient_condition in patient_conditions:
+                if (trigger_condition in patient_condition or 
+                    patient_condition in trigger_condition):
+                    matched_count += 1
+                    break
+        
+        return matched_count
+    
+    def apply_variants_to_patient(self, patient_id):
+        """Apply appropriate screening variants to a patient"""
+        patient = Patient.query.get(patient_id)
+        if not patient:
+            return
+        
+        # Get all base screening types
+        base_screening_types = ScreeningType.query.filter(
+            ~ScreeningType.name.contains(' - '),  # Exclude variants
+            ScreeningType.is_active == True
         ).all()
         
-        condition_names = [c.condition_name.lower().strip() for c in patient_conditions]
-        applicable_variants = {}
-        conflicts = []
+        updated_screenings = []
         
-        # Check each screening type for applicable variants
-        for screening_key, variants in self.built_in_variants.items():
-            screening_variants = []
+        for base_type in base_screening_types:
+            applicable_variant = self.get_applicable_variant(patient, base_type)
             
-            for variant in variants:
-                if any(variant.condition.lower() in condition for condition in condition_names):
-                    screening_variants.append(variant)
-            
-            if screening_variants:
-                # Sort by priority
-                screening_variants.sort(key=lambda v: v.priority, reverse=True)
-                applicable_variants[screening_key] = screening_variants
+            if applicable_variant.id != base_type.id:
+                # Update or create screening with the variant
+                from models import Screening
                 
-                # Check for conflicts (multiple high-priority variants)
-                high_priority = [v for v in screening_variants if v.priority >= 8]
-                if len(high_priority) > 1:
-                    conflicts.append({
-                        'screening': screening_key,
-                        'variants': high_priority,
-                        'reason': 'Multiple high-priority variants applicable'
-                    })
+                screening = Screening.query.filter_by(
+                    patient_id=patient_id,
+                    screening_type_id=base_type.id
+                ).first()
+                
+                if screening:
+                    screening.screening_type_id = applicable_variant.id
+                    updated_screenings.append(applicable_variant.name)
+                else:
+                    # Create new screening with variant
+                    new_screening = Screening(
+                        patient_id=patient_id,
+                        screening_type_id=applicable_variant.id,
+                        status='due'
+                    )
+                    db.session.add(new_screening)
+                    updated_screenings.append(applicable_variant.name)
         
-        return {
-            'applicable_variants': applicable_variants,
-            'conflicts': conflicts,
-            'total_applicable': len(applicable_variants),
-            'has_conflicts': len(conflicts) > 0,
-            'patient_conditions': condition_names
-        }
-    
-    def export_variant_configuration(self) -> Dict:
-        """Export current variant configuration for backup or transfer."""
+        db.session.commit()
         
-        config = {}
-        for screening_key, variants in self.built_in_variants.items():
-            config[screening_key] = []
-            for variant in variants:
-                config[screening_key].append({
-                    'condition': variant.condition,
-                    'frequency_value': variant.frequency_value,
-                    'frequency_unit': variant.frequency_unit,
-                    'keywords': variant.keywords,
-                    'description': variant.description,
-                    'priority': variant.priority
-                })
-        
-        return {
-            'version': '1.0',
-            'created_at': date.today().isoformat(),
-            'variants': config
-        }
+        self.logger.info(f"Applied variants to patient {patient.full_name}: {', '.join(updated_screenings)}")
+        return updated_screenings

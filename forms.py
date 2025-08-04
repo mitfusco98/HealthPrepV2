@@ -1,50 +1,74 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, TextAreaField, SelectField, IntegerField, BooleanField, DateField, PasswordField
+from flask_wtf.file import FileField, FileAllowed
+from wtforms import StringField, TextAreaField, IntegerField, SelectField, BooleanField, DateField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, Email, Length, NumberRange, Optional
 from wtforms.widgets import TextArea
 
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
     password = PasswordField('Password', validators=[DataRequired()])
-    remember_me = BooleanField('Remember Me')
+    submit = SubmitField('Sign In')
 
 class ScreeningTypeForm(FlaskForm):
-    name = StringField('Screening Name', validators=[DataRequired(), Length(max=200)])
+    name = StringField('Screening Name', validators=[DataRequired(), Length(min=1, max=100)])
     description = TextAreaField('Description')
     keywords = TextAreaField('Keywords (one per line)', widget=TextArea())
     min_age = IntegerField('Minimum Age', validators=[Optional(), NumberRange(min=0, max=150)])
     max_age = IntegerField('Maximum Age', validators=[Optional(), NumberRange(min=0, max=150)])
-    gender_restriction = SelectField('Gender', choices=[('', 'Any'), ('M', 'Male'), ('F', 'Female')])
-    frequency_value = IntegerField('Frequency', validators=[DataRequired(), NumberRange(min=1)])
-    frequency_unit = SelectField('Unit', choices=[('months', 'Months'), ('years', 'Years')], validators=[DataRequired()])
+    gender = SelectField('Gender', choices=[('', 'Both'), ('M', 'Male'), ('F', 'Female')])
+    frequency_value = IntegerField('Frequency', validators=[Optional(), NumberRange(min=1)])
+    frequency_unit = SelectField('Frequency Unit', choices=[('years', 'Years'), ('months', 'Months')])
     trigger_conditions = TextAreaField('Trigger Conditions (one per line)', widget=TextArea())
     is_active = BooleanField('Active', default=True)
+    submit = SubmitField('Save Screening Type')
 
 class PatientForm(FlaskForm):
-    mrn = StringField('MRN', validators=[DataRequired(), Length(max=50)])
-    first_name = StringField('First Name', validators=[DataRequired(), Length(max=100)])
-    last_name = StringField('Last Name', validators=[DataRequired(), Length(max=100)])
+    mrn = StringField('Medical Record Number', validators=[DataRequired(), Length(min=1, max=50)])
+    first_name = StringField('First Name', validators=[DataRequired(), Length(min=1, max=100)])
+    last_name = StringField('Last Name', validators=[DataRequired(), Length(min=1, max=100)])
     date_of_birth = DateField('Date of Birth', validators=[DataRequired()])
     gender = SelectField('Gender', choices=[('M', 'Male'), ('F', 'Female')], validators=[DataRequired()])
+    phone = StringField('Phone', validators=[Optional(), Length(max=20)])
+    email = StringField('Email', validators=[Optional(), Email(), Length(max=120)])
+    address = TextAreaField('Address')
+    submit = SubmitField('Save Patient')
 
 class DocumentUploadForm(FlaskForm):
-    document_type = SelectField('Document Type', 
-                               choices=[('lab', 'Laboratory'), ('imaging', 'Imaging'), 
-                                      ('consult', 'Consult'), ('hospital', 'Hospital')],
-                               validators=[DataRequired()])
-    document_date = DateField('Document Date', validators=[DataRequired()])
+    file = FileField('Document', validators=[
+        DataRequired(),
+        FileAllowed(['pdf', 'png', 'jpg', 'jpeg', 'tiff'], 'Only PDF and image files are allowed.')
+    ])
+    document_type = SelectField('Document Type', choices=[
+        ('lab', 'Lab Results'),
+        ('imaging', 'Imaging Studies'),
+        ('consult', 'Specialist Consults'),
+        ('hospital', 'Hospital Records')
+    ], validators=[DataRequired()])
+    document_date = DateField('Document Date', validators=[Optional()])
+    submit = SubmitField('Upload Document')
 
-class ChecklistSettingsForm(FlaskForm):
-    labs_cutoff_months = IntegerField('Labs Cutoff (months)', validators=[DataRequired(), NumberRange(min=1, max=120)])
-    imaging_cutoff_months = IntegerField('Imaging Cutoff (months)', validators=[DataRequired(), NumberRange(min=1, max=120)])
-    consults_cutoff_months = IntegerField('Consults Cutoff (months)', validators=[DataRequired(), NumberRange(min=1, max=120)])
-    hospital_cutoff_months = IntegerField('Hospital Cutoff (months)', validators=[DataRequired(), NumberRange(min=1, max=120)])
+class PrepSheetSettingsForm(FlaskForm):
+    labs_cutoff_months = IntegerField('Labs Cutoff (months)', 
+                                     validators=[DataRequired(), NumberRange(min=1, max=120)], 
+                                     default=12)
+    imaging_cutoff_months = IntegerField('Imaging Cutoff (months)', 
+                                        validators=[DataRequired(), NumberRange(min=1, max=120)], 
+                                        default=12)
+    consults_cutoff_months = IntegerField('Consults Cutoff (months)', 
+                                         validators=[DataRequired(), NumberRange(min=1, max=120)], 
+                                         default=12)
+    hospital_cutoff_months = IntegerField('Hospital Records Cutoff (months)', 
+                                         validators=[DataRequired(), NumberRange(min=1, max=120)], 
+                                         default=12)
+    submit = SubmitField('Save Settings')
 
-class PHISettingsForm(FlaskForm):
-    filter_enabled = BooleanField('Enable PHI Filtering')
-    filter_ssn = BooleanField('Filter SSN')
-    filter_phone = BooleanField('Filter Phone Numbers')
-    filter_mrn = BooleanField('Filter MRN')
-    filter_addresses = BooleanField('Filter Addresses')
-    filter_names = BooleanField('Filter Names')
-    filter_dates = BooleanField('Filter Dates')
+class PHIFilterForm(FlaskForm):
+    filter_enabled = BooleanField('Enable PHI Filtering', default=True)
+    filter_ssn = BooleanField('Filter SSN', default=True)
+    filter_phone = BooleanField('Filter Phone Numbers', default=True)
+    filter_mrn = BooleanField('Filter MRN', default=True)
+    filter_insurance = BooleanField('Filter Insurance Info', default=True)
+    filter_addresses = BooleanField('Filter Addresses', default=True)
+    filter_names = BooleanField('Filter Names', default=True)
+    filter_dates = BooleanField('Filter Dates', default=True)
+    submit = SubmitField('Save PHI Settings')

@@ -1,118 +1,115 @@
+{% extends 'base_user.html' %}
+
+{% block title %}Checklist Settings - HealthPrep{% endblock %}
+
+{% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h4>Prep Sheet & Checklist Settings</h4>
-        <p class="text-muted">Configure data cutoff periods and filtering options for prep sheets</p>
-    </div>
+    <h1>
+        <i class="fas fa-sliders-h me-2 text-primary"></i>
+        Checklist Settings
+    </h1>
+    <a href="{{ url_for('screening.screening_list') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i>
+        Back to Screenings
+    </a>
 </div>
 
-<!-- Settings Form -->
 <div class="row">
-    <div class="col-md-8">
+    <div class="col-lg-8">
         <div class="card">
             <div class="card-header">
-                <h6 class="mb-0">
-                    <i class="fas fa-sliders-h me-2"></i>
+                <h5 class="mb-0">
+                    <i class="fas fa-calendar-alt me-2"></i>
                     Data Cutoff Configuration
-                </h6>
+                </h5>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('admin.checklist_settings') }}">
-                    {{ form.hidden_tag() if form }}
+                <form method="POST">
+                    {{ form.hidden_tag() }}
                     
-                    <!-- Default Cutoff -->
-                    <div class="row mb-3">
+                    <div class="row">
                         <div class="col-md-6">
-                            <label class="form-label">Default Data Cutoff</label>
-                            <div class="input-group">
-                                <input type="number" class="form-control" name="cutoff_months" 
-                                       value="{{ settings.cutoff_months if settings else 12 }}" min="1" max="120">
-                                <span class="input-group-text">months</span>
-                            </div>
-                            <div class="form-text">Default cutoff for all medical data types</div>
-                        </div>
-                    </div>
-
-                    <!-- Specific Cutoffs -->
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Lab Results Cutoff</label>
-                            <div class="input-group">
-                                <input type="number" class="form-control" name="lab_cutoff_months" 
-                                       value="{{ settings.lab_cutoff_months if settings else 12 }}" min="1" max="120">
-                                <span class="input-group-text">months</span>
+                            <div class="mb-3">
+                                {{ form.lab_cutoff_months.label(class="form-label") }}
+                                {{ form.lab_cutoff_months(class="form-control") }}
+                                <div class="form-text">
+                                    Lab results older than this will be excluded from prep sheets
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Imaging Studies Cutoff</label>
-                            <div class="input-group">
-                                <input type="number" class="form-control" name="imaging_cutoff_months" 
-                                       value="{{ settings.imaging_cutoff_months if settings else 24 }}" min="1" max="120">
-                                <span class="input-group-text">months</span>
+                            <div class="mb-3">
+                                {{ form.imaging_cutoff_months.label(class="form-label") }}
+                                {{ form.imaging_cutoff_months(class="form-control") }}
+                                <div class="form-text">
+                                    Imaging studies older than this will be excluded
+                                </div>
                             </div>
                         </div>
                     </div>
-
-                    <div class="row mb-3">
+                    
+                    <div class="row">
                         <div class="col-md-6">
-                            <label class="form-label">Consult Reports Cutoff</label>
-                            <div class="input-group">
-                                <input type="number" class="form-control" name="consult_cutoff_months" 
-                                       value="{{ settings.consult_cutoff_months if settings else 12 }}" min="1" max="120">
-                                <span class="input-group-text">months</span>
+                            <div class="mb-3">
+                                {{ form.consult_cutoff_months.label(class="form-label") }}
+                                {{ form.consult_cutoff_months(class="form-control") }}
+                                <div class="form-text">
+                                    Consultation notes older than this will be excluded
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Hospital Records Cutoff</label>
-                            <div class="input-group">
-                                <input type="number" class="form-control" name="hospital_cutoff_months" 
-                                       value="{{ settings.hospital_cutoff_months if settings else 24 }}" min="1" max="120">
-                                <span class="input-group-text">months</span>
+                            <div class="mb-3">
+                                {{ form.hospital_cutoff_months.label(class="form-label") }}
+                                {{ form.hospital_cutoff_months(class="form-control") }}
+                                <div class="form-text">
+                                    Hospital records older than this will be excluded
+                                </div>
                             </div>
                         </div>
                     </div>
-
-                    <!-- OCR Settings -->
+                    
                     <hr>
-                    <h6 class="mb-3">OCR and Document Processing</h6>
                     
-                    <div class="row mb-3">
+                    <h6 class="mb-3">Default Prep Sheet Options</h6>
+                    
+                    <div class="row">
                         <div class="col-md-6">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="phi_filtering_enabled" 
-                                       name="phi_filtering_enabled" 
-                                       {{ 'checked' if not settings or settings.phi_filtering_enabled }}>
-                                <label class="form-check-label" for="phi_filtering_enabled">
-                                    Enable PHI Filtering
-                                </label>
+                            <div class="mb-3">
+                                {{ form.default_status_options.label(class="form-label") }}
+                                {{ form.default_status_options(class="form-control", rows="6") }}
+                                <div class="form-text">
+                                    One status option per line. These will be available for all prep sheets.
+                                </div>
                             </div>
-                            <div class="form-text">Automatically filter PHI from OCR text in prep sheets</div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">OCR Confidence Threshold</label>
-                            <div class="input-group">
-                                <input type="number" class="form-control" name="confidence_threshold" 
-                                       value="{{ settings.confidence_threshold if settings else 0.6 }}" 
-                                       min="0" max="1" step="0.1">
-                                <span class="input-group-text">confidence</span>
+                            <div class="mb-3">
+                                {{ form.default_checklist_items.label(class="form-label") }}
+                                {{ form.default_checklist_items(class="form-control", rows="6") }}
+                                <div class="form-text">
+                                    One checklist item per line. These will appear on all prep sheets.
+                                </div>
                             </div>
-                            <div class="form-text">Minimum confidence for including OCR text (0.0 - 1.0)</div>
                         </div>
                     </div>
-
-                    <!-- Submit Button -->
-                    <div class="d-flex justify-content-end">
+                    
+                    <div class="d-flex justify-content-between">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save me-1"></i>
                             Save Settings
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="resetToDefaults()">
+                            <i class="fas fa-undo me-1"></i>
+                            Reset to Defaults
                         </button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
-
-    <!-- Settings Summary -->
-    <div class="col-md-4">
+    
+    <div class="col-lg-4">
         <div class="card">
             <div class="card-header">
                 <h6 class="mb-0">
@@ -122,83 +119,56 @@
             </div>
             <div class="card-body">
                 {% if settings %}
-                <div class="mb-2">
-                    <strong>Data Cutoffs:</strong>
-                    <ul class="list-unstyled small mt-1">
-                        <li>Lab Results: {{ settings.lab_cutoff_months }} months</li>
-                        <li>Imaging: {{ settings.imaging_cutoff_months }} months</li>
-                        <li>Consults: {{ settings.consult_cutoff_months }} months</li>
-                        <li>Hospital: {{ settings.hospital_cutoff_months }} months</li>
-                    </ul>
-                </div>
-                
-                <div class="mb-2">
-                    <strong>OCR Settings:</strong>
-                    <ul class="list-unstyled small mt-1">
-                        <li>PHI Filtering: {{ 'Enabled' if settings.phi_filtering_enabled else 'Disabled' }}</li>
-                        <li>Confidence Threshold: {{ (settings.confidence_threshold * 100)|round(0) }}%</li>
-                    </ul>
-                </div>
-                
-                <div class="small text-muted">
-                    Last updated: {{ settings.updated_at.strftime('%m/%d/%Y %H:%M') if settings.updated_at else 'Never' }}
-                </div>
+                    <dl class="row">
+                        <dt class="col-6">Lab Cutoff:</dt>
+                        <dd class="col-6">{{ settings.lab_cutoff_months }} months</dd>
+                        
+                        <dt class="col-6">Imaging Cutoff:</dt>
+                        <dd class="col-6">{{ settings.imaging_cutoff_months }} months</dd>
+                        
+                        <dt class="col-6">Consult Cutoff:</dt>
+                        <dd class="col-6">{{ settings.consult_cutoff_months }} months</dd>
+                        
+                        <dt class="col-6">Hospital Cutoff:</dt>
+                        <dd class="col-6">{{ settings.hospital_cutoff_months }} months</dd>
+                    </dl>
+                    
+                    {% if settings.updated_at %}
+                        <small class="text-muted">
+                            Last updated: {{ settings.updated_at.strftime('%m/%d/%Y %H:%M') }}
+                        </small>
+                    {% endif %}
                 {% else %}
-                <p class="text-muted">No settings configured. Using default values.</p>
+                    <p class="text-muted">No settings configured yet.</p>
                 {% endif %}
             </div>
         </div>
-
-        <!-- Quick Actions -->
+        
         <div class="card mt-3">
             <div class="card-header">
                 <h6 class="mb-0">
-                    <i class="fas fa-bolt me-2"></i>
-                    Quick Actions
+                    <i class="fas fa-lightbulb me-2"></i>
+                    Best Practices
                 </h6>
             </div>
             <div class="card-body">
-                <div class="d-grid gap-2">
-                    <button class="btn btn-outline-primary btn-sm" onclick="resetToDefaults()">
-                        <i class="fas fa-undo me-1"></i>
-                        Reset to Defaults
-                    </button>
-                    <button class="btn btn-outline-info btn-sm" onclick="previewSettings()">
-                        <i class="fas fa-eye me-1"></i>
-                        Preview Impact
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Guidelines -->
-<div class="card mt-4">
-    <div class="card-header">
-        <h6 class="mb-0">
-            <i class="fas fa-lightbulb me-2"></i>
-            Configuration Guidelines
-        </h6>
-    </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-6">
-                <h6>Data Cutoff Recommendations</h6>
-                <ul class="small">
-                    <li><strong>Lab Results:</strong> 12-18 months for most screenings</li>
-                    <li><strong>Imaging Studies:</strong> 24-36 months due to longer intervals</li>
-                    <li><strong>Consult Reports:</strong> 12 months for active care</li>
-                    <li><strong>Hospital Records:</strong> 24-36 months for significant events</li>
-                </ul>
-            </div>
-            <div class="col-md-6">
-                <h6>OCR Confidence Guidelines</h6>
-                <ul class="small">
-                    <li><strong>0.8-1.0:</strong> High confidence, reliable text</li>
-                    <li><strong>0.6-0.8:</strong> Medium confidence, generally accurate</li>
-                    <li><strong>0.0-0.6:</strong> Low confidence, may contain errors</li>
-                    <li>Lower thresholds include more documents but with potential inaccuracies</li>
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Lab results: 12-24 months for chronic conditions
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Imaging: 12-36 months depending on study type
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Consultation notes: 6-12 months for relevance
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Hospital records: 12 months for recent admissions
+                    </li>
                 </ul>
             </div>
         </div>
@@ -207,64 +177,14 @@
 
 <script>
 function resetToDefaults() {
-    if (confirm('Reset all settings to default values? This will overwrite your current configuration.')) {
-        // Set default values
-        document.querySelector('input[name="cutoff_months"]').value = 12;
-        document.querySelector('input[name="lab_cutoff_months"]').value = 12;
-        document.querySelector('input[name="imaging_cutoff_months"]').value = 24;
-        document.querySelector('input[name="consult_cutoff_months"]').value = 12;
-        document.querySelector('input[name="hospital_cutoff_months"]').value = 24;
-        document.querySelector('input[name="confidence_threshold"]').value = 0.6;
-        document.querySelector('input[name="phi_filtering_enabled"]').checked = true;
-        
-        // Show success message
-        const alert = document.createElement('div');
-        alert.className = 'alert alert-success alert-dismissible fade show mt-3';
-        alert.innerHTML = `
-            <i class="fas fa-check-circle me-2"></i>
-            Settings reset to defaults. Click "Save Settings" to apply changes.
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        document.querySelector('.card-body').prepend(alert);
+    if (confirm('Reset all settings to defaults? This cannot be undone.')) {
+        document.getElementById('lab_cutoff_months').value = '12';
+        document.getElementById('imaging_cutoff_months').value = '12';
+        document.getElementById('consult_cutoff_months').value = '12';
+        document.getElementById('hospital_cutoff_months').value = '12';
+        document.getElementById('default_status_options').value = 'Complete\nDue\nDue Soon\nOverdue\nNot Applicable';
+        document.getElementById('default_checklist_items').value = 'Annual Physical Exam\nImmunization Review\nMedication Reconciliation\nAllergy Review\nEmergency Contact Update';
     }
 }
-
-function previewSettings() {
-    const cutoff = document.querySelector('input[name="cutoff_months"]').value;
-    const confidence = document.querySelector('input[name="confidence_threshold"]').value;
-    
-    const modal = document.createElement('div');
-    modal.className = 'modal fade';
-    modal.innerHTML = `
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Settings Preview</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <h6>Impact of Current Settings:</h6>
-                    <ul>
-                        <li>Documents older than ${cutoff} months will be excluded from prep sheets</li>
-                        <li>OCR text with confidence below ${(confidence * 100).toFixed(0)}% will be filtered</li>
-                        <li>PHI filtering will ${document.querySelector('input[name="phi_filtering_enabled"]').checked ? 'remove' : 'preserve'} sensitive information</li>
-                    </ul>
-                    <div class="alert alert-info small">
-                        <i class="fas fa-info-circle me-2"></i>
-                        These settings affect all future prep sheet generations. Existing prep sheets are not modified.
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    const bsModal = new bootstrap.Modal(modal);
-    bsModal.show();
-    
-    modal.addEventListener('hidden.bs.modal', () => modal.remove());
-}
 </script>
+{% endblock %}
