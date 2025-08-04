@@ -9,7 +9,7 @@ from werkzeug.utils import secure_filename
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file
 from flask_login import login_required, current_user
 
-from models import Patient, MedicalDocument, AdminLog
+from models import Patient, Document, AdminLog
 from ocr.processor import OCRProcessor
 from ocr.phi_filter import PHIFilter
 from forms import DocumentUploadForm
@@ -70,7 +70,7 @@ def upload_document():
                 file_size = os.path.getsize(file_path)
 
                 # Create document record
-                document = MedicalDocument(
+                document = Document(
                     patient_id=patient_id,
                     filename=filename,
                     document_type=document_type,
@@ -137,9 +137,9 @@ def document_list(patient_id):
         patient = Patient.query.get_or_404(patient_id)
 
         # Get documents for this patient
-        documents = MedicalDocument.query.filter_by(patient_id=patient_id).order_by(
-            MedicalDocument.document_date.desc(),
-            MedicalDocument.upload_date.desc()
+        documents = Document.query.filter_by(patient_id=patient_id).order_by(
+            Document.document_date.desc(),
+            Document.upload_date.desc()
         ).all()
 
         return render_template('documents/document_list.html',
@@ -156,7 +156,7 @@ def document_list(patient_id):
 def view_document(document_id):
     """View document details and OCR text"""
     try:
-        document = MedicalDocument.query.get_or_404(document_id)
+        document = Document.query.get_or_404(document_id)
         patient = Patient.query.get(document.patient_id)
 
         # Check if file exists
@@ -177,7 +177,7 @@ def view_document(document_id):
 def download_document(document_id):
     """Download original document file"""
     try:
-        document = MedicalDocument.query.get_or_404(document_id)
+        document = Document.query.get_or_404(document_id)
 
         if not document.file_path or not os.path.exists(document.file_path):
             flash('Document file not found.', 'error')
@@ -207,7 +207,7 @@ def download_document(document_id):
 def delete_document(document_id):
     """Delete document"""
     try:
-        document = MedicalDocument.query.get_or_404(document_id)
+        document = Document.query.get_or_404(document_id)
         patient_id = document.patient_id
         filename = document.filename
         file_path = document.file_path
