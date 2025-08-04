@@ -5,6 +5,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.middleware.proxy_fix import ProxyFix
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -105,6 +106,10 @@ def create_app():
     @app.context_processor
     def inject_csrf_token():
         return dict(csrf_token=security_manager.generate_csrf_token)
+
+    @app.context_processor
+    def inject_now():
+        return {'now': datetime.now()}
 
     return app
 
