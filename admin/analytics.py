@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class AdminAnalytics:
     """Provides analytics and business intelligence for admin dashboard"""
-    
+
     def __init__(self):
         # Time estimates for manual tasks (in minutes)
         self.time_estimates = {
@@ -26,46 +26,46 @@ class AdminAnalytics:
             'manual_gap_identification': 10,  # 10 minutes to identify care gaps
             'manual_ocr_processing': 15  # 15 minutes to manually extract document text
         }
-        
+
         # Cost estimates (hourly rates)
         self.hourly_rates = {
             'medical_assistant': 18.0,  # $18/hour for MA
             'nurse': 35.0,  # $35/hour for nurse
             'physician': 150.0  # $150/hour for physician time
         }
-    
+
     def get_time_savings_analytics(self, days: int = 30) -> Dict[str, Any]:
         """
         Calculate time savings from automation over specified period
-        
+
         Args:
             days: Number of days to analyze
-        
+
         Returns:
             Dict containing time savings metrics
         """
         try:
             start_date = datetime.utcnow() - timedelta(days=days)
-            
+
             # Count automated activities
             prep_sheets_generated = self._count_prep_sheets_generated(start_date)
             screenings_processed = self._count_screenings_processed(start_date)
             documents_ocr_processed = self._count_ocr_processed(start_date)
             gaps_identified = self._count_gaps_identified(start_date)
-            
+
             # Calculate time saved
             prep_sheet_time_saved = prep_sheets_generated * self.time_estimates['manual_prep_sheet']
             screening_time_saved = screenings_processed * self.time_estimates['manual_screening_review']
             ocr_time_saved = documents_ocr_processed * self.time_estimates['manual_ocr_processing']
             gap_time_saved = gaps_identified * self.time_estimates['manual_gap_identification']
-            
+
             total_minutes_saved = (prep_sheet_time_saved + screening_time_saved + 
                                  ocr_time_saved + gap_time_saved)
             total_hours_saved = total_minutes_saved / 60
-            
+
             # Calculate cost savings (assuming MA time for most tasks)
             cost_savings = total_hours_saved * self.hourly_rates['medical_assistant']
-            
+
             return {
                 'period_days': days,
                 'activities': {
@@ -93,61 +93,65 @@ class AdminAnalytics:
                     'tasks_automated_per_day': round((prep_sheets_generated + screenings_processed) / days, 1)
                 }
             }
-            
+
         except Exception as e:
             logger.error(f"Error calculating time savings analytics: {str(e)}")
             return {'error': str(e)}
-    
+
     def get_care_gap_analytics(self, days: int = 30) -> Dict[str, Any]:
         """
         Analyze care gaps closed and compliance improvements
-        
+
         Args:
             days: Number of days to analyze
-        
+
         Returns:
             Dict containing care gap metrics
         """
         try:
             start_date = datetime.utcnow() - timedelta(days=days)
-            
+
             # Get all patient screenings
             all_screenings = PatientScreening.query.join(ScreeningType).all()
-            
+
             # Analyze screening status distribution
             status_counts = {
                 'Due': 0,
                 'Due Soon': 0,
                 'Complete': 0
             }
-            
+
             screening_type_gaps = {}
-            
+
             for screening in all_screenings:
                 status_counts[screening.status] = status_counts.get(screening.status, 0) + 1
-                
+
                 # Track gaps by screening type
                 if screening.status in ['Due', 'Due Soon']:
                     screening_name = screening.screening_type.name
                     if screening_name not in screening_type_gaps:
                         screening_type_gaps[screening_name] = 0
                     screening_type_gaps[screening_name] += 1
-            
+
             total_screenings = len(all_screenings)
             compliance_rate = (status_counts['Complete'] / total_screenings * 100) if total_screenings > 0 else 0
-            
+
             # Get recently completed screenings (gaps closed)
-            recently_completed = PatientScreening.query.filter(
+            recent_completed = Screening.query.filter(
+                Screening.last_completed_date >= datetime.utcnow() - timedelta(days=days//2)
+            ).count()
+
+            older_completed = Screening.query.filter(
                 and_(
-                    PatientScreening.last_completed >= start_date,
-                    PatientScreening.status == 'Complete'
+                    Screening.last_completed_date >= datetime.utcnow() - timedelta(days=days),
+                    Screening.last_completed_date < datetime.utcnow() - timedelta(days=days//2)
                 )
             ).count()
-            
+
             # Calculate gap reduction impact
             gaps_remaining = status_counts['Due'] + status_counts['Due Soon']
             potential_gaps_prevented = recently_completed
-            
+
             return {
                 'period_days': days,
                 'compliance_overview': {
@@ -175,47 +179,47 @@ class AdminAnalytics:
                     'population_health_grade': self._get_population_health_grade(compliance_rate)
                 }
             }
-            
+
         except Exception as e:
             logger.error(f"Error calculating care gap analytics: {str(e)}")
             return {'error': str(e)}
-    
+
     def get_roi_metrics(self, days: int = 30) -> Dict[str, Any]:
         """
         Calculate return on investment metrics
-        
+
         Args:
             days: Number of days to analyze
-        
+
         Returns:
             Dict containing ROI calculations
         """
         try:
             time_savings = self.get_time_savings_analytics(days)
             care_gaps = self.get_care_gap_analytics(days)
-            
+
             # Calculate direct cost savings
             direct_savings = time_savings.get('cost_savings', {}).get('total_savings', 0)
-            
+
             # Calculate value from improved care quality
             gaps_closed = care_gaps.get('gap_closure', {}).get('gaps_closed_period', 0)
-            
+
             # Estimate value per gap closed (based on healthcare quality metrics)
             value_per_gap_closed = 250  # Conservative estimate of value per preventive care gap closed
             quality_value = gaps_closed * value_per_gap_closed
-            
+
             # Calculate productivity improvements
             hours_saved = time_savings.get('time_savings', {}).get('total_hours_saved', 0)
             staff_productivity_value = hours_saved * self.hourly_rates['medical_assistant']
-            
+
             total_value = direct_savings + quality_value + staff_productivity_value
-            
+
             # Estimate system costs (basic operational costs)
             estimated_monthly_cost = 500  # Conservative estimate for hosting, maintenance
             period_cost = (estimated_monthly_cost / 30) * days
-            
+
             roi_ratio = (total_value / period_cost) if period_cost > 0 else 0
-            
+
             return {
                 'period_days': days,
                 'value_generated': {
@@ -240,45 +244,45 @@ class AdminAnalytics:
                     'break_even_point': 'Immediate' if roi_ratio > 1 else f'{round(period_cost / (total_value / days), 0)} days'
                 }
             }
-            
+
         except Exception as e:
             logger.error(f"Error calculating ROI metrics: {str(e)}")
             return {'error': str(e)}
-    
+
     def get_system_utilization_metrics(self, days: int = 30) -> Dict[str, Any]:
         """
         Analyze system utilization and adoption metrics
-        
+
         Args:
             days: Number of days to analyze
-        
+
         Returns:
             Dict containing utilization metrics
         """
         try:
             start_date = datetime.utcnow() - timedelta(days=days)
-            
+
             # User activity metrics
             active_users = User.query.filter(User.last_login >= start_date).count()
             total_users = User.query.count()
-            
+
             # Document processing metrics
             total_documents = MedicalDocument.query.count()
             processed_documents = MedicalDocument.query.filter_by(ocr_processed=True).count()
             recent_uploads = MedicalDocument.query.filter(MedicalDocument.upload_date >= start_date).count()
-            
+
             # Screening engine utilization
             total_patients = Patient.query.count()
             patients_with_screenings = db.session.query(PatientScreening.patient_id).distinct().count()
-            
+
             # Admin activity
             admin_actions = AdminLog.query.filter(AdminLog.timestamp >= start_date).count()
-            
+
             # Calculate utilization rates
             user_adoption_rate = (active_users / total_users * 100) if total_users > 0 else 0
             document_processing_rate = (processed_documents / total_documents * 100) if total_documents > 0 else 0
             patient_coverage_rate = (patients_with_screenings / total_patients * 100) if total_patients > 0 else 0
-            
+
             return {
                 'period_days': days,
                 'user_metrics': {
@@ -308,18 +312,18 @@ class AdminAnalytics:
                     )
                 }
             }
-            
+
         except Exception as e:
             logger.error(f"Error calculating utilization metrics: {str(e)}")
             return {'error': str(e)}
-    
+
     def generate_executive_dashboard(self, days: int = 30) -> Dict[str, Any]:
         """
         Generate comprehensive executive dashboard data
-        
+
         Args:
             days: Number of days to analyze
-        
+
         Returns:
             Dict containing executive-level metrics
         """
@@ -328,7 +332,7 @@ class AdminAnalytics:
             care_gaps = self.get_care_gap_analytics(days)
             roi_metrics = self.get_roi_metrics(days)
             utilization = self.get_system_utilization_metrics(days)
-            
+
             # Key performance indicators
             kpis = {
                 'hours_saved': time_savings.get('time_savings', {}).get('total_hours_saved', 0),
@@ -338,13 +342,13 @@ class AdminAnalytics:
                 'cost_savings': time_savings.get('cost_savings', {}).get('total_savings', 0),
                 'user_adoption': utilization.get('user_metrics', {}).get('adoption_rate', 0)
             }
-            
+
             # Trend analysis
             trends = self._calculate_trends(days)
-            
+
             # Success stories and achievements
             achievements = self._identify_achievements(kpis, days)
-            
+
             return {
                 'dashboard_period': days,
                 'generated_at': datetime.utcnow().isoformat(),
@@ -365,11 +369,11 @@ class AdminAnalytics:
                     'system_performance': utilization.get('system_activity', {}).get('system_health_score', 0)
                 }
             }
-            
+
         except Exception as e:
             logger.error(f"Error generating executive dashboard: {str(e)}")
             return {'error': str(e)}
-    
+
     def _count_prep_sheets_generated(self, start_date: datetime) -> int:
         """Count prep sheets generated since start date"""
         # Using admin logs to track prep sheet generations
@@ -379,11 +383,11 @@ class AdminAnalytics:
                 AdminLog.action.like('%prep_sheet%')
             )
         ).count()
-    
+
     def _count_screenings_processed(self, start_date: datetime) -> int:
         """Count screenings processed since start date"""
         return PatientScreening.query.filter(PatientScreening.updated_at >= start_date).count()
-    
+
     def _count_ocr_processed(self, start_date: datetime) -> int:
         """Count documents OCR processed since start date"""
         return MedicalDocument.query.filter(
@@ -392,7 +396,7 @@ class AdminAnalytics:
                 MedicalDocument.ocr_processed == True
             )
         ).count()
-    
+
     def _count_gaps_identified(self, start_date: datetime) -> int:
         """Count care gaps identified since start date"""
         return PatientScreening.query.filter(
@@ -401,42 +405,42 @@ class AdminAnalytics:
                 PatientScreening.status.in_(['Due', 'Due Soon'])
             )
         ).count()
-    
+
     def _calculate_improvement_trend(self, days: int) -> str:
         """Calculate improvement trend over time"""
         # Simple trend calculation - could be enhanced with more historical data
-        recent_completed = PatientScreening.query.filter(
-            PatientScreening.last_completed >= datetime.utcnow() - timedelta(days=days//2)
+        recent_completed = Screening.query.filter(
+            Screening.last_completed_date >= datetime.utcnow() - timedelta(days=days//2)
         ).count()
-        
-        older_completed = PatientScreening.query.filter(
+
+        older_completed = Screening.query.filter(
             and_(
-                PatientScreening.last_completed >= datetime.utcnow() - timedelta(days=days),
-                PatientScreening.last_completed < datetime.utcnow() - timedelta(days=days//2)
+                Screening.last_completed_date >= datetime.utcnow() - timedelta(days=days),
+                Screening.last_completed_date < datetime.utcnow() - timedelta(days=days//2)
             )
         ).count()
-        
+
         if older_completed == 0:
             return "Improving" if recent_completed > 0 else "Stable"
-        
+
         change_rate = (recent_completed - older_completed) / older_completed
-        
+
         if change_rate > 0.1:
             return "Improving"
         elif change_rate < -0.1:
             return "Declining"
         else:
             return "Stable"
-    
+
     def _calculate_care_coordination_score(self) -> float:
         """Calculate care coordination score based on screening completion rates"""
         total_screenings = PatientScreening.query.count()
         if total_screenings == 0:
             return 0.0
-        
+
         complete_screenings = PatientScreening.query.filter_by(status='Complete').count()
         return round((complete_screenings / total_screenings) * 100, 1)
-    
+
     def _get_population_health_grade(self, compliance_rate: float) -> str:
         """Get population health grade based on compliance rate"""
         if compliance_rate >= 90:
@@ -449,15 +453,15 @@ class AdminAnalytics:
             return "D"
         else:
             return "F"
-    
+
     def _calculate_system_health_score(self, user_adoption: float, processing_rate: float, coverage_rate: float) -> float:
         """Calculate overall system health score"""
         weights = [0.3, 0.4, 0.3]  # user_adoption, processing_rate, coverage_rate
         scores = [user_adoption, processing_rate, coverage_rate]
-        
+
         weighted_score = sum(score * weight for score, weight in zip(scores, weights))
         return round(weighted_score, 1)
-    
+
     def _calculate_trends(self, days: int) -> Dict[str, str]:
         """Calculate trends for key metrics"""
         # Simplified trend calculation - in production would use more sophisticated analysis
@@ -467,46 +471,45 @@ class AdminAnalytics:
             'care_gap_closure': 'Improving',
             'system_utilization': 'Growing'
         }
-    
+
     def _identify_achievements(self, kpis: Dict, days: int) -> List[str]:
         """Identify notable achievements based on KPIs"""
         achievements = []
-        
+
         if kpis['hours_saved'] > 100:
             achievements.append(f"Saved over {int(kpis['hours_saved'])} hours of staff time")
-        
+
         if kpis['gaps_closed'] > 50:
             achievements.append(f"Closed {kpis['gaps_closed']} care gaps this period")
-        
+
         if kpis['roi_percentage'] > 200:
             achievements.append(f"Achieved {kpis['roi_percentage']}% return on investment")
-        
+
         if kpis['compliance_rate'] > 85:
             achievements.append(f"Maintained {kpis['compliance_rate']}% screening compliance rate")
-        
+
         if not achievements:
             achievements.append("System operating successfully with measurable impact")
-        
+
         return achievements
-    
+
     def _generate_executive_recommendations(self, kpis: Dict, utilization: Dict) -> List[str]:
         """Generate executive-level recommendations"""
         recommendations = []
-        
+
         if kpis['user_adoption'] < 70:
             recommendations.append("Increase user training and adoption programs")
-        
+
         if kpis['compliance_rate'] < 80:
             recommendations.append("Focus on improving preventive care screening rates")
-        
+
         if utilization.get('document_metrics', {}).get('processing_rate', 0) < 90:
             recommendations.append("Optimize document processing workflows")
-        
+
         if kpis['roi_percentage'] < 150:
             recommendations.append("Explore additional automation opportunities")
-        
+
         if not recommendations:
             recommendations.append("Continue current successful strategies and monitor for optimization opportunities")
-        
-        return recommendations
 
+        return recommendations
