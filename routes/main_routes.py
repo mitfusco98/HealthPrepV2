@@ -45,8 +45,8 @@ def dashboard():
     try:
         # Get basic statistics
         total_patients = Patient.query.count()
-        total_screenings = Screening.query.count()
-        due_screenings = Screening.query.filter_by(status='Due').count()
+        total_screenings = PatientScreening.query.count()
+        due_screenings = PatientScreening.query.filter_by(status='due').count()
         recent_documents = MedicalDocument.query.filter(
             MedicalDocument.upload_date >= datetime.now().replace(day=1)
         ).count()
@@ -112,7 +112,7 @@ def patient_detail(patient_id):
         patient = Patient.query.get_or_404(patient_id)
 
         # Get patient screenings
-        screenings = Screening.query.filter_by(
+        screenings = PatientScreening.query.filter_by(
             patient_id=patient_id
         ).join(ScreeningType).filter_by(is_active=True).all()
 
