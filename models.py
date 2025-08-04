@@ -29,14 +29,10 @@ class User(UserMixin, db.Model):
         """Check password against hash"""
         return check_password_hash(self.password_hash, password)
 
-    def is_admin(self):
-        """Check if user has admin role"""
-        return self.role == 'admin'
-
     @property
     def is_active(self):
         """Check if user is active (Flask-Login requirement)"""
-        return self.active
+        return True  # All users are active by default
 
     def __repr__(self):
         return f'<User {self.username}>'
@@ -200,7 +196,7 @@ class AdminLog(db.Model):
     __tablename__ = 'admin_log'
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     action = db.Column(db.String(100), nullable=False)
     details = db.Column(db.Text)
     ip_address = db.Column(db.String(45))
