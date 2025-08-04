@@ -7,7 +7,7 @@ from datetime import datetime, date
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 
-from models import Patient, MedicalDocument, Screening, ChecklistSettings
+from models import Patient, Document, Screening
 from prep_sheet.generator import PrepSheetGenerator
 from core.engine import ScreeningEngine
 from admin.analytics import HealthPrepAnalytics
@@ -29,8 +29,8 @@ def index():
         total_patients = Patient.query.count()
         
         # Get recent documents
-        recent_documents = MedicalDocument.query.order_by(
-            MedicalDocument.upload_date.desc()
+        recent_documents = Document.query.order_by(
+            Document.created_at.desc()
         ).limit(5).all()
         
         # Get screening summary
@@ -111,8 +111,8 @@ def patient_detail(patient_id):
         patient = Patient.query.get_or_404(patient_id)
         
         # Get patient documents
-        documents = MedicalDocument.query.filter_by(patient_id=patient_id).order_by(
-            MedicalDocument.created_at.desc()
+        documents = Document.query.filter_by(patient_id=patient_id).order_by(
+            Document.created_at.desc()
         ).limit(20).all()
         
         # Get patient screenings
@@ -183,7 +183,7 @@ def documents():
         doc_type = request.args.get('type', '')
         patient_id = request.args.get('patient_id', type=int)
         
-        query = MedicalDocument.query
+        query = Document.query
         
         if doc_type:
             query = query.filter_by(document_type=doc_type)
@@ -191,12 +191,12 @@ def documents():
         if patient_id:
             query = query.filter_by(patient_id=patient_id)
         
-        documents = query.order_by(MedicalDocument.created_at.desc()).paginate(
+        documents = query.order_by(Document.created_at.desc()).paginate(
             page=page, per_page=20, error_out=False
         )
         
         # Get filter options
-        doc_types = db.session.query(MedicalDocument.document_type).distinct().all()
+        doc_types = db.session.query(Document.document_type).distinct().all()
         doc_types = [dt[0] for dt in doc_types if dt[0]]
         
         return render_template('documents.html',
@@ -215,7 +215,7 @@ def documents():
 def view_document(document_id):
     """View document content"""
     try:
-        document = MedicalDocument.query.get_or_404(document_id)
+        document = Document.query.get_or_404(document_id)
         
         return render_template('document_view.html', document=document)
     
@@ -252,19 +252,14 @@ def upload_document():
 def settings():
     """User settings page"""
     try:
-        # Get current checklist settings
-        settings = ChecklistSettings.query.first()
-        if not settings:
-            settings = ChecklistSettings()
-            db.session.add(settings)
-            db.session.commit()
-        
-        return render_template('settings.html', settings=settings)
+        # For now, just render basic settings page
+        # Can be extended with actual settings models later
+        return render_template('settings.html')
     
     except Exception as e:
         logger.error(f"Error loading settings: {str(e)}")
         flash('Error loading settings.', 'error')
-        return render_template('settings.html', settings=None)
+        return render_template('settings.html')
 
 @demo_bp.route('/analytics')
 @login_required
@@ -312,10 +307,10 @@ def search():
         ).limit(10).all()
         
         # Search documents
-        documents = MedicalDocument.query.filter(
+        documents = Document.query.filter(
             db.or_(
-                MedicalDocument.filename.contains(query),
-                MedicalDocument.content.contains(query)
+                Document.filename.contains(query),
+                Document.ocr_text.contains(query)
             )
         ).limit(10).all()
         
