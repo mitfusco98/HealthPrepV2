@@ -48,7 +48,7 @@ def dashboard():
         total_screenings = PatientScreening.query.count()
         due_screenings = PatientScreening.query.filter_by(status='due').count()
         recent_documents = MedicalDocument.query.filter(
-            MedicalDocument.upload_date >= datetime.now().replace(day=1)
+            MedicalDocument.created_at >= datetime.now().replace(day=1)
         ).count()
 
         # Get recent activity
