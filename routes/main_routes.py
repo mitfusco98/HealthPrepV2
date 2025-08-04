@@ -19,9 +19,39 @@ main_bp = Blueprint('main', __name__)
 def index():
     """Main index route - redirect to dashboard"""
     if current_user.is_authenticated:
-        return redirect(url_for('ui.dashboard'))
+        return redirect(url_for('main.dashboard'))
     else:
         return redirect(url_for('auth.login'))
+
+@main_bp.route('/dashboard')
+@login_required
+def dashboard():
+    """Main dashboard for users"""
+    try:
+        # Get basic statistics
+        total_patients = Patient.query.count()
+        recent_patients = Patient.query.order_by(Patient.created_at.desc()).limit(5).all()
+        
+        # Get screening statistics
+        total_screenings = Screening.query.count()
+        due_screenings = Screening.query.filter_by(status='Due').count()
+        
+        # Get recent documents
+        recent_documents = MedicalDocument.query.order_by(
+            MedicalDocument.created_at.desc()
+        ).limit(5).all()
+
+        return render_template('dashboard.html',
+                             total_patients=total_patients,
+                             recent_patients=recent_patients,
+                             total_screenings=total_screenings,
+                             due_screenings=due_screenings,
+                             recent_documents=recent_documents)
+
+    except Exception as e:
+        logger.error(f"Error in dashboard route: {str(e)}")
+        flash('Error loading dashboard', 'error')
+        return render_template('error/500.html'), 500
 
 @main_bp.route('/patients')
 @login_required
