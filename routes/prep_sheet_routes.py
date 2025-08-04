@@ -6,10 +6,10 @@ from flask_login import login_required, current_user
 from datetime import datetime
 import logging
 
-from models import Patient, Appointment, ChecklistSettings
+from models import Patient, Appointment, PrepSheetSettings
 from prep_sheet.generator import PrepSheetGenerator
 from admin.logs import AdminLogger
-from forms import ChecklistSettingsForm
+from forms import PrepSheetSettingsForm
 from app import db
 
 logger = logging.getLogger(__name__)
@@ -317,19 +317,17 @@ def manage_templates():
 def prep_sheet_settings():
     """Prep sheet generation settings"""
     try:
-        from models import ChecklistSettings
-        
         if request.method == 'POST':
             # Update prep sheet settings
-            settings = ChecklistSettings.query.first()
+            settings = PrepSheetSettings.query.first()
             if not settings:
-                settings = ChecklistSettings()
+                settings = PrepSheetSettings()
                 db.session.add(settings)
             
             # Update cutoff settings
-            settings.lab_cutoff_months = request.form.get('lab_cutoff_months', type=int) or 12
+            settings.labs_cutoff_months = request.form.get('labs_cutoff_months', type=int) or 12
             settings.imaging_cutoff_months = request.form.get('imaging_cutoff_months', type=int) or 12
-            settings.consult_cutoff_months = request.form.get('consult_cutoff_months', type=int) or 12
+            settings.consults_cutoff_months = request.form.get('consults_cutoff_months', type=int) or 12
             settings.hospital_cutoff_months = request.form.get('hospital_cutoff_months', type=int) or 24
             
             db.session.commit()
@@ -338,18 +336,18 @@ def prep_sheet_settings():
             AdminLogger.log(
                 user_id=current_user.id,
                 action='update_prep_sheet_settings',
-                details=f'Updated prep sheet settings - Lab: {settings.lab_cutoff_months}, Imaging: {settings.imaging_cutoff_months}, Consult: {settings.consult_cutoff_months}, Hospital: {settings.hospital_cutoff_months}'
+                details=f'Updated prep sheet settings - Labs: {settings.labs_cutoff_months}, Imaging: {settings.imaging_cutoff_months}, Consults: {settings.consults_cutoff_months}, Hospital: {settings.hospital_cutoff_months}'
             )
             
             flash('Prep sheet settings updated successfully', 'success')
             return redirect(url_for('prep_sheet.prep_sheet_settings'))
         
         # GET request - show current settings
-        settings = ChecklistSettings.query.first()
+        settings = PrepSheetSettings.query.first()
         if not settings:
-            settings = ChecklistSettings()
+            settings = PrepSheetSettings()
         
-        form = ChecklistSettingsForm(obj=settings)
+        form = PrepSheetSettingsForm(obj=settings)
         
         return render_template('prep_sheet/settings.html',
                              form=form,

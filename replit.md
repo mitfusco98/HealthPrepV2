@@ -70,14 +70,19 @@ templates/
   - HIPAA-compliant login and registration templates
   - Authentication redirects to `/home` after login
   - Default admin and test users created
+- **Prep Sheet Settings System** (January 2025)
+  - Replaced redundant ChecklistSettings with unified PrepSheetSettings model
+  - PrepSheetSettings for document cutoff periods (labs, imaging, consults, hospital)
+  - Admin route `/admin/settings/prep-sheet` for configuration management
+  - PrepSheetSettingsForm with validation and number range constraints
+  - HIPAA-compliant admin template for prep sheet settings
+  - Integration with prep sheet generation pipeline
 - Error handling templates
 - Admin dashboard structure (logs, analytics, PHI settings)
 - OCR processing framework with confidence scoring
 - PHI filtering system with configurable patterns
 
 ### 🔄 In Progress  
-- Form definitions alignment (DocumentUploadForm missing)
-- Model naming consistency (Document vs MedicalDocument)
 - Core screening engine with fuzzy detection
 - FHIR client integration
 - Template asset organization and modularization

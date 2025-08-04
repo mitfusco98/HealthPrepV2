@@ -15,6 +15,7 @@ from admin.analytics import HealthPrepAnalytics
 from admin.config import AdminConfig
 from ocr.monitor import OCRMonitor
 from ocr.phi_filter import PHIFilter
+from forms import PrepSheetSettingsForm
 
 logger = logging.getLogger(__name__)
 
@@ -302,6 +303,52 @@ def toggle_user_status(user_id):
         logger.error(f"Error toggling user status: {str(e)}")
         flash('Error updating user status', 'error')
         return redirect(url_for('admin.users'))
+
+@admin_bp.route('/settings/prep-sheet', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def prep_sheet_settings():
+    """Configure prep sheet generation settings"""
+    try:
+        if request.method == 'POST':
+            settings = PrepSheetSettings.query.first()
+            if not settings:
+                settings = PrepSheetSettings()
+                db.session.add(settings)
+            
+            form = PrepSheetSettingsForm(request.form)
+            if form.validate():
+                form.populate_obj(settings)
+                settings.updated_at = datetime.utcnow()
+                db.session.commit()
+                
+                # Log the change
+                AdminLogger.log(
+                    user_id=current_user.id,
+                    action='update_prep_sheet_settings',
+                    details=f'Updated prep sheet settings - Labs: {settings.labs_cutoff_months}, Imaging: {settings.imaging_cutoff_months}, Consults: {settings.consults_cutoff_months}, Hospital: {settings.hospital_cutoff_months}'
+                )
+                
+                flash('Prep sheet settings updated successfully', 'success')
+                return redirect(url_for('admin.prep_sheet_settings'))
+            else:
+                flash('Please correct the errors below', 'error')
+        
+        # GET request - show current settings
+        settings = PrepSheetSettings.query.first()
+        if not settings:
+            settings = PrepSheetSettings()
+        
+        form = PrepSheetSettingsForm(obj=settings)
+        
+        return render_template('admin/prep_sheet_settings.html', 
+                             form=form, 
+                             settings=settings)
+        
+    except Exception as e:
+        logger.error(f"Error in prep sheet settings: {str(e)}")
+        flash('Error loading prep sheet settings', 'error')
+        return render_template('error/500.html'), 500
 
 @admin_bp.route('/settings', methods=['GET', 'POST'])
 @login_required

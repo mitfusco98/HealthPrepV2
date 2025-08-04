@@ -100,9 +100,3 @@ class PHIFilterForm(FlaskForm):
     filter_dates = BooleanField('Filter Dates', default=True)
     submit = SubmitField('Save PHI Settings')
 
-class ChecklistSettingsForm(FlaskForm):
-    lab_cutoff_months = IntegerField('Lab Results Cutoff (Months)', validators=[DataRequired()])
-    imaging_cutoff_months = IntegerField('Imaging Results Cutoff (Months)', validators=[DataRequired()])
-    consult_cutoff_months = IntegerField('Consult Notes Cutoff (Months)', validators=[DataRequired()])
-    hospital_cutoff_months = IntegerField('Hospital Records Cutoff (Months)', validators=[DataRequired()])
-    submit = SubmitField('Update Settings')
