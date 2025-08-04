@@ -54,6 +54,23 @@ with app.app_context():
 # Import routes after app initialization
 import routes  # noqa: F401
 
+# Register blueprints
+from routes.auth_routes import auth_bp
+from routes.admin_routes import admin_bp
+from routes.patient_routes import patient_bp
+from routes.screening_routes import screening_bp
+from routes.document_routes import document_bp
+from routes.api_routes import api_bp
+from routes.main_routes import main_bp
+
+app.register_blueprint(auth_bp, url_prefix='/auth')
+app.register_blueprint(admin_bp, url_prefix='/admin')
+app.register_blueprint(patient_bp, url_prefix='/patients')
+app.register_blueprint(screening_bp, url_prefix='/screening')
+app.register_blueprint(document_bp, url_prefix='/documents')
+app.register_blueprint(api_bp, url_prefix='/api')
+app.register_blueprint(main_bp)  # No url_prefix so it handles root routes
+
 # Error handlers
 @app.errorhandler(400)
 def bad_request(error):
