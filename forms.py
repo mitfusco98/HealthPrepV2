@@ -54,14 +54,30 @@ class ScreeningTypeForm(FlaskForm):
     trigger_conditions = TextAreaField('Trigger Conditions (comma-separated)', validators=[Length(max=1000)])
     submit = SubmitField('Save Screening Type')
 
-class ChecklistSettingsForm(FlaskForm):
-    lab_cutoff_months = IntegerField('Lab Results Cutoff (months)', validators=[DataRequired(), NumberRange(min=1, max=120)], default=12)
-    imaging_cutoff_months = IntegerField('Imaging Cutoff (months)', validators=[DataRequired(), NumberRange(min=1, max=120)], default=12)
-    consult_cutoff_months = IntegerField('Consults Cutoff (months)', validators=[DataRequired(), NumberRange(min=1, max=120)], default=12)
-    hospital_cutoff_months = IntegerField('Hospital Visits Cutoff (months)', validators=[DataRequired(), NumberRange(min=1, max=120)], default=12)
-    default_status_options = TextAreaField('Default Status Options (one per line)', validators=[DataRequired()])
-    default_checklist_items = TextAreaField('Default Checklist Items (one per line)', validators=[DataRequired()])
+class ScreeningSettingsForm(FlaskForm):
+    """Form for configuring screening settings"""
+    lab_cutoff_months = IntegerField('Lab Results Cutoff (months)', 
+                                   validators=[DataRequired(), NumberRange(min=1, max=60)],
+                                   default=12)
+    imaging_cutoff_months = IntegerField('Imaging Studies Cutoff (months)', 
+                                       validators=[DataRequired(), NumberRange(min=1, max=60)],
+                                       default=12)
+    consult_cutoff_months = IntegerField('Specialist Consults Cutoff (months)', 
+                                       validators=[DataRequired(), NumberRange(min=1, max=60)],
+                                       default=12)
+    hospital_cutoff_months = IntegerField('Hospital Visits Cutoff (months)', 
+                                        validators=[DataRequired(), NumberRange(min=1, max=60)],
+                                        default=12)
+    default_status_options = TextAreaField('Default Status Options', 
+                                         validators=[DataRequired()],
+                                         default="Due\nDue Soon\nComplete\nOverdue")
+    default_checklist_items = TextAreaField('Default Checklist Items', 
+                                          validators=[DataRequired()],
+                                          default="Review screening results\nDiscuss recommendations\nSchedule follow-up\nUpdate care plan")
     submit = SubmitField('Save Settings')
+
+# Keep ChecklistSettingsForm as an alias for backward compatibility
+ChecklistSettingsForm = ScreeningSettingsForm
 
 class PatientForm(FlaskForm):
     mrn = StringField('MRN', validators=[DataRequired(), Length(min=1, max=50)])

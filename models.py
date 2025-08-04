@@ -207,9 +207,9 @@ class AdminLog(db.Model):
     def __repr__(self):
         return f'<AdminLog {self.action} by {self.user_id}>'
 
-class ChecklistSettings(db.Model):
-    """Settings for prep sheet checklist data cutoffs"""
-    __tablename__ = 'checklist_settings'
+class ScreeningSettings(db.Model):
+    """Settings for screening data cutoffs and configuration"""
+    __tablename__ = 'screening_settings'
 
     id = db.Column(db.Integer, primary_key=True)
     lab_cutoff_months = db.Column(db.Integer, default=12, nullable=False)
@@ -223,7 +223,10 @@ class ChecklistSettings(db.Model):
     updated_by = db.Column(db.Integer, db.ForeignKey('users.id'))
 
     def __repr__(self):
-        return f'<ChecklistSettings lab:{self.lab_cutoff_months}m imaging:{self.imaging_cutoff_months}m>'
+        return f'<ScreeningSettings lab:{self.lab_cutoff_months}m imaging:{self.imaging_cutoff_months}m>'
+
+# Keep ChecklistSettings as an alias for backward compatibility
+ChecklistSettings = ScreeningSettings
 
 # Additional models for system functionality
 class PrepSheetSettings(db.Model):

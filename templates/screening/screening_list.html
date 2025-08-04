@@ -106,9 +106,9 @@
            class="btn btn-outline-primary {{ 'active' if view_mode == 'types' else '' }}">
             <i class="fas fa-cogs me-1"></i> Types Management
         </a>
-        <a href="{{ url_for('screening.screening_list', view='checklist') }}" 
-           class="btn btn-outline-primary {{ 'active' if view_mode == 'checklist' else '' }}">
-            <i class="fas fa-sliders-h me-1"></i> Checklist Settings
+        <a href="{{ url_for('screening.screening_list', view='settings') }}" 
+           class="btn btn-outline-primary {{ 'active' if view_mode == 'settings' else '' }}">
+            <i class="fas fa-sliders-h me-1"></i> Screening Settings
         </a>
     </div>
 </div>
@@ -218,18 +218,18 @@
         </div>
     </div>
 
-{% elif view_mode == 'checklist' %}
-    <!-- Checklist Settings View -->
+{% elif view_mode == 'settings' %}
+    <!-- Screening Settings View -->
     <div class="card">
         <div class="card-header">
             <h5 class="mb-0">
                 <i class="fas fa-sliders-h me-2"></i>
-                Checklist Settings
+                Screening Settings
             </h5>
         </div>
         
         <div class="card-body">
-            <form method="POST" action="{{ url_for('screening.update_checklist_settings') }}">
+            <form method="POST" action="{{ url_for('screening.update_screening_settings') }}">
                 {{ form.hidden_tag() }}
                 
                 <h6 class="mb-3">Data Cutoff Periods</h6>

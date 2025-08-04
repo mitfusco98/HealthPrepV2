@@ -48,7 +48,16 @@ def reset_database():
                         'default_checklist_items'
                     ]
                     
-                    for col in required_columns:
+                    # Check for all required columns including timestamps
+                    all_required_columns = [
+                        'default_status_options', 
+                        'default_checklist_items',
+                        'created_at',
+                        'updated_at',
+                        'updated_by'
+                    ]
+                    
+                    for col in all_required_columns:
                         if col not in existing_columns:
                             if col == 'default_status_options':
                                 conn.execute(db.text("""
@@ -59,6 +68,21 @@ def reset_database():
                                 conn.execute(db.text("""
                                     ALTER TABLE checklist_settings 
                                     ADD COLUMN default_checklist_items TEXT DEFAULT 'Review screening results\nDiscuss recommendations\nSchedule follow-up\nUpdate care plan'
+                                """))
+                            elif col == 'created_at':
+                                conn.execute(db.text("""
+                                    ALTER TABLE checklist_settings 
+                                    ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                                """))
+                            elif col == 'updated_at':
+                                conn.execute(db.text("""
+                                    ALTER TABLE checklist_settings 
+                                    ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                                """))
+                            elif col == 'updated_by':
+                                conn.execute(db.text("""
+                                    ALTER TABLE checklist_settings 
+                                    ADD COLUMN updated_by INTEGER REFERENCES users(id)
                                 """))
                             logger.info(f"Added missing column: {col}")
                     

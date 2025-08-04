@@ -38,18 +38,18 @@ def screening_list():
                                      'screening_type': ''
                                  })
 
-        elif view_mode == 'checklist':
-            # Checklist settings view
-            from forms import ChecklistSettingsForm
-            from models import ChecklistSettings
+        elif view_mode == 'settings':
+            # Screening settings view
+            from forms import ScreeningSettingsForm
+            from models import ScreeningSettings
             
-            settings = ChecklistSettings.query.first()
+            settings = ScreeningSettings.query.first()
             if not settings:
-                settings = ChecklistSettings()
+                settings = ScreeningSettings()
             
-            form = ChecklistSettingsForm(obj=settings)
+            form = ScreeningSettingsForm(obj=settings)
             return render_template('screening/screening_list.html',
-                                 view_mode='checklist',
+                                 view_mode='settings',
                                  form=form,
                                  settings=settings,
                                  filters={
@@ -344,20 +344,20 @@ def api_screening_status(patient_id):
             'error': str(e)
         }), 500
 
-@screening_bp.route('/checklist-settings', methods=['POST'])
+@screening_bp.route('/screening-settings', methods=['POST'])
 @login_required
-def update_checklist_settings():
-    """Update checklist settings"""
+def update_screening_settings():
+    """Update screening settings"""
     try:
-        from forms import ChecklistSettingsForm
-        from models import ChecklistSettings
+        from forms import ScreeningSettingsForm
+        from models import ScreeningSettings
         
-        settings = ChecklistSettings.query.first()
+        settings = ScreeningSettings.query.first()
         if not settings:
-            settings = ChecklistSettings()
+            settings = ScreeningSettings()
             db.session.add(settings)
         
-        form = ChecklistSettingsForm()
+        form = ScreeningSettingsForm()
         
         if form.validate_on_submit():
             form.populate_obj(settings)
@@ -366,16 +366,16 @@ def update_checklist_settings():
             
             db.session.commit()
             
-            flash('Checklist settings updated successfully', 'success')
+            flash('Screening settings updated successfully', 'success')
         else:
-            flash('Error updating checklist settings', 'error')
+            flash('Error updating screening settings', 'error')
         
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Update checklist settings error: {str(e)}")
-        flash('Error updating checklist settings', 'error')
+        logger.error(f"Update screening settings error: {str(e)}")
+        flash('Error updating screening settings', 'error')
     
-    return redirect(url_for('screening.screening_list', view='checklist'))
+    return redirect(url_for('screening.screening_list', view='settings'))
 
 @screening_bp.route('/presets')
 @login_required
