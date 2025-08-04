@@ -6,7 +6,7 @@ from flask_login import login_required, current_user
 from datetime import datetime
 import logging
 
-from models import ScreeningType, PatientScreening, Patient
+from models import ScreeningType, Screening, Patient
 from core.engine import ScreeningEngine
 from admin.logs import AdminLogManager
 from forms import ScreeningTypeForm, ChecklistSettingsForm
@@ -27,7 +27,7 @@ def screening_list():
         screening_types = ScreeningType.query.filter_by(is_active=True).all()
 
         # Get all screenings with status summary
-        screenings = PatientScreening.query.join(ScreeningType).filter_by(is_active=True).all()
+        screenings = Screening.query.join(ScreeningType).filter_by(is_active=True).all()
 
         # Organize data for display
         screening_data = []
@@ -198,7 +198,7 @@ def delete_screening_type(screening_type_id):
         screening_type = ScreeningType.query.get_or_404(screening_type_id)
 
         # Check if screening type is in use
-        active_screenings = PatientScreening.query.filter_by(screening_type_id=screening_type_id).count()
+        active_screenings = Screening.query.filter_by(screening_type_id=screening_type_id).count()
         if active_screenings > 0:
             flash(f'Cannot delete screening type "{screening_type.name}" - it has {active_screenings} active screenings', 'error')
             return redirect(url_for('screening.screening_types'))
@@ -322,7 +322,7 @@ def refresh_screenings():
 def api_screening_status(patient_id):
     """API endpoint to get screening status for a patient"""
     try:
-        screenings = PatientScreening.query.filter_by(
+        screenings = Screening.query.filter_by(
             patient_id=patient_id
         ).join(ScreeningType).filter_by(is_active=True).all()
 
