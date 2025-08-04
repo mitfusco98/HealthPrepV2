@@ -414,4 +414,3 @@ class UserViews:
             return render_template('patient_list.html',
                                  patients=[],
                                  search='')
-`
