@@ -240,9 +240,9 @@
                     View All Patients
                 </a>
 
-                <a href="{{ url_for('demo.documents') }}" class="btn btn-success w-100 mb-3">
+                <a href="{{ url_for('documents.upload_document') }}" class="btn btn-success w-100 mb-3">
                     <i class="fas fa-file-medical me-2"></i>
-                    View Documents
+                    Upload Documents
                 </a>
 
                 <a href="{{ url_for('demo.patients') }}" class="btn btn-info w-100 mb-3">
@@ -252,7 +252,7 @@
 
                 {% if current_user.is_admin %}
                 <hr class="my-3">
-                <a href="{{ url_for('admin.dashboard') }}" class="btn btn-danger w-100">
+                <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-danger w-100">
                     <i class="fas fa-shield-alt me-2"></i>
                     Admin Dashboard
                 </a>
