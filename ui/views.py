@@ -86,8 +86,7 @@ class UserViews:
             if patient_filter:
                 query = query.filter(
                     db.or_(
-                        Patient.first_name.ilike(f'%{patient_filter}%'),
-                        Patient.last_name.ilike(f'%{patient_filter}%'),
+                        Patient.name.ilike(f'%{patient_filter}%'),
                         Patient.mrn.ilike(f'%{patient_filter}%')
                     )
                 )
@@ -396,21 +395,20 @@ class UserViews:
             if search:
                 query = query.filter(
                     db.or_(
-                        Patient.first_name.ilike(f'%{search}%'),
-                        Patient.last_name.ilike(f'%{search}%'),
+                        Patient.name.ilike(f'%{search}%'),
                         Patient.mrn.ilike(f'%{search}%')
                     )
                 )
 
-            patients = query.order_by(Patient.first_name, Patient.last_name).all()
+            patients = query.order_by(Patient.name).all()
 
-            return render_template('patient_list.html',
+            return render_template('patients/patient_list.html',
                                  patients=patients,
                                  search=search)
 
         except Exception as e:
             logger.error(f"Error in patient list view: {str(e)}")
             flash('Error loading patient list', 'error')
-            return render_template('patient_list.html',
+            return render_template('patients/patient_list.html',
                                  patients=[],
                                  search='')
