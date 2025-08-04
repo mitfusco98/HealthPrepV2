@@ -53,6 +53,37 @@ def dashboard():
         flash('Error loading dashboard', 'error')
         return render_template('error/500.html'), 500
 
+@main_bp.route('/screening-list')
+@login_required
+def screening_list():
+    """Screening list page"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        search = request.args.get('search', '')
+        
+        query = Screening.query.join(Patient).join(ScreeningType)
+        
+        if search:
+            query = query.filter(
+                Patient.first_name.contains(search) |
+                Patient.last_name.contains(search) |
+                ScreeningType.name.contains(search)
+            )
+        
+        screenings = query.order_by(
+            Screening.next_due_date.asc()
+        ).paginate(
+            page=page, per_page=20, error_out=False
+        )
+        
+        return render_template('screening/screening_list.html', 
+                             screenings=screenings, search=search)
+    
+    except Exception as e:
+        logger.error(f"Error in screening list route: {str(e)}")
+        flash('Error loading screenings', 'error')
+        return render_template('error/500.html'), 500
+
 @main_bp.route('/patients')
 @login_required
 def patients():
