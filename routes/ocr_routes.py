@@ -11,7 +11,7 @@ from models import Document, Patient
 from ocr.processor import OCRProcessor
 from ocr.monitor import OCRMonitor
 from ocr.phi_filter import PHIFilter
-from admin.logs import AdminLogManager
+from admin.logs import AdminLogger
 
 logger = logging.getLogger(__name__)
 
@@ -59,17 +59,10 @@ def upload_document():
             flash(f'Document uploaded and processed successfully. OCR confidence: {result["confidence"]:.1f}%', 'success')
 
             # Log the action
-            log_manager = AdminLogManager()
-            log_manager.log_action(
+            AdminLogger.log(
                 user_id=current_user.id,
                 action='upload_document',
-                target_type='document',
-                target_id=result['document_id'],
-                details={
-                    'filename': file.filename,
-                    'patient_mrn': patient.mrn,
-                    'ocr_confidence': result['confidence']
-                }
+                details=f"Uploaded document {file.filename} for patient {patient.mrn} with OCR confidence {result['confidence']:.1f}%"
             )
 
             return redirect(url_for('main.patient_detail', patient_id=patient_id))
@@ -288,15 +281,10 @@ def batch_process():
         db.session.commit()
 
         # Log the batch processing action
-        log_manager = AdminLogManager()
-        log_manager.log_action(
+        AdminLogger.log(
             user_id=current_user.id,
             action='batch_process_documents',
-            details={
-                'processed_count': processed_count,
-                'error_count': error_count,
-                'total_requested': len(document_ids)
-            }
+            details=f"Batch processed {processed_count} documents successfully, {error_count} failed out of {len(document_ids)} requested"
         )
 
         if processed_count > 0:
