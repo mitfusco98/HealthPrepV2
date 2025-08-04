@@ -323,6 +323,127 @@ def create_sample_patients():
         logger.error(f"Error creating sample patients: {str(e)}")
         db.session.rollback()
 
+class AdminConfig:
+    """Admin configuration management"""
+    
+    def __init__(self):
+        self.logger = logger
+    
+    def get_system_settings(self) -> Dict[str, Any]:
+        """Get current system settings"""
+        try:
+            checklist_settings = ChecklistSettings.query.first()
+            phi_settings = PHISettings.query.first()
+            
+            if not checklist_settings:
+                # Create default settings if none exist
+                initialize_default_settings()
+                checklist_settings = ChecklistSettings.query.first()
+            
+            if not phi_settings:
+                initialize_default_settings()
+                phi_settings = PHISettings.query.first()
+            
+            return {
+                'checklist_settings': {
+                    'cutoff_months': checklist_settings.cutoff_months if checklist_settings else 12,
+                    'lab_cutoff_months': checklist_settings.lab_cutoff_months if checklist_settings else 12,
+                    'imaging_cutoff_months': checklist_settings.imaging_cutoff_months if checklist_settings else 24,
+                    'consult_cutoff_months': checklist_settings.consult_cutoff_months if checklist_settings else 12,
+                    'hospital_cutoff_months': checklist_settings.hospital_cutoff_months if checklist_settings else 24,
+                    'phi_filtering_enabled': checklist_settings.phi_filtering_enabled if checklist_settings else True,
+                    'confidence_threshold': checklist_settings.confidence_threshold if checklist_settings else 0.6
+                },
+                'phi_settings': {
+                    'filter_enabled': phi_settings.filter_enabled if phi_settings else True,
+                    'filter_ssn': phi_settings.filter_ssn if phi_settings else True,
+                    'filter_phone': phi_settings.filter_phone if phi_settings else True,
+                    'filter_mrn': phi_settings.filter_mrn if phi_settings else True,
+                    'filter_addresses': phi_settings.filter_addresses if phi_settings else True,
+                    'filter_names': phi_settings.filter_names if phi_settings else True,
+                    'filter_dates': phi_settings.filter_dates if phi_settings else True
+                }
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error getting system settings: {str(e)}")
+            return {'error': str(e)}
+    
+    def update_checklist_settings(self, settings_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Update checklist settings"""
+        try:
+            checklist_settings = ChecklistSettings.query.first()
+            
+            if not checklist_settings:
+                checklist_settings = ChecklistSettings()
+                db.session.add(checklist_settings)
+            
+            # Update settings
+            if 'lab_cutoff_months' in settings_data:
+                checklist_settings.lab_cutoff_months = settings_data['lab_cutoff_months']
+            if 'imaging_cutoff_months' in settings_data:
+                checklist_settings.imaging_cutoff_months = settings_data['imaging_cutoff_months']
+            if 'consult_cutoff_months' in settings_data:
+                checklist_settings.consult_cutoff_months = settings_data['consult_cutoff_months']
+            if 'hospital_cutoff_months' in settings_data:
+                checklist_settings.hospital_cutoff_months = settings_data['hospital_cutoff_months']
+            if 'cutoff_months' in settings_data:
+                checklist_settings.cutoff_months = settings_data['cutoff_months']
+            if 'phi_filtering_enabled' in settings_data:
+                checklist_settings.phi_filtering_enabled = settings_data['phi_filtering_enabled']
+            if 'confidence_threshold' in settings_data:
+                checklist_settings.confidence_threshold = settings_data['confidence_threshold']
+            
+            db.session.commit()
+            
+            log_admin_action('update_checklist_settings', 'system', None, 
+                           f'Updated checklist settings: {settings_data}')
+            
+            return {'success': True}
+            
+        except Exception as e:
+            self.logger.error(f"Error updating checklist settings: {str(e)}")
+            db.session.rollback()
+            return {'success': False, 'error': str(e)}
+    
+    def update_phi_settings(self, settings_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Update PHI filter settings"""
+        try:
+            phi_settings = PHISettings.query.first()
+            
+            if not phi_settings:
+                phi_settings = PHISettings()
+                db.session.add(phi_settings)
+            
+            # Update PHI settings
+            if 'filter_enabled' in settings_data:
+                phi_settings.filter_enabled = settings_data['filter_enabled']
+            if 'filter_ssn' in settings_data:
+                phi_settings.filter_ssn = settings_data['filter_ssn']
+            if 'filter_phone' in settings_data:
+                phi_settings.filter_phone = settings_data['filter_phone']
+            if 'filter_mrn' in settings_data:
+                phi_settings.filter_mrn = settings_data['filter_mrn']
+            if 'filter_addresses' in settings_data:
+                phi_settings.filter_addresses = settings_data['filter_addresses']
+            if 'filter_names' in settings_data:
+                phi_settings.filter_names = settings_data['filter_names']
+            if 'filter_dates' in settings_data:
+                phi_settings.filter_dates = settings_data['filter_dates']
+            
+            db.session.commit()
+            
+            log_admin_action('update_phi_settings', 'system', None, 
+                           f'Updated PHI settings: {settings_data}')
+            
+            return {'success': True}
+            
+        except Exception as e:
+            self.logger.error(f"Error updating PHI settings: {str(e)}")
+            db.session.rollback()
+            return {'success': False, 'error': str(e)}
+
+
 class ScreeningPresetManager:
     """Manages screening type presets for different specialties"""
     
