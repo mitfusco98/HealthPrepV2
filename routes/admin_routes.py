@@ -24,7 +24,7 @@ def admin_required(f):
     """Decorator to require admin role"""
     @functools.wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or current_user.role != 'admin':
+        if not current_user.is_authenticated or not current_user.is_admin:
             flash('Admin access required', 'error')
             return redirect(url_for('main.index'))
         return f(*args, **kwargs)
