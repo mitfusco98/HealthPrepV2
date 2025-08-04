@@ -44,20 +44,27 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('ui.screening_list') }}">
+                        <a class="nav-link" href="{{ url_for('screening.screening_list', view='list') }}">
                             <i class="fas fa-list-check me-1"></i>Screening List
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('screening.screening_list', view='types') }}">
+                            <i class="fas fa-cogs me-1"></i>Screening Types
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('screening.screening_list', view='settings') }}">
+                            <i class="fas fa-sliders-h me-1"></i>Screening Settings
                         </a>
                     </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-cogs me-1"></i>Settings
+                            <i class="fas fa-wrench me-1"></i>System Settings
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="{{ url_for('ui.screening_types') }}">
-                                <i class="fas fa- stethoscope me-1"></i>Screening Types
-                            </a></li>
                             <li><a class="dropdown-item" href="{{ url_for('prep_sheet.prep_sheet_settings') }}">
-                                <i class="fas fa-sliders-h me-1"></i>Prep Sheet Settings
+                                <i class="fas fa-file-medical me-1"></i>Prep Sheet Settings
                             </a></li>
                         </ul>
                     </li>
