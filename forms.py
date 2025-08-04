@@ -23,42 +23,37 @@ class ScreeningTypeForm(FlaskForm):
     submit = SubmitField('Save Screening Type')
 
 class PatientForm(FlaskForm):
-    mrn = StringField('Medical Record Number', validators=[DataRequired(), Length(min=1, max=50)])
+    mrn = StringField('MRN', validators=[DataRequired(), Length(min=1, max=50)])
     first_name = StringField('First Name', validators=[DataRequired(), Length(min=1, max=100)])
     last_name = StringField('Last Name', validators=[DataRequired(), Length(min=1, max=100)])
     date_of_birth = DateField('Date of Birth', validators=[DataRequired()])
-    gender = SelectField('Gender', choices=[('M', 'Male'), ('F', 'Female')], validators=[DataRequired()])
-    phone = StringField('Phone', validators=[Optional(), Length(max=20)])
-    email = StringField('Email', validators=[Optional(), Email(), Length(max=120)])
-    address = TextAreaField('Address')
-    submit = SubmitField('Save Patient')
+    gender = SelectField('Gender', choices=[('M', 'Male'), ('F', 'Female'), ('O', 'Other')], validators=[DataRequired()])
+    submit = SubmitField('Add Patient')
 
 class DocumentUploadForm(FlaskForm):
-    file = FileField('Document', validators=[
-        DataRequired(),
-        FileAllowed(['pdf', 'png', 'jpg', 'jpeg', 'tiff'], 'Only PDF and image files are allowed.')
-    ])
+    file = FileField('Document File', validators=[DataRequired()])
     document_type = SelectField('Document Type', choices=[
         ('lab', 'Lab Results'),
-        ('imaging', 'Imaging Studies'),
-        ('consult', 'Specialist Consults'),
-        ('hospital', 'Hospital Records')
-    ], validators=[DataRequired()])
-    document_date = DateField('Document Date', validators=[Optional()])
+        ('imaging', 'Imaging'),
+        ('consult', 'Consult Note'),
+        ('hospital', 'Hospital Record'),
+        ('other', 'Other')
+    ])
+    document_date = DateField('Document Date')
     submit = SubmitField('Upload Document')
 
 class PrepSheetSettingsForm(FlaskForm):
-    labs_cutoff_months = IntegerField('Labs Cutoff (months)', 
-                                     validators=[DataRequired(), NumberRange(min=1, max=120)], 
+    labs_cutoff_months = IntegerField('Labs Cutoff (months)',
+                                     validators=[DataRequired(), NumberRange(min=1, max=120)],
                                      default=12)
-    imaging_cutoff_months = IntegerField('Imaging Cutoff (months)', 
-                                        validators=[DataRequired(), NumberRange(min=1, max=120)], 
+    imaging_cutoff_months = IntegerField('Imaging Cutoff (months)',
+                                        validators=[DataRequired(), NumberRange(min=1, max=120)],
                                         default=12)
-    consults_cutoff_months = IntegerField('Consults Cutoff (months)', 
-                                         validators=[DataRequired(), NumberRange(min=1, max=120)], 
+    consults_cutoff_months = IntegerField('Consults Cutoff (months)',
+                                         validators=[DataRequired(), NumberRange(min=1, max=120)],
                                          default=12)
-    hospital_cutoff_months = IntegerField('Hospital Records Cutoff (months)', 
-                                         validators=[DataRequired(), NumberRange(min=1, max=120)], 
+    hospital_cutoff_months = IntegerField('Hospital Records Cutoff (months)',
+                                         validators=[DataRequired(), NumberRange(min=1, max=120)],
                                          default=12)
     submit = SubmitField('Save Settings')
 
@@ -72,3 +67,10 @@ class PHIFilterForm(FlaskForm):
     filter_names = BooleanField('Filter Names', default=True)
     filter_dates = BooleanField('Filter Dates', default=True)
     submit = SubmitField('Save PHI Settings')
+
+class ChecklistSettingsForm(FlaskForm):
+    lab_cutoff_months = IntegerField('Lab Results Cutoff (Months)', validators=[DataRequired()])
+    imaging_cutoff_months = IntegerField('Imaging Results Cutoff (Months)', validators=[DataRequired()])
+    consult_cutoff_months = IntegerField('Consult Notes Cutoff (Months)', validators=[DataRequired()])
+    hospital_cutoff_months = IntegerField('Hospital Records Cutoff (Months)', validators=[DataRequired()])
+    submit = SubmitField('Update Settings')

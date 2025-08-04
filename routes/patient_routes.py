@@ -155,13 +155,7 @@ def upload_document(patient_id):
 def view_document(document_id):
     document = MedicalDocument.query.get_or_404(document_id)
     return render_template('patient/view_document.html', document=document)
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
-from flask_login import login_required, current_user
-from models import Patient, db
-from forms import PatientForm
-from datetime import datetime
 
-patient_bp = Blueprint('patient', __name__)
 
 @patient_bp.route('/add', methods=['GET', 'POST'])
 @login_required

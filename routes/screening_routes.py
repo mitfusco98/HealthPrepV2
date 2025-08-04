@@ -10,6 +10,7 @@ from models import ScreeningType, Screening, Patient
 from core.engine import ScreeningEngine
 from admin.logs import AdminLogManager
 from forms import ScreeningTypeForm, ChecklistSettingsForm
+from app import db
 
 logger = logging.getLogger(__name__)
 

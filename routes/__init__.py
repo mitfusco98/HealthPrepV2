@@ -37,7 +37,7 @@ def init_routes(app):
         """Root route - redirect to main dashboard"""
         from flask_login import current_user
         if current_user.is_authenticated:
-            return redirect(url_for('main.dashboard'))
+            return redirect(url_for('demo.index'))
         else:
             return redirect(url_for('auth.login'))
 

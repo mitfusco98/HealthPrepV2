@@ -67,17 +67,17 @@ def change_password():
     """Change user password"""
     from forms import ChangePasswordForm
     from werkzeug.security import generate_password_hash
-    
+
     form = ChangePasswordForm()
-    
+
     if form.validate_on_submit():
         if check_password_hash(current_user.password_hash, form.current_password.data):
             # Update password
             current_user.password_hash = generate_password_hash(form.new_password.data)
-            
+
             from app import db
             db.session.commit()
-            
+
             # Log password change
             from admin.logs import AdminLogger
             admin_logger = AdminLogger()
@@ -90,12 +90,12 @@ def change_password():
                 ip_address=request.remote_addr,
                 user_agent=request.user_agent.string
             )
-            
+
             flash('Password changed successfully!', 'success')
             return redirect(url_for('auth.profile'))
         else:
             flash('Current password is incorrect.', 'error')
-    
+
     return render_template('auth/change_password.html', form=form)
 
 @auth_bp.route('/session-info')
@@ -105,7 +105,7 @@ def session_info():
     if not current_user.is_admin:
         flash('Access denied.', 'error')
         return redirect(url_for('index'))
-    
+
     session_data = {
         'user_id': current_user.id,
         'username': current_user.username,
@@ -119,18 +119,18 @@ def session_info():
             'method': request.method
         }
     }
-    
+
     return render_template('auth/session_info.html', session_data=session_data)
 
 # Custom login manager functions
 def init_login_manager(login_manager):
     """Initialize login manager with custom handlers"""
-    
+
     @login_manager.unauthorized_handler
     def unauthorized():
         flash('Please log in to access this page.', 'warning')
         return redirect(url_for('auth.login', next=request.url))
-    
+
     @login_manager.needs_refresh_handler
     def refresh():
         flash('Please log in again to confirm your identity.', 'info')
@@ -140,31 +140,31 @@ def init_login_manager(login_manager):
 def admin_required(f):
     """Decorator to require admin access"""
     from functools import wraps
-    
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated:
             return redirect(url_for('auth.login'))
-        
+
         if not current_user.is_admin:
             flash('Administrator access required.', 'error')
             return redirect(url_for('index'))
-        
+
         return f(*args, **kwargs)
-    
+
     return decorated_function
 
 def user_required(f):
     """Decorator to require authenticated user"""
     from functools import wraps
-    
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated:
             return redirect(url_for('auth.login'))
-        
+
         return f(*args, **kwargs)
-    
+
     return decorated_function
 
 # Security utilities
@@ -172,19 +172,19 @@ def check_session_validity():
     """Check if current session is valid"""
     if not current_user.is_authenticated:
         return False
-    
+
     # Add session timeout check here if needed
     # For now, rely on Flask-Login's built-in session management
-    
+
     return True
 
 def get_user_permissions(user):
     """Get user permissions based on role"""
     if not user or not user.is_authenticated:
         return []
-    
+
     permissions = ['read_screenings', 'read_patients']
-    
+
     if user.is_admin:
         permissions.extend([
             'admin_dashboard',
@@ -193,13 +193,13 @@ def get_user_permissions(user):
             'view_logs',
             'manage_screening_types'
         ])
-    
+
     return permissions
 
 def has_permission(permission):
     """Check if current user has a specific permission"""
     if not current_user.is_authenticated:
         return False
-    
+
     user_permissions = get_user_permissions(current_user)
     return permission in user_permissions

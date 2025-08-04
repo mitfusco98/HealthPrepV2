@@ -20,6 +20,37 @@ demo_bp = Blueprint('demo', __name__)
 @demo_bp.route('/')
 @login_required
 def index():
+    """Main dashboard/index page"""
+    try:
+        # Get basic dashboard data
+        analytics = HealthPrepAnalytics()
+        
+        # Get patient count
+        total_patients = Patient.query.count()
+        
+        # Get recent documents
+        recent_documents = MedicalDocument.query.order_by(
+            MedicalDocument.upload_date.desc()
+        ).limit(5).all()
+        
+        # Get screening summary
+        total_screenings = Screening.query.count()
+        complete_screenings = Screening.query.filter_by(status='complete').count()
+        
+        dashboard_data = {
+            'total_patients': total_patients,
+            'total_screenings': total_screenings,
+            'complete_screenings': complete_screenings,
+            'recent_documents': recent_documents
+        }
+        
+        return render_template('dashboard.html', data=dashboard_data)
+        
+    except Exception as e:
+        logger.error(f"Error in demo index: {str(e)}")
+        flash('Error loading dashboard', 'error')
+        return render_template('dashboard.html', data={})
+def index():
     """Main dashboard"""
     try:
         # Get recent statistics
