@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import logging
 import functools
 
-from models import User, AdminLog, PHIFilterSettings, ChecklistSettings
+from models import User, AdminLog, PHISettings, ChecklistSettings
 from app import db
 from admin.logs import AdminLogManager
 from admin.analytics import HealthPrepAnalytics
@@ -204,7 +204,7 @@ def phi_settings():
             return redirect(url_for('admin.phi_settings'))
 
         # GET request - show current settings
-        current_settings = phi_filter.settings
+        current_settings = phi_filter._get_phi_settings()
         processing_stats = phi_filter.get_processing_statistics()
 
         return render_template('admin/phi_settings.html',
