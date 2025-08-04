@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask, render_template
+from flask import Flask, render_template, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from sqlalchemy.orm import DeclarativeBase
@@ -45,9 +45,35 @@ def create_app():
     # Import models and routes
     with app.app_context():
         import models
-        import routes
         db.create_all()
         logging.info("Database tables created successfully")
+    
+    # Register blueprints
+    from routes.auth_routes import auth_bp
+    from routes.admin_routes import admin_bp
+    from routes.main_routes import main_bp
+    from routes.patient_routes import patient_bp
+    from routes.screening_routes import screening_bp
+    from ui.routes import ui_bp
+    
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(admin_bp, url_prefix='/admin') 
+    app.register_blueprint(main_bp)
+    app.register_blueprint(patient_bp, url_prefix='/patients')
+    app.register_blueprint(screening_bp, url_prefix='/screenings')
+    app.register_blueprint(ui_bp)
+    
+    # Add a simple index route
+    @app.route('/')
+    def index():
+        from flask_login import current_user
+        if current_user.is_authenticated:
+            if current_user.is_admin:
+                return redirect(url_for('admin.dashboard'))
+            else:
+                return redirect(url_for('ui.dashboard'))
+        else:
+            return redirect(url_for('auth.login'))
 
     # Error handlers
     @app.errorhandler(400)
