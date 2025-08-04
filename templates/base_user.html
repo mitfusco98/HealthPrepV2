@@ -80,7 +80,7 @@
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><h6 class="dropdown-header">User Options</h6></li>
-                            {% if current_user.is_admin() %}
+                            {% if current_user.is_authenticated and current_user.is_admin %}
                             <li>
                                 <a class="dropdown-item" href="{{ url_for('admin.dashboard') }}">
                                     <i class="fas fa-cog me-1"></i>
