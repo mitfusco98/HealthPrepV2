@@ -10,7 +10,7 @@ import functools
 
 from models import User, AdminLog, PHIFilterSettings, PrepSheetSettings
 from app import db
-from admin.logs import AdminLogManager
+from admin.logs import AdminLogger
 from admin.analytics import AdminAnalytics
 from admin.config import AdminConfig
 from ocr.monitor import OCRMonitor
@@ -37,13 +37,12 @@ def dashboard():
     """Main admin dashboard"""
     try:
         analytics = AdminAnalytics()
-        log_manager = AdminLogManager()
 
         # Get dashboard statistics
         dashboard_stats = analytics.get_system_performance_metrics()
 
         # Get recent activity
-        recent_logs = log_manager.get_recent_logs(limit=10)
+        recent_logs = AdminLogger.get_recent_activity(hours=24, limit=10)
 
         # Get system health indicators
         system_health = analytics.get_system_health()
@@ -64,8 +63,6 @@ def dashboard():
 def logs():
     """Admin logs viewer"""
     try:
-        log_manager = AdminLogManager()
-
         # Get filter parameters
         page = request.args.get('page', 1, type=int)
         event_type = request.args.get('event_type', '')
@@ -84,12 +81,29 @@ def logs():
         if end_date:
             filters['end_date'] = datetime.strptime(end_date, '%Y-%m-%d')
 
-        # Get filtered logs
-        logs_result = log_manager.get_filtered_logs(filters, page=page, per_page=50)
+        # Get filtered logs - using basic query since AdminLogger doesn't have get_filtered_logs
+        query = AdminLog.query
+        if filters.get('action'):
+            query = query.filter(AdminLog.action == filters['action'])
+        if filters.get('user_id'):
+            query = query.filter(AdminLog.user_id == filters['user_id'])
+        if filters.get('start_date'):
+            query = query.filter(AdminLog.timestamp >= filters['start_date'])
+        if filters.get('end_date'):
+            query = query.filter(AdminLog.timestamp <= filters['end_date'])
+        
+        logs_pagination = query.order_by(AdminLog.timestamp.desc()).paginate(
+            page=page, per_page=50, error_out=False
+        )
+        logs_result = {
+            'logs': logs_pagination.items,
+            'pagination': logs_pagination
+        }
 
         # Get filter options
         users = User.query.all()
-        event_types = log_manager.get_event_types()
+        event_types = db.session.query(AdminLog.action).distinct().all()
+        event_types = [event.action for event in event_types]
 
         return render_template('admin/logs.html',
                              logs=logs_result['logs'],
@@ -114,13 +128,16 @@ def logs():
 def export_logs():
     """Export admin logs"""
     try:
-        log_manager = AdminLogManager()
-
         # Get export parameters
         format_type = request.args.get('format', 'json')
         days = request.args.get('days', 30, type=int)
 
-        result = log_manager.export_logs(days=days, format_type=format_type)
+        # Use AdminLogger's export method
+        from datetime import timedelta
+        start_date = datetime.utcnow() - timedelta(days=days)
+        export_data = AdminLogger.export_logs(start_date=start_date)
+        
+        result = {'success': True, 'data': export_data}
 
         if result['success']:
             return jsonify(result)
@@ -192,11 +209,10 @@ def phi_settings():
                 flash('PHI filter settings updated successfully', 'success')
 
                 # Log the change
-                log_manager = AdminLogManager()
-                log_manager.log_action(
+                AdminLogger.log(
                     user_id=current_user.id,
                     action='update_phi_settings',
-                    details=new_settings
+                    details=str(new_settings)
                 )
             else:
                 flash(f'Error updating settings: {result["error"]}', 'error')
@@ -271,13 +287,10 @@ def toggle_user_status(user_id):
         db.session.commit()
 
         # Log the action
-        log_manager = AdminLogManager()
-        log_manager.log_action(
+        AdminLogger.log(
             user_id=current_user.id,
             action='toggle_user_status',
-            target_type='user',
-            target_id=user_id,
-            details={'new_status': user.is_active}
+            details=f"User {user_id} status changed to {user.is_active}"
         )
 
         status = 'activated' if user.is_active else 'deactivated'
@@ -313,11 +326,10 @@ def settings():
                 flash('Settings updated successfully', 'success')
 
                 # Log the change
-                log_manager = AdminLogManager()
-                log_manager.log_action(
+                AdminLogger.log(
                     user_id=current_user.id,
                     action='update_system_settings',
-                    details=settings_data
+                    details=str(settings_data)
                 )
             else:
                 flash(f'Error updating settings: {result["error"]}', 'error')
