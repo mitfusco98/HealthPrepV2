@@ -170,12 +170,12 @@ def generate_prep_sheet(patient_id):
             return render_template('prep_sheet/prep_sheet.html', **result['data'])
         else:
             flash(f'Error generating prep sheet: {result["error"]}', 'error')
-            return redirect(url_for('ui.patient_detail', patient_id=patient_id))
+            return redirect(url_for('main.patient_detail', patient_id=patient_id))
 
     except Exception as e:
         logger.error(f"Error generating prep sheet: {str(e)}")
         flash('Error generating prep sheet', 'error')
-        return redirect(url_for('ui.patient_detail', patient_id=patient_id))
+        return redirect(url_for('main.patient_detail', patient_id=patient_id))
 
 @main_bp.route('/refresh-screenings', methods=['POST'])
 @login_required
@@ -190,16 +190,16 @@ def refresh_screenings():
         if patient_id:
             result = engine.process_patient_screenings(patient_id, refresh_all=True)
             flash(f'Refreshed screenings for patient. Processed: {result["processed_screenings"]}', 'success')
-            return redirect(url_for('ui.patient_detail', patient_id=patient_id))
+            return redirect(url_for('main.patient_detail', patient_id=patient_id))
         else:
             result = engine.refresh_all_screenings()
             flash(f'Refreshed all screenings. Processed {result["total_screenings"]} screenings for {result["processed_patients"]} patients', 'success')
-            return redirect(url_for('ui.dashboard'))
+            return redirect(url_for('main.dashboard'))
 
     except Exception as e:
         logger.error(f"Error refreshing screenings: {str(e)}")
         flash('Error refreshing screenings', 'error')
-        return redirect(url_for('ui.dashboard'))
+        return redirect(url_for('main.dashboard'))
 
 @main_bp.route('/api/screening-keywords/<int:screening_type_id>')
 @login_required
@@ -314,7 +314,7 @@ def upload_document():
         db.session.commit()
 
         flash('Document uploaded successfully', 'success')
-        return redirect(url_for('ui.patient_detail', patient_id=patient_id))
+        return redirect(url_for('main.patient_detail', patient_id=patient_id))
 
     except Exception as e:
         logger.error(f"Error uploading document: {str(e)}")
