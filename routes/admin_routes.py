@@ -11,7 +11,7 @@ import functools
 from models import User, AdminLog, PHIFilterSettings, PrepSheetSettings
 from app import db
 from admin.logs import AdminLogger
-from admin.analytics import AdminAnalytics
+from admin.analytics import HealthPrepAnalytics
 from admin.config import AdminConfig
 from ocr.monitor import OCRMonitor
 from ocr.phi_filter import PHIFilter
@@ -36,16 +36,16 @@ def admin_required(f):
 def dashboard():
     """Main admin dashboard"""
     try:
-        analytics = AdminAnalytics()
+        analytics = HealthPrepAnalytics()
 
         # Get dashboard statistics
-        dashboard_stats = analytics.get_system_performance_metrics()
+        dashboard_stats = analytics.get_roi_metrics()
 
         # Get recent activity
         recent_logs = AdminLogger.get_recent_activity(hours=24, limit=10)
 
         # Get system health indicators
-        system_health = analytics.get_system_health()
+        system_health = analytics.get_usage_statistics()
 
         return render_template('admin/dashboard.html',
                              stats=dashboard_stats,
@@ -353,14 +353,14 @@ def settings():
 def analytics():
     """Advanced analytics dashboard"""
     try:
-        analytics = AdminAnalytics()
+        analytics = HealthPrepAnalytics()
 
         # Get comprehensive analytics
         analytics_data = {
-            'system_performance': analytics.get_system_performance_metrics(),
-            'time_saved': analytics.calculate_time_saved(),
-            'compliance_gaps': analytics.analyze_compliance_gaps_closed(),
-            'roi_report': analytics.generate_roi_report()
+            'system_performance': analytics.get_roi_metrics(),
+            'time_saved': analytics.calculate_time_savings(),
+            'compliance_gaps': analytics.calculate_compliance_gaps_closed(),
+            'roi_report': analytics.generate_executive_summary()
         }
 
         return render_template('admin/analytics.html',
@@ -377,9 +377,9 @@ def analytics():
 def system_health():
     """System health monitoring"""
     try:
-        analytics = AdminAnalytics()
+        analytics = HealthPrepAnalytics()
 
-        health_data = analytics.get_system_performance_metrics()
+        health_data = analytics.get_roi_metrics()
 
         return jsonify(health_data)
 
