@@ -31,6 +31,10 @@ class User(UserMixin, db.Model):
         """Check password against hash"""
         return check_password_hash(self.password_hash, password)
     
+    def is_admin(self):
+        """Check if user has admin role"""
+        return self.role == 'admin'
+    
     def __repr__(self):
         return f'<User {self.username}>'
 
@@ -60,6 +64,11 @@ class Patient(db.Model):
         """Calculate patient age"""
         today = date.today()
         return today.year - self.date_of_birth.year - ((today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day))
+    
+    @property
+    def full_name(self):
+        """Get patient's full name - compatibility property"""
+        return self.name
     
     def __repr__(self):
         return f'<Patient {self.name} ({self.mrn})>'

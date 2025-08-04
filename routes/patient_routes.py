@@ -56,7 +56,7 @@ def add_patient():
         AdminLogger.log(
             user_id=current_user.id,
             action='Patient Created',
-            details=f'Created patient: {patient.full_name} (MRN: {patient.mrn})',
+            details=f'Created patient: {patient.name} (MRN: {patient.mrn})',
             ip_address=request.remote_addr
         )
         
@@ -64,7 +64,7 @@ def add_patient():
         engine = ScreeningEngine()
         engine.generate_screenings_for_patient(patient.id)
         
-        flash(f'Patient "{patient.full_name}" created successfully.', 'success')
+        flash(f'Patient "{patient.name}" created successfully.', 'success')
         return redirect(url_for('patient.patient_detail', patient_id=patient.id))
     
     return render_template('patient/add_patient.html', form=form)

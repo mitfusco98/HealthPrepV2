@@ -31,7 +31,7 @@ class PrepSheetGenerator:
             'enhanced_data': self._generate_enhanced_data(patient_id)
         }
         
-        self.logger.info(f"Generated prep sheet for patient {patient.full_name}")
+        self.logger.info(f"Generated prep sheet for patient {patient.name}")
         return prep_data
     
     def _get_last_visit(self, patient_id):

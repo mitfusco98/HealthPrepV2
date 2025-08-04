@@ -73,10 +73,12 @@ class FHIRParser:
                 
                 address = ', '.join(address_parts)
             
+            # Combine first and last name for the model
+            full_name = f"{first_name} {last_name}".strip()
+            
             return {
                 'mrn': mrn,
-                'first_name': first_name,
-                'last_name': last_name,
+                'name': full_name,
                 'date_of_birth': birth_date,
                 'gender': gender,
                 'phone': phone,
