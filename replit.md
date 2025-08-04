@@ -77,6 +77,13 @@ templates/
   - PrepSheetSettingsForm with validation and number range constraints
   - HIPAA-compliant admin template for prep sheet settings
   - Integration with prep sheet generation pipeline
+- **Screening List Architecture Alignment** (January 2025)
+  - Removed conflicting `/patients` route and templates per design intent
+  - Redirected patient list functionality to `/screening/list` as specified in design
+  - Patient listings with screening statuses now properly consolidated on screening list
+  - Removed redundant patient_routes.py module causing cascading errors
+  - Maintained individual patient detail and prep sheet functionality
+  - DocumentUploadForm and PatientForm retained for document management workflow
 - Error handling templates
 - Admin dashboard structure (logs, analytics, PHI settings)
 - OCR processing framework with confidence scoring
@@ -88,8 +95,8 @@ templates/
 - Template asset organization and modularization
 
 ### ⚠️ Current Issues
-- Import errors due to missing forms and model mismatches
-- Incomplete screening engine implementation
+- Some LSP diagnostics in routes (model attribute references need cleanup)
+- Incomplete screening engine implementation  
 - FHIR integration not yet started
 
 ### 📋 Planned
@@ -122,10 +129,12 @@ templates/
 - ⚠️ Performance targets (10s prep generation)
 
 ## Recent Changes
+- 2025-01-04: Replaced ChecklistSettings with PrepSheetSettings system aligned with design intent
+- 2025-01-04: Removed conflicting /patients route, redirected to /screening/list per design requirements
+- 2025-01-04: Cleaned up redundant patient_routes module causing cascading errors
+- 2025-01-04: Consolidated patient listings with screening information on single screening list view
 - 2025-02-02: Initial project setup with models and Flask structure
 - 2025-02-02: Created comprehensive database schema for healthcare data
-- 2025-02-02: Planned reusable asset migration from V1 project
-- 2025-02-02: Identified import/naming inconsistencies requiring fixes
 
 ## Technical Requirements
 - Python 3.11+ with Flask framework

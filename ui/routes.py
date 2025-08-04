@@ -57,11 +57,13 @@ def refresh_screenings():
     """Refresh screening engine"""
     return views.refresh_screenings()
 
+# Patient routes redirected to screening list (per design intent)
 @ui_bp.route('/patients')
 @login_required
 def patient_list():
-    """Patient list"""
-    return views.patient_list()
+    """Redirect patient list to screening list per design intent"""
+    from flask import redirect, url_for
+    return redirect(url_for('screening.screening_list'))
 
 @ui_bp.route('/patients/<int:patient_id>')
 @login_required
