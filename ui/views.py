@@ -39,6 +39,7 @@ class UserViews:
             stats = {
                 'total_patients': Patient.query.count(),
                 'due_screenings': 0,  # TODO: Calculate actual due screenings
+                'due_soon_screenings': 0,  # Add for template compatibility
                 'recent_documents': 0,  # TODO: Calculate recent documents
                 'complete_screenings': 0,  # Match template expectation
                 'completed_screenings': 0  # Keep both for compatibility
@@ -46,11 +47,13 @@ class UserViews:
 
             # Get recent activity
             recent_activity = []  # TODO: Get actual recent activity
+            recent_screenings = []  # Add for template compatibility
 
             return render_template('dashboard.html',
                                  stats=stats,
                                  user_stats=stats,
-                                 recent_activity=recent_activity)
+                                 recent_activity=recent_activity,
+                                 recent_screenings=recent_screenings)
 
         except Exception as e:
             logger.error(f"Error in dashboard view: {str(e)}")
@@ -58,6 +61,7 @@ class UserViews:
             default_stats = {
                 'total_patients': 0,
                 'due_screenings': 0,
+                'due_soon_screenings': 0,
                 'recent_documents': 0,
                 'complete_screenings': 0,  # Match template expectation
                 'completed_screenings': 0  # Keep both for compatibility
@@ -65,7 +69,8 @@ class UserViews:
             return render_template('dashboard.html',
                                  stats=default_stats,
                                  user_stats=default_stats,
-                                 recent_activity=[])
+                                 recent_activity=[],
+                                 recent_screenings=[])
 
     def screening_list(self):
         """Screening list view with filtering"""
