@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
 from flask_login import login_required, current_user
-from models import Patient, MedicalDocument, PatientScreening, ScreeningType
+from models import Patient, MedicalDocument, Screening, ScreeningType
 from forms import PatientForm, DocumentUploadForm
 from app import db
 from admin.logs import log_admin_action
@@ -81,7 +81,7 @@ def patient_detail(patient_id):
     ).all()
     
     # Get patient's screenings
-    screenings = PatientScreening.query.filter_by(patient_id=patient_id).join(
+    screenings = Screening.query.filter_by(patient_id=patient_id).join(
         ScreeningType
     ).order_by(ScreeningType.name).all()
     
