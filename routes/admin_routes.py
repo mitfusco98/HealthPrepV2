@@ -11,7 +11,7 @@ import functools
 from models import User, AdminLog, PHISettings, ChecklistSettings
 from app import db
 from admin.logs import AdminLogManager
-from admin.analytics import HealthPrepAnalytics
+from admin.analytics import AdminAnalytics
 from admin.config import AdminConfig
 from ocr.monitor import OCRMonitor
 from ocr.phi_filter import PHIFilter
@@ -36,7 +36,7 @@ def admin_required(f):
 def dashboard():
     """Main admin dashboard"""
     try:
-        analytics = HealthPrepAnalytics()
+        analytics = AdminAnalytics()
         log_manager = AdminLogManager()
 
         # Get dashboard statistics
@@ -341,7 +341,7 @@ def settings():
 def analytics():
     """Advanced analytics dashboard"""
     try:
-        analytics = HealthPrepAnalytics()
+        analytics = AdminAnalytics()
 
         # Get comprehensive analytics
         analytics_data = {
@@ -365,7 +365,7 @@ def analytics():
 def system_health():
     """System health monitoring"""
     try:
-        analytics = HealthPrepAnalytics()
+        analytics = AdminAnalytics()
 
         health_data = analytics.get_system_performance_metrics()
 
