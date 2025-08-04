@@ -7,7 +7,7 @@ from datetime import datetime
 import logging
 import os
 
-from models import MedicalDocument, Patient
+from models import Document, Patient
 from ocr.processor import OCRProcessor
 from ocr.monitor import OCRMonitor
 from ocr.phi_filter import PHIFilter
@@ -87,7 +87,7 @@ def upload_document():
 def view_document(document_id):
     """View document with OCR results"""
     try:
-        document = MedicalDocument.query.get_or_404(document_id)
+        document = Document.query.get_or_404(document_id)
 
         # Apply PHI filtering if enabled
         phi_filter = PHIFilter()
@@ -114,7 +114,7 @@ def view_document(document_id):
 def download_document(document_id):
     """Download original document file"""
     try:
-        document = MedicalDocument.query.get_or_404(document_id)
+        document = Document.query.get_or_404(document_id)
 
         if document.file_path and os.path.exists(document.file_path):
             return send_file(document.file_path, 
@@ -181,7 +181,7 @@ def api_process_document():
         if not document_id:
             return jsonify({'success': False, 'error': 'Document ID required'})
 
-        document = MedicalDocument.query.get_or_404(document_id)
+        document = Document.query.get_or_404(document_id)
 
         if not document.file_path or not os.path.exists(document.file_path):
             return jsonify({'success': False, 'error': 'Document file not found'})
@@ -225,7 +225,7 @@ def api_validate_document():
         if not document_id:
             return jsonify({'success': False, 'error': 'Document ID required'})
 
-        document = MedicalDocument.query.get_or_404(document_id)
+        document = Document.query.get_or_404(document_id)
 
         if not document.file_path:
             return jsonify({'success': False, 'error': 'No file path associated with document'})
@@ -247,9 +247,9 @@ def batch_process():
     try:
         if request.method == 'GET':
             # Show batch processing interface
-            pending_docs = MedicalDocument.query.filter(
-                MedicalDocument.ocr_text.is_(None)
-            ).order_by(MedicalDocument.created_at.desc()).limit(50).all()
+            pending_docs = Document.query.filter(
+                Document.ocr_text.is_(None)
+            ).order_by(Document.created_at.desc()).limit(50).all()
 
             return render_template('ocr/batch_process.html',
                                  pending_documents=pending_docs)
@@ -268,7 +268,7 @@ def batch_process():
 
         for doc_id in document_ids:
             try:
-                document = MedicalDocument.query.get(int(doc_id))
+                document = Document.query.get(int(doc_id))
                 if document and document.file_path and os.path.exists(document.file_path):
                     result = processor.process_document(document.file_path)
 
@@ -327,7 +327,7 @@ def process_uploaded_document(file, patient_id, document_type, document_date):
         file.save(temp_path)
 
         # Create document record
-        document = MedicalDocument(
+        document = Document(
             patient_id=patient_id,
             filename=file.filename,
             file_path=temp_path,
