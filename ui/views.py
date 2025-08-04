@@ -40,7 +40,8 @@ class UserViews:
                 'total_patients': Patient.query.count(),
                 'due_screenings': 0,  # TODO: Calculate actual due screenings
                 'recent_documents': 0,  # TODO: Calculate recent documents
-                'completed_screenings': 0  # TODO: Calculate completed screenings
+                'complete_screenings': 0,  # Match template expectation
+                'completed_screenings': 0  # Keep both for compatibility
             }
 
             # Get recent activity
@@ -58,7 +59,8 @@ class UserViews:
                 'total_patients': 0,
                 'due_screenings': 0,
                 'recent_documents': 0,
-                'completed_screenings': 0
+                'complete_screenings': 0,  # Match template expectation
+                'completed_screenings': 0  # Keep both for compatibility
             }
             return render_template('dashboard.html',
                                  stats=default_stats,
