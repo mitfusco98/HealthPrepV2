@@ -146,6 +146,39 @@ def refresh_screenings():
 
     return redirect(url_for('demo.screening_list'))
 
+@demo_bp.route('/patients')
+@login_required
+def patients():
+    """Patient list view"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        search_term = request.args.get('search', '')
+        
+        query = Patient.query
+        
+        if search_term:
+            query = query.filter(
+                db.or_(
+                    Patient.name.contains(search_term),
+                    Patient.mrn.contains(search_term)
+                )
+            )
+        
+        patients = query.order_by(Patient.created_at.desc()).paginate(
+            page=page, per_page=20, error_out=False
+        )
+        
+        return render_template('patients/patient_list.html',
+                             patients=patients.items,
+                             search_term=search_term)
+                             
+    except Exception as e:
+        logger.error(f"Error loading patients: {str(e)}")
+        flash('Error loading patient list', 'error')
+        return render_template('patients/patient_list.html',
+                             patients=[],
+                             search_term='')
+
 @demo_bp.route('/analytics')
 @login_required
 def analytics():
