@@ -91,7 +91,7 @@
 <!-- Welcome Banner -->
 <div class="welcome-banner">
     <div class="row align-items-center">
-        <div class="col-md-8">
+        <div class="col-12">
             <h1 class="display-6 mb-2">
                 <i class="fas fa-heartbeat me-3"></i>
                 Welcome back, {{ current_user.username }}!
@@ -105,19 +105,7 @@
                 {% endif %}
             </p>
         </div>
-        <div class="col-md-4 text-center">
-            <div class="progress-ring">
-                <svg width="120" height="120">
-                    <circle class="background" cx="60" cy="60" r="50"></circle>
-                    <circle class="progress" cx="60" cy="60" r="50"
-                            style="stroke-dashoffset: {{ 314 - (314 * (stats.complete_screenings / (stats.total_patients or 1))) }}"></circle>
-                </svg>
-                <div class="position-absolute top-50 start-50 translate-middle text-center">
-                    <div class="h4 mb-0">{{ "%.0f"|format((stats.complete_screenings / (stats.total_patients or 1)) * 100) }}%</div>
-                    <small>Complete</small>
-                </div>
-            </div>
-        </div>
+        
     </div>
 </div>
 
