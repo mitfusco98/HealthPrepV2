@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HealthPrep - Page Not Found</title>
-    
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    
+
     <style>
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -19,7 +19,7 @@
             align-items: center;
             justify-content: center;
         }
-        
+
         .error-container {
             text-align: center;
             background: var(--bs-dark);
@@ -29,26 +29,26 @@
             max-width: 600px;
             margin: 2rem;
         }
-        
+
         .error-icon {
             font-size: 5rem;
             color: #6c757d;
             margin-bottom: 1.5rem;
         }
-        
+
         .error-code {
             font-size: 4rem;
             font-weight: bold;
             color: #6c757d;
             margin-bottom: 1rem;
         }
-        
+
         .error-message {
             font-size: 1.25rem;
             color: var(--bs-light);
             margin-bottom: 2rem;
         }
-        
+
         .error-details {
             background: rgba(108, 117, 125, 0.1);
             border: 1px solid #6c757d;
@@ -57,19 +57,19 @@
             margin-bottom: 2rem;
             text-align: left;
         }
-        
+
         .btn-home {
             background: linear-gradient(135deg, #007bff, #0056b3);
             border: none;
             padding: 0.75rem 2rem;
             font-weight: 600;
         }
-        
+
         .btn-home:hover {
             transform: translateY(-2px);
             box-shadow: 0 0.5rem 1rem rgba(0, 123, 255, 0.3);
         }
-        
+
         .quick-links {
             background: rgba(13, 110, 253, 0.1);
             border: 1px solid #0d6efd;
@@ -77,7 +77,7 @@
             padding: 1rem;
             margin-top: 2rem;
         }
-        
+
         .search-section {
             background: var(--bs-secondary);
             border-radius: 0.5rem;
@@ -91,15 +91,15 @@
         <div class="error-icon">
             <i class="fas fa-search"></i>
         </div>
-        
+
         <div class="error-code">404</div>
-        
+
         <h2 class="error-message">Page Not Found</h2>
-        
+
         <div class="error-details">
             <h6><i class="fas fa-info-circle me-2 text-secondary"></i>What happened?</h6>
             <p class="mb-2">The page you're looking for doesn't exist or may have been moved.</p>
-            
+
             <h6><i class="fas fa-lightbulb me-2 text-secondary"></i>Possible causes:</h6>
             <ul class="mb-0">
                 <li>The URL was typed incorrectly</li>
@@ -108,7 +108,7 @@
                 <li>The resource requires different permissions</li>
             </ul>
         </div>
-        
+
         <div class="search-section">
             <h6><i class="fas fa-search me-2"></i>Find what you're looking for:</h6>
             <div class="input-group mb-3">
@@ -122,20 +122,20 @@
                 Search by patient name, MRN, screening type, or document name
             </small>
         </div>
-        
+
         <div class="quick-links">
             <h6><i class="fas fa-link me-2 text-primary"></i>Quick Navigation</h6>
             <div class="row">
                 <div class="col-md-6">
                     <ul class="list-unstyled mb-0">
-                        <li><a href="{{ url_for('main.dashboard') }}" class="text-decoration-none">
-                            <i class="fas fa-home me-2"></i>Dashboard
+                        <li><a href="/" class="text-decoration-none">
+                            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
                         </a></li>
-                        <li><a href="{{ url_for('screening.screening_list') }}" class="text-decoration-none">
-                            <i class="fas fa-list-check me-2"></i>Screenings
-                        </a></li>
-                        <li><a href="{{ url_for('patient.patient_list') }}" class="text-decoration-none">
+                        <li><a href="/patients" class="text-decoration-none">
                             <i class="fas fa-users me-2"></i>Patients
+                        </a></li>
+                        <li><a href="/screening-list" class="text-decoration-none">
+                            <i class="fas fa-clipboard-list me-2"></i>Screenings
                         </a></li>
                     </ul>
                 </div>
@@ -156,7 +156,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="d-grid gap-2 mt-3">
             <button type="button" class="btn btn-home btn-lg" onclick="goBack()">
                 <i class="fas fa-arrow-left me-2"></i>Go Back
@@ -168,7 +168,7 @@
                 <i class="fas fa-bug me-2"></i>Report Issue
             </button>
         </div>
-        
+
         <div class="mt-4">
             <small class="text-muted">
                 <i class="fas fa-heartbeat me-1"></i>
@@ -181,7 +181,7 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
+
     <script>
         function goBack() {
             if (window.history.length > 1) {
@@ -190,7 +190,7 @@
                 window.location.href = "{{ url_for('main.index') }}";
             }
         }
-        
+
         function performSearch() {
             const searchTerm = document.getElementById('searchInput').value.trim();
             if (searchTerm) {
@@ -198,7 +198,7 @@
                 window.location.href = "{{ url_for('screening.screening_list') }}?search=" + encodeURIComponent(searchTerm);
             }
         }
-        
+
         function reportIssue() {
             const issueReport = `Hello,
 
@@ -213,28 +213,28 @@ Referrer: ${document.referrer || 'Direct access'}
 Please investigate this broken link.
 
 Thank you.`;
-            
+
             const subject = 'HealthPrep 404 Error Report';
             const mailtoLink = `mailto:support@example.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(issueReport)}`;
-            
+
             window.location.href = mailtoLink;
         }
-        
+
         // Search on Enter key
         document.getElementById('searchInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 performSearch();
             }
         });
-        
+
         // Auto-focus search input
         document.getElementById('searchInput').focus();
-        
+
         // Suggest similar URLs based on the current path
         function suggestAlternatives() {
             const currentPath = window.location.pathname;
             const suggestions = [];
-            
+
             // Common typos and alternatives
             const pathMappings = {
                 '/screening': '{{ url_for("screening.screening_list") }}',
@@ -245,7 +245,7 @@ Thank you.`;
                 '/dashboard': '{{ url_for("main.index") }}',
                 '/home': '{{ url_for("main.index") }}'
             };
-            
+
             // Check for partial matches
             for (const [pattern, url] of Object.entries(pathMappings)) {
                 if (currentPath.includes(pattern) || pattern.includes(currentPath.split('/')[1])) {
@@ -255,7 +255,7 @@ Thank you.`;
                     });
                 }
             }
-            
+
             if (suggestions.length > 0) {
                 const suggestionDiv = document.createElement('div');
                 suggestionDiv.className = 'alert alert-info mt-3';
@@ -263,14 +263,14 @@ Thank you.`;
                     <h6><i class="fas fa-lightbulb me-2"></i>Did you mean:</h6>
                     ${suggestions.map(s => `<a href="${s.url}" class="btn btn-outline-info btn-sm me-2 mb-1">${s.text}</a>`).join('')}
                 `;
-                
+
                 document.querySelector('.error-container').insertBefore(
                     suggestionDiv, 
                     document.querySelector('.d-grid')
                 );
             }
         }
-        
+
         // Run suggestion algorithm
         suggestAlternatives();
     </script>
