@@ -96,7 +96,7 @@
         <i class="fas fa-clipboard-check me-2 text-primary"></i>
         Screening Management
     </h1>
-    
+
     <div class="btn-group" role="group">
         <a href="{{ url_for('screening.screening_list', view='list') }}" 
            class="btn btn-outline-primary {{ 'active' if view_mode == 'list' else '' }}">
@@ -134,7 +134,7 @@
                 </form>
             </div>
         </div>
-        
+
         <div class="card-body">
             {% if screening_types %}
                 <div class="table-responsive">
@@ -186,7 +186,7 @@
                                 </td>
                                 <td class="screening-actions">
                                     <div class="btn-group btn-group-sm">
-                                        <a href="{{ url_for('screening.edit_screening_type', type_id=st.id) }}" 
+                                        <a href="{{ url_for('screening.edit_screening_type', screening_type_id=st.id) }}" 
                                            class="btn btn-outline-primary">
                                             <i class="fas fa-edit"></i>
                                         </a>
@@ -227,11 +227,11 @@
                 Screening Settings
             </h5>
         </div>
-        
+
         <div class="card-body">
             <form method="POST" action="{{ url_for('screening.update_screening_settings') }}">
                 {{ form.hidden_tag() }}
-                
+
                 <h6 class="mb-3">Data Cutoff Periods</h6>
                 <div class="row">
                     <div class="col-md-3">
@@ -259,7 +259,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <h6 class="mb-3">Default Options</h6>
                 <div class="row">
                     <div class="col-md-6">
@@ -277,7 +277,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-save me-1"></i> Save Settings
                 </button>
@@ -301,7 +301,7 @@
                 </button>
             </form>
         </div>
-        
+
         <div class="card-body">
             <!-- Filters -->
             <form method="GET" class="row g-3 mb-4">
@@ -333,14 +333,14 @@
                     </button>
                 </div>
             </form>
-            
+
             <!-- Confidence Legend -->
             <div class="confidence-legend mb-3">
                 <span class="badge confidence-high">High Confidence (≥80%)</span>
                 <span class="badge confidence-medium">Medium Confidence (60-79%)</span>
                 <span class="badge confidence-low">Low Confidence (<60%)</span>
             </div>
-            
+
             {% if screenings %}
                 <div class="table-responsive">
                     <table class="table table-striped">
@@ -432,11 +432,11 @@
 function loadKeywordsAsBadges() {
     const keywordContainers = document.querySelectorAll('.keywords-badges-container');
     console.log(`loadKeywordsAsBadges: Found ${keywordContainers.length} keyword containers to load`);
-    
+
     keywordContainers.forEach(container => {
         const screeningTypeId = container.id.replace('keywords-display-', '');
         console.log(`loadKeywordsAsBadges: Loading keywords for screening ${screeningTypeId}`);
-        
+
         fetch(`/screening/api/screening-keywords/${screeningTypeId}`)
             .then(response => {
                 console.log(`loadKeywordsAsBadges: API response status for screening ${screeningTypeId}: ${response.status}`);

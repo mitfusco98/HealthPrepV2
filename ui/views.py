@@ -402,7 +402,7 @@ class UserViews:
                     )
                 )
 
-            patients = query.order_by(Patient.last_name, Patient.first_name).all()
+            patients = query.order_by(Patient.name).all()
 
             return render_template('patient_list.html',
                                  patients=patients,

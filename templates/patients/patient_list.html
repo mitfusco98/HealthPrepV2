@@ -590,3 +590,185 @@ style.textContent = `
 document.head.appendChild(style);
 </script>
 {% endblock %}
+{% extends 'base.html' %}
+
+{% block title %}Patients - HealthPrep{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-users me-2"></i>
+                    Patients
+                </h2>
+                <a href="{{ url_for('patients.add_patient') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>
+                    Add Patient
+                </a>
+            </div>
+
+            <!-- Search and Filter -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-4">
+                            <label for="search" class="form-label">Search Patients</label>
+                            <input type="text" class="form-control" id="search" name="search" 
+                                   value="{{ request.args.get('search', '') }}" 
+                                   placeholder="Search by name or MRN">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="gender" class="form-label">Gender</label>
+                            <select class="form-select" id="gender" name="gender">
+                                <option value="">All</option>
+                                <option value="M" {{ 'selected' if request.args.get('gender') == 'M' }}>Male</option>
+                                <option value="F" {{ 'selected' if request.args.get('gender') == 'F' }}>Female</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="sort" class="form-label">Sort By</label>
+                            <select class="form-select" id="sort" name="sort">
+                                <option value="name" {{ 'selected' if request.args.get('sort') == 'name' }}>Name</option>
+                                <option value="mrn" {{ 'selected' if request.args.get('sort') == 'mrn' }}>MRN</option>
+                                <option value="age" {{ 'selected' if request.args.get('sort') == 'age' }}>Age</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="submit" class="btn btn-outline-primary w-100">
+                                <i class="fas fa-search me-1"></i>
+                                Filter
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Patients Table -->
+            <div class="card">
+                <div class="card-body">
+                    {% if patients %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>MRN</th>
+                                        <th>Date of Birth</th>
+                                        <th>Age</th>
+                                        <th>Gender</th>
+                                        <th>Phone</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for patient in patients %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ patient.name }}</strong>
+                                        </td>
+                                        <td>{{ patient.mrn }}</td>
+                                        <td>{{ patient.date_of_birth.strftime('%m/%d/%Y') if patient.date_of_birth }}</td>
+                                        <td>{{ patient.age }}</td>
+                                        <td>
+                                            {% if patient.gender == 'M' %}
+                                                <span class="badge bg-info">Male</span>
+                                            {% elif patient.gender == 'F' %}
+                                                <span class="badge bg-pink">Female</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ patient.gender }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ patient.phone or 'N/A' }}</td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="{{ url_for('patients.patient_detail', patient_id=patient.id) }}" 
+                                                   class="btn btn-outline-primary">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <a href="{{ url_for('patients.edit_patient', patient_id=patient.id) }}" 
+                                                   class="btn btn-outline-secondary">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Pagination -->
+                        {% if pagination and pagination.pages > 1 %}
+                        <nav aria-label="Patient pagination" class="mt-4">
+                            <ul class="pagination justify-content-center">
+                                {% if pagination.has_prev %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('patients.patient_list', page=pagination.prev_num, **request.args) }}">
+                                        Previous
+                                    </a>
+                                </li>
+                                {% endif %}
+
+                                {% for page_num in pagination.iter_pages() %}
+                                    {% if page_num %}
+                                        {% if page_num != pagination.page %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="{{ url_for('patients.patient_list', page=page_num, **request.args) }}">
+                                                {{ page_num }}
+                                            </a>
+                                        </li>
+                                        {% else %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ page_num }}</span>
+                                        </li>
+                                        {% endif %}
+                                    {% else %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">…</span>
+                                    </li>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if pagination.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('patients.patient_list', page=pagination.next_num, **request.args) }}">
+                                        Next
+                                    </a>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">No patients found</h5>
+                            <p class="text-muted">
+                                {% if request.args.get('search') or request.args.get('gender') %}
+                                    Try adjusting your search criteria or 
+                                    <a href="{{ url_for('patients.patient_list') }}">clear filters</a>.
+                                {% else %}
+                                    Get started by adding your first patient.
+                                {% endif %}
+                            </p>
+                            <a href="{{ url_for('patients.add_patient') }}" class="btn btn-primary">
+                                <i class="fas fa-plus me-1"></i>
+                                Add First Patient
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-pink {
+    background-color: #e91e63 !important;
+}
+</style>
+{% endblock %}
