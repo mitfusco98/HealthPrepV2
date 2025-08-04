@@ -6,6 +6,7 @@ from wtforms.widgets import TextArea
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
     password = PasswordField('Password', validators=[DataRequired()])
+    remember_me = BooleanField('Remember Me')
 
 class ScreeningTypeForm(FlaskForm):
     name = StringField('Screening Name', validators=[DataRequired(), Length(max=200)])
