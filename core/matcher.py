@@ -1,96 +1,215 @@
+"""
+Document matching engine with fuzzy keyword detection and confidence scoring.
+Handles matching medical documents to screening criteria.
+"""
+
 import re
+import logging
+from typing import List, Dict, Optional, Set
 from difflib import SequenceMatcher
-from models import ScreeningType, MedicalDocument
+from dataclasses import dataclass
+
+from models import MedicalDocument
+
+@dataclass
+class MatchResult:
+    """Result of document matching operation."""
+    confidence: float
+    matched_keywords: List[str]
+    match_positions: List[int]
 
 class DocumentMatcher:
-    """Handles fuzzy keyword matching and document-to-screening association"""
+    """Handles fuzzy keyword matching for medical documents."""
     
     def __init__(self):
-        self.fuzzy_threshold = 0.8
+        self.logger = logging.getLogger(__name__)
         
         # Common medical term equivalents for fuzzy matching
-        self.medical_synonyms = {
+        self.equivalents = {
             'dxa': ['dexa', 'bone density', 'bone scan'],
-            'mammogram': ['mammography', 'breast imaging'],
-            'colonoscopy': ['colon screening', 'colo screening'],
-            'pap': ['pap smear', 'cervical screening'],
-            'a1c': ['hemoglobin a1c', 'hba1c', 'glycohemoglobin'],
-            'cholesterol': ['lipid panel', 'lipids', 'lipid profile'],
-            'echo': ['echocardiogram', 'cardiac echo'],
-            'ekg': ['ecg', 'electrocardiogram'],
-            'cbc': ['complete blood count', 'blood count'],
-            'bmp': ['basic metabolic panel', 'chemistry panel']
+            'dexa': ['dxa', 'bone density', 'bone scan'],
+            'mammogram': ['mammography', 'breast imaging', 'breast xray'],
+            'colonoscopy': ['colon', 'colonoscopic', 'lower endoscopy'],
+            'pap': ['pap smear', 'cervical', 'papanicolaou'],
+            'a1c': ['hba1c', 'hemoglobin a1c', 'glycated hemoglobin'],
+            'lipid': ['cholesterol', 'lipid panel', 'lipid profile'],
+            'echo': ['echocardiogram', 'cardiac echo', 'heart ultrasound'],
+            'ekg': ['ecg', 'electrocardiogram', 'cardiac rhythm'],
+            'cbc': ['complete blood count', 'blood count', 'full blood count'],
+            'bmp': ['basic metabolic panel', 'chem 7', 'basic chemistry'],
+            'cmp': ['comprehensive metabolic panel', 'chem 14', 'complete chemistry']
+        }
+        
+        # Medical stopwords to ignore during matching
+        self.stopwords = {
+            'report', 'result', 'test', 'lab', 'laboratory', 'study', 'exam',
+            'examination', 'imaging', 'radiology', 'pathology', 'blood', 'urine',
+            'specimen', 'sample', 'analysis', 'findings', 'impression', 'conclusion'
         }
     
-    def matches_screening(self, document, screening_type):
-        """Check if document matches screening type based on keywords"""
-        if not screening_type.keywords:
-            return False
+    def calculate_match_score(self, document: MedicalDocument, keywords: List[str]) -> float:
+        """Calculate overall match confidence score for a document."""
+        if not keywords or not document.content:
+            return 0.0
         
-        # Get searchable text (filename + OCR content)
-        search_text = self._get_searchable_text(document)
+        content_lower = document.content.lower()
+        filename_lower = document.filename.lower()
         
-        # Check each keyword with fuzzy matching
-        for keyword in screening_type.keywords:
-            if self._fuzzy_match_keyword(keyword.lower(), search_text.lower()):
-                return True
+        total_score = 0.0
+        keyword_count = 0
         
-        return False
+        for keyword in keywords:
+            if not keyword.strip():
+                continue
+                
+            keyword_lower = keyword.strip().lower()
+            keyword_count += 1
+            
+            # Direct match scoring
+            content_score = self._calculate_direct_match_score(content_lower, keyword_lower)
+            filename_score = self._calculate_direct_match_score(filename_lower, keyword_lower) * 1.5  # Filename matches weighted higher
+            
+            # Fuzzy match scoring
+            fuzzy_score = self._calculate_fuzzy_match_score(content_lower + " " + filename_lower, keyword_lower)
+            
+            # Take the best score for this keyword
+            best_score = max(content_score, filename_score, fuzzy_score)
+            total_score += best_score
+        
+        if keyword_count == 0:
+            return 0.0
+        
+        # Average score with confidence adjustment based on document OCR quality
+        avg_score = total_score / keyword_count
+        ocr_confidence_factor = document.confidence_score if document.confidence_score else 0.8
+        
+        return min(avg_score * ocr_confidence_factor, 1.0)
     
-    def match_document_to_screenings(self, document):
-        """Match a document to all applicable screening types"""
-        screening_types = ScreeningType.query.filter_by(is_active=True).all()
-        matches = []
-        
-        for screening_type in screening_types:
-            if self.matches_screening(document, screening_type):
-                matches.append(screening_type.id)
-        
-        return matches
-    
-    def _get_searchable_text(self, document):
-        """Get all searchable text from document"""
-        text_parts = [document.filename]
-        
-        if document.ocr_text:
-            text_parts.append(document.ocr_text)
-        
-        return ' '.join(text_parts)
-    
-    def _fuzzy_match_keyword(self, keyword, text):
-        """Perform fuzzy matching with synonyms"""
-        # Direct substring match
+    def _calculate_direct_match_score(self, text: str, keyword: str) -> float:
+        """Calculate score for direct keyword matches."""
+        # Exact match
         if keyword in text:
-            return True
+            return 1.0
         
-        # Check synonyms
-        if keyword in self.medical_synonyms:
-            for synonym in self.medical_synonyms[keyword]:
-                if synonym.lower() in text:
-                    return True
+        # Word boundary match
+        pattern = r'\b' + re.escape(keyword) + r'\b'
+        if re.search(pattern, text):
+            return 0.9
         
-        # Fuzzy string matching for partial matches
-        words = text.split()
-        for word in words:
-            if self._similarity(keyword, word) >= self.fuzzy_threshold:
-                return True
+        # Partial match
+        if any(part in text for part in keyword.split() if len(part) > 2):
+            return 0.6
         
-        return False
+        return 0.0
     
-    def _similarity(self, a, b):
-        """Calculate similarity between two strings"""
-        return SequenceMatcher(None, a, b).ratio()
+    def _calculate_fuzzy_match_score(self, text: str, keyword: str) -> float:
+        """Calculate score for fuzzy keyword matches using equivalents."""
+        keyword_lower = keyword.lower()
+        
+        # Check for equivalent terms
+        equivalents = self.equivalents.get(keyword_lower, [])
+        all_terms = [keyword_lower] + equivalents
+        
+        best_score = 0.0
+        
+        for term in all_terms:
+            # Direct match with equivalent
+            if term in text:
+                best_score = max(best_score, 0.85)
+            
+            # Fuzzy string matching
+            words = text.split()
+            for word in words:
+                # Skip stopwords
+                if word in self.stopwords:
+                    continue
+                
+                similarity = SequenceMatcher(None, term, word).ratio()
+                if similarity > 0.8:
+                    best_score = max(best_score, similarity * 0.8)
+        
+        return best_score
     
-    def get_keyword_suggestions(self, partial_keyword):
-        """Get keyword suggestions for autocomplete"""
-        suggestions = []
+    def get_matched_keywords(self, document: MedicalDocument, keywords: List[str]) -> List[str]:
+        """Get list of keywords that matched in the document."""
+        if not keywords or not document.content:
+            return []
         
-        # Add exact matches from synonyms
-        for key, synonyms in self.medical_synonyms.items():
-            if partial_keyword.lower() in key:
-                suggestions.append(key)
-            for synonym in synonyms:
-                if partial_keyword.lower() in synonym.lower():
-                    suggestions.append(synonym)
+        content_lower = document.content.lower()
+        filename_lower = document.filename.lower()
+        text = content_lower + " " + filename_lower
         
-        return list(set(suggestions))[:10]  # Return top 10 unique suggestions
+        matched = []
+        
+        for keyword in keywords:
+            if not keyword.strip():
+                continue
+                
+            keyword_lower = keyword.strip().lower()
+            
+            # Check direct matches
+            if self._calculate_direct_match_score(text, keyword_lower) > 0.5:
+                matched.append(keyword.strip())
+                continue
+            
+            # Check fuzzy matches
+            if self._calculate_fuzzy_match_score(text, keyword_lower) > 0.7:
+                matched.append(keyword.strip())
+        
+        return matched
+    
+    def find_match_positions(self, document: MedicalDocument, keywords: List[str]) -> Dict[str, List[int]]:
+        """Find positions of keyword matches in document content."""
+        if not keywords or not document.content:
+            return {}
+        
+        content_lower = document.content.lower()
+        positions = {}
+        
+        for keyword in keywords:
+            if not keyword.strip():
+                continue
+                
+            keyword_lower = keyword.strip().lower()
+            keyword_positions = []
+            
+            # Find all occurrences
+            start = 0
+            while True:
+                pos = content_lower.find(keyword_lower, start)
+                if pos == -1:
+                    break
+                keyword_positions.append(pos)
+                start = pos + 1
+            
+            if keyword_positions:
+                positions[keyword.strip()] = keyword_positions
+        
+        return positions
+    
+    def validate_match_quality(self, document: MedicalDocument, keywords: List[str]) -> Dict[str, any]:
+        """Validate and provide detailed match quality information."""
+        match_score = self.calculate_match_score(document, keywords)
+        matched_keywords = self.get_matched_keywords(document, keywords)
+        positions = self.find_match_positions(document, keywords)
+        
+        # Calculate quality metrics
+        keyword_coverage = len(matched_keywords) / len(keywords) if keywords else 0
+        ocr_quality = document.confidence_score if document.confidence_score else 0.8
+        
+        quality_assessment = "High"
+        if match_score < 0.6 or keyword_coverage < 0.5:
+            quality_assessment = "Medium"
+        if match_score < 0.4 or keyword_coverage < 0.3:
+            quality_assessment = "Low"
+        
+        return {
+            'match_score': match_score,
+            'matched_keywords': matched_keywords,
+            'keyword_coverage': keyword_coverage,
+            'ocr_quality': ocr_quality,
+            'quality_assessment': quality_assessment,
+            'match_positions': positions,
+            'total_keywords': len(keywords),
+            'matched_count': len(matched_keywords)
+        }

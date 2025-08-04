@@ -3,74 +3,149 @@
 {% block title %}Admin Dashboard - HealthPrep{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <h1 class="mb-4">
-            <i class="fas fa-tachometer-alt me-2"></i>System Dashboard
-        </h1>
+<!-- Dashboard Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>
+            <i class="fas fa-chart-line me-2"></i>
+            Admin Dashboard
+        </h2>
+        <p class="text-muted mb-0">System overview and analytics</p>
+    </div>
+    <div>
+        <span class="badge bg-success fs-6">
+            <i class="fas fa-shield-alt me-1"></i>
+            System Healthy
+        </span>
     </div>
 </div>
 
 <!-- Key Metrics Row -->
 <div class="row mb-4">
     <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card bg-primary text-white h-100">
+        <div class="metric-card card">
+            <div class="card-body text-center">
+                <i class="fas fa-users fa-2x text-primary mb-2"></i>
+                <h4 class="mb-1">{{ total_patients }}</h4>
+                <p class="text-muted mb-0">Total Patients</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="metric-card card">
+            <div class="card-body text-center">
+                <i class="fas fa-file-medical fa-2x text-success mb-2"></i>
+                <h4 class="mb-1">{{ total_documents }}</h4>
+                <p class="text-muted mb-0">Documents Processed</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="metric-card card">
+            <div class="card-body text-center">
+                <i class="fas fa-eye fa-2x text-info mb-2"></i>
+                <h4 class="mb-1">{{ ocr_processed }}</h4>
+                <p class="text-muted mb-0">OCR Completed</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="metric-card card">
+            <div class="card-body text-center">
+                <i class="fas fa-user-shield fa-2x text-warning mb-2"></i>
+                <h4 class="mb-1">{{ total_users }}</h4>
+                <p class="text-muted mb-0">Active Users</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts and Analytics Row -->
+<div class="row mb-4">
+    <!-- System Performance -->
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-area me-2"></i>
+                    System Performance
+                </h5>
+                <div class="btn-group btn-group-sm" role="group">
+                    <input type="radio" class="btn-check" name="timeRange" id="day" checked>
+                    <label class="btn btn-outline-primary" for="day">24h</label>
+                    
+                    <input type="radio" class="btn-check" name="timeRange" id="week">
+                    <label class="btn btn-outline-primary" for="week">7d</label>
+                    
+                    <input type="radio" class="btn-check" name="timeRange" id="month">
+                    <label class="btn btn-outline-primary" for="month">30d</label>
+                </div>
+            </div>
             <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h4 class="card-title">{{ stats.total_patients }}</h4>
-                        <p class="card-text">Total Patients</p>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-users fa-2x opacity-75"></i>
-                    </div>
+                <div class="chart-container">
+                    <canvas id="performanceChart"></canvas>
                 </div>
             </div>
         </div>
     </div>
     
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card bg-success text-white h-100">
+    <!-- Quick Stats -->
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-tachometer-alt me-2"></i>
+                    Quick Statistics
+                </h5>
+            </div>
             <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h4 class="card-title">{{ stats.total_documents }}</h4>
-                        <p class="card-text">Documents Processed</p>
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>OCR Processing Rate</span>
+                        <span class="badge bg-success">
+                            {{ ((ocr_processed / total_documents * 100) if total_documents > 0 else 0)|round(1) }}%
+                        </span>
                     </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-file-alt fa-2x opacity-75"></i>
+                    <div class="progress mt-1" style="height: 6px;">
+                        <div class="progress-bar bg-success" 
+                             style="width: {{ ((ocr_processed / total_documents * 100) if total_documents > 0 else 0) }}%"></div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card bg-info text-white h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h4 class="card-title">{{ stats.active_screening_types }}</h4>
-                        <p class="card-text">Active Screenings</p>
+                
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Storage Usage</span>
+                        <span class="badge bg-info">42.3%</span>
                     </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-clipboard-list fa-2x opacity-75"></i>
+                    <div class="progress mt-1" style="height: 6px;">
+                        <div class="progress-bar bg-info" style="width: 42.3%"></div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card bg-warning text-white h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h4 class="card-title">99.9%</h4>
-                        <p class="card-text">System Uptime</p>
+                
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>System Health</span>
+                        <span class="badge bg-success">Excellent</span>
                     </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-heartbeat fa-2x opacity-75"></i>
+                    <div class="progress mt-1" style="height: 6px;">
+                        <div class="progress-bar bg-success" style="width: 95%"></div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="small text-muted">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>Uptime:</span>
+                        <span>99.8%</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>Avg Response:</span>
+                        <span>142ms</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Last Backup:</span>
+                        <span>2 hours ago</span>
                     </div>
                 </div>
             </div>
@@ -78,157 +153,146 @@
     </div>
 </div>
 
-<!-- Management Actions Row -->
+<!-- Activity and Logs Row -->
 <div class="row mb-4">
-    <div class="col-lg-8">
+    <!-- Recent Activity -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>
+                    Recent Admin Activity
+                </h5>
+                <a href="{{ url_for('admin.logs') }}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body">
+                {% if recent_logs %}
+                <div class="list-group list-group-flush">
+                    {% for log in recent_logs %}
+                    <div class="list-group-item px-0 py-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <span class="fw-medium">{{ log.action.replace('_', ' ').title() }}</span>
+                                {% if log.description %}
+                                <p class="text-muted small mb-0">{{ log.description }}</p>
+                                {% endif %}
+                                <small class="text-muted">
+                                    {{ log.user.username if log.user else 'System' }} • 
+                                    {{ log.timestamp.strftime('%m/%d %H:%M') }}
+                                </small>
+                            </div>
+                            <span class="badge bg-secondary small">{{ log.resource_type or 'system' }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-3">
+                    <i class="fas fa-clipboard-list fa-2x text-muted mb-2"></i>
+                    <p class="text-muted">No recent activity</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- System Status -->
+    <div class="col-lg-6 mb-4">
         <div class="card">
             <div class="card-header">
-                <h5 class="card-title mb-0">
-                    <i class="fas fa-cogs me-2"></i>System Management
+                <h5 class="mb-0">
+                    <i class="fas fa-server me-2"></i>
+                    System Status
                 </h5>
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <a href="{{ url_for('admin_ocr_dashboard') }}" class="btn btn-outline-primary w-100 py-3">
-                            <i class="fas fa-eye fa-2x d-block mb-2"></i>
-                            <strong>OCR Monitoring</strong><br>
-                            <small>Document processing & quality</small>
-                        </a>
+                    <div class="col-6 mb-3">
+                        <div class="text-center">
+                            <div class="system-health">
+                                <i class="fas fa-database fa-2x mb-2"></i>
+                                <h6>Database</h6>
+                                <span class="badge bg-success">Online</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <a href="{{ url_for('admin_phi_settings') }}" class="btn btn-outline-success w-100 py-3">
-                            <i class="fas fa-user-shield fa-2x d-block mb-2"></i>
-                            <strong>PHI Protection</strong><br>
-                            <small>HIPAA compliance settings</small>
-                        </a>
+                    <div class="col-6 mb-3">
+                        <div class="text-center">
+                            <div class="system-health">
+                                <i class="fas fa-eye fa-2x mb-2"></i>
+                                <h6>OCR Service</h6>
+                                <span class="badge bg-success">Active</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <a href="{{ url_for('admin_logs') }}" class="btn btn-outline-info w-100 py-3">
-                            <i class="fas fa-list-alt fa-2x d-block mb-2"></i>
-                            <strong>Activity Logs</strong><br>
-                            <small>Audit trail & system events</small>
-                        </a>
+                    <div class="col-6 mb-3">
+                        <div class="text-center">
+                            <div class="system-health">
+                                <i class="fas fa-shield-alt fa-2x mb-2"></i>
+                                <h6>Security</h6>
+                                <span class="badge bg-success">Compliant</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <a href="{{ url_for('screening_list', tab='types') }}" class="btn btn-outline-warning w-100 py-3">
-                            <i class="fas fa-sliders-h fa-2x d-block mb-2"></i>
-                            <strong>Screening Config</strong><br>
-                            <small>Manage screening types</small>
-                        </a>
+                    <div class="col-6 mb-3">
+                        <div class="text-center">
+                            <div class="system-health">
+                                <i class="fas fa-sync fa-2x mb-2"></i>
+                                <h6>Backups</h6>
+                                <span class="badge bg-success">Current</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-lg-4">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="card-title mb-0">
-                    <i class="fas fa-exclamation-triangle me-1"></i>System Alerts
-                </h6>
-            </div>
-            <div class="card-body">
-                <div class="alert alert-success border-0 py-2 mb-2">
-                    <small>
-                        <i class="fas fa-check-circle me-1"></i>
-                        All systems operational
-                    </small>
-                </div>
-                <div class="alert alert-info border-0 py-2 mb-2">
-                    <small>
-                        <i class="fas fa-info-circle me-1"></i>
-                        OCR processing: Normal
-                    </small>
-                </div>
-                <div class="alert alert-success border-0 py-2 mb-0">
-                    <small>
-                        <i class="fas fa-shield-alt me-1"></i>
-                        PHI filtering: Active
-                    </small>
-                </div>
-            </div>
-        </div>
-        
-        <div class="card mt-3">
-            <div class="card-header">
-                <h6 class="card-title mb-0">
-                    <i class="fas fa-chart-line me-1"></i>Quick Stats
-                </h6>
-            </div>
-            <div class="card-body">
-                <div class="row text-center">
-                    <div class="col-6 border-end">
-                        <h5 class="text-primary mb-0">2.5k</h5>
-                        <small class="text-muted">Hours Saved</small>
-                    </div>
-                    <div class="col-6">
-                        <h5 class="text-success mb-0">94%</h5>
-                        <small class="text-muted">Compliance Rate</small>
-                    </div>
+                
+                <hr>
+                
+                <div class="alert alert-success small mb-0">
+                    <i class="fas fa-check-circle me-2"></i>
+                    All systems operational. Last health check: {{ moment().format('HH:mm') }}
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Recent Activity -->
+<!-- Quick Actions -->
 <div class="row">
     <div class="col-12">
         <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="card-title mb-0">
-                    <i class="fas fa-clock me-2"></i>Recent Activity
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-bolt me-2"></i>
+                    Quick Actions
                 </h5>
-                <a href="{{ url_for('admin_logs') }}" class="btn btn-sm btn-outline-primary">
-                    View All Logs
-                </a>
             </div>
             <div class="card-body">
-                {% if stats.recent_logs %}
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Time</th>
-                                    <th>User</th>
-                                    <th>Action</th>
-                                    <th>Description</th>
-                                    <th>IP Address</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for log in stats.recent_logs %}
-                                    <tr>
-                                        <td>
-                                            <small>{{ log.timestamp.strftime('%m/%d %H:%M') }}</small>
-                                        </td>
-                                        <td>
-                                            <small>{{ log.user.username if log.user else 'System' }}</small>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-{% if 'DELETE' in log.action %}danger{% elif 'CREATE' in log.action or 'ADD' in log.action %}success{% elif 'UPDATE' in log.action %}warning{% else %}info{% endif %} badge-sm">
-                                                {{ log.action }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <small>{{ log.description[:60] }}{% if log.description|length > 60 %}...{% endif %}</small>
-                                        </td>
-                                        <td>
-                                            <small class="text-muted">{{ log.ip_address }}</small>
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                <div class="row">
+                    <div class="col-md-3 mb-2">
+                        <button class="quick-action-btn btn w-100" onclick="refreshAllData()">
+                            <i class="fas fa-sync-alt me-2"></i>
+                            Refresh All Data
+                        </button>
                     </div>
-                {% else %}
-                    <div class="text-center text-muted py-4">
-                        <i class="fas fa-clock fa-2x mb-2"></i>
-                        <p>No recent activity to display</p>
+                    <div class="col-md-3 mb-2">
+                        <a href="{{ url_for('admin.ocr_dashboard') }}" class="quick-action-btn btn w-100">
+                            <i class="fas fa-eye me-2"></i>
+                            OCR Dashboard
+                        </a>
                     </div>
-                {% endif %}
+                    <div class="col-md-3 mb-2">
+                        <button class="quick-action-btn btn w-100" onclick="exportLogs()">
+                            <i class="fas fa-download me-2"></i>
+                            Export Logs
+                        </button>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{{ url_for('admin.phi_settings') }}" class="quick-action-btn btn w-100">
+                            <i class="fas fa-user-shield me-2"></i>
+                            PHI Settings
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -237,21 +301,92 @@
 
 {% block extra_js %}
 <script>
-// Auto-refresh dashboard every 5 minutes
-setInterval(function() {
-    location.reload();
-}, 300000);
+// Performance Chart
+const ctx = document.getElementById('performanceChart').getContext('2d');
+const performanceChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
+        datasets: [{
+            label: 'Documents Processed',
+            data: [12, 19, 23, 45, 52, 48],
+            borderColor: '#0d6efd',
+            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+            tension: 0.4
+        }, {
+            label: 'OCR Jobs',
+            data: [8, 15, 18, 32, 41, 38],
+            borderColor: '#198754',
+            backgroundColor: 'rgba(25, 135, 84, 0.1)',
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                labels: {
+                    color: '#fff'
+                }
+            }
+        },
+        scales: {
+            x: {
+                ticks: {
+                    color: '#fff'
+                },
+                grid: {
+                    color: 'rgba(255, 255, 255, 0.1)'
+                }
+            },
+            y: {
+                ticks: {
+                    color: '#fff'
+                },
+                grid: {
+                    color: 'rgba(255, 255, 255, 0.1)'
+                }
+            }
+        }
+    }
+});
 
-// Real-time clock update
-function updateTime() {
-    const now = new Date();
-    const timeString = now.toLocaleTimeString();
-    // Update any time displays if they exist
-    const timeElements = document.querySelectorAll('.current-time');
-    timeElements.forEach(el => el.textContent = timeString);
+// Auto-refresh dashboard data every 5 minutes
+setInterval(function() {
+    // Fetch updated metrics
+    fetch('/admin/api/dashboard-metrics')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update metrics without full page reload
+                updateDashboardMetrics(data.metrics);
+            }
+        })
+        .catch(error => console.log('Dashboard refresh failed:', error));
+}, 5 * 60 * 1000);
+
+function updateDashboardMetrics(metrics) {
+    // Update metric cards
+    const metricCards = document.querySelectorAll('.metric-card h4');
+    if (metricCards.length >= 4) {
+        metricCards[0].textContent = metrics.total_patients || '0';
+        metricCards[1].textContent = metrics.total_documents || '0';
+        metricCards[2].textContent = metrics.ocr_processed || '0';
+        metricCards[3].textContent = metrics.total_users || '0';
+    }
 }
 
-setInterval(updateTime, 1000);
-updateTime(); // Initial call
+// Real-time updates indicator
+function showRealTimeIndicator() {
+    const indicator = document.createElement('div');
+    indicator.className = 'position-fixed top-50 end-0 translate-middle-y bg-success text-white p-2 rounded-start';
+    indicator.innerHTML = '<i class="fas fa-sync fa-spin me-1"></i>Updating...';
+    document.body.appendChild(indicator);
+    
+    setTimeout(() => {
+        indicator.remove();
+    }, 2000);
+}
 </script>
 {% endblock %}

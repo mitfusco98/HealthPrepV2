@@ -1,237 +1,481 @@
-from datetime import datetime
-from models import Patient, PatientCondition, MedicalDocument
-from app import db
+"""
+FHIR data parser that converts FHIR bundles to internal model representations.
+Handles patient data, documents, conditions, and encounters.
+"""
+
 import logging
+from datetime import datetime, date
+from typing import Dict, List, Optional, Tuple
+import json
+
+from app import db
+from models import Patient, MedicalDocument, PatientCondition
 
 class FHIRParser:
-    """Converts FHIR resources to internal data models"""
+    """Parses FHIR resources into internal data models."""
     
     def __init__(self):
-        pass
+        self.logger = logging.getLogger(__name__)
     
-    def parse_patient(self, fhir_patient):
-        """Convert FHIR Patient resource to internal Patient model"""
+    def parse_patient(self, patient_resource: Dict) -> Optional[Patient]:
+        """Parse FHIR Patient resource into internal Patient model."""
+        
         try:
-            # Extract basic information
-            identifier = self._get_identifier(fhir_patient)
-            name = self._get_human_name(fhir_patient)
-            
+            # Extract basic demographics
             patient_data = {
-                'mrn': identifier,
-                'first_name': name.get('given', 'Unknown'),
-                'last_name': name.get('family', 'Unknown'),
-                'date_of_birth': self._parse_date(fhir_patient.get('birthDate')),
-                'gender': fhir_patient.get('gender', 'unknown'),
-                'phone': self._get_telecom(fhir_patient, 'phone'),
-                'email': self._get_telecom(fhir_patient, 'email'),
-                'address': self._get_address(fhir_patient)
+                'mrn': self._extract_identifier(patient_resource),
+                'first_name': self._extract_given_name(patient_resource),
+                'last_name': self._extract_family_name(patient_resource),
+                'date_of_birth': self._extract_birth_date(patient_resource),
+                'gender': self._extract_gender(patient_resource)
             }
             
-            return patient_data
+            # Validate required fields
+            if not all([patient_data['mrn'], patient_data['first_name'], 
+                       patient_data['last_name'], patient_data['date_of_birth'],
+                       patient_data['gender']]):
+                self.logger.warning(f"Missing required patient data: {patient_data}")
+                return None
             
-        except Exception as e:
-            logging.error(f"Error parsing FHIR patient: {str(e)}")
-            return None
-    
-    def parse_condition(self, fhir_condition, patient_id):
-        """Convert FHIR Condition resource to internal PatientCondition model"""
-        try:
-            condition_data = {
-                'patient_id': patient_id,
-                'condition_name': self._get_coding_display(fhir_condition.get('code')),
-                'icd10_code': self._get_coding_code(fhir_condition.get('code'), 'ICD-10'),
-                'diagnosis_date': self._parse_date(fhir_condition.get('onsetDateTime')),
-                'status': self._map_condition_status(fhir_condition.get('clinicalStatus'))
-            }
+            # Check if patient already exists
+            existing_patient = Patient.query.filter_by(mrn=patient_data['mrn']).first()
             
-            return condition_data
-            
-        except Exception as e:
-            logging.error(f"Error parsing FHIR condition: {str(e)}")
-            return None
-    
-    def parse_document_reference(self, fhir_doc_ref, patient_id):
-        """Convert FHIR DocumentReference to internal MedicalDocument model"""
-        try:
-            doc_data = {
-                'patient_id': patient_id,
-                'filename': fhir_doc_ref.get('description', 'FHIR Document'),
-                'document_type': self._get_document_type(fhir_doc_ref),
-                'document_date': self._parse_date(fhir_doc_ref.get('date')),
-                'file_path': self._get_document_url(fhir_doc_ref)
-            }
-            
-            return doc_data
-            
-        except Exception as e:
-            logging.error(f"Error parsing FHIR document reference: {str(e)}")
-            return None
-    
-    def parse_observation(self, fhir_observation, patient_id):
-        """Parse FHIR Observation resource"""
-        try:
-            obs_data = {
-                'patient_id': patient_id,
-                'code': self._get_coding_display(fhir_observation.get('code')),
-                'value': self._get_observation_value(fhir_observation),
-                'unit': self._get_observation_unit(fhir_observation),
-                'date': self._parse_date(fhir_observation.get('effectiveDateTime')),
-                'status': fhir_observation.get('status')
-            }
-            
-            return obs_data
-            
-        except Exception as e:
-            logging.error(f"Error parsing FHIR observation: {str(e)}")
-            return None
-    
-    def _get_identifier(self, fhir_resource):
-        """Extract identifier from FHIR resource"""
-        identifiers = fhir_resource.get('identifier', [])
-        if identifiers:
-            # Prefer MRN type identifier
-            for identifier in identifiers:
-                if identifier.get('type', {}).get('text') == 'MRN':
-                    return identifier.get('value')
-            # Fallback to first identifier
-            return identifiers[0].get('value')
-        return f"FHIR_{fhir_resource.get('id', 'unknown')}"
-    
-    def _get_human_name(self, fhir_patient):
-        """Extract human name from FHIR Patient"""
-        names = fhir_patient.get('name', [])
-        if names:
-            name = names[0]  # Use first name
-            return {
-                'given': ' '.join(name.get('given', [])),
-                'family': name.get('family', '')
-            }
-        return {'given': 'Unknown', 'family': 'Unknown'}
-    
-    def _get_telecom(self, fhir_resource, system):
-        """Extract telecom information"""
-        telecoms = fhir_resource.get('telecom', [])
-        for telecom in telecoms:
-            if telecom.get('system') == system:
-                return telecom.get('value')
-        return None
-    
-    def _get_address(self, fhir_patient):
-        """Extract address from FHIR Patient"""
-        addresses = fhir_patient.get('address', [])
-        if addresses:
-            address = addresses[0]
-            parts = []
-            if address.get('line'):
-                parts.extend(address['line'])
-            if address.get('city'):
-                parts.append(address['city'])
-            if address.get('state'):
-                parts.append(address['state'])
-            if address.get('postalCode'):
-                parts.append(address['postalCode'])
-            return ', '.join(parts)
-        return None
-    
-    def _get_coding_display(self, code_concept):
-        """Get display text from CodeableConcept"""
-        if not code_concept:
-            return None
-        
-        if code_concept.get('text'):
-            return code_concept['text']
-        
-        codings = code_concept.get('coding', [])
-        if codings:
-            return codings[0].get('display', codings[0].get('code'))
-        
-        return None
-    
-    def _get_coding_code(self, code_concept, system_filter=None):
-        """Get code from CodeableConcept"""
-        if not code_concept:
-            return None
-        
-        codings = code_concept.get('coding', [])
-        for coding in codings:
-            if not system_filter or system_filter.lower() in coding.get('system', '').lower():
-                return coding.get('code')
-        
-        return None
-    
-    def _parse_date(self, date_string):
-        """Parse FHIR date string to Python date"""
-        if not date_string:
-            return None
-        
-        try:
-            # Handle different FHIR date formats
-            if 'T' in date_string:
-                return datetime.fromisoformat(date_string.replace('Z', '+00:00')).date()
+            if existing_patient:
+                # Update existing patient
+                existing_patient.first_name = patient_data['first_name']
+                existing_patient.last_name = patient_data['last_name']
+                existing_patient.date_of_birth = patient_data['date_of_birth']
+                existing_patient.gender = patient_data['gender']
+                return existing_patient
             else:
-                return datetime.strptime(date_string, '%Y-%m-%d').date()
-        except ValueError:
+                # Create new patient
+                patient = Patient(**patient_data)
+                db.session.add(patient)
+                return patient
+                
+        except Exception as e:
+            self.logger.error(f"Error parsing patient resource: {e}")
             return None
     
-    def _map_condition_status(self, clinical_status):
-        """Map FHIR condition status to internal status"""
-        if not clinical_status:
-            return 'active'
+    def parse_document_reference(self, document_ref: Dict, patient: Patient) -> Optional[MedicalDocument]:
+        """Parse FHIR DocumentReference into internal MedicalDocument model."""
         
-        status_mapping = {
-            'active': 'active',
-            'recurrence': 'active',
-            'relapse': 'active',
-            'inactive': 'resolved',
-            'remission': 'resolved',
-            'resolved': 'resolved'
+        try:
+            # Extract document metadata
+            document_data = {
+                'patient_id': patient.id,
+                'filename': self._extract_document_title(document_ref),
+                'document_type': self._extract_document_type(document_ref),
+                'document_date': self._extract_document_date(document_ref),
+                'content': self._extract_document_text(document_ref)
+            }
+            
+            # Validate required fields
+            if not all([document_data['filename'], document_data['document_date']]):
+                self.logger.warning(f"Missing required document data: {document_data}")
+                return None
+            
+            # Create document record
+            document = MedicalDocument(**document_data)
+            db.session.add(document)
+            return document
+            
+        except Exception as e:
+            self.logger.error(f"Error parsing document reference: {e}")
+            return None
+    
+    def parse_diagnostic_report(self, diagnostic_report: Dict, patient: Patient) -> Optional[MedicalDocument]:
+        """Parse FHIR DiagnosticReport into internal MedicalDocument model."""
+        
+        try:
+            # Extract report data
+            document_data = {
+                'patient_id': patient.id,
+                'filename': self._extract_report_title(diagnostic_report),
+                'document_type': self._extract_report_type(diagnostic_report),
+                'document_date': self._extract_report_date(diagnostic_report),
+                'content': self._extract_report_text(diagnostic_report)
+            }
+            
+            # Validate required fields
+            if not all([document_data['filename'], document_data['document_date']]):
+                self.logger.warning(f"Missing required diagnostic report data: {document_data}")
+                return None
+            
+            # Create document record
+            document = MedicalDocument(**document_data)
+            db.session.add(document)
+            return document
+            
+        except Exception as e:
+            self.logger.error(f"Error parsing diagnostic report: {e}")
+            return None
+    
+    def parse_conditions(self, conditions_bundle: Dict, patient: Patient) -> List[PatientCondition]:
+        """Parse FHIR Condition resources into internal PatientCondition models."""
+        
+        parsed_conditions = []
+        
+        try:
+            # Handle both Bundle format and direct array
+            conditions = []
+            if 'entry' in conditions_bundle:
+                conditions = [entry['resource'] for entry in conditions_bundle['entry'] 
+                             if entry.get('resource', {}).get('resourceType') == 'Condition']
+            elif isinstance(conditions_bundle, list):
+                conditions = conditions_bundle
+            elif conditions_bundle.get('resourceType') == 'Condition':
+                conditions = [conditions_bundle]
+            
+            for condition_resource in conditions:
+                try:
+                    condition_data = {
+                        'patient_id': patient.id,
+                        'condition_name': self._extract_condition_name(condition_resource),
+                        'diagnosis_date': self._extract_condition_date(condition_resource),
+                        'is_active': self._extract_condition_status(condition_resource)
+                    }
+                    
+                    if condition_data['condition_name']:
+                        # Check if condition already exists
+                        existing_condition = PatientCondition.query.filter_by(
+                            patient_id=patient.id,
+                            condition_name=condition_data['condition_name']
+                        ).first()
+                        
+                        if existing_condition:
+                            # Update existing condition
+                            existing_condition.is_active = condition_data['is_active']
+                            if condition_data['diagnosis_date']:
+                                existing_condition.diagnosis_date = condition_data['diagnosis_date']
+                            parsed_conditions.append(existing_condition)
+                        else:
+                            # Create new condition
+                            condition = PatientCondition(**condition_data)
+                            db.session.add(condition)
+                            parsed_conditions.append(condition)
+                            
+                except Exception as e:
+                    self.logger.error(f"Error parsing individual condition: {e}")
+                    continue
+                    
+        except Exception as e:
+            self.logger.error(f"Error parsing conditions bundle: {e}")
+        
+        return parsed_conditions
+    
+    def parse_bundle(self, bundle: Dict) -> Dict:
+        """Parse a complete FHIR Bundle and extract all relevant resources."""
+        
+        results = {
+            'patients': [],
+            'documents': [],
+            'conditions': [],
+            'encounters': [],
+            'observations': []
         }
         
-        status_code = clinical_status.get('coding', [{}])[0].get('code', 'active')
-        return status_mapping.get(status_code, 'active')
+        try:
+            if 'entry' not in bundle:
+                self.logger.warning("Bundle has no entries")
+                return results
+            
+            # First pass: extract patients
+            for entry in bundle['entry']:
+                resource = entry.get('resource', {})
+                resource_type = resource.get('resourceType')
+                
+                if resource_type == 'Patient':
+                    patient = self.parse_patient(resource)
+                    if patient:
+                        results['patients'].append(patient)
+            
+            # Second pass: extract other resources linked to patients
+            for patient in results['patients']:
+                for entry in bundle['entry']:
+                    resource = entry.get('resource', {})
+                    resource_type = resource.get('resourceType')
+                    
+                    # Check if resource is for this patient
+                    if self._resource_belongs_to_patient(resource, patient):
+                        
+                        if resource_type == 'DocumentReference':
+                            document = self.parse_document_reference(resource, patient)
+                            if document:
+                                results['documents'].append(document)
+                        
+                        elif resource_type == 'DiagnosticReport':
+                            document = self.parse_diagnostic_report(resource, patient)
+                            if document:
+                                results['documents'].append(document)
+                        
+                        elif resource_type == 'Condition':
+                            conditions = self.parse_conditions(resource, patient)
+                            results['conditions'].extend(conditions)
+                        
+                        # Additional resource types can be added here
+                        
+        except Exception as e:
+            self.logger.error(f"Error parsing FHIR bundle: {e}")
+        
+        return results
     
-    def _get_document_type(self, fhir_doc_ref):
-        """Determine document type from FHIR DocumentReference"""
-        type_concept = fhir_doc_ref.get('type', {})
-        type_display = self._get_coding_display(type_concept)
-        
-        if not type_display:
-            return 'other'
-        
-        type_lower = type_display.lower()
-        
-        # Map to internal document types
-        if any(term in type_lower for term in ['lab', 'laboratory', 'blood', 'urine']):
-            return 'lab'
-        elif any(term in type_lower for term in ['imaging', 'radiology', 'x-ray', 'ct', 'mri']):
-            return 'imaging'
-        elif any(term in type_lower for term in ['consult', 'specialist', 'referral']):
-            return 'consult'
-        elif any(term in type_lower for term in ['hospital', 'admission', 'discharge']):
-            return 'hospital'
-        else:
-            return 'other'
+    # Helper methods for extracting specific fields
     
-    def _get_document_url(self, fhir_doc_ref):
-        """Get document URL from FHIR DocumentReference"""
-        content = fhir_doc_ref.get('content', [])
-        if content:
-            attachment = content[0].get('attachment', {})
-            return attachment.get('url')
+    def _extract_identifier(self, patient_resource: Dict) -> Optional[str]:
+        """Extract MRN or primary identifier from Patient resource."""
+        identifiers = patient_resource.get('identifier', [])
+        
+        # Look for MRN type identifier first
+        for identifier in identifiers:
+            if identifier.get('type', {}).get('coding', []):
+                for coding in identifier['type']['coding']:
+                    if coding.get('code') in ['MR', 'MRN']:
+                        return identifier.get('value')
+        
+        # Fall back to first identifier with value
+        for identifier in identifiers:
+            if identifier.get('value'):
+                return identifier['value']
+        
         return None
     
-    def _get_observation_value(self, fhir_observation):
-        """Extract observation value"""
-        if 'valueQuantity' in fhir_observation:
-            return str(fhir_observation['valueQuantity'].get('value'))
-        elif 'valueString' in fhir_observation:
-            return fhir_observation['valueString']
-        elif 'valueCodeableConcept' in fhir_observation:
-            return self._get_coding_display(fhir_observation['valueCodeableConcept'])
+    def _extract_given_name(self, patient_resource: Dict) -> Optional[str]:
+        """Extract given (first) name from Patient resource."""
+        names = patient_resource.get('name', [])
+        
+        for name in names:
+            if name.get('use', 'official') in ['official', 'usual']:
+                given = name.get('given', [])
+                if given:
+                    return given[0]
+        
         return None
     
-    def _get_observation_unit(self, fhir_observation):
-        """Extract observation unit"""
-        if 'valueQuantity' in fhir_observation:
-            return fhir_observation['valueQuantity'].get('unit')
+    def _extract_family_name(self, patient_resource: Dict) -> Optional[str]:
+        """Extract family (last) name from Patient resource."""
+        names = patient_resource.get('name', [])
+        
+        for name in names:
+            if name.get('use', 'official') in ['official', 'usual']:
+                return name.get('family')
+        
+        return None
+    
+    def _extract_birth_date(self, patient_resource: Dict) -> Optional[date]:
+        """Extract birth date from Patient resource."""
+        birth_date_str = patient_resource.get('birthDate')
+        
+        if birth_date_str:
+            try:
+                return datetime.strptime(birth_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                try:
+                    return datetime.strptime(birth_date_str[:10], '%Y-%m-%d').date()
+                except ValueError:
+                    pass
+        
+        return None
+    
+    def _extract_gender(self, patient_resource: Dict) -> Optional[str]:
+        """Extract gender from Patient resource."""
+        gender = patient_resource.get('gender', '').lower()
+        
+        if gender in ['male', 'm']:
+            return 'M'
+        elif gender in ['female', 'f']:
+            return 'F'
+        
+        return None
+    
+    def _extract_document_title(self, document_ref: Dict) -> str:
+        """Extract document title from DocumentReference."""
+        # Try description first
+        if 'description' in document_ref:
+            return document_ref['description']
+        
+        # Try type coding display
+        doc_type = document_ref.get('type', {})
+        if 'coding' in doc_type:
+            for coding in doc_type['coding']:
+                if 'display' in coding:
+                    return coding['display']
+        
+        # Fall back to generic title
+        return f"Document_{document_ref.get('id', 'unknown')}"
+    
+    def _extract_document_type(self, document_ref: Dict) -> str:
+        """Extract document type category."""
+        categories = document_ref.get('category', [])
+        
+        for category in categories:
+            if 'coding' in category:
+                for coding in category['coding']:
+                    code = coding.get('code', '').lower()
+                    if 'lab' in code:
+                        return 'lab'
+                    elif 'rad' in code or 'imaging' in code:
+                        return 'imaging'
+                    elif 'consult' in code:
+                        return 'consult'
+                    elif 'discharge' in code or 'admission' in code:
+                        return 'hospital'
+        
+        return 'other'
+    
+    def _extract_document_date(self, document_ref: Dict) -> Optional[date]:
+        """Extract document date."""
+        date_str = document_ref.get('date')
+        
+        if date_str:
+            try:
+                return datetime.fromisoformat(date_str.replace('Z', '+00:00')).date()
+            except ValueError:
+                try:
+                    return datetime.strptime(date_str[:10], '%Y-%m-%d').date()
+                except ValueError:
+                    pass
+        
+        return date.today()  # Fall back to today
+    
+    def _extract_document_text(self, document_ref: Dict) -> Optional[str]:
+        """Extract text content from DocumentReference."""
+        # This would typically require downloading the actual document
+        # For now, return any available text in the resource
+        
+        if 'content' in document_ref:
+            for content in document_ref['content']:
+                if 'attachment' in content:
+                    attachment = content['attachment']
+                    if 'data' in attachment:
+                        # Base64 encoded content
+                        import base64
+                        try:
+                            return base64.b64decode(attachment['data']).decode('utf-8')
+                        except:
+                            pass
+        
+        return None
+    
+    def _extract_condition_name(self, condition_resource: Dict) -> Optional[str]:
+        """Extract condition name from Condition resource."""
+        code = condition_resource.get('code', {})
+        
+        if 'text' in code:
+            return code['text']
+        
+        if 'coding' in code:
+            for coding in code['coding']:
+                if 'display' in coding:
+                    return coding['display']
+        
+        return None
+    
+    def _extract_condition_date(self, condition_resource: Dict) -> Optional[date]:
+        """Extract condition diagnosis date."""
+        date_str = condition_resource.get('onsetDateTime')
+        
+        if date_str:
+            try:
+                return datetime.fromisoformat(date_str.replace('Z', '+00:00')).date()
+            except ValueError:
+                try:
+                    return datetime.strptime(date_str[:10], '%Y-%m-%d').date()
+                except ValueError:
+                    pass
+        
+        return None
+    
+    def _extract_condition_status(self, condition_resource: Dict) -> bool:
+        """Extract condition active status."""
+        clinical_status = condition_resource.get('clinicalStatus', {})
+        
+        if 'coding' in clinical_status:
+            for coding in clinical_status['coding']:
+                if coding.get('code') == 'active':
+                    return True
+        
+        return False
+    
+    def _resource_belongs_to_patient(self, resource: Dict, patient: Patient) -> bool:
+        """Check if a resource belongs to a specific patient."""
+        
+        # Check subject reference
+        subject = resource.get('subject', {})
+        if 'reference' in subject:
+            ref = subject['reference']
+            if f"Patient/{patient.mrn}" in ref or patient.mrn in ref:
+                return True
+        
+        # Check patient reference
+        patient_ref = resource.get('patient', {})
+        if 'reference' in patient_ref:
+            ref = patient_ref['reference']
+            if f"Patient/{patient.mrn}" in ref or patient.mrn in ref:
+                return True
+        
+        return False
+    
+    # Additional helper methods for other resource types...
+    
+    def _extract_report_title(self, diagnostic_report: Dict) -> str:
+        """Extract title from DiagnosticReport."""
+        code = diagnostic_report.get('code', {})
+        
+        if 'text' in code:
+            return code['text']
+        
+        if 'coding' in code:
+            for coding in code['coding']:
+                if 'display' in coding:
+                    return coding['display']
+        
+        return f"Report_{diagnostic_report.get('id', 'unknown')}"
+    
+    def _extract_report_type(self, diagnostic_report: Dict) -> str:
+        """Extract report type category."""
+        category = diagnostic_report.get('category', [])
+        
+        for cat in category:
+            if 'coding' in cat:
+                for coding in cat['coding']:
+                    code = coding.get('code', '').lower()
+                    if 'lab' in code:
+                        return 'lab'
+                    elif 'rad' in code or 'imaging' in code:
+                        return 'imaging'
+        
+        return 'lab'  # Default to lab
+    
+    def _extract_report_date(self, diagnostic_report: Dict) -> Optional[date]:
+        """Extract report date."""
+        date_str = diagnostic_report.get('effectiveDateTime')
+        
+        if date_str:
+            try:
+                return datetime.fromisoformat(date_str.replace('Z', '+00:00')).date()
+            except ValueError:
+                try:
+                    return datetime.strptime(date_str[:10], '%Y-%m-%d').date()
+                except ValueError:
+                    pass
+        
+        return date.today()
+    
+    def _extract_report_text(self, diagnostic_report: Dict) -> Optional[str]:
+        """Extract text from DiagnosticReport."""
+        # Try conclusion first
+        if 'conclusion' in diagnostic_report:
+            return diagnostic_report['conclusion']
+        
+        # Try presentedForm
+        if 'presentedForm' in diagnostic_report:
+            for form in diagnostic_report['presentedForm']:
+                if 'data' in form:
+                    import base64
+                    try:
+                        return base64.b64decode(form['data']).decode('utf-8')
+                    except:
+                        pass
+        
         return None

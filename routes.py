@@ -1,132 +1,165 @@
 from flask import render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import login_user, logout_user, login_required, current_user
+from werkzeug.urls import url_parse
 from werkzeug.utils import secure_filename
-from datetime import datetime, timedelta
 import os
+from datetime import datetime, date, timedelta
 import json
+import logging
 
-from app import app, db, login_manager
-from models import *
-from forms import *
+from app import app, db
+from models import (User, Patient, ScreeningType, MedicalDocument, Screening, 
+                   ScreeningDocumentMatch, PatientCondition, AdminLog, 
+                   ChecklistSettings, PHISettings)
+from forms import (LoginForm, ScreeningTypeForm, PatientForm, DocumentUploadForm,
+                  ChecklistSettingsForm, PHISettingsForm)
 from core.engine import ScreeningEngine
-from core.matcher import DocumentMatcher
+from ocr.processor import OCRProcessor
 from prep_sheet.generator import PrepSheetGenerator
 from admin.logs import log_admin_action
-from ocr.processor import OCRProcessor
-from ocr.phi_filter import PHIFilter
 
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
+# Initialize components
+screening_engine = ScreeningEngine()
+ocr_processor = OCRProcessor()
+prep_sheet_generator = PrepSheetGenerator()
 
-# Authentication Routes
+@app.route('/')
+def index():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        user = User.query.filter_by(username=username).first()
-        
-        if user and user.check_password(password) and user.is_active:
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(username=form.username.data).first()
+        if user and user.check_password(form.password.data):
             login_user(user)
             next_page = request.args.get('next')
-            flash(f'Welcome back, {user.username}!', 'success')
-            return redirect(next_page) if next_page else redirect(url_for('dashboard'))
-        else:
-            flash('Invalid username or password', 'error')
+            if not next_page or url_parse(next_page).netloc != '':
+                next_page = url_for('dashboard')
+            return redirect(next_page)
+        flash('Invalid username or password', 'error')
     
-    return render_template('login.html')
+    return render_template('login.html', form=form)
 
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
-    flash('You have been logged out successfully', 'info')
     return redirect(url_for('login'))
 
-# Main Dashboard Routes
-@app.route('/')
+@app.route('/dashboard')
 @login_required
 def dashboard():
-    if current_user.is_admin():
-        return redirect(url_for('admin_dashboard'))
+    # Get basic statistics
+    total_patients = Patient.query.count()
+    total_screenings = Screening.query.count()
+    due_screenings = Screening.query.filter_by(status='Due').count()
+    overdue_screenings = Screening.query.filter_by(status='Overdue').count()
     
-    # User dashboard - show screening overview
-    recent_patients = Patient.query.order_by(Patient.updated_at.desc()).limit(5).all()
-    overdue_screenings = PatientScreening.query.filter_by(status='due').limit(10).all()
+    # Recent activity
+    recent_documents = MedicalDocument.query.order_by(MedicalDocument.created_at.desc()).limit(5).all()
+    recent_screenings = Screening.query.order_by(Screening.updated_at.desc()).limit(5).all()
     
-    return render_template('screening/list.html', 
-                         patients=recent_patients,
+    return render_template('dashboard.html',
+                         total_patients=total_patients,
+                         total_screenings=total_screenings,
+                         due_screenings=due_screenings,
                          overdue_screenings=overdue_screenings,
-                         active_tab='list')
+                         recent_documents=recent_documents,
+                         recent_screenings=recent_screenings)
 
-# Screening Management Routes
-@app.route('/screening')
-@app.route('/screening/<tab>')
+@app.route('/patients')
 @login_required
-def screening_list(tab='list'):
-    if tab not in ['list', 'types', 'checklist']:
-        tab = 'list'
+def patients():
+    page = request.args.get('page', 1, type=int)
+    patients = Patient.query.paginate(
+        page=page, per_page=20, error_out=False)
+    return render_template('patients.html', patients=patients)
+
+@app.route('/patients/<int:patient_id>')
+@login_required
+def patient_detail(patient_id):
+    patient = Patient.query.get_or_404(patient_id)
+    screenings = Screening.query.filter_by(patient_id=patient_id).all()
+    documents = MedicalDocument.query.filter_by(patient_id=patient_id).order_by(MedicalDocument.document_date.desc()).all()
+    conditions = PatientCondition.query.filter_by(patient_id=patient_id, is_active=True).all()
     
-    # Get all patients and their screenings
-    patients = Patient.query.all()
+    return render_template('patient_detail.html',
+                         patient=patient,
+                         screenings=screenings,
+                         documents=documents,
+                         conditions=conditions)
+
+@app.route('/patients/<int:patient_id>/prep_sheet')
+@login_required
+def prep_sheet(patient_id):
+    patient = Patient.query.get_or_404(patient_id)
+    
+    try:
+        prep_data = prep_sheet_generator.generate_prep_sheet(patient)
+        return render_template('prep_sheet/prep_sheet.html', 
+                             patient=patient, 
+                             prep_data=prep_data)
+    except Exception as e:
+        logging.error(f"Error generating prep sheet for patient {patient_id}: {e}")
+        flash('Error generating prep sheet', 'error')
+        return redirect(url_for('patient_detail', patient_id=patient_id))
+
+@app.route('/screenings')
+@login_required
+def screening_list():
+    # Get filter parameters
+    patient_filter = request.args.get('patient', '')
+    status_filter = request.args.get('status', '')
+    screening_type_filter = request.args.get('type', '')
+    
+    # Base query
+    query = db.session.query(Screening).join(Patient).join(ScreeningType)
+    
+    # Apply filters
+    if patient_filter:
+        query = query.filter(
+            (Patient.first_name.ilike(f'%{patient_filter}%')) |
+            (Patient.last_name.ilike(f'%{patient_filter}%')) |
+            (Patient.mrn.ilike(f'%{patient_filter}%'))
+        )
+    
+    if status_filter:
+        query = query.filter(Screening.status == status_filter)
+    
+    if screening_type_filter:
+        query = query.filter(ScreeningType.name.ilike(f'%{screening_type_filter}%'))
+    
+    # Pagination
+    page = request.args.get('page', 1, type=int)
+    screenings = query.order_by(Screening.updated_at.desc()).paginate(
+        page=page, per_page=50, error_out=False)
+    
+    # Get screening types for filter dropdown
     screening_types = ScreeningType.query.filter_by(is_active=True).all()
     
-    # Generate screening matrix
-    screening_engine = ScreeningEngine()
-    screening_matrix = []
-    
-    for patient in patients:
-        patient_screenings = screening_engine.generate_patient_screenings(patient)
-        screening_matrix.append({
-            'patient': patient,
-            'screenings': patient_screenings
-        })
-    
-    # Get checklist settings
-    checklist_settings = ChecklistSettings.query.first()
-    if not checklist_settings:
-        checklist_settings = ChecklistSettings()
-        db.session.add(checklist_settings)
-        db.session.commit()
-    
-    return render_template('screening/list.html',
-                         screening_matrix=screening_matrix,
+    return render_template('screening/screening_list.html',
+                         screenings=screenings,
                          screening_types=screening_types,
-                         checklist_settings=checklist_settings,
-                         active_tab=tab)
+                         current_filters={
+                             'patient': patient_filter,
+                             'status': status_filter,
+                             'type': screening_type_filter
+                         })
 
-@app.route('/screening/refresh', methods=['POST'])
+@app.route('/screening_types')
 @login_required
-def refresh_screenings():
-    try:
-        screening_engine = ScreeningEngine()
-        matcher = DocumentMatcher()
-        
-        # Refresh all patient screenings
-        patients = Patient.query.all()
-        updated_count = 0
-        
-        for patient in patients:
-            # Update document matches
-            documents = MedicalDocument.query.filter_by(patient_id=patient.id).all()
-            for document in documents:
-                matcher.match_document_to_screenings(document)
-            
-            # Regenerate screenings
-            screening_engine.update_patient_screenings(patient)
-            updated_count += 1
-        
-        db.session.commit()
-        flash(f'Successfully refreshed screenings for {updated_count} patients', 'success')
-        
-    except Exception as e:
-        db.session.rollback()
-        flash(f'Error refreshing screenings: {str(e)}', 'error')
-    
-    return redirect(url_for('screening_list'))
+def screening_types():
+    screening_types = ScreeningType.query.order_by(ScreeningType.name).all()
+    return render_template('screening/screening_types.html', screening_types=screening_types)
 
-@app.route('/screening/type/add', methods=['GET', 'POST'])
+@app.route('/screening_types/add', methods=['GET', 'POST'])
 @login_required
 def add_screening_type():
     form = ScreeningTypeForm()
@@ -135,187 +168,224 @@ def add_screening_type():
         screening_type = ScreeningType(
             name=form.name.data,
             description=form.description.data,
-            keywords=form.keywords.data.split(',') if form.keywords.data else [],
             min_age=form.min_age.data,
             max_age=form.max_age.data,
-            gender_restriction=form.gender_restriction.data if form.gender_restriction.data != 'any' else None,
+            gender_restriction=form.gender_restriction.data or None,
             frequency_value=form.frequency_value.data,
             frequency_unit=form.frequency_unit.data,
-            trigger_conditions=form.trigger_conditions.data.split(',') if form.trigger_conditions.data else []
+            is_active=form.is_active.data
         )
+        
+        # Process keywords
+        if form.keywords.data:
+            keywords_list = [k.strip() for k in form.keywords.data.split('\n') if k.strip()]
+            screening_type.set_keywords_list(keywords_list)
+        
+        # Process trigger conditions
+        if form.trigger_conditions.data:
+            conditions_list = [c.strip() for c in form.trigger_conditions.data.split('\n') if c.strip()]
+            screening_type.set_trigger_conditions_list(conditions_list)
         
         db.session.add(screening_type)
         db.session.commit()
         
-        if current_user.is_admin():
-            log_admin_action(f'Added screening type: {screening_type.name}')
+        if current_user.is_admin:
+            log_admin_action(current_user.id, 'CREATE_SCREENING_TYPE', f'Added screening type: {screening_type.name}')
         
-        flash(f'Screening type "{screening_type.name}" added successfully', 'success')
-        return redirect(url_for('screening_list', tab='types'))
+        flash('Screening type added successfully', 'success')
+        return redirect(url_for('screening_types'))
     
-    return render_template('screening/types.html', form=form, mode='add')
+    return render_template('screening/add_screening_type.html', form=form)
 
-# Prep Sheet Routes
-@app.route('/prep-sheet/<int:patient_id>')
+@app.route('/screening_types/<int:type_id>/edit', methods=['GET', 'POST'])
 @login_required
-def generate_prep_sheet(patient_id):
-    patient = Patient.query.get_or_404(patient_id)
+def edit_screening_type(type_id):
+    screening_type = ScreeningType.query.get_or_404(type_id)
+    form = ScreeningTypeForm(obj=screening_type)
     
-    generator = PrepSheetGenerator()
-    prep_data = generator.generate_prep_sheet(patient)
-    
-    return render_template('prep_sheet/template.html', 
-                         patient=patient, 
-                         prep_data=prep_data)
-
-# Document Upload Routes
-@app.route('/patient/<int:patient_id>/upload', methods=['POST'])
-@login_required
-def upload_document(patient_id):
-    patient = Patient.query.get_or_404(patient_id)
-    
-    if 'file' not in request.files:
-        flash('No file selected', 'error')
-        return redirect(request.referrer)
-    
-    file = request.files['file']
-    if file.filename == '':
-        flash('No file selected', 'error')
-        return redirect(request.referrer)
-    
-    if file:
-        filename = secure_filename(file.filename)
-        # Create uploads directory if it doesn't exist
-        upload_dir = os.path.join(app.root_path, 'uploads', str(patient_id))
-        os.makedirs(upload_dir, exist_ok=True)
+    # Pre-populate form fields
+    if request.method == 'GET':
+        keywords_list = screening_type.get_keywords_list()
+        form.keywords.data = '\n'.join(keywords_list)
         
-        file_path = os.path.join(upload_dir, filename)
-        file.save(file_path)
+        conditions_list = screening_type.get_trigger_conditions_list()
+        form.trigger_conditions.data = '\n'.join(conditions_list)
+    
+    if form.validate_on_submit():
+        screening_type.name = form.name.data
+        screening_type.description = form.description.data
+        screening_type.min_age = form.min_age.data
+        screening_type.max_age = form.max_age.data
+        screening_type.gender_restriction = form.gender_restriction.data or None
+        screening_type.frequency_value = form.frequency_value.data
+        screening_type.frequency_unit = form.frequency_unit.data
+        screening_type.is_active = form.is_active.data
         
-        # Create document record
-        document = MedicalDocument(
-            patient_id=patient_id,
-            filename=filename,
-            file_path=file_path,
-            document_type=request.form.get('document_type', 'other')
-        )
+        # Process keywords
+        if form.keywords.data:
+            keywords_list = [k.strip() for k in form.keywords.data.split('\n') if k.strip()]
+            screening_type.set_keywords_list(keywords_list)
+        else:
+            screening_type.keywords = None
         
-        db.session.add(document)
+        # Process trigger conditions
+        if form.trigger_conditions.data:
+            conditions_list = [c.strip() for c in form.trigger_conditions.data.split('\n') if c.strip()]
+            screening_type.set_trigger_conditions_list(conditions_list)
+        else:
+            screening_type.trigger_conditions = None
+        
         db.session.commit()
         
-        # Process with OCR
-        try:
-            ocr_processor = OCRProcessor()
-            ocr_result = ocr_processor.process_document(document)
-            
-            # Apply PHI filtering
-            phi_filter = PHIFilter()
-            filtered_text = phi_filter.filter_text(ocr_result['text'])
-            
-            # Update document with OCR results
-            document.ocr_text = filtered_text
-            document.ocr_confidence = ocr_result['confidence']
-            document.phi_filtered = True
-            
-            db.session.commit()
-            
-            # Match to screenings
-            matcher = DocumentMatcher()
-            matcher.match_document_to_screenings(document)
-            
-            flash(f'Document uploaded and processed successfully', 'success')
-            
-        except Exception as e:
-            flash(f'Document uploaded but OCR processing failed: {str(e)}', 'warning')
+        if current_user.is_admin:
+            log_admin_action(current_user.id, 'UPDATE_SCREENING_TYPE', f'Updated screening type: {screening_type.name}')
+        
+        flash('Screening type updated successfully', 'success')
+        return redirect(url_for('screening_types'))
     
-    return redirect(request.referrer)
+    return render_template('screening/edit_screening_type.html', form=form, screening_type=screening_type)
 
-# API Routes
-@app.route('/api/screening-keywords/<int:screening_type_id>')
+@app.route('/refresh_screenings', methods=['POST'])
 @login_required
-def get_screening_keywords(screening_type_id):
-    screening_type = ScreeningType.query.get_or_404(screening_type_id)
-    return jsonify({
-        'success': True,
-        'keywords': screening_type.keywords or []
-    })
+def refresh_screenings():
+    try:
+        screening_engine.refresh_all_screenings()
+        flash('Screenings refreshed successfully', 'success')
+    except Exception as e:
+        logging.error(f"Error refreshing screenings: {e}")
+        flash('Error refreshing screenings', 'error')
+    
+    return redirect(request.referrer or url_for('screening_list'))
 
-# Admin Routes
+# Admin routes
 @app.route('/admin/dashboard')
 @login_required
 def admin_dashboard():
-    if not current_user.is_admin():
-        flash('Access denied. Admin privileges required.', 'error')
+    if not current_user.is_admin:
+        flash('Access denied', 'error')
         return redirect(url_for('dashboard'))
     
-    # Dashboard statistics
+    # Get system statistics
     stats = {
+        'total_users': User.query.count(),
         'total_patients': Patient.query.count(),
         'total_documents': MedicalDocument.query.count(),
+        'total_screenings': Screening.query.count(),
         'active_screening_types': ScreeningType.query.filter_by(is_active=True).count(),
-        'recent_logs': AdminLog.query.order_by(AdminLog.timestamp.desc()).limit(10).all()
+        'recent_activity': AdminLog.query.order_by(AdminLog.created_at.desc()).limit(10).all()
     }
     
-    return render_template('admin/dashboard.html', stats=stats)
-
-@app.route('/admin/ocr')
-@login_required
-def admin_ocr_dashboard():
-    if not current_user.is_admin():
-        flash('Access denied. Admin privileges required.', 'error')
-        return redirect(url_for('dashboard'))
-    
-    # OCR statistics
-    total_docs = MedicalDocument.query.count()
-    processed_docs = MedicalDocument.query.filter(MedicalDocument.ocr_text.isnot(None)).count()
-    high_confidence = MedicalDocument.query.filter(MedicalDocument.ocr_confidence >= 0.8).count()
-    medium_confidence = MedicalDocument.query.filter(
-        MedicalDocument.ocr_confidence >= 0.6,
-        MedicalDocument.ocr_confidence < 0.8
-    ).count()
-    low_confidence = MedicalDocument.query.filter(MedicalDocument.ocr_confidence < 0.6).count()
-    
-    recent_docs = MedicalDocument.query.order_by(MedicalDocument.created_at.desc()).limit(10).all()
-    
-    stats = {
-        'total_documents': total_docs,
-        'processed_documents': processed_docs,
-        'pending_processing': total_docs - processed_docs,
-        'high_confidence': high_confidence,
-        'medium_confidence': medium_confidence,
-        'low_confidence': low_confidence,
-        'recent_documents': recent_docs
-    }
-    
-    return render_template('admin/ocr_dashboard.html', stats=stats)
-
-@app.route('/admin/phi')
-@login_required
-def admin_phi_settings():
-    if not current_user.is_admin():
-        flash('Access denied. Admin privileges required.', 'error')
-        return redirect(url_for('dashboard'))
-    
-    settings = PHIFilterSettings.query.first()
-    if not settings:
-        settings = PHIFilterSettings()
-        db.session.add(settings)
-        db.session.commit()
-    
-    return render_template('admin/phi_settings.html', settings=settings)
+    return render_template('admin/admin_dashboard.html', stats=stats)
 
 @app.route('/admin/logs')
 @login_required
 def admin_logs():
-    if not current_user.is_admin():
-        flash('Access denied. Admin privileges required.', 'error')
+    if not current_user.is_admin:
+        flash('Access denied', 'error')
         return redirect(url_for('dashboard'))
     
+    # Get filter parameters
+    action_filter = request.args.get('action', '')
+    user_filter = request.args.get('user', '')
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+    
+    # Base query
+    query = AdminLog.query
+    
+    # Apply filters
+    if action_filter:
+        query = query.filter(AdminLog.action.ilike(f'%{action_filter}%'))
+    
+    if user_filter:
+        query = query.join(User).filter(User.username.ilike(f'%{user_filter}%'))
+    
+    if date_from:
+        try:
+            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d')
+            query = query.filter(AdminLog.created_at >= date_from_obj)
+        except ValueError:
+            pass
+    
+    if date_to:
+        try:
+            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
+            query = query.filter(AdminLog.created_at < date_to_obj)
+        except ValueError:
+            pass
+    
+    # Pagination
     page = request.args.get('page', 1, type=int)
-    per_page = 50
+    logs = query.order_by(AdminLog.created_at.desc()).paginate(
+        page=page, per_page=50, error_out=False)
     
-    logs = AdminLog.query.order_by(AdminLog.timestamp.desc()).paginate(
-        page=page, per_page=per_page, error_out=False
-    )
+    return render_template('admin/admin_logs.html', logs=logs)
+
+@app.route('/admin/ocr')
+@login_required
+def admin_ocr_dashboard():
+    if not current_user.is_admin:
+        flash('Access denied', 'error')
+        return redirect(url_for('dashboard'))
     
-    return render_template('admin/logs.html', logs=logs)
+    # Get OCR statistics
+    ocr_stats = ocr_processor.get_processing_stats()
+    
+    return render_template('admin/admin_ocr_dashboard.html', stats=ocr_stats)
+
+@app.route('/admin/phi_settings', methods=['GET', 'POST'])
+@login_required
+def phi_settings():
+    if not current_user.is_admin:
+        flash('Access denied', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Get or create PHI settings
+    phi_settings = PHISettings.query.first()
+    if not phi_settings:
+        phi_settings = PHISettings()
+        db.session.add(phi_settings)
+        db.session.commit()
+    
+    form = PHISettingsForm(obj=phi_settings)
+    
+    if form.validate_on_submit():
+        form.populate_obj(phi_settings)
+        phi_settings.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        log_admin_action(current_user.id, 'UPDATE_PHI_SETTINGS', 'Updated PHI filtering settings')
+        flash('PHI settings updated successfully', 'success')
+        return redirect(url_for('phi_settings'))
+    
+    return render_template('admin/phi_settings.html', form=form, settings=phi_settings)
+
+# API endpoints
+@app.route('/api/screening-keywords/<int:screening_type_id>')
+@login_required
+def api_screening_keywords(screening_type_id):
+    screening_type = ScreeningType.query.get_or_404(screening_type_id)
+    keywords = screening_type.get_keywords_list()
+    
+    return jsonify({
+        'success': True,
+        'keywords': keywords
+    })
+
+@app.route('/api/refresh-screening/<int:screening_id>', methods=['POST'])
+@login_required
+def api_refresh_screening(screening_id):
+    try:
+        screening = Screening.query.get_or_404(screening_id)
+        screening_engine.refresh_single_screening(screening)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Screening refreshed successfully'
+        })
+    except Exception as e:
+        logging.error(f"Error refreshing screening {screening_id}: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Error refreshing screening'
+        }), 500

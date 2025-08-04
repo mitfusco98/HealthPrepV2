@@ -3,80 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
     <!-- Cache control -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
+    
     <title>{% block title %}HealthPrep - Patient Visit Preparation{% endblock %}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
-
+    
     <!-- Bootstrap CSS -->
     <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
     <!-- Custom CSS -->
-    <link href="{{ url_for('static', filename='css/custom.css') }}" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/medical_terminology_ui.css') }}" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/loading-states.css') }}" rel="stylesheet">
-
+    <link href="{{ url_for('static', filename='css/custom.css', v=cache_timestamp|default('')) }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/medical_terminology_ui.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/loading-states.css') }}">
+    
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <!-- User Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('ui.dashboard') }}">
-                <i class="fas fa-heartbeat me-2"></i>HealthPrep
+            <!-- Brand -->
+            <a class="navbar-brand" href="{{ url_for('main.dashboard') }}">
+                <i class="fas fa-stethoscope me-2"></i>
+                HealthPrep
             </a>
-
+            
+            <!-- Mobile toggle -->
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
-
+            
+            <!-- Navigation Links -->
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('ui.dashboard') }}">
-                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                        <a class="nav-link" href="{{ url_for('main.dashboard') }}">
+                            <i class="fas fa-tachometer-alt me-1"></i>
+                            Dashboard
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('screening.screening_list') }}">
-                            <i class="fas fa-clipboard-list me-1"></i>Screenings
+                        <a class="nav-link" href="{{ url_for('main.screening_list') }}">
+                            <i class="fas fa-list-check me-1"></i>
+                            Screenings
                         </a>
                     </li>
-                </ul>
-
-                <ul class="navbar-nav">
-                    {% if current_user.is_authenticated %}
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
-                                <i class="fas fa-user me-1"></i>{{ current_user.username }}
-                            </a>
-                            <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="#"><i class="fas fa-user-cog me-2"></i>Profile</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
-                            </ul>
-                        </li>
-                    {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('login') }}">
-                                <i class="fas fa-sign-in-alt me-1"></i>Login
-                            </a>
-                        </li>
+                    {% if current_user.role in ['admin', 'clinician'] %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.screening_types') }}">
+                            <i class="fas fa-cogs me-1"></i>
+                            Screening Types
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.upload_document') }}">
+                            <i class="fas fa-upload me-1"></i>
+                            Upload Documents
+                        </a>
+                    </li>
                     {% endif %}
+                </ul>
+                
+                <!-- User Menu -->
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user-circle me-1"></i>
+                            {{ current_user.username }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><h6 class="dropdown-header">User Options</h6></li>
+                            {% if current_user.is_admin() %}
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('admin.dashboard') }}">
+                                    <i class="fas fa-cog me-1"></i>
+                                    Admin Dashboard
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% endif %}
+                            <li>
+                                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#sessionInfoModal">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Session Info
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('auth.logout') }}">
+                                    <i class="fas fa-sign-out-alt me-1"></i>
+                                    Logout
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
                 </ul>
             </div>
         </div>
     </nav>
-
+    
     <!-- Flash Messages -->
     <div class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{% if category == 'error' %}danger{% else %}{{ category }}{% endif %} alert-dismissible fade show" role="alert">
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'info-circle' if category == 'info' else 'check-circle' if category == 'success' else 'exclamation-circle' }} me-2"></i>
                         {{ message }}
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
@@ -84,35 +122,204 @@
             {% endif %}
         {% endwith %}
     </div>
-
+    
     <!-- Main Content -->
-    <main class="container">
+    <main class="container-fluid">
         {% block content %}{% endblock %}
     </main>
-
+    
+    <!-- Session Info Modal -->
+    <div class="modal fade" id="sessionInfoModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Session Information</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-sm-4"><strong>User:</strong></div>
+                        <div class="col-sm-8">{{ current_user.username }}</div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-sm-4"><strong>Role:</strong></div>
+                        <div class="col-sm-8">{{ current_user.role.title() }}</div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-sm-4"><strong>Last Login:</strong></div>
+                        <div class="col-sm-8">
+                            {% if current_user.last_login %}
+                                {{ current_user.last_login.strftime('%Y-%m-%d %H:%M') }}
+                            {% else %}
+                                Never
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-sm-4"><strong>Session ID:</strong></div>
+                        <div class="col-sm-8"><code class="small">{{ session.get('_id', 'Unknown')[:16] }}...</code></div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="alert alert-info small mb-0">
+                                <i class="fas fa-shield-alt me-1"></i>
+                                Your session is protected with HIPAA-compliant security measures.
+                                Sessions automatically expire after 8 hours of inactivity.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Footer -->
-    <footer class="bg-dark text-light mt-5 py-4">
+    <footer class="bg-dark text-light py-4 mt-5">
         <div class="container">
             <div class="row">
                 <div class="col-md-6">
-                    <h5><i class="fas fa-heartbeat me-2"></i>HealthPrep</h5>
-                    <p class="text-muted">HIPAA-compliant healthcare preparation system</p>
+                    <h6>HealthPrep</h6>
+                    <p class="small mb-0">HIPAA-compliant healthcare preparation system</p>
                 </div>
                 <div class="col-md-6 text-md-end">
-                    <small class="text-muted">
-                        &copy; {{ now.year }} HealthPrep. All rights reserved.<br>
-                        HIPAA Compliant | Secure | Professional
-                    </small>
+                    <p class="small mb-1">
+                        <i class="fas fa-shield-alt me-1"></i>
+                        Secure & Compliant
+                    </p>
+                    <p class="small mb-0">
+                        Version 2.0 | 
+                        <span id="currentTime"></span>
+                    </p>
                 </div>
             </div>
         </div>
     </footer>
-
+    
     <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
     <!-- Medical Terminology JS -->
     <script src="{{ url_for('static', filename='js/medical_terminology.js') }}"></script>
-
+    
+    <!-- Custom JavaScript -->
+    <script>
+        // Update current time
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = now.toLocaleString();
+        }
+        
+        // Update time every minute
+        updateTime();
+        setInterval(updateTime, 60000);
+        
+        // CSRF token for AJAX requests
+        window.csrf_token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        
+        // Session timeout warning (7.5 hours = 450 minutes)
+        let sessionWarningTimeout = setTimeout(function() {
+            if (confirm('Your session will expire in 30 minutes due to inactivity. Click OK to extend your session.')) {
+                // Make a simple request to extend session
+                fetch('/api/extend-session', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': window.csrf_token,
+                        'Content-Type': 'application/json'
+                    }
+                }).then(function(response) {
+                    if (response.ok) {
+                        // Reset the timeout
+                        clearTimeout(sessionWarningTimeout);
+                        sessionWarningTimeout = setTimeout(arguments.callee, 450 * 60 * 1000);
+                    }
+                });
+            }
+        }, 450 * 60 * 1000); // 450 minutes = 7.5 hours
+        
+        // Enhanced error handling for medical terminology
+        window.addEventListener('error', function(e) {
+            console.error('JavaScript error:', e.error);
+            
+            // Show user-friendly error message for critical failures
+            if (e.error && e.error.message && e.error.message.includes('medical_terminology')) {
+                const toast = `
+                    <div class="toast align-items-center text-white bg-warning border-0" role="alert">
+                        <div class="d-flex">
+                            <div class="toast-body">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Medical terminology features temporarily unavailable.
+                            </div>
+                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                        </div>
+                    </div>
+                `;
+                
+                // Add toast to page if not already present
+                if (!document.querySelector('.toast-container')) {
+                    const toastContainer = document.createElement('div');
+                    toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+                    toastContainer.innerHTML = toast;
+                    document.body.appendChild(toastContainer);
+                    
+                    const toastElement = toastContainer.querySelector('.toast');
+                    const bsToast = new bootstrap.Toast(toastElement);
+                    bsToast.show();
+                }
+            }
+        });
+        
+        // Loading state management
+        function showLoadingState(element, message = 'Loading...') {
+            if (element) {
+                element.innerHTML = `
+                    <div class="d-flex align-items-center justify-content-center py-3">
+                        <div class="spinner-border spinner-border-sm me-2" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <span>${message}</span>
+                    </div>
+                `;
+            }
+        }
+        
+        // Global loading indicator for AJAX requests
+        let activeRequests = 0;
+        
+        function showGlobalLoading() {
+            activeRequests++;
+            if (activeRequests === 1) {
+                const loadingIndicator = document.createElement('div');
+                loadingIndicator.id = 'globalLoadingIndicator';
+                loadingIndicator.className = 'position-fixed top-50 start-50 translate-middle';
+                loadingIndicator.style.zIndex = '9999';
+                loadingIndicator.innerHTML = `
+                    <div class="bg-dark text-light p-3 rounded shadow">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm me-2" role="status">
+                                <span class="visually-hidden">Processing...</span>
+                            </div>
+                            <span>Processing request...</span>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(loadingIndicator);
+            }
+        }
+        
+        function hideGlobalLoading() {
+            activeRequests = Math.max(0, activeRequests - 1);
+            if (activeRequests === 0) {
+                const indicator = document.getElementById('globalLoadingIndicator');
+                if (indicator) {
+                    indicator.remove();
+                }
+            }
+        }
+    </script>
+    
     {% block extra_js %}{% endblock %}
 </body>
 </html>
