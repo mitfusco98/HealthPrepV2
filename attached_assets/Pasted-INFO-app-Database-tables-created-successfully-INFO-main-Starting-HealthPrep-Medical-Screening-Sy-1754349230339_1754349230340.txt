@@ -1,0 +1,115 @@
+INFO:app:Database tables created successfully
+INFO:__main__:Starting HealthPrep Medical Screening System
+ * Serving Flask app 'app'
+ * Debug mode: on
+INFO:werkzeug:WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://172.31.111.130:5000
+INFO:werkzeug:Press CTRL+C to quit
+INFO:werkzeug: * Restarting with stat
+INFO:app:Database tables created successfully
+INFO:__main__:Starting HealthPrep Medical Screening System
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 787-486-540
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:12:29] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:12:29] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:12:29] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:12:29] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:12:29] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+ERROR:ui.views:Error in patient list view: type object 'Patient' has no attribute 'last_name'
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:12:56] "GET /patients HTTP/1.1" 500 -
+Traceback (most recent call last):
+  File "/home/runner/workspace/ui/views.py", line 405, in patient_list
+    patients = query.order_by(Patient.last_name, Patient.first_name).all()
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: type object 'Patient' has no attribute 'last_name'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1514, in wsgi_app
+    response = self.handle_exception(e)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask_login/utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/ui/routes.py", line 64, in patient_list
+    return views.patient_list()
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/ui/views.py", line 414, in patient_list
+    return render_template('patient_list.html',
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/templating.py", line 149, in render_template
+    template = app.jinja_env.get_or_select_template(template_name_or_list)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/jinja2/environment.py", line 1087, in get_or_select_template
+    return self.get_template(template_name_or_list, parent, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/jinja2/environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/jinja2/environment.py", line 975, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/jinja2/loaders.py", line 126, in load
+    source, filename, uptodate = self.get_source(environment, name)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/templating.py", line 65, in get_source
+    return self._get_source_fast(environment, template)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/templating.py", line 99, in _get_source_fast
+    raise TemplateNotFound(template)
+jinja2.exceptions.TemplateNotFound: patient_list.html
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:12:56] "GET /patients?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:12:56] "GET /patients?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:04] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:04] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:04] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:04] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:04] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:06] "GET /screening/list HTTP/1.1" 200 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:06] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:06] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:06] "GET /static/js/screening_performance.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:06] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:06] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:06] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+ERROR:routes.screening_routes:Screening list error: Could not build url for endpoint 'screening.edit_screening_type' with values ['type_id']. Did you forget to specify values ['screening_type_id']?
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:08] "GET /screening/list?view=types HTTP/1.1" 200 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:08] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:08] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:08] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:08] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:08] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:08] "GET /static/js/screening_performance.js HTTP/1.1" 304 -
+ERROR:routes.screening_routes:Screening list error: Could not build url for endpoint 'screening.edit_screening_type' with values ['type_id']. Did you forget to specify values ['screening_type_id']?
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:11] "GET /screening/list?view=types HTTP/1.1" 200 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:11] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:11] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:11] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:12] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:12] "GET /static/js/screening_performance.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:12] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:23] "GET /screening/list?view=settings HTTP/1.1" 200 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:23] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:23] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:23] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:23] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:23] "GET /static/js/screening_performance.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [04/Aug/2025 23:13:23] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
