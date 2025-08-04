@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from models import Patient, Document, Screening, ScreeningType
 from forms import PatientForm, DocumentUploadForm
 from app import db
-from admin.logs import log_admin_action
+from admin.logs import AdminLogger
 from ocr.processor import OCRProcessor
 from core.engine import ScreeningEngine
 import os
@@ -53,7 +53,7 @@ def add_patient():
         db.session.commit()
         
         # Log the action
-        log_admin_action(
+        AdminLogger.log(
             user_id=current_user.id,
             action='Patient Created',
             details=f'Created patient: {patient.full_name} (MRN: {patient.mrn})',
@@ -139,7 +139,7 @@ def upload_document(patient_id):
                 flash(f'Document uploaded but OCR processing failed: {str(e)}', 'warning')
             
             # Log the action
-            log_admin_action(
+            AdminLogger.log(
                 user_id=current_user.id,
                 action='Document Uploaded',
                 details=f'Uploaded document "{filename}" for patient {patient.full_name}',
