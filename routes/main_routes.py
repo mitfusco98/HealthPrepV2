@@ -1,5 +1,5 @@
 """
-Main application routes for user interface
+Apply the changes described in the prompt, fixing the dashboard route and addressing error handling.
 """
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
@@ -26,30 +26,44 @@ def index():
 @main_bp.route('/dashboard')
 @login_required
 def dashboard():
-    """Main dashboard for users"""
+    """Main dashboard view"""
     try:
+        logger.info(f"Dashboard accessed by user: {current_user.username}")
+
         # Get basic statistics
         total_patients = Patient.query.count()
-        recent_patients = Patient.query.order_by(Patient.created_at.desc()).limit(5).all()
-        
+        total_documents = MedicalDocument.query.count()
+
         # Get screening statistics
         total_screenings = Screening.query.count()
         due_screenings = Screening.query.filter_by(status='Due').count()
-        
-        # Get recent documents
-        recent_documents = MedicalDocument.query.order_by(
-            MedicalDocument.created_at.desc()
-        ).limit(5).all()
+        complete_screenings = Screening.query.filter_by(status='Complete').count()
+
+        # Create stats object for template
+        stats = {
+            'total_patients': total_patients,
+            'total_documents': total_documents,
+            'total_screenings': total_screenings,
+            'due_screenings': due_screenings,
+            'complete_screenings': complete_screenings
+        }
+
+        # Recent activity
+        recent_documents = MedicalDocument.query.order_by(MedicalDocument.created_at.desc()).limit(5).all()
+        recent_screenings = Screening.query.order_by(Screening.created_at.desc()).limit(5).all()
 
         return render_template('dashboard.html',
+                             stats=stats,
                              total_patients=total_patients,
-                             recent_patients=recent_patients,
+                             total_documents=total_documents,
                              total_screenings=total_screenings,
                              due_screenings=due_screenings,
-                             recent_documents=recent_documents)
+                             complete_screenings=complete_screenings,
+                             recent_documents=recent_documents,
+                             recent_screenings=recent_screenings)
 
     except Exception as e:
-        logger.error(f"Error in dashboard route: {str(e)}")
+        logger.error(f"Error in dashboard route: {e}")
         flash('Error loading dashboard', 'error')
         return render_template('error/500.html'), 500
 
@@ -60,25 +74,25 @@ def screening_list():
     try:
         page = request.args.get('page', 1, type=int)
         search = request.args.get('search', '')
-        
+
         query = Screening.query.join(Patient).join(ScreeningType)
-        
+
         if search:
             query = query.filter(
                 Patient.first_name.contains(search) |
                 Patient.last_name.contains(search) |
                 ScreeningType.name.contains(search)
             )
-        
+
         screenings = query.order_by(
             Screening.next_due_date.asc()
         ).paginate(
             page=page, per_page=20, error_out=False
         )
-        
+
         return render_template('screening/screening_list.html', 
                              screenings=screenings, search=search)
-    
+
     except Exception as e:
         logger.error(f"Error in screening list route: {str(e)}")
         flash('Error loading screenings', 'error')
