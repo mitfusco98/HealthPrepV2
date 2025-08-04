@@ -1,0 +1,51 @@
+INFO:root:Database tables created
+ * Serving Flask app 'app'
+ * Debug mode: on
+INFO:werkzeug:WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://172.31.74.226:5000
+INFO:werkzeug:Press CTRL+C to quit
+INFO:werkzeug: * Restarting with stat
+INFO:root:Database tables created
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 124-513-692
+INFO:werkzeug:10.82.4.25 - - [04/Aug/2025 16:43:14] "GET / HTTP/1.1" 302 -
+INFO:werkzeug:10.82.4.25 - - [04/Aug/2025 16:43:15] "GET /auth/login HTTP/1.1" 200 -
+INFO:werkzeug:10.82.9.65 - - [04/Aug/2025 16:43:15] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:10.82.3.3 - - [04/Aug/2025 16:43:15] "GET /static/css/custom.css?v=<function+cache_timestamp+at+0x7f62917de480> HTTP/1.1" 200 -
+INFO:werkzeug:10.82.4.25 - - [04/Aug/2025 16:43:15] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.82.9.65 - - [04/Aug/2025 16:43:15] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:10.82.9.65 - - [04/Aug/2025 16:43:40] "POST /auth/login HTTP/1.1" 302 -
+INFO:werkzeug:10.82.9.65 - - [04/Aug/2025 16:43:40] "GET /admin/dashboard HTTP/1.1" 500 -
+Traceback (most recent call last):
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/werkzeug/middleware/proxy_fix.py", line 183, in __call__
+    return self.app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1514, in wsgi_app
+    response = self.handle_exception(e)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask_login/utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/routes/admin_routes.py", line 27, in decorated_function
+    if not current_user.is_authenticated or current_user.role != 'admin':
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'User' object has no attribute 'role'
+INFO:werkzeug:172.31.74.226 - - [04/Aug/2025 16:43:40] "GET /admin/dashboard?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1" 200 -
+INFO:werkzeug:172.31.74.226 - - [04/Aug/2025 16:43:40] "GET /admin/dashboard?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1" 200 -
