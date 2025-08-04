@@ -12,7 +12,7 @@ from models import User, AdminLog, PHIFilterSettings, ChecklistSettings
 from app import db
 from admin.logs import AdminLogManager
 from admin.analytics import HealthPrepAnalytics
-from admin.config import AdminConfigManager
+from admin.config import AdminConfig
 from ocr.monitor import OCRMonitor
 from ocr.phi_filter import PHIFilter
 
@@ -296,7 +296,7 @@ def toggle_user_status(user_id):
 def settings():
     """System settings management"""
     try:
-        config_manager = AdminConfigManager()
+        config_manager = AdminConfig()
 
         if request.method == 'POST':
             # Update system settings
@@ -325,7 +325,7 @@ def settings():
             return redirect(url_for('admin.settings'))
 
         # GET request - show current settings
-        current_settings = config_manager.get_current_settings()
+        current_settings = config_manager.get_system_settings()
 
         return render_template('admin/settings.html',
                              settings=current_settings)
