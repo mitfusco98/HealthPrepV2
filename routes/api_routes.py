@@ -10,7 +10,7 @@ import json
 
 from models import Patient, ScreeningType, Screening, MedicalDocument
 from core.engine import ScreeningEngine
-from core.matcher import FuzzyMatcher
+from core.matcher import DocumentMatcher
 from core.criteria import EligibilityCriteria
 from ocr.processor import OCRProcessor
 from ocr.phi_filter import PHIFilter
@@ -165,8 +165,10 @@ def get_keyword_suggestions():
         if not partial:
             return jsonify({'suggestions': []})
         
-        matcher = FuzzyMatcher()
-        suggestions = matcher.get_keyword_suggestions(partial, limit=10)
+        matcher = DocumentMatcher()
+        # DocumentMatcher doesn't have get_keyword_suggestions, so we'll use fuzzy_matching utils
+        from utils.fuzzy_matching import medical_matcher
+        suggestions = medical_matcher.find_related_terms(partial)[:10]
         
         return jsonify({
             'success': True,
