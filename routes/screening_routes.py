@@ -48,8 +48,7 @@ def screening_list():
             if patient_filter:
                 query = query.filter(
                     db.or_(
-                        Patient.first_name.contains(patient_filter),
-                        Patient.last_name.contains(patient_filter),
+                        Patient.name.contains(patient_filter),
                         Patient.mrn.contains(patient_filter)
                     )
                 )
@@ -60,10 +59,10 @@ def screening_list():
             if screening_type_filter:
                 query = query.filter(ScreeningType.name.contains(screening_type_filter))
 
-            screenings = query.order_by(Patient.last_name, Patient.first_name, ScreeningType.name).all()
+            screenings = query.order_by(Patient.name, ScreeningType.name).all()
 
             # Get filter options
-            patients = Patient.query.order_by(Patient.last_name, Patient.first_name).all()
+            patients = Patient.query.order_by(Patient.name).all()
             screening_types = ScreeningType.query.filter_by(is_active=True).order_by(ScreeningType.name).all()
 
             return render_template('screening/screening_list.html',
