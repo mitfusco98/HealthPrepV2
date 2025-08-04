@@ -6,7 +6,7 @@ from flask_login import login_required, current_user
 from datetime import datetime
 import logging
 
-from models import ScreeningType, Screening, Patient
+from models import ScreeningType, Screening, Patient, ChecklistSettings
 from core.engine import ScreeningEngine
 from admin.logs import AdminLogger
 from forms import ScreeningTypeForm, ChecklistSettingsForm
@@ -19,41 +19,92 @@ screening_bp = Blueprint('screening', __name__)
 @screening_bp.route('/list')
 @login_required
 def screening_list():
-    """Main screening list with multiple modes"""
+    """Main screening list with multiple views"""
     try:
-        # Get all patients with their screenings
-        patients = Patient.query.all()
+        view_mode = request.args.get('view', 'list')  # list, types, checklist
+        patient_filter = request.args.get('patient', '', type=str)
+        status_filter = request.args.get('status', '', type=str)
+        screening_type_filter = request.args.get('screening_type', '', type=str)
 
-        # Get all screening types
-        screening_types = ScreeningType.query.filter_by(is_active=True).all()
+        if view_mode == 'types':
+            # Screening types management view
+            screening_types = ScreeningType.query.order_by(ScreeningType.name).all()
+            return render_template('screening/screening_list.html',
+                                 view_mode='types',
+                                 screening_types=screening_types,
+                                 filters={
+                                     'patient': '',
+                                     'status': '',
+                                     'screening_type': ''
+                                 })
 
-        # Get all screenings with status summary
-        screenings = Screening.query.join(ScreeningType).filter_by(is_active=True).all()
+        elif view_mode == 'checklist':
+            # Checklist settings view
+            settings = ChecklistSettings.query.first()
+            if not settings:
+                settings = ChecklistSettings()
 
-        # Organize data for display
-        screening_data = []
-        for screening in screenings:
-            screening_data.append({
-                'id': screening.id,
-                'patient_name': f"{screening.patient.first_name} {screening.patient.last_name}",
-                'patient_mrn': screening.patient.mrn,
-                'screening_name': screening.screening_type.name,
-                'status': screening.status,
-                'last_completed': screening.last_completed_date,
-                'frequency': screening.screening_type.frequency_years,
-                'matched_documents': len(screening.matched_documents),
-                'patient_id': screening.patient_id
-            })
+            form = ChecklistSettingsForm(obj=settings)
+            return render_template('screening/screening_list.html',
+                                 view_mode='checklist',
+                                 form=form,
+                                 settings=settings,
+                                 filters={
+                                     'patient': '',
+                                     'status': '',
+                                     'screening_type': ''
+                                 })
 
-        return render_template('screening/screening_list.html',
-                             screenings=screening_data,
-                             screening_types=screening_types,
-                             patients=patients)
+        else:
+            # Main screening list view
+            query = Screening.query.join(Patient).join(ScreeningType)
+
+            # Apply filters
+            if patient_filter:
+                query = query.filter(
+                    db.or_(
+                        Patient.first_name.contains(patient_filter),
+                        Patient.last_name.contains(patient_filter),
+                        Patient.mrn.contains(patient_filter)
+                    )
+                )
+
+            if status_filter:
+                query = query.filter(Screening.status == status_filter)
+
+            if screening_type_filter:
+                query = query.filter(ScreeningType.name.contains(screening_type_filter))
+
+            screenings = query.order_by(Patient.last_name, Patient.first_name, ScreeningType.name).all()
+
+            # Get filter options
+            patients = Patient.query.order_by(Patient.last_name, Patient.first_name).all()
+            screening_types = ScreeningType.query.filter_by(is_active=True).order_by(ScreeningType.name).all()
+
+            return render_template('screening/screening_list.html',
+                                 view_mode='list',
+                                 screenings=screenings,
+                                 patients=patients,
+                                 screening_types=screening_types,
+                                 filters={
+                                     'patient': patient_filter,
+                                     'status': status_filter,
+                                     'screening_type': screening_type_filter
+                                 })
 
     except Exception as e:
-        logger.error(f"Error in screening list: {str(e)}")
-        flash('Error loading screening list', 'error')
-        return render_template('error/500.html'), 500
+        logger.error(f"Screening list error: {str(e)}")
+        flash('Error loading screening data', 'error')
+        return render_template('screening/screening_list.html',
+                             view_mode='list',
+                             screenings=[],
+                             patients=[],
+                             screening_types=[],
+                             filters={
+                                 'patient': '',
+                                 'status': '',
+                                 'screening_type': ''
+                             })
 
 @screening_bp.route('/types')
 @login_required
@@ -147,7 +198,7 @@ def edit_screening_type(screening_type_id):
         if screening_type.trigger_conditions:
             form.trigger_conditions.data = ','.join(screening_type.trigger_conditions)
 
-        return render_template('screening/edit_screening_type.html', 
+        return render_template('screening/edit_screening_type.html',
                              form=form, screening_type=screening_type)
 
     except Exception as e:
@@ -219,8 +270,6 @@ def delete_screening_type(screening_type_id):
 def checklist_settings():
     """Checklist settings management"""
     try:
-        from models import ChecklistSettings
-
         settings = ChecklistSettings.query.first()
         form = ChecklistSettingsForm(obj=settings)
 
@@ -246,7 +295,7 @@ def checklist_settings():
             flash('Checklist settings updated successfully', 'success')
             return redirect(url_for('screening.checklist_settings'))
 
-        return render_template('screening/checklist_settings.html', 
+        return render_template('screening/checklist_settings.html',
                              form=form, settings=settings)
 
     except Exception as e:
