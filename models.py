@@ -29,6 +29,10 @@ class User(UserMixin, db.Model):
         """Check password against hash"""
         return check_password_hash(self.password_hash, password)
 
+    def is_admin_user(self):
+        """Check if user has admin privileges"""
+        return self.is_admin
+
     @property
     def is_active(self):
         """Check if user is active (Flask-Login requirement)"""

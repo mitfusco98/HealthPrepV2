@@ -25,7 +25,7 @@ def admin_required(f):
     """Decorator to require admin role"""
     @functools.wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or not current_user.is_admin:
+        if not current_user.is_authenticated or not current_user.is_admin_user():
             flash('Admin access required', 'error')
             return redirect(url_for('main.index'))
         return f(*args, **kwargs)
@@ -284,7 +284,11 @@ def toggle_user_status(user_id):
             flash('Cannot disable your own account', 'error')
             return redirect(url_for('admin.users'))
 
-        user.is_active = not user.is_active
+        # Add is_active field if it doesn't exist
+        if not hasattr(user, 'is_active'):
+            user.is_active = True
+        
+        user.is_active = not getattr(user, 'is_active', True)
         db.session.commit()
 
         # Log the action
@@ -303,6 +307,93 @@ def toggle_user_status(user_id):
         logger.error(f"Error toggling user status: {str(e)}")
         flash('Error updating user status', 'error')
         return redirect(url_for('admin.users'))
+
+@admin_bp.route('/user/<int:user_id>/toggle-admin', methods=['POST'])
+@login_required
+@admin_required
+def toggle_admin_status(user_id):
+    """Toggle user admin privileges"""
+    try:
+        user = User.query.get_or_404(user_id)
+
+        # Don't allow removing own admin privileges
+        if user.id == current_user.id:
+            flash('Cannot modify your own admin privileges', 'error')
+            return redirect(url_for('admin.users'))
+
+        user.is_admin = not user.is_admin
+        db.session.commit()
+
+        # Log the action
+        AdminLogger.log(
+            user_id=current_user.id,
+            action='toggle_admin_status',
+            details=f"User {user_id} admin status changed to {user.is_admin}"
+        )
+
+        status = 'granted' if user.is_admin else 'revoked'
+        flash(f'Admin privileges {status} for {user.username}', 'success')
+
+        return redirect(url_for('admin.users'))
+
+    except Exception as e:
+        logger.error(f"Error toggling admin status: {str(e)}")
+        flash('Error updating admin status', 'error')
+        return redirect(url_for('admin.users'))
+
+@admin_bp.route('/user/add', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def add_user():
+    """Add new user"""
+    try:
+        if request.method == 'POST':
+            username = request.form.get('username')
+            email = request.form.get('email')
+            password = request.form.get('password')
+            is_admin = request.form.get('is_admin') == 'on'
+
+            # Validate input
+            if not username or not email or not password:
+                flash('All fields are required', 'error')
+                return render_template('admin/add_user.html')
+
+            # Check if user already exists
+            if User.query.filter_by(username=username).first():
+                flash('Username already exists', 'error')
+                return render_template('admin/add_user.html')
+
+            if User.query.filter_by(email=email).first():
+                flash('Email already exists', 'error')
+                return render_template('admin/add_user.html')
+
+            # Create new user
+            new_user = User(
+                username=username,
+                email=email,
+                is_admin=is_admin
+            )
+            new_user.set_password(password)
+            
+            db.session.add(new_user)
+            db.session.commit()
+
+            # Log the action
+            AdminLogger.log(
+                user_id=current_user.id,
+                action='create_user',
+                details=f"Created user: {username} (Admin: {is_admin})"
+            )
+
+            flash(f'User {username} created successfully', 'success')
+            return redirect(url_for('admin.users'))
+
+        return render_template('admin/add_user.html')
+
+    except Exception as e:
+        logger.error(f"Error adding user: {str(e)}")
+        flash('Error creating user', 'error')
+        return render_template('admin/add_user.html')
 
 @admin_bp.route('/settings/prep-sheet', methods=['GET', 'POST'])
 @login_required

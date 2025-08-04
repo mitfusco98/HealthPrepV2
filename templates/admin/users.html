@@ -1,0 +1,149 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}User Management - HealthPrep{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>
+        <i class="fas fa-users me-2"></i>
+        User Management
+    </h1>
+    <a href="{{ url_for('admin.add_user') }}" class="btn btn-primary">
+        <i class="fas fa-user-plus me-1"></i>
+        Add User
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">System Users</h5>
+    </div>
+    <div class="card-body">
+        {% if users %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>
+                                <strong>{{ user.username }}</strong>
+                                {% if user.id == current_user.id %}
+                                    <span class="badge bg-info ms-1">You</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ user.email }}</td>
+                            <td>
+                                {% if user.is_admin %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-shield-alt me-1"></i>Admin
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary">
+                                        <i class="fas fa-user me-1"></i>User
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% set is_active = user.is_active if hasattr(user, 'is_active') else True %}
+                                {% if is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ user.created_at.strftime('%m/%d/%Y') if user.created_at else 'N/A' }}</td>
+                            <td>
+                                {% if user.id != current_user.id %}
+                                    <div class="btn-group" role="group">
+                                        <form method="POST" action="{{ url_for('admin.toggle_user_status', user_id=user.id) }}" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-outline-warning" 
+                                                    title="Toggle Active Status">
+                                                <i class="fas fa-power-off"></i>
+                                            </button>
+                                        </form>
+                                        <form method="POST" action="{{ url_for('admin.toggle_admin_status', user_id=user.id) }}" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-outline-info"
+                                                    title="Toggle Admin Privileges">
+                                                <i class="fas fa-shield-alt"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">Current User</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                <p class="text-muted">No users found.</p>
+                <a href="{{ url_for('admin.add_user') }}" class="btn btn-primary">
+                    <i class="fas fa-user-plus me-1"></i>
+                    Add First User
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    User Roles
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <span class="badge bg-success me-2">Admin</span>
+                        Full system access, user management, settings
+                    </li>
+                    <li class="mb-2">
+                        <span class="badge bg-secondary me-2">User</span>
+                        Screening management, prep sheet generation
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-cogs me-2"></i>
+                    Quick Actions
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('admin.add_user') }}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-user-plus me-1"></i>
+                        Add New User
+                    </a>
+                    <a href="{{ url_for('admin.logs') }}" class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-history me-1"></i>
+                        View User Activity
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
