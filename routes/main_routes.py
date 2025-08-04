@@ -19,7 +19,7 @@ main_bp = Blueprint('main', __name__)
 def index():
     """Main index route - redirect to dashboard"""
     if current_user.is_authenticated:
-        return redirect(url_for('main.dashboard'))
+        return redirect(url_for('ui.dashboard'))
     else:
         return redirect(url_for('auth.login'))
 
@@ -78,7 +78,7 @@ def patients():
             )
 
         patients = query.order_by(
-            Patient.last_name, Patient.first_name
+            Patient.first_name, Patient.last_name
         ).paginate(
             page=page, per_page=20, error_out=False
         )

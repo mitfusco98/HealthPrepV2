@@ -81,7 +81,7 @@ class UserViews:
             screening_type_filter = request.args.get('screening_type', '')
 
             # Build query based on filters
-            query = PatientScreening.query.join(Patient).join(ScreeningType)
+            query = Screening.query.join(Patient).join(ScreeningType)
 
             if patient_filter:
                 query = query.filter(
@@ -93,12 +93,12 @@ class UserViews:
                 )
 
             if status_filter:
-                query = query.filter(PatientScreening.status == status_filter)
+                query = query.filter(Screening.status == status_filter)
 
             if screening_type_filter:
                 query = query.filter(ScreeningType.name.ilike(f'%{screening_type_filter}%'))
 
-            screenings = query.order_by(PatientScreening.updated_at.desc()).all()
+            screenings = query.order_by(Screening.updated_at.desc()).all()
 
             # Get additional data for the view
             screening_types = ScreeningType.query.filter_by(is_active=True).all()
@@ -370,7 +370,7 @@ class UserViews:
     def document_view(self, document_id):
         """View document content"""
         try:
-            document = MedicalDocument.query.get_or_404(document_id)
+            document = Document.query.get_or_404(document_id)
 
             # Check if user has access to this patient's documents
             # In a real implementation, you'd add proper authorization checks
@@ -402,7 +402,7 @@ class UserViews:
                     )
                 )
 
-            patients = query.order_by(Patient.name).all()
+            patients = query.order_by(Patient.first_name, Patient.last_name).all()
 
             return render_template('patient_list.html',
                                  patients=patients,
