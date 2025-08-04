@@ -8,7 +8,7 @@ import logging
 
 from models import ScreeningType, Screening, Patient
 from core.engine import ScreeningEngine
-from admin.logs import AdminLogManager
+from admin.logs import AdminLogger
 from forms import ScreeningTypeForm, ChecklistSettingsForm
 from app import db
 
@@ -94,13 +94,10 @@ def add_screening_type():
             db.session.commit()
 
             # Log the action
-            log_manager = AdminLogManager()
-            log_manager.log_action(
+            AdminLogger.log(
                 user_id=current_user.id,
                 action='add_screening_type',
-                target_type='screening_type',
-                target_id=screening_type.id,
-                details={'name': screening_type.name}
+                details=f'Added screening type: {screening_type.name}'
             )
 
             flash(f'Screening type "{screening_type.name}" added successfully', 'success')
@@ -135,13 +132,10 @@ def edit_screening_type(screening_type_id):
             db.session.commit()
 
             # Log the action
-            log_manager = AdminLogManager()
-            log_manager.log_action(
+            AdminLogger.log(
                 user_id=current_user.id,
                 action='edit_screening_type',
-                target_type='screening_type',
-                target_id=screening_type.id,
-                details={'name': screening_type.name}
+                details=f'Edited screening type: {screening_type.name}'
             )
 
             flash(f'Screening type "{screening_type.name}" updated successfully', 'success')
@@ -172,13 +166,10 @@ def toggle_screening_type_status(screening_type_id):
         db.session.commit()
 
         # Log the action
-        log_manager = AdminLogManager()
-        log_manager.log_action(
+        AdminLogger.log(
             user_id=current_user.id,
             action='toggle_screening_type_status',
-            target_type='screening_type',
-            target_id=screening_type.id,
-            details={'new_status': screening_type.is_active}
+            details=f'Toggled screening type status: {screening_type.name} -> {screening_type.is_active}'
         )
 
         status = 'activated' if screening_type.is_active else 'deactivated'
@@ -209,13 +200,10 @@ def delete_screening_type(screening_type_id):
         db.session.commit()
 
         # Log the action
-        log_manager = AdminLogManager()
-        log_manager.log_action(
+        AdminLogger.log(
             user_id=current_user.id,
             action='delete_screening_type',
-            target_type='screening_type',
-            target_id=screening_type_id,
-            details={'name': screening_name}
+            details=f'Deleted screening type: {screening_name}'
         )
 
         flash(f'Screening type "{screening_name}" deleted successfully', 'success')
@@ -249,16 +237,10 @@ def checklist_settings():
             db.session.commit()
 
             # Log the action
-            log_manager = AdminLogManager()
-            log_manager.log_action(
+            AdminLogger.log(
                 user_id=current_user.id,
                 action='update_checklist_settings',
-                details={
-                    'lab_cutoff': settings.lab_cutoff_months,
-                    'imaging_cutoff': settings.imaging_cutoff_months,
-                    'consult_cutoff': settings.consult_cutoff_months,
-                    'hospital_cutoff': settings.hospital_cutoff_months
-                }
+                details=f'Updated checklist settings - Lab: {settings.lab_cutoff_months}, Imaging: {settings.imaging_cutoff_months}, Consult: {settings.consult_cutoff_months}, Hospital: {settings.hospital_cutoff_months}'
             )
 
             flash('Checklist settings updated successfully', 'success')
@@ -289,13 +271,10 @@ def refresh_screenings():
             flash(f'Refreshed screenings for patient. Processed: {result["processed_screenings"]}', 'success')
 
             # Log the action
-            log_manager = AdminLogManager()
-            log_manager.log_action(
+            AdminLogger.log(
                 user_id=current_user.id,
                 action='refresh_patient_screenings',
-                target_type='patient',
-                target_id=patient_id,
-                details=result
+                details=f'Refreshed screenings for patient {patient_id} - processed: {result.get("processed_screenings", 0)}'
             )
 
         else:
@@ -304,11 +283,10 @@ def refresh_screenings():
             flash(f'Refreshed all screenings. Processed {result["total_screenings"]} screenings for {result["processed_patients"]} patients', 'success')
 
             # Log the action
-            log_manager = AdminLogManager()
-            log_manager.log_action(
+            AdminLogger.log(
                 user_id=current_user.id,
                 action='refresh_all_screenings',
-                details=result
+                details=f'Refreshed all screenings - processed {result.get("total_screenings", 0)} screenings for {result.get("processed_patients", 0)} patients'
             )
 
         return redirect(url_for('screening.screening_list'))
