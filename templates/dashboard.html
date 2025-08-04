@@ -189,7 +189,7 @@
                 <h5 class="card-title mb-0">
                     <i class="fas fa-clock me-2"></i>Recent Screening Activity
                 </h5>
-                <a href="{{ url_for('demo.patients') }}" class="btn btn-outline-primary btn-sm">
+                <a href="{{ url_for('ui.patient_list') }}" class="btn btn-outline-primary btn-sm">
                     View All <i class="fas fa-arrow-right ms-1"></i>
                 </a>
             </div>
@@ -235,12 +235,12 @@
                 </h5>
             </div>
             <div class="card-body quick-actions text-center">
-                <a href="{{ url_for('demo.patients') }}" class="btn btn-primary w-100 mb-3">
+                <a href="{{ url_for('ui.patient_list') }}" class="btn btn-primary w-100 mb-3">
                     <i class="fas fa-users me-2"></i>
                     View All Patients
                 </a>
 
-                <a href="{{ url_for('demo.patients') }}" class="btn btn-success w-100 mb-3">
+                <a href="{{ url_for('ui.patient_list') }}" class="btn btn-success w-100 mb-3">
                     <i class="fas fa-sync me-2"></i>
                     Sync EMR Data
                 </a>
@@ -250,12 +250,12 @@
                     View Screening List
                 </a>
 
-                <a href="{{ url_for('demo.add_screening_type') }}" class="btn btn-success w-100 mb-3">
+                <a href="{{ url_for('ui.add_screening_type') }}" class="btn btn-success w-100 mb-3">
                     <i class="fas fa-plus-circle me-2"></i>
                     Add Screening Type
                 </a>
 
-                <a href="{{ url_for('demo.screening_list') }}" class="btn btn-warning w-100 mb-3">
+                <a href="{{ url_for('ui.screening_list') }}" class="btn btn-warning w-100 mb-3">
                     <i class="fas fa-clipboard-list me-2"></i>
                     Screening List
                 </a>
