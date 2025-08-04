@@ -36,6 +36,7 @@ def init_routes(app):
     def index():
         """Root route - redirect to main dashboard"""
         from flask_login import current_user
+        from flask import redirect, url_for
         if current_user.is_authenticated:
             return redirect(url_for('demo.index'))
         else:

@@ -34,7 +34,7 @@ def dashboard():
         total_patients = Patient.query.count()
         total_documents = Document.query.count()
 
-        # Get screening statistics
+        # Get screening statistics  
         total_screenings = Screening.query.count()
         due_screenings = Screening.query.filter_by(status='Due').count()
         complete_screenings = Screening.query.filter_by(status='Complete').count()
@@ -65,7 +65,8 @@ def dashboard():
     except Exception as e:
         logger.error(f"Error in dashboard route: {e}")
         flash('Error loading dashboard', 'error')
-        return render_template('error/500.html'), 500
+        # Return a simple error response instead of trying to render error template
+        return f"Dashboard error: {str(e)}", 500
 
 @main_bp.route('/screening-list')
 @login_required
