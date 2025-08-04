@@ -66,37 +66,37 @@ def reset_database():
                 {
                     'name': 'Mammogram',
                     'description': 'Breast cancer screening',
-                    'keywords': ['mammogram', 'mammography', 'breast screening'],
-                    'gender_restriction': 'female',
+                    'keywords': json.dumps(['mammogram', 'mammography', 'breast screening']),
+                    'gender': 'F',
                     'min_age': 40,
                     'max_age': 75,
                     'frequency_value': 12,
                     'frequency_unit': 'months',
-                    'trigger_conditions': [],
+                    'trigger_conditions': json.dumps([]),
                     'is_active': True
                 },
                 {
                     'name': 'Colonoscopy',
                     'description': 'Colorectal cancer screening',
-                    'keywords': ['colonoscopy', 'colon screening', 'colorectal'],
-                    'gender_restriction': None,
+                    'keywords': json.dumps(['colonoscopy', 'colon screening', 'colorectal']),
+                    'gender': None,
                     'min_age': 50,
                     'max_age': 75,
                     'frequency_value': 10,
                     'frequency_unit': 'years',
-                    'trigger_conditions': [],
+                    'trigger_conditions': json.dumps([]),
                     'is_active': True
                 },
                 {
                     'name': 'Pap Smear',
                     'description': 'Cervical cancer screening',
-                    'keywords': ['pap smear', 'cervical screening', 'cytology'],
-                    'gender_restriction': 'female',
+                    'keywords': json.dumps(['pap smear', 'cervical screening', 'cytology']),
+                    'gender': 'F',
                     'min_age': 21,
                     'max_age': 65,
                     'frequency_value': 3,
                     'frequency_unit': 'years',
-                    'trigger_conditions': [],
+                    'trigger_conditions': json.dumps([]),
                     'is_active': True
                 }
             ]
