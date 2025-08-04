@@ -27,7 +27,7 @@
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('demo.index') }}">
+            <a class="navbar-brand" href="{{ url_for('ui.dashboard') }}">
                 <i class="fas fa- stethoscope me-2"></i>
                 HealthPrep
             </a>
@@ -40,18 +40,31 @@
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('ui.dashboard') }}">
-                            <i class="fas fa-tachometer-alt me-1"></i> Dashboard
+                            <i class="fas fa-home me-1"></i>Dashboard
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('ui.screening_list') }}">
-                            <i class="fas fa-clipboard-check me-1"></i> Screenings
+                            <i class="fas fa-list-check me-1"></i>Screening List
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('ui.patient_list') }}">
-                            <i class="fas fa-users me-1"></i> Patients
+                            <i class="fas fa-users me-1"></i>Patients
                         </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-cogs me-1"></i>Settings
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('ui.screening_types') }}">
+                                <i class="fas fa- stethoscope me-1"></i>Screening Types
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('screening.checklist_settings') }}">
+                                <i class="fas fa-sliders-h me-1"></i>Checklist Settings
+                            </a></li>
+                        </ul>
                     </li>
                 </ul>
 
