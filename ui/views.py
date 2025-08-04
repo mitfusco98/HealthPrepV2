@@ -1,7 +1,4 @@
-The code has been modified to correctly pass the `stats` variable to the `dashboard.html` template.
-```
 
-```python
 """
 User interface views for the main application.
 Handles user-facing screens including screening lists, prep sheets, and patient management.
