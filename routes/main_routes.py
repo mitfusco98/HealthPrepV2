@@ -326,12 +326,6 @@ def help():
     """Help and documentation page"""
     return render_template('help.html')
 
-@main_bp.route('/dashboard')
-@login_required
-def dashboard():
-    """Main dashboard route"""
-    return redirect(url_for('demo.index'))
-
 @main_bp.route('/about')
 def about():
     """About page"""
