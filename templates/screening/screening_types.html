@@ -77,7 +77,7 @@
         <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#presetsModal">
             <i class="fas fa-download me-2"></i>Import Presets
         </button>
-        <button type="button" class="btn btn-success" onclick="location.href='{{ url_for('add_screening_type') }}'">
+        <button type="button" class="btn btn-success" onclick="location.href='{{ url_for('ui.add_screening_type') }}'">
             <i class="fas fa-plus me-2"></i>Add New Type
         </button>
     </div>
@@ -148,14 +148,14 @@
             <span class="badge bg-{{ 'success' if screening_type.is_active else 'secondary' }} stats-badge">
                 {{ 'Active' if screening_type.is_active else 'Inactive' }}
             </span>
-            
+
             <div class="card-header">
                 <h5 class="card-title mb-1">{{ screening_type.name }}</h5>
                 <p class="card-subtitle text-muted mb-0">
                     {{ screening_type.description or 'No description provided' }}
                 </p>
             </div>
-            
+
             <div class="card-body">
                 <!-- Frequency Information -->
                 <div class="criteria-section">
@@ -225,7 +225,7 @@
                 </div>
                 {% endif %}
             </div>
-            
+
             <div class="card-footer">
                 <div class="row g-2">
                     <div class="col-6">
@@ -265,9 +265,9 @@
         You can also import preset configurations for common specialties.
     </p>
     <div class="d-flex justify-content-center gap-3">
-        <button type="button" class="btn btn-primary" onclick="location.href='{{ url_for('add_screening_type') }}'">
+        <a href="{{ url_for('ui.add_screening_type') }}" class="btn btn-primary">
             <i class="fas fa-plus me-2"></i>Create Your First Screening Type
-        </button>
+        </a>
         <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#presetsModal">
             <i class="fas fa-download me-2"></i>Import Presets
         </button>
@@ -290,7 +290,7 @@
                     Select preset configurations for common medical specialties. 
                     These will add standardized screening types to your system.
                 </p>
-                
+
                 <div id="presetsList">
                     <div class="preset-item" data-preset="primary_care">
                         <div class="d-flex justify-content-between align-items-start">
@@ -309,7 +309,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="preset-item" data-preset="cardiology">
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
@@ -327,7 +327,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="preset-item" data-preset="women_health">
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
@@ -345,7 +345,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="preset-item" data-preset="geriatrics">
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
@@ -389,7 +389,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 togglePresetSelection(this, checkbox.checked);
             }
         });
-        
+
         const checkbox = item.querySelector('input[type="checkbox"]');
         checkbox.addEventListener('change', function() {
             togglePresetSelection(item, this.checked);
@@ -415,10 +415,10 @@ function toggleScreeningType(id, isActive) {
     const confirmMessage = `Are you sure you want to ${action} this screening type?\n\n` +
                           (isActive ? 'This will stop generating screenings for this type.' : 
                                     'This will resume generating screenings for this type.');
-    
+
     if (confirm(confirmMessage)) {
         showLoading(`${action.charAt(0).toUpperCase() + action.slice(1)}ing screening type...`);
-        
+
         // Make API call to toggle status
         fetch(`/api/screening-types/${id}/toggle`, {
             method: 'POST',
@@ -447,10 +447,10 @@ function toggleScreeningType(id, isActive) {
 function deleteScreeningType(id) {
     const confirmMessage = 'Are you sure you want to delete this screening type?\n\n' +
                           'This action cannot be undone and will remove all associated screening data.';
-    
+
     if (confirm(confirmMessage)) {
         showLoading('Deleting screening type...');
-        
+
         // Make API call to delete
         fetch(`/api/screening-types/${id}`, {
             method: 'DELETE',
@@ -479,22 +479,22 @@ function deleteScreeningType(id) {
 function importSelectedPresets() {
     const selectedPresets = [];
     const checkboxes = document.querySelectorAll('input[name="presets"]:checked');
-    
+
     checkboxes.forEach(checkbox => {
         selectedPresets.push(checkbox.value);
     });
-    
+
     if (selectedPresets.length === 0) {
         alert('Please select at least one preset to import.');
         return;
     }
-    
+
     const confirmMessage = `Import ${selectedPresets.length} preset(s)?\n\n` +
                           'This will add new screening types to your system.';
-    
+
     if (confirm(confirmMessage)) {
         showLoading('Importing presets...');
-        
+
         // Make API call to import presets
         fetch('/api/import-presets', {
             method: 'POST',
