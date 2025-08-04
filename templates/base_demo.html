@@ -36,7 +36,7 @@
             </div>
 
             <!-- Brand -->
-            <a class="navbar-brand" href="{{ url_for('dashboard') }}">
+            <a class="navbar-brand" href="{{ url_for('ui.dashboard') }}">
                 <i class="fas fa-stethoscope me-2"></i>HealthPrep
             </a>
 
@@ -50,14 +50,14 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" 
-                           href="{{ url_for('dashboard') }}">
+                        <a class="nav-link {% if request.endpoint == 'ui.dashboard' %}active{% endif %}" 
+                           href="{{ url_for('ui.dashboard') }}">
                             <i class="fas fa-tachometer-alt me-1"></i>Dashboard
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint in ['screening_list'] %}active{% endif %}" 
-                           href="{{ url_for('screening_list') }}">
+                        <a class="nav-link {% if request.endpoint in ['ui.screening_list'] %}active{% endif %}" 
+                           href="{{ url_for('ui.screening_list') }}">
                             <i class="fas fa-clipboard-list me-1"></i>Screenings
                         </a>
                     </li>
@@ -183,7 +183,7 @@
             if (window.history.length > 1) {
                 window.history.back();
             } else {
-                window.location.href = '{{ url_for("dashboard") }}';
+                window.location.href = '{{ url_for("ui.dashboard") }}';
             }
         });
 
@@ -237,13 +237,13 @@
             // Alt + D for Dashboard
             if (e.altKey && e.key === 'd') {
                 e.preventDefault();
-                window.location.href = '{{ url_for("dashboard") }}';
+                window.location.href = '{{ url_for("ui.dashboard") }}';
             }
             
             // Alt + S for Screenings
             if (e.altKey && e.key === 's') {
                 e.preventDefault();
-                window.location.href = '{{ url_for("screening_list") }}';
+                window.location.href = '{{ url_for("ui.screening_list") }}';
             }
             
             {% if current_user.is_authenticated and current_user.is_admin %}

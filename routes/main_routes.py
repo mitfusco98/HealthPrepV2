@@ -26,8 +26,8 @@ def index():
 @main_bp.route('/dashboard')
 @login_required
 def dashboard():
-    """Main dashboard view - redirect to demo dashboard"""
-    return redirect(url_for('demo.index'))
+    """Main dashboard view - redirect to ui dashboard"""
+    return redirect(url_for('ui.dashboard'))
 
 @main_bp.route('/screening-list')
 @login_required
