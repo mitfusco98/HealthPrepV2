@@ -47,18 +47,18 @@ def reset_database():
             admin_user = User(
                 username='admin',
                 email='admin@example.com',
-                password_hash=generate_password_hash('admin123'),
-                role='admin'
+                is_admin=True
             )
+            admin_user.set_password('admin123')
             db.session.add(admin_user)
             
             # Create a basic user
             basic_user = User(
                 username='user',
                 email='user@example.com',
-                password_hash=generate_password_hash('user123'),
-                role='user'
+                is_admin=False
             )
+            basic_user.set_password('user123')
             db.session.add(basic_user)
             
             # Create default screening types
