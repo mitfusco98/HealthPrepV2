@@ -55,13 +55,13 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="fas fa-clipboard-list me-2"></i>Screening Management</h1>
-    
+
     <div class="btn-group" role="group">
         <button type="button" class="btn btn-outline-primary" onclick="refreshScreenings(event, '{{ active_tab }}')">
             <i class="fas fa-sync-alt me-1"></i>Refresh All
         </button>
         {% if current_user.is_admin() %}
-            <a href="{{ url_for('screening_list', tab='types') }}" class="btn btn-outline-secondary">
+            <a href="{{ url_for('ui.screening_list', tab='types') }}" class="btn btn-outline-secondary">
                 <i class="fas fa-cog me-1"></i>Manage Types
             </a>
         {% endif %}
@@ -107,7 +107,7 @@
     <div class="tab-pane fade{% if active_tab == 'list' %} show active{% endif %}" 
          id="list-panel" 
          role="tabpanel">
-        
+
         {% if screening_matrix %}
             <!-- Confidence Legend -->
             <div class="confidence-legend mb-3">
@@ -202,7 +202,7 @@
     <div class="tab-pane fade{% if active_tab == 'types' %} show active{% endif %}" 
          id="types-panel" 
          role="tabpanel">
-        
+
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h4>Screening Types Management</h4>
             <a href="{{ url_for('add_screening_type') }}" class="btn btn-primary">
@@ -227,25 +227,25 @@
                             </div>
                             <div class="card-body">
                                 <p class="card-text small">{{ screening_type.description or 'No description' }}</p>
-                                
+
                                 <div class="mb-2">
                                     <strong>Frequency:</strong> 
                                     {{ screening_type.frequency_value }} {{ screening_type.frequency_unit }}
                                 </div>
-                                
+
                                 {% if screening_type.min_age or screening_type.max_age %}
                                     <div class="mb-2">
                                         <strong>Age Range:</strong>
                                         {{ screening_type.min_age or 'Any' }} - {{ screening_type.max_age or 'Any' }}
                                     </div>
                                 {% endif %}
-                                
+
                                 {% if screening_type.gender_restriction %}
                                     <div class="mb-2">
                                         <strong>Gender:</strong> {{ screening_type.gender_restriction.title() }}
                                     </div>
                                 {% endif %}
-                                
+
                                 <div class="mb-2">
                                     <strong>Keywords:</strong>
                                     <div class="keywords-badges-container" id="keywords-display-{{ screening_type.id }}">
@@ -286,7 +286,7 @@
     <div class="tab-pane fade{% if active_tab == 'checklist' %} show active{% endif %}" 
          id="checklist-panel" 
          role="tabpanel">
-        
+
         {% include 'screening/checklist_settings.html' %}
     </div>
 </div>
@@ -301,10 +301,10 @@
 // Load keywords and display as badges
 function loadKeywordsAsBadges() {
     const keywordContainers = document.querySelectorAll('.keywords-badges-container');
-    
+
     keywordContainers.forEach(container => {
         const screeningTypeId = container.id.replace('keywords-display-', '');
-        
+
         fetch(`/api/screening-keywords/${screeningTypeId}`)
             .then(response => response.json())
             .then(data => {
@@ -329,25 +329,25 @@ function refreshScreenings(event, tab) {
     event.preventDefault();
     const button = event.target.closest('a');
     const originalText = button.innerHTML;
-    
+
     if (!confirm('Refresh all automated screenings? This will update document matches and screening statuses.')) {
         return;
     }
-    
+
     button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Refreshing...';
     button.disabled = true;
-    
+
     // Use form submission instead of fetch
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = '{{ url_for("refresh_screenings") }}';
-    
+
     const csrfToken = document.createElement('input');
     csrfToken.type = 'hidden';
     csrfToken.name = 'csrf_token';
     csrfToken.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
     form.appendChild(csrfToken);
-    
+
     document.body.appendChild(form);
     form.submit();
 }
@@ -362,13 +362,13 @@ function toggleScreeningType(id) {
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = `/screening/type/${id}/toggle`;
-        
+
         const csrfToken = document.createElement('input');
         csrfToken.type = 'hidden';
         csrfToken.name = 'csrf_token';
         csrfToken.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
         form.appendChild(csrfToken);
-        
+
         document.body.appendChild(form);
         form.submit();
     }
@@ -379,13 +379,13 @@ function deleteScreeningType(id) {
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = `/screening/type/${id}/delete`;
-        
+
         const csrfToken = document.createElement('input');
         csrfToken.type = 'hidden';
         csrfToken.name = 'csrf_token';
         csrfToken.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
         form.appendChild(csrfToken);
-        
+
         document.body.appendChild(form);
         form.submit();
     }
@@ -396,11 +396,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load keywords for display
     if (document.querySelectorAll('.keywords-badges-container').length > 0) {
         loadKeywordsAsBadges();
-        
+
         // Reload after delay to ensure DOM is ready
         setTimeout(loadKeywordsAsBadges, 1000);
     }
-    
+
     // Handle tab switching
     const tabTriggers = document.querySelectorAll('#screeningTabs button[data-bs-toggle="tab"]');
     tabTriggers.forEach(trigger => {
