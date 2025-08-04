@@ -163,12 +163,12 @@ def add_screening_type():
         flash('Error adding screening type', 'error')
         return redirect(url_for('screening.screening_types'))
 
-@screening_bp.route('/type/<int:screening_type_id>/edit', methods=['GET', 'POST'])
+@screening_bp.route('/type/<int:type_id>/edit', methods=['GET', 'POST'])
 @login_required
-def edit_screening_type(screening_type_id):
+def edit_screening_type(type_id):
     """Edit existing screening type"""
     try:
-        screening_type = ScreeningType.query.get_or_404(screening_type_id)
+        screening_type = ScreeningType.query.get_or_404(type_id)
         form = ScreeningTypeForm(obj=screening_type)
 
         if form.validate_on_submit():
@@ -208,12 +208,12 @@ def edit_screening_type(screening_type_id):
         flash('Error editing screening type', 'error')
         return redirect(url_for('screening.screening_types'))
 
-@screening_bp.route('/type/<int:screening_type_id>/toggle-status', methods=['POST'])
+@screening_bp.route('/type/<int:type_id>/toggle-status', methods=['POST'])
 @login_required
-def toggle_screening_type_status(screening_type_id):
+def toggle_screening_type_status(type_id):
     """Toggle screening type active status"""
     try:
-        screening_type = ScreeningType.query.get_or_404(screening_type_id)
+        screening_type = ScreeningType.query.get_or_404(type_id)
 
         screening_type.is_active = not screening_type.is_active
         db.session.commit()
@@ -235,15 +235,15 @@ def toggle_screening_type_status(screening_type_id):
         flash('Error updating screening type status', 'error')
         return redirect(url_for('screening.screening_types'))
 
-@screening_bp.route('/type/<int:screening_type_id>/delete', methods=['POST'])
+@screening_bp.route('/type/<int:type_id>/delete', methods=['POST'])
 @login_required
-def delete_screening_type(screening_type_id):
+def delete_screening_type(type_id):
     """Delete screening type"""
     try:
-        screening_type = ScreeningType.query.get_or_404(screening_type_id)
+        screening_type = ScreeningType.query.get_or_404(type_id)
 
         # Check if screening type is in use
-        active_screenings = Screening.query.filter_by(screening_type_id=screening_type_id).count()
+        active_screenings = Screening.query.filter_by(screening_type_id=type_id).count()
         if active_screenings > 0:
             flash(f'Cannot delete screening type "{screening_type.name}" - it has {active_screenings} active screenings', 'error')
             return redirect(url_for('screening.screening_types'))
