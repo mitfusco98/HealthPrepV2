@@ -47,7 +47,7 @@ def create_app():
         import models
         db.create_all()
         logging.info("Database tables created successfully")
-    
+
     # Register blueprints
     from routes.auth_routes import auth_bp
     from routes.admin_routes import admin_bp
@@ -55,14 +55,14 @@ def create_app():
     from routes.patient_routes import patient_bp
     from routes.screening_routes import screening_bp
     from ui.routes import ui_bp
-    
+
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(admin_bp, url_prefix='/admin') 
     app.register_blueprint(main_bp)
     app.register_blueprint(patient_bp, url_prefix='/patients')
     app.register_blueprint(screening_bp, url_prefix='/screenings')
     app.register_blueprint(ui_bp)
-    
+
     # Add a simple index route
     @app.route('/')
     def index():
@@ -96,6 +96,15 @@ def create_app():
     def internal_error(error):
         db.session.rollback()
         return render_template('error/500.html'), 500
+
+    # Initialize security
+    from config.security import init_security, security_manager
+    init_security(app)
+
+    # Add CSRF token to template context
+    @app.context_processor
+    def inject_csrf_token():
+        return dict(csrf_token=security_manager.generate_csrf_token)
 
     return app
 
