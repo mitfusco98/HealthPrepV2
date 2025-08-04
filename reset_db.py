@@ -4,7 +4,7 @@ Database reset script - drops and recreates all tables
 """
 
 from app import app, db
-from models import User, Patient, ScreeningType, Screening, AdminLog
+from models import User, Patient, ScreeningType, PatientScreening, AdminLog
 from werkzeug.security import generate_password_hash
 from sqlalchemy import inspect
 import json
