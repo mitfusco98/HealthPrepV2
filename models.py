@@ -219,6 +219,17 @@ class PrepSheetSettings(db.Model):
     hospital_cutoff_months = db.Column(db.Integer, default=12)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+class ChecklistSettings(db.Model):
+    """Checklist configuration settings"""
+    __tablename__ = 'checklist_settings'
+
+    id = db.Column(db.Integer, primary_key=True)
+    lab_cutoff_months = db.Column(db.Integer, default=12)
+    imaging_cutoff_months = db.Column(db.Integer, default=24)
+    consult_cutoff_months = db.Column(db.Integer, default=12)
+    hospital_cutoff_months = db.Column(db.Integer, default=12)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 class PHIFilterSettings(db.Model):
     """PHI filter configuration"""
     __tablename__ = 'phi_filter_settings'
