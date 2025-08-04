@@ -24,51 +24,71 @@ def index():
     try:
         # Get basic dashboard data
         analytics = HealthPrepAnalytics()
-        
+
         # Get patient count
         total_patients = Patient.query.count()
-        
+
         # Get recent documents
         recent_documents = Document.query.order_by(
             Document.created_at.desc()
         ).limit(5).all()
-        
+
         # Get screening summary
         total_screenings = Screening.query.count()
         complete_screenings = Screening.query.filter_by(status='complete').count()
-        
+
         dashboard_data = {
             'total_patients': total_patients,
             'total_screenings': total_screenings,
             'complete_screenings': complete_screenings,
             'recent_documents': recent_documents
         }
-        
+
         return render_template('dashboard.html', data=dashboard_data)
-        
+
     except Exception as e:
         logger.error(f"Error in demo index: {str(e)}")
         flash('Error loading dashboard', 'error')
         return render_template('dashboard.html', data={})
-def index():
+
+@demo_bp.route('/index') # Corrected route to avoid conflict and assuming this is the intended index route for the demo blueprint
+@login_required
+def index_demo(): # Renamed function to avoid conflict with the previously defined 'index'
     """Main dashboard"""
     try:
         # Get recent statistics
         analytics = HealthPrepAnalytics()
         # Use available method from HealthPrepAnalytics
         stats = analytics.get_system_performance_metrics()
-        
+
         # Get recent patients
         recent_patients = Patient.query.order_by(Patient.updated_at.desc()).limit(10).all()
-        
+
         # Get pending screenings
         pending_screenings = Screening.query.filter_by(status='Due').limit(5).all()
-        
+
+        # Placeholder for system alerts, if any
+        system_alerts = [] # Assuming system_alerts is a list, adjust if it's different
+
+        dashboard_data = {
+            'recent_patients': recent_patients,
+            'recent_documents': recent_documents,
+            'pending_screenings': pending_screenings,
+            'system_alerts': system_alerts,
+            'stats': {
+                'due_screenings': len(pending_screenings),
+                'total_patients': len(recent_patients),
+                'recent_documents_count': len(recent_documents),
+                'system_alerts_count': len(system_alerts)
+            }
+        }
+
+
         return render_template('index.html',
                              stats=stats,
                              recent_patients=recent_patients,
                              pending_screenings=pending_screenings)
-    
+
     except Exception as e:
         logger.error(f"Error loading dashboard: {str(e)}")
         flash('Error loading dashboard data.', 'error')
@@ -81,9 +101,9 @@ def patients():
     try:
         page = request.args.get('page', 1, type=int)
         search = request.args.get('search', '')
-        
+
         query = Patient.query
-        
+
         if search:
             query = query.filter(
                 db.or_(
@@ -91,13 +111,13 @@ def patients():
                     Patient.mrn.contains(search)
                 )
             )
-        
+
         patients = query.paginate(
             page=page, per_page=20, error_out=False
         )
-        
+
         return render_template('patients.html', patients=patients, search=search)
-    
+
     except Exception as e:
         logger.error(f"Error loading patients: {str(e)}")
         flash('Error loading patient list.', 'error')
@@ -109,24 +129,24 @@ def patient_detail(patient_id):
     """Patient detail page"""
     try:
         patient = Patient.query.get_or_404(patient_id)
-        
+
         # Get patient documents
         documents = Document.query.filter_by(patient_id=patient_id).order_by(
             Document.created_at.desc()
         ).limit(20).all()
-        
+
         # Get patient screenings
         screenings = Screening.query.filter_by(patient_id=patient_id).all()
-        
+
         # Get patient conditions
         conditions = patient.conditions.filter_by(status='active').all()
-        
+
         return render_template('patient_detail.html',
                              patient=patient,
                              documents=documents,
                              screenings=screenings,
                              conditions=conditions)
-    
+
     except Exception as e:
         logger.error(f"Error loading patient {patient_id}: {str(e)}")
         flash('Error loading patient details.', 'error')
@@ -138,15 +158,15 @@ def view_prep_sheet(patient_id):
     """View patient prep sheet"""
     try:
         patient = Patient.query.get_or_404(patient_id)
-        
+
         # Generate prep sheet
         generator = PrepSheetGenerator()
         prep_sheet = generator.generate_prep_sheet(patient_id)
-        
+
         return render_template('prep_sheet/prep_sheet.html',
                              patient=patient,
                              prep_sheet=prep_sheet)
-    
+
     except Exception as e:
         logger.error(f"Error generating prep sheet for patient {patient_id}: {str(e)}")
         flash('Error generating prep sheet.', 'error')
@@ -158,20 +178,20 @@ def refresh_patient_screenings(patient_id):
     """Refresh screenings for a specific patient"""
     try:
         patient = Patient.query.get_or_404(patient_id)
-        
+
         # Refresh screenings using the engine
         engine = ScreeningEngine()
         result = engine.process_patient_screenings(patient_id, force_refresh=True)
-        
+
         flash(f'Successfully refreshed {len(result["processed_screenings"])} screenings for {patient.name}.', 'success')
-        
+
         if result['errors']:
             flash(f'Encountered {len(result["errors"])} errors during refresh.', 'warning')
-        
+
     except Exception as e:
         logger.error(f"Error refreshing screenings for patient {patient_id}: {str(e)}")
         flash('Error refreshing patient screenings.', 'error')
-    
+
     return redirect(url_for('demo.patient_detail', patient_id=patient_id))
 
 @demo_bp.route('/documents')
@@ -182,29 +202,29 @@ def documents():
         page = request.args.get('page', 1, type=int)
         doc_type = request.args.get('type', '')
         patient_id = request.args.get('patient_id', type=int)
-        
+
         query = Document.query
-        
+
         if doc_type:
             query = query.filter_by(document_type=doc_type)
-        
+
         if patient_id:
             query = query.filter_by(patient_id=patient_id)
-        
+
         documents = query.order_by(Document.created_at.desc()).paginate(
             page=page, per_page=20, error_out=False
         )
-        
+
         # Get filter options
         doc_types = db.session.query(Document.document_type).distinct().all()
         doc_types = [dt[0] for dt in doc_types if dt[0]]
-        
+
         return render_template('documents.html',
                              documents=documents,
                              doc_types=doc_types,
                              selected_type=doc_type,
                              selected_patient=patient_id)
-    
+
     except Exception as e:
         logger.error(f"Error loading documents: {str(e)}")
         flash('Error loading document list.', 'error')
@@ -216,9 +236,9 @@ def view_document(document_id):
     """View document content"""
     try:
         document = Document.query.get_or_404(document_id)
-        
+
         return render_template('document_view.html', document=document)
-    
+
     except Exception as e:
         logger.error(f"Error loading document {document_id}: {str(e)}")
         flash('Error loading document.', 'error')
@@ -233,15 +253,15 @@ def upload_document():
         if not patient_id:
             flash('Patient ID is required.', 'error')
             return redirect(request.referrer or url_for('demo.patients'))
-        
+
         patient = Patient.query.get_or_404(patient_id)
-        
+
         # This would handle file upload in a real implementation
         # For now, just show a message
         flash('Document upload functionality would be implemented here.', 'info')
-        
+
         return redirect(url_for('demo.patient_detail', patient_id=patient_id))
-    
+
     except Exception as e:
         logger.error(f"Error uploading document: {str(e)}")
         flash('Error uploading document.', 'error')
@@ -255,7 +275,7 @@ def settings():
         # For now, just render basic settings page
         # Can be extended with actual settings models later
         return render_template('settings.html')
-    
+
     except Exception as e:
         logger.error(f"Error loading settings: {str(e)}")
         flash('Error loading settings.', 'error')
@@ -267,7 +287,7 @@ def analytics():
     """Analytics dashboard"""
     try:
         analytics = HealthPrepAnalytics()
-        
+
         # Get comprehensive analytics
         data = {
             'overview': analytics.get_system_performance_metrics(),
@@ -275,9 +295,9 @@ def analytics():
             'compliance_gaps': analytics.analyze_compliance_gaps_closed(),
             'roi_report': analytics.generate_roi_report()
         }
-        
+
         return render_template('analytics.html', analytics_data=data)
-    
+
     except Exception as e:
         logger.error(f"Error loading analytics: {str(e)}")
         flash('Error loading analytics data.', 'error')
@@ -297,7 +317,7 @@ def search():
         query = request.args.get('q', '').strip()
         if not query:
             return render_template('search_results.html', results={}, query='')
-        
+
         # Search patients
         patients = Patient.query.filter(
             db.or_(
@@ -305,7 +325,7 @@ def search():
                 Patient.mrn.contains(query)
             )
         ).limit(10).all()
-        
+
         # Search documents
         documents = Document.query.filter(
             db.or_(
@@ -313,15 +333,15 @@ def search():
                 Document.ocr_text.contains(query)
             )
         ).limit(10).all()
-        
+
         results = {
             'patients': patients,
             'documents': documents,
             'total': len(patients) + len(documents)
         }
-        
+
         return render_template('search_results.html', results=results, query=query)
-    
+
     except Exception as e:
         logger.error(f"Error performing search: {str(e)}")
         flash('Error performing search.', 'error')
