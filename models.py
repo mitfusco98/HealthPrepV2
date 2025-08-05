@@ -191,6 +191,11 @@ class ScreeningType(db.Model):
         return self.name
 
     @property
+    def variant_name(self):
+        """Return the variant name (for compatibility - not implemented yet)"""
+        return None
+
+    @property
     def base_name(self):
         """Return the base screening name without variant"""
         return self.name
@@ -213,7 +218,7 @@ class ScreeningType(db.Model):
         results = db.session.query(
             cls.name,
             func.count(cls.id).label('variant_count'),
-            func.bool_and(cls.is_active).label('all_active')
+            func.min(cls.is_active).label('all_active')
         ).group_by(cls.name).order_by(cls.name).all()
         
         return [(name, int(count), bool(all_active)) for name, count, all_active in results]
