@@ -428,32 +428,7 @@ def get_standard_conditions():
             'error': str(e)
         }), 500
 
-@api_bp.route('/condition-suggestions')
-@login_required
-def get_condition_suggestions():
-    """Get condition suggestions for trigger conditions"""
-    try:
-        partial = request.args.get('q', '').strip()
-        if not partial:
-            return jsonify({'suggestions': []})
 
-        # Basic condition suggestions - implement full EligibilityCriteria later
-        common_conditions = ['diabetes', 'hypertension', 'heart disease', 'cancer', 
-                           'obesity', 'asthma', 'copd', 'kidney disease']
-        suggestions = [c for c in common_conditions if partial.lower() in c.lower()][:10]
-
-        return jsonify({
-            'success': True,
-            'suggestions': suggestions
-        })
-
-    except Exception as e:
-        logger.error(f"Error getting condition suggestions: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'suggestions': []
-        }), 500
 
 @api_bp.route('/document/<int:document_id>/content')
 @login_required
