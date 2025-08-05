@@ -16,17 +16,14 @@ from core.criteria import EligibilityCriteria
 from ocr.processor import OCRProcessor
 from ocr.phi_filter import PHIFilter
 from prep_sheet.generator import PrepSheetGenerator
-from app import db
+from app import db, csrf
 
 logger = logging.getLogger(__name__)
 
 api_bp = Blueprint('api', __name__)
 
-from flask_wtf.csrf import exempt
-
 @api_bp.route('/screening-keywords/<int:screening_type_id>', methods=['GET', 'POST'])
 @login_required
-@exempt
 def screening_keywords(screening_type_id):
     """Get or update keywords for a screening type"""
     screening_type = ScreeningType.query.get_or_404(screening_type_id)
@@ -93,7 +90,6 @@ def screening_keywords(screening_type_id):
 
 @api_bp.route('/patient-screenings/<int:patient_id>')
 @login_required
-@exempt
 def get_patient_screenings(patient_id):
     """Get all screenings for a patient"""
     try:
@@ -146,7 +142,6 @@ def get_patient_screenings(patient_id):
 
 @api_bp.route('/refresh-screenings', methods=['POST'])
 @login_required
-@exempt
 def refresh_screenings():
     """Refresh screenings via API"""
     try:
@@ -204,7 +199,6 @@ def refresh_screenings():
 
 @api_bp.route('/keyword-suggestions')
 @login_required
-@exempt
 def get_keyword_suggestions():
     """Get keyword suggestions for screening types"""
     try:
@@ -230,7 +224,6 @@ def get_keyword_suggestions():
 
 @api_bp.route('/import-keywords/<int:screening_type_id>')
 @login_required
-@exempt
 def import_medical_keywords(screening_type_id):
     """Import standard medical keywords for a screening type"""
     try:
@@ -262,7 +255,6 @@ def import_medical_keywords(screening_type_id):
 
 @api_bp.route('/medical-categories')
 @login_required
-@exempt
 def get_medical_categories():
     """Get list of medical categories for keyword import"""
     try:
@@ -283,7 +275,6 @@ def get_medical_categories():
 
 @api_bp.route('/category-keywords/<category>')
 @login_required
-@exempt
 def get_category_keywords(category):
     """Get all keywords for a specific medical category"""
     try:
@@ -307,7 +298,6 @@ def get_category_keywords(category):
 
 @api_bp.route('/screening-conditions/<int:screening_type_id>', methods=['GET'])
 @login_required
-@exempt
 def get_screening_conditions(screening_type_id):
     """Get trigger conditions for a screening type"""
     try:
@@ -329,7 +319,6 @@ def get_screening_conditions(screening_type_id):
 
 @api_bp.route('/screening-conditions/<int:screening_type_id>', methods=['POST'])
 @login_required
-@exempt
 def save_screening_conditions(screening_type_id):
     """Save trigger conditions for a screening type"""
     try:
@@ -365,7 +354,6 @@ def save_screening_conditions(screening_type_id):
 
 @api_bp.route('/condition-suggestions')
 @login_required
-@exempt
 def get_condition_suggestions():
     """Get condition suggestions for screening types"""
     try:
@@ -391,7 +379,6 @@ def get_condition_suggestions():
 
 @api_bp.route('/import-conditions/<int:screening_type_id>')
 @login_required
-@exempt
 def import_medical_conditions(screening_type_id):
     """Import standard medical conditions for a screening type"""
     try:
@@ -432,7 +419,6 @@ def import_medical_conditions(screening_type_id):
 
 @api_bp.route('/screening-name-suggestions')
 @login_required
-@exempt
 def screening_name_suggestions():
     """Get standardized screening name suggestions"""
     try:
@@ -462,7 +448,6 @@ def screening_name_suggestions():
 
 @api_bp.route('/standardize-screening-name')
 @login_required
-@exempt
 def standardize_screening_name():
     """Get standardized name for a screening type"""
     try:
@@ -495,7 +480,6 @@ def standardize_screening_name():
 
 @api_bp.route('/standard-conditions')
 @login_required
-@exempt
 def get_standard_conditions():
     """Get list of standard trigger conditions"""
     try:
@@ -518,7 +502,6 @@ def get_standard_conditions():
 
 @api_bp.route('/document/<int:document_id>/content')
 @login_required
-@exempt
 def get_document_content(document_id):
     """Get document content for viewing"""
     try:
@@ -547,7 +530,6 @@ def get_document_content(document_id):
 
 @api_bp.route('/patient/<int:patient_id>/prep-sheet')
 @login_required
-@exempt
 def generate_prep_sheet_api(patient_id):
     """Generate prep sheet via API"""
     try:
@@ -568,7 +550,6 @@ def generate_prep_sheet_api(patient_id):
 
 @api_bp.route('/phi/test', methods=['POST'])
 @login_required
-@exempt
 def test_phi_filter_api():
     """Test PHI filtering via API"""
     try:
@@ -605,7 +586,6 @@ def test_phi_filter_api():
 
 @api_bp.route('/search')
 @login_required
-@exempt
 def search_api():
     """Global search API"""
     try:
@@ -697,7 +677,6 @@ def search_api():
 
 @api_bp.route('/statistics')
 @login_required
-@exempt
 def get_statistics():
     """Get system statistics"""
     try:
