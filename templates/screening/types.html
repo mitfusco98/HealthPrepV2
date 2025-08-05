@@ -1,4 +1,3 @@
-
 {% extends 'base_user.html' %}
 
 {% block title %}Screening Types - HealthPrep{% endblock %}
@@ -113,17 +112,24 @@
                                        style="min-width: 36px; height: 32px; display: inline-flex; align-items: center; justify-content: center;">
                                         <i class="fas fa-edit"></i>
                                     </a>
-                                    <button type="submit" class="btn btn-outline-warning btn-sm" 
-                                            title="{{ 'Deactivate' if type.is_active else 'Activate' }}"
-                                            style="min-width: 36px; height: 32px;"
-                                            onclick="toggleStatus({{ type.id }})">
-                                        <i class="fas fa-toggle-{{ 'off' if type.is_active else 'on' }}"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-outline-danger btn-sm" title="Delete"
-                                            style="min-width: 36px; height: 32px;"
-                                            onclick="deleteType({{ type.id }})">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                                    <form method="POST" action="{{ url_for('screening.toggle_screening_type_status', type_id=type.id) }}" 
+                                          style="display: inline;">
+                                        {{ csrf_token() }}
+                                        <button type="submit" class="btn btn-outline-warning btn-sm" 
+                                                title="{{ 'Deactivate' if type.is_active else 'Activate' }}"
+                                                style="min-width: 36px; height: 32px;">
+                                            <i class="fas fa-toggle-{{ 'off' if type.is_active else 'on' }}"></i>
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="{{ url_for('screening.delete_screening_type', type_id=type.id) }}" 
+                                          style="display: inline;" 
+                                          onsubmit="return confirm('Are you sure you want to delete this screening type?');">
+                                        {{ csrf_token() }}
+                                        <button type="submit" class="btn btn-outline-danger btn-sm" title="Delete"
+                                                style="min-width: 36px; height: 32px;">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>
@@ -178,7 +184,7 @@ function openKeywordManager(typeId, typeName) {
     currentScreeningTypeId = typeId;
     document.getElementById('keywordModalLabel').textContent = `Manage Keywords for ${typeName}`;
     document.getElementById('screeningTypeId').value = typeId;
-    
+
     // Load current keywords
     fetch(`/api/screening-type/${typeId}/keywords`)
         .then(response => response.json())
@@ -188,7 +194,7 @@ function openKeywordManager(typeId, typeName) {
             }
         })
         .catch(error => console.error('Error loading keywords:', error));
-    
+
     const modal = new bootstrap.Modal(document.getElementById('keywordModal'));
     modal.show();
 }
@@ -196,7 +202,7 @@ function openKeywordManager(typeId, typeName) {
 function saveKeywords() {
     const keywords = document.getElementById('keywords').value;
     const typeId = document.getElementById('screeningTypeId').value;
-    
+
     fetch(`/api/screening-type/${typeId}/keywords`, {
         method: 'POST',
         headers: {
