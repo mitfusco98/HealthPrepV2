@@ -22,7 +22,6 @@
                     <thead>
                         <tr>
                             <th>Name</th>
-                            <th>Description</th>
                             <th>Eligibility</th>
                             <th>Frequency</th>
                             <th>Keywords</th>
@@ -34,7 +33,6 @@
                         {% for st in screening_types %}
                         <tr>
                             <td><strong>{{ st.name }}</strong></td>
-                            <td>{{ st.description or 'No description' }}</td>
                             <td>
                                 <small class="text-muted">
                                     {{ st.gender_criteria.replace('both', 'All genders') }}
