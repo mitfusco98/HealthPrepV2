@@ -310,33 +310,6 @@ class PrepSheetSettings(db.Model):
     consults_cutoff_months = db.Column(db.Integer, default=12)
     hospital_cutoff_months = db.Column(db.Integer, default=12)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    def get_cutoff_display(self, cutoff_type):
-        """Get user-friendly display for cutoff values"""
-        cutoff_map = {
-            'labs': self.labs_cutoff_months,
-            'imaging': self.imaging_cutoff_months,
-            'consults': self.consults_cutoff_months,
-            'hospital': self.hospital_cutoff_months
-        }
-        
-        cutoff_value = cutoff_map.get(cutoff_type, 0)
-        if cutoff_value == 0:
-            return "To Last Appointment"
-        elif cutoff_value == 1:
-            return "1 month"
-        else:
-            return f"{cutoff_value} months"
-    
-    def is_using_appointment_cutoff(self, cutoff_type):
-        """Check if a specific cutoff type uses appointment-based logic"""
-        cutoff_map = {
-            'labs': self.labs_cutoff_months,
-            'imaging': self.imaging_cutoff_months,
-            'consults': self.consults_cutoff_months,
-            'hospital': self.hospital_cutoff_months
-        }
-        return cutoff_map.get(cutoff_type, 0) == 0
 
 
 
