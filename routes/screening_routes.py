@@ -434,50 +434,161 @@ def import_preset():
         flash('Error importing preset', 'error')
         return redirect(url_for('screening.screening_presets'))
 
-@screening_bp.route('/api/screening-type/<int:type_id>/keywords', methods=['GET'])
+@screening_bp.route('/api/screening-keywords/<int:screening_type_id>', methods=['GET', 'POST'])
 @login_required
-def get_screening_type_keywords(type_id):
-    """Get keywords for a screening type"""
+def manage_screening_keywords(screening_type_id):
+    """Get or update keywords for a screening type (tag-based system)"""
+    screening_type = ScreeningType.query.get_or_404(screening_type_id)
+    
+    if request.method == 'GET':
+        # Get keywords
+        try:
+            keywords = screening_type.get_content_keywords()
+            return jsonify({
+                'success': True,
+                'keywords': keywords,
+                'screening_type': screening_type.name
+            })
+        except Exception as e:
+            logger.error(f"Error getting screening keywords: {str(e)}")
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'keywords': []
+            }), 500
+    
+    elif request.method == 'POST':
+        # Save keywords
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({
+                    'success': False,
+                    'error': 'No data provided'
+                }), 400
+            
+            keywords = data.get('keywords', [])
+            
+            # Validate keywords
+            if not isinstance(keywords, list):
+                return jsonify({
+                    'success': False,
+                    'error': 'Keywords must be an array'
+                }), 400
+            
+            # Clean and validate keywords
+            clean_keywords = []
+            for keyword in keywords:
+                if isinstance(keyword, str) and keyword.strip():
+                    clean_keywords.append(keyword.strip())
+            
+            # Save keywords
+            screening_type.set_content_keywords(clean_keywords)
+            db.session.commit()
+            
+            # Log the action
+            AdminLogger.log(
+                user_id=current_user.id,
+                action='update_screening_type_keywords',
+                details=f'Updated keywords for screening type: {screening_type.name}'
+            )
+            
+            return jsonify({
+                'success': True,
+                'message': f'Updated {len(clean_keywords)} keywords for {screening_type.name}',
+                'keywords': clean_keywords
+            })
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error saving screening keywords: {str(e)}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+
+@screening_bp.route('/api/keyword-suggestions')
+@login_required
+def get_keyword_suggestions():
+    """Get keyword suggestions for autocomplete"""
     try:
-        screening_type = ScreeningType.query.get_or_404(type_id)
+        partial = request.args.get('q', '').strip()
+        if not partial:
+            return jsonify({'success': True, 'suggestions': []})
+
+        # Import medical terminology for suggestions
+        from utils.medical_terminology import medical_terminology_db
+        suggestions = medical_terminology_db.search_keywords(partial, limit=10)
+
         return jsonify({
             'success': True,
-            'keywords': screening_type.keywords_list
+            'suggestions': suggestions
         })
+
     except Exception as e:
-        logger.error(f"Error getting keywords: {str(e)}")
+        logger.error(f"Error getting keyword suggestions: {str(e)}")
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': str(e),
+            'suggestions': []
         }), 500
 
-@screening_bp.route('/api/screening-type/<int:type_id>/keywords', methods=['POST'])
+@screening_bp.route('/api/import-keywords/<int:screening_type_id>')
 @login_required
-def update_screening_type_keywords(type_id):
-    """Update keywords for a screening type"""
+def import_medical_keywords(screening_type_id):
+    """Import standard medical keywords for a screening type"""
     try:
-        screening_type = ScreeningType.query.get_or_404(type_id)
-        data = request.get_json()
+        screening_type = ScreeningType.query.get_or_404(screening_type_id)
         
-        keywords = data.get('keywords', [])
-        screening_type.set_content_keywords(keywords)
+        from utils.medical_terminology import medical_terminology_db
         
+        # Get current keywords
+        current_keywords = set(screening_type.get_content_keywords())
+        
+        # Get medical keywords based on screening type name
+        screening_name_lower = screening_type.name.lower()
+        medical_keywords = set()
+        
+        # Map screening types to medical categories
+        if any(term in screening_name_lower for term in ['mammo', 'breast']):
+            medical_keywords.update(medical_terminology_db.get_category_keywords('mammography'))
+        if any(term in screening_name_lower for term in ['cardio', 'heart', 'echo']):
+            medical_keywords.update(medical_terminology_db.get_category_keywords('cardiovascular'))
+        if any(term in screening_name_lower for term in ['colon', 'colonoscopy']):
+            medical_keywords.update(medical_terminology_db.get_category_keywords('colonoscopy'))
+        if any(term in screening_name_lower for term in ['diabetes', 'glucose', 'a1c']):
+            medical_keywords.update(medical_terminology_db.get_category_keywords('diabetes'))
+        if any(term in screening_name_lower for term in ['skin', 'dermatol', 'mole']):
+            medical_keywords.update(medical_terminology_db.get_category_keywords('dermatology'))
+        
+        # If no specific match, use general medical terms
+        if not medical_keywords:
+            medical_keywords.update(medical_terminology_db.get_category_keywords('general'))
+        
+        # Find new keywords
+        new_keywords = medical_keywords - current_keywords
+        
+        # Combine and save
+        all_keywords = list(current_keywords | medical_keywords)
+        screening_type.set_content_keywords(all_keywords)
         db.session.commit()
         
         # Log the action
         AdminLogger.log(
             user_id=current_user.id,
-            action='update_screening_type_keywords',
-            details=f'Updated keywords for screening type: {screening_type.name}'
+            action='import_medical_keywords',
+            details=f'Imported {len(new_keywords)} new medical keywords for screening type: {screening_type.name}'
         )
         
         return jsonify({
             'success': True,
-            'message': 'Keywords updated successfully'
+            'keywords': all_keywords,
+            'new_keywords': list(new_keywords),
+            'message': f'Imported {len(new_keywords)} new medical keywords'
         })
         
     except Exception as e:
-        logger.error(f"Error updating keywords: {str(e)}")
+        logger.error(f"Error importing medical keywords: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
