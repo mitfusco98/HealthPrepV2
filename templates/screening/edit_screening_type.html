@@ -89,9 +89,32 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 {{ form.trigger_conditions.label(class="form-label") }}
-                                {{ form.trigger_conditions(class="form-control", rows="3") }}
-                                <div class="form-text">
-                                    Medical conditions that trigger this screening (e.g., diabetes for A1C)
+                                {{ form.trigger_conditions(class="form-control d-none", rows="3") }}
+                                
+                                <!-- Integrated Condition Management -->
+                                <div class="condition-management-container">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <small class="text-muted">Medical conditions that trigger this screening</small>
+                                        <button type="button" class="btn btn-sm btn-import-conditions" onclick="importInlineConditions()"
+                                                title="Import standard medical conditions">
+                                            <i class="fas fa-download me-1"></i>Import Conditions
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="autocomplete-container mb-2">
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" class="form-control" id="inlineConditionInput" 
+                                                   placeholder="Enter medical condition..." autocomplete="off">
+                                            <button type="button" class="btn btn-outline-primary" onclick="addInlineCondition()">
+                                                <i class="fas fa-plus"></i>
+                                            </button>
+                                        </div>
+                                        <div class="autocomplete-dropdown" id="inlineConditionAutocomplete"></div>
+                                    </div>
+                                    
+                                    <div id="inlineConditionTags" class="condition-tags-container border rounded p-2 min-height-40">
+                                        <!-- Will be populated with existing conditions -->
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -102,10 +125,7 @@
                             <i class="fas fa-times me-1"></i>
                             Cancel
                         </a>
-                        <button type="button" class="btn btn-outline-warning me-2" onclick="openConditionsModal({{ screening_type.id }}, '{{ screening_type.name }}')">
-                            <i class="fas fa-stethoscope me-1"></i>
-                            Manage Conditions
-                        </button>
+
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save me-1"></i>
                             Update Screening Type
@@ -220,7 +240,10 @@
     </div>
 </div>
 
-<script src="{{ url_for('static', filename='js/condition_modals.js') }}"></script>
+<!-- Include CSS for inline condition management -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/keyword_modal.css') }}">
 
+<!-- Include JavaScript for inline condition management -->
+<script src="{{ url_for('static', filename='js/inline_conditions.js') }}"></script>
 
 {% endblock %}

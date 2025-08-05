@@ -130,12 +130,6 @@
                                             style="width: 36px; height: 36px; border-radius: 0; display: inline-flex; align-items: center; justify-content: center;">
                                         <i class="fas fa-tags"></i>
                                     </button>
-                                    <button type="button" class="btn btn-outline-warning btn-sm"
-                                            onclick="openConditionsModal({{ type.id }}, '{{ type.name }}')"
-                                            title="Manage Trigger Conditions"
-                                            style="width: 36px; height: 36px; border-radius: 0; display: inline-flex; align-items: center; justify-content: center;">
-                                        <i class="fas fa-stethoscope"></i>
-                                    </button>
                                     <a href="{{ url_for('screening.edit_screening_type', type_id=type.id) }}"
                                        class="btn btn-outline-primary btn-sm" title="Edit"
                                        style="width: 36px; height: 36px; border-radius: 0; display: inline-flex; align-items: center; justify-content: center;">

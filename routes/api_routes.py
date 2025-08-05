@@ -382,16 +382,25 @@ def get_condition_suggestions():
 def import_medical_conditions(screening_type_id):
     """Import standard medical conditions for a screening type"""
     try:
-        screening_type = ScreeningType.query.get_or_404(screening_type_id)
+        # Handle inline form requests (screening_type_id = 0)
+        if screening_type_id == 0:
+            screening_name = request.args.get('screening_name', 'Generic')
+        else:
+            screening_type = ScreeningType.query.get_or_404(screening_type_id)
+            screening_name = screening_type.name
         
         from utils.medical_conditions import medical_conditions_db
-        imported_conditions = medical_conditions_db.import_standard_conditions(screening_type.name)
+        imported_conditions = medical_conditions_db.import_standard_conditions(screening_name)
         
-        # Get existing conditions
-        existing_conditions = screening_type.get_trigger_conditions()
-        
-        # Merge with existing, avoiding duplicates
-        all_conditions = list(set(existing_conditions + imported_conditions))
+        # For existing screening types, get current conditions
+        if screening_type_id != 0:
+            existing_conditions = screening_type.get_trigger_conditions()
+            # Merge with existing, avoiding duplicates
+            all_conditions = list(set(existing_conditions + imported_conditions))
+        else:
+            # For new screening types (inline forms), just return imported conditions
+            existing_conditions = []
+            all_conditions = imported_conditions
         
         return jsonify({
             'success': True,
