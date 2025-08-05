@@ -115,6 +115,17 @@ class ScreeningType(db.Model):
             return json.loads(self.trigger_conditions)
         except:
             return [cond.strip() for cond in self.trigger_conditions.split(',') if cond.strip()]
+    
+    def get_content_keywords(self):
+        """Get keywords for content matching"""
+        return self.keywords_list
+    
+    def set_content_keywords(self, keywords):
+        """Set keywords for content matching"""
+        if isinstance(keywords, list):
+            self.keywords = json.dumps(keywords)
+        else:
+            self.keywords = keywords
 
     def __repr__(self):
         return f'<ScreeningType {self.name}>'

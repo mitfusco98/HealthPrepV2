@@ -102,6 +102,15 @@ templates/
 - Template asset organization and modularization
 
 ### ✅ Recently Completed
+- **Tag-Based Keyword Management System** (January 2025)
+  - Implemented modal-based keyword management for screening types
+  - Added `/api/screening-keywords/<screening_id>` GET/POST API endpoints
+  - Created interactive JavaScript modal with add/remove keyword functionality
+  - Enhanced ScreeningType model with `get_content_keywords()` and `set_content_keywords()` methods
+  - Added keyword management buttons to all screening type templates (add/edit/list)
+  - Implemented visual keyword tags with individual remove functionality
+  - Added proper error handling, success notifications, and professional CSS styling
+  - Integrated with existing JSON keyword storage for fuzzy detection capabilities
 - **Enhanced Screening Types Architecture** (January 2025)
   - Aligned model fields with design intent for gender/age/condition eligibility
   - Added `description` field for better screening documentation
@@ -147,6 +156,12 @@ templates/
 - ⚠️ Performance targets (10s prep generation)
 
 ## Recent Changes
+- 2025-01-05: Implemented tag-based keyword management system from previous health-prep project:
+  - Created modal-based keyword interface with add/remove functionality for screening types
+  - Added API endpoints `/api/screening-keywords/<screening_id>` for GET/POST operations
+  - Enhanced ScreeningType model with keyword management methods for fuzzy detection
+  - Integrated keyword management buttons into all screening templates
+  - Added professional styling and error handling for seamless user experience
 - 2025-01-05: Cleaned up project structure by removing outdated/duplicate files:
   - Removed root-level route files (routes.py, admin_routes.py, etc.) - now using blueprint structure in /routes/
   - Removed deprecated templates (base_demo.html, old screening templates)

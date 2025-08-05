@@ -2,6 +2,10 @@
 
 {% block title %}Edit Screening Type - HealthPrep{% endblock %}
 
+{% block extra_css %}
+<link href="{{ url_for('static', filename='css/keyword_modal.css') }}" rel="stylesheet">
+{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>
@@ -42,7 +46,15 @@
                     
                     <div class="mb-3">
                         {{ form.keywords.label(class="form-label") }}
-                        {{ form.keywords(class="form-control", rows="3") }}
+                        <div class="input-group">
+                            {{ form.keywords(class="form-control", rows="3") }}
+                            <button type="button" class="btn btn-outline-secondary" 
+                                    onclick="openKeywordManager({{ screening_type.id }}, '{{ screening_type.name }}')"
+                                    title="Advanced keyword management">
+                                <i class="fas fa-tags"></i>
+                                Keywords
+                            </button>
+                        </div>
                         <div class="form-text">
                             Keywords that help identify this screening in documents (comma-separated)
                         </div>
@@ -165,4 +177,50 @@
         </div>
     </div>
 </div>
+
+<!-- Keyword Manager Modal -->
+<div class="modal fade" id="keywordManagerModal" tabindex="-1" aria-labelledby="keywordModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="keywordModalTitle">Manage Keywords</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger" id="keywordError" style="display: none;"></div>
+                
+                <div class="mb-3">
+                    <label for="newKeywordInput" class="form-label">Add New Keyword</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="newKeywordInput" 
+                               placeholder="Enter keyword...">
+                        <button type="button" class="btn btn-primary" onclick="addKeyword()">
+                            <i class="fas fa-plus"></i> Add
+                        </button>
+                    </div>
+                    <div class="form-text">
+                        Add keywords that help identify this screening in documents
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Current Keywords</label>
+                    <div id="keywordsContainer" class="border rounded p-3 min-height-100">
+                        <!-- Keywords will be displayed here -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveKeywordsBtn" onclick="saveKeywords()">
+                    <i class="fas fa-save"></i> Save Keywords
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/screening_modals.js') }}"></script>
 {% endblock %}

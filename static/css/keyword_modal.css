@@ -1,0 +1,96 @@
+/* Keyword Modal Styles */
+.keyword-tag {
+    display: inline-block;
+}
+
+.keyword-tag .badge {
+    font-size: 0.9em;
+    padding: 0.5rem 0.75rem;
+    position: relative;
+}
+
+.keyword-tag .btn-close {
+    font-size: 0.7em;
+    padding: 0;
+    margin-left: 0.25rem;
+}
+
+#keywordsContainer {
+    min-height: 100px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+#keywordsContainer:empty::before {
+    content: "No keywords added yet.";
+    color: #6c757d;
+    font-style: italic;
+    display: block;
+    text-align: center;
+    padding: 2rem 0;
+}
+
+.min-height-100 {
+    min-height: 100px;
+}
+
+/* Loading states */
+.btn.loading {
+    position: relative;
+    color: transparent;
+}
+
+.btn.loading::after {
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: 50%;
+    left: 50%;
+    margin-left: -8px;
+    margin-top: -8px;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Modal improvements */
+.modal-lg {
+    max-width: 600px;
+}
+
+.keyword-tag .badge:hover {
+    background-color: #0b5ed7 !important;
+    transform: scale(1.05);
+    transition: all 0.2s ease;
+}
+
+/* Input group styling */
+.input-group .form-control:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Error states */
+.alert-danger {
+    font-size: 0.9em;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .modal-lg {
+        max-width: 95%;
+        margin: 0 auto;
+    }
+    
+    .keyword-tag .badge {
+        font-size: 0.8em;
+        padding: 0.4rem 0.6rem;
+        margin-bottom: 0.5rem;
+    }
+}
