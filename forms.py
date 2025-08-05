@@ -51,7 +51,7 @@ class ScreeningTypeForm(FlaskForm):
     frequency_years = FloatField('Frequency (Years)', 
                                validators=[DataRequired(), NumberRange(min=0.08, max=50)],  # 0.08 = ~1 month
                                render_kw={'step': '0.25', 'placeholder': '1.0 for annual, 0.25 for quarterly'})
-    trigger_conditions = TextAreaField('Trigger Conditions (comma-separated)', 
+    trigger_conditions = TextAreaField('Trigger Conditions', 
                                      validators=[Length(max=1000)],
                                      render_kw={'placeholder': 'diabetes, hypertension, family history'})
     submit = SubmitField('Save Screening Type')
