@@ -225,14 +225,23 @@
 
 <script>
 function applyPreset(labs, imaging, consults, hospital, clickedButton) {
+    console.log('Applying preset:', labs, imaging, consults, hospital);
+    
     // Set form values using correct field IDs
-    document.getElementById('labs_cutoff_months').value = labs;
-    document.getElementById('imaging_cutoff_months').value = imaging;
-    document.getElementById('consults_cutoff_months').value = consults;
-    document.getElementById('hospital_cutoff_months').value = hospital;
+    const labsField = document.getElementById('labs_cutoff_months');
+    const imagingField = document.getElementById('imaging_cutoff_months');
+    const consultsField = document.getElementById('consults_cutoff_months');
+    const hospitalField = document.getElementById('hospital_cutoff_months');
+    
+    if (labsField) labsField.value = labs;
+    if (imagingField) imagingField.value = imaging;
+    if (consultsField) consultsField.value = consults;
+    if (hospitalField) hospitalField.value = hospital;
+    
+    console.log('Form fields updated');
     
     // Visual feedback - remove active class from all preset buttons
-    const buttons = document.querySelectorAll('.btn-group .btn');
+    const buttons = document.querySelectorAll('.btn-group .preset-btn');
     buttons.forEach(btn => {
         btn.classList.remove('preset-active');
         btn.classList.remove('active');
@@ -242,6 +251,7 @@ function applyPreset(labs, imaging, consults, hospital, clickedButton) {
     if (clickedButton) {
         clickedButton.classList.add('preset-active');
         clickedButton.classList.add('active');
+        console.log('Button activated:', clickedButton);
     }
     
     // Show success message
@@ -259,7 +269,9 @@ function applyPreset(labs, imaging, consults, hospital, clickedButton) {
     `;
     
     const form = document.querySelector('form');
-    form.parentNode.insertBefore(alert, form);
+    if (form && form.parentNode) {
+        form.parentNode.insertBefore(alert, form);
+    }
     
     // Auto-remove alert after 4 seconds
     setTimeout(() => {
@@ -271,34 +283,62 @@ function applyPreset(labs, imaging, consults, hospital, clickedButton) {
 
 // Add event listeners when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    // Add click handlers to preset buttons
-    const presetButtons = document.querySelectorAll('.btn-group .btn[data-preset]');
+    console.log('DOM loaded, setting up preset buttons');
     
-    presetButtons.forEach(button => {
+    // Add click handlers to preset buttons
+    const presetButtons = document.querySelectorAll('.preset-btn[data-preset]');
+    console.log('Found preset buttons:', presetButtons.length);
+    
+    presetButtons.forEach((button, index) => {
+        console.log('Setting up button', index, button);
         button.addEventListener('click', function(e) {
             e.preventDefault();
+            console.log('Preset button clicked:', this);
+            
             const presetData = this.getAttribute('data-preset');
+            console.log('Preset data:', presetData);
+            
             if (presetData) {
                 const values = presetData.split(',').map(v => parseInt(v.trim()));
+                console.log('Parsed values:', values);
+                
                 if (values.length === 4) {
                     applyPreset(values[0], values[1], values[2], values[3], this);
+                } else {
+                    console.error('Invalid preset data length:', values.length);
                 }
+            } else {
+                console.error('No preset data found');
             }
         });
     });
     
     // Check current values against presets and highlight matching preset
     function checkCurrentPreset() {
+        console.log('Checking current preset');
+        
         // Clear all active states first
         presetButtons.forEach(btn => {
             btn.classList.remove('preset-active');
             btn.classList.remove('active');
         });
         
-        const labs = parseInt(document.getElementById('labs_cutoff').value) || 0;
-        const imaging = parseInt(document.getElementById('imaging_cutoff').value) || 0;
-        const consults = parseInt(document.getElementById('consults_cutoff').value) || 0;
-        const hospital = parseInt(document.getElementById('hospital_cutoff').value) || 0;
+        const labsField = document.getElementById('labs_cutoff_months');
+        const imagingField = document.getElementById('imaging_cutoff_months');
+        const consultsField = document.getElementById('consults_cutoff_months');
+        const hospitalField = document.getElementById('hospital_cutoff_months');
+        
+        if (!labsField || !imagingField || !consultsField || !hospitalField) {
+            console.error('Form fields not found');
+            return;
+        }
+        
+        const labs = parseInt(labsField.value) || 0;
+        const imaging = parseInt(imagingField.value) || 0;
+        const consults = parseInt(consultsField.value) || 0;
+        const hospital = parseInt(hospitalField.value) || 0;
+        
+        console.log('Current values:', labs, imaging, consults, hospital);
         
         // Check each preset button to see if it matches current values
         presetButtons.forEach(button => {
@@ -312,16 +352,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     values[3] === hospital) {
                     button.classList.add('preset-active');
                     button.classList.add('active');
+                    console.log('Matched preset button:', button);
                 }
             }
         });
     }
     
     // Check current preset on load
-    checkCurrentPreset();
+    setTimeout(checkCurrentPreset, 100);
     
     // Monitor form changes to update preset highlighting
-    const formInputs = document.querySelectorAll('#labs_cutoff, #imaging_cutoff, #consults_cutoff, #hospital_cutoff');
+    const formInputs = document.querySelectorAll('#labs_cutoff_months, #imaging_cutoff_months, #consults_cutoff_months, #hospital_cutoff_months');
+    console.log('Found form inputs:', formInputs.length);
+    
     formInputs.forEach(input => {
         input.addEventListener('input', checkCurrentPreset);
         input.addEventListener('change', checkCurrentPreset);
