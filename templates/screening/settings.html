@@ -420,9 +420,9 @@ function testPresetClick(preset) {
     }
 }
 
-// Wait for page to fully load, then set up everything
-window.addEventListener('load', function() {
-    console.log('=== WINDOW LOADED - SETTING UP FUNCTIONALITY ===');
+// Setup function
+function setupPresetFunctionality() {
+    console.log('=== SETTING UP FUNCTIONALITY ===');
     
     // Run debug first to see what's available
     debugFormFields();
@@ -488,6 +488,24 @@ window.addEventListener('load', function() {
     });
     
     console.log('=== SETUP COMPLETE ===');
-});
+}
+
+// Try multiple ways to ensure setup runs
+console.log('=== SCRIPT LOADING ===');
+
+// Method 1: If DOM already loaded
+if (document.readyState === 'loading') {
+    console.log('DOM still loading, waiting for DOMContentLoaded');
+    document.addEventListener('DOMContentLoaded', setupPresetFunctionality);
+} else {
+    console.log('DOM already loaded, running setup immediately');
+    setupPresetFunctionality();
+}
+
+// Method 2: Also try with a small delay as fallback
+setTimeout(function() {
+    console.log('=== FALLBACK SETUP (500ms delay) ===');
+    setupPresetFunctionality();
+}, 500);
 </script>
 {% endblock %}
