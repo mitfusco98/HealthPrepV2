@@ -96,6 +96,148 @@ function addKeyword() {
     input.value = '';
     displayKeywords();
     clearKeywordError();
+    
+    // Hide autocomplete dropdown
+    hideAutocomplete();
+}
+
+/**
+ * Import medical keywords for the current screening type
+ */
+async function importMedicalKeywords() {
+    if (!currentScreeningTypeId) {
+        showKeywordError('No screening type selected');
+        return;
+    }
+    
+    try {
+        // Show loading state
+        const importBtn = document.getElementById('importKeywordsBtn');
+        const originalText = importBtn.textContent;
+        importBtn.textContent = 'Importing...';
+        importBtn.disabled = true;
+        
+        const response = await fetch(`/api/import-keywords/${currentScreeningTypeId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            currentKeywords = data.keywords;
+            displayKeywords();
+            
+            // Show import summary
+            const newCount = data.new_keywords ? data.new_keywords.length : 0;
+            if (newCount > 0) {
+                showKeywordSuccess(`Imported ${newCount} new medical keywords`);
+            } else {
+                showKeywordSuccess('All standard medical keywords are already present');
+            }
+        } else {
+            showKeywordError(data.error || 'Failed to import keywords');
+        }
+    } catch (error) {
+        console.error('Error importing keywords:', error);
+        showKeywordError('Failed to import keywords');
+    } finally {
+        // Restore button state
+        const importBtn = document.getElementById('importKeywordsBtn');
+        importBtn.textContent = originalText;
+        importBtn.disabled = false;
+    }
+}
+
+/**
+ * Setup autocomplete for keyword input
+ */
+function setupAutocomplete() {
+    const input = document.getElementById('newKeywordInput');
+    const dropdown = document.getElementById('autocompleteDropdown');
+    
+    if (!input || !dropdown) return;
+    
+    let timeoutId;
+    
+    input.addEventListener('input', function() {
+        clearTimeout(timeoutId);
+        const query = this.value.trim();
+        
+        if (query.length < 2) {
+            hideAutocomplete();
+            return;
+        }
+        
+        timeoutId = setTimeout(() => {
+            searchKeywords(query);
+        }, 300);
+    });
+    
+    // Hide autocomplete when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+            hideAutocomplete();
+        }
+    });
+}
+
+/**
+ * Search for keyword suggestions
+ */
+async function searchKeywords(query) {
+    try {
+        const response = await fetch(`/api/keyword-suggestions?q=${encodeURIComponent(query)}`);
+        const data = await response.json();
+        
+        if (data.success && data.suggestions.length > 0) {
+            showAutocomplete(data.suggestions);
+        } else {
+            hideAutocomplete();
+        }
+    } catch (error) {
+        console.error('Error searching keywords:', error);
+        hideAutocomplete();
+    }
+}
+
+/**
+ * Show autocomplete dropdown
+ */
+function showAutocomplete(suggestions) {
+    const dropdown = document.getElementById('autocompleteDropdown');
+    if (!dropdown) return;
+    
+    dropdown.innerHTML = '';
+    
+    suggestions.forEach(suggestion => {
+        // Skip if already in current keywords
+        if (currentKeywords.includes(suggestion)) return;
+        
+        const item = document.createElement('div');
+        item.className = 'autocomplete-item';
+        item.textContent = suggestion;
+        item.onclick = () => selectSuggestion(suggestion);
+        dropdown.appendChild(item);
+    });
+    
+    dropdown.style.display = dropdown.children.length > 0 ? 'block' : 'none';
+}
+
+/**
+ * Hide autocomplete dropdown
+ */
+function hideAutocomplete() {
+    const dropdown = document.getElementById('autocompleteDropdown');
+    if (dropdown) {
+        dropdown.style.display = 'none';
+    }
+}
+
+/**
+ * Select a suggestion from autocomplete
+ */
+function selectSuggestion(suggestion) {
+    const input = document.getElementById('newKeywordInput');
+    input.value = suggestion;
+    hideAutocomplete();
+    addKeyword();
 }
 
 /**
@@ -175,6 +317,35 @@ function showKeywordError(message) {
     const errorDiv = document.getElementById('keywordError');
     errorDiv.textContent = message;
     errorDiv.style.display = 'block';
+    
+    // Hide success message
+    const successDiv = document.getElementById('keywordSuccess');
+    if (successDiv) {
+        successDiv.style.display = 'none';
+    }
+}
+
+/**
+ * Show success message in the modal
+ * @param {string} message - The success message
+ */
+function showKeywordSuccess(message) {
+    const successDiv = document.getElementById('keywordSuccess');
+    if (successDiv) {
+        successDiv.textContent = message;
+        successDiv.style.display = 'block';
+    }
+    
+    // Hide error message
+    const errorDiv = document.getElementById('keywordError');
+    errorDiv.style.display = 'none';
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+        if (successDiv) {
+            successDiv.style.display = 'none';
+        }
+    }, 3000);
 }
 
 /**
@@ -253,4 +424,7 @@ document.addEventListener('DOMContentLoaded', function() {
             clearKeywordError();
         });
     }
+    
+    // Setup autocomplete
+    setupAutocomplete();
 });

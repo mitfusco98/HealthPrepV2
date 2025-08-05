@@ -205,10 +205,8 @@ def get_keyword_suggestions():
         if not partial:
             return jsonify({'suggestions': []})
 
-        matcher = DocumentMatcher()
-        # DocumentMatcher doesn't have get_keyword_suggestions, so we'll use fuzzy_matching utils
-        from utils.fuzzy_matching import medical_matcher
-        suggestions = medical_matcher.find_related_terms(partial)[:10]
+        from utils.medical_terminology import medical_terminology_db
+        suggestions = medical_terminology_db.search_keywords(partial, limit=10)
 
         return jsonify({
             'success': True,
@@ -221,6 +219,78 @@ def get_keyword_suggestions():
             'success': False,
             'error': str(e),
             'suggestions': []
+        }), 500
+
+@api_bp.route('/import-keywords/<int:screening_type_id>')
+@login_required
+def import_medical_keywords(screening_type_id):
+    """Import standard medical keywords for a screening type"""
+    try:
+        screening_type = ScreeningType.query.get_or_404(screening_type_id)
+        
+        from utils.medical_terminology import medical_terminology_db
+        imported_keywords = medical_terminology_db.import_standard_keywords(screening_type.name)
+        
+        # Get existing keywords
+        existing_keywords = screening_type.get_content_keywords()
+        
+        # Merge with existing, avoiding duplicates
+        all_keywords = list(set(existing_keywords + imported_keywords))
+        
+        return jsonify({
+            'success': True,
+            'keywords': all_keywords,
+            'imported_count': len(imported_keywords),
+            'total_count': len(all_keywords),
+            'new_keywords': [k for k in imported_keywords if k not in existing_keywords]
+        })
+
+    except Exception as e:
+        logger.error(f"Error importing medical keywords: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api_bp.route('/medical-categories')
+@login_required
+def get_medical_categories():
+    """Get list of medical categories for keyword import"""
+    try:
+        from utils.medical_terminology import medical_terminology_db
+        categories = medical_terminology_db.get_all_categories()
+        
+        return jsonify({
+            'success': True,
+            'categories': categories
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting medical categories: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api_bp.route('/category-keywords/<category>')
+@login_required
+def get_category_keywords(category):
+    """Get all keywords for a specific medical category"""
+    try:
+        from utils.medical_terminology import medical_terminology_db
+        keywords = medical_terminology_db.get_category_keywords(category)
+        
+        return jsonify({
+            'success': True,
+            'category': category,
+            'keywords': keywords
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting category keywords: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
         }), 500
 
 @api_bp.route('/condition-suggestions')
