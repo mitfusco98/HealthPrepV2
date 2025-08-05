@@ -122,11 +122,11 @@
                             <i class="fas fa-save me-1"></i>
                             Save Settings
                         </button>
-                        <button type="button" class="btn btn-secondary" onclick="debugFormFields()">
+                        <button type="button" class="btn btn-secondary" id="debug-btn">
                             <i class="fas fa-bug me-1"></i>
                             Debug Fields
                         </button>
-                        <button type="button" class="btn btn-info" onclick="testPresetClick('6,6,6,6')">
+                        <button type="button" class="btn btn-info" id="test-preset-btn">
                             <i class="fas fa-flask me-1"></i>
                             Test Standard Preset
                         </button>
@@ -481,6 +481,22 @@ document.addEventListener('DOMContentLoaded', function() {
     // Show initial debug info
     debugFormFields();
     
+    // Set up debug and test button event listeners
+    const debugBtn = document.getElementById('debug-btn');
+    const testBtn = document.getElementById('test-preset-btn');
+    
+    if (debugBtn) {
+        debugBtn.addEventListener('click', function() {
+            debugFormFields();
+        });
+    }
+    
+    if (testBtn) {
+        testBtn.addEventListener('click', function() {
+            testPresetClick('6,6,6,6');
+        });
+    }
+    
     // Wait for form to be fully rendered, then set up buttons
     setTimeout(() => {
         logDebug('Setting up preset functionality...');
@@ -607,15 +623,12 @@ function debugFormFields() {
 }
 
 // Add click test function for manual testing
-window.testPresetClick = function(preset) {
+function testPresetClick(preset) {
     logDebug('=== MANUAL PRESET TEST ===', preset);
     const values = preset.split(',').map(v => parseInt(v.trim()));
     if (values.length === 4) {
         applyPreset(values[0], values[1], values[2], values[3], null);
     }
-};
-
-// Make debugFormFields available globally
-window.debugFormFields = debugFormFields;
+}
 </script>
 {% endblock %}
