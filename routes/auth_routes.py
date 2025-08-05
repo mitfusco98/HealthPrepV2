@@ -74,8 +74,7 @@ def register():
         user = User(
             username=form.username.data,
             email=form.email.data,
-            password_hash='',  # Will be set by set_password
-            role='user'  # Default role
+            is_admin=False  # Default to regular user
         )
         user.set_password(form.password.data)
         
