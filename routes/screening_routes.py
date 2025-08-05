@@ -3,6 +3,7 @@ Fixing the URL reference for 'dashboard' to 'ui.dashboard' in screening routes.
 """
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
+from flask_wtf.csrf import exempt
 from datetime import datetime
 import logging
 
@@ -222,6 +223,7 @@ def edit_screening_type(type_id):
 
 @screening_bp.route('/type/<int:type_id>/toggle-status', methods=['POST'])
 @login_required
+@exempt
 def toggle_screening_type_status(type_id):
     """Toggle screening type active status"""
     try:
@@ -249,6 +251,7 @@ def toggle_screening_type_status(type_id):
 
 @screening_bp.route('/type/<int:type_id>/delete', methods=['POST'])
 @login_required
+@exempt
 def delete_screening_type(type_id):
     """Delete screening type"""
     try:

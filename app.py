@@ -2,11 +2,14 @@
 HealthPrep Medical Screening System
 Clean Flask application factory
 """
+from flask_login import LoginManager
+from flask_wtf.csrf import CSRFProtect
+from flask_migrate import Migrate
+from datetime import datetime
 import os
 import logging
 from flask import Flask, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, current_user
 from sqlalchemy.orm import DeclarativeBase
 
 # Configure logging
@@ -17,8 +20,10 @@ class Base(DeclarativeBase):
     pass
 
 # Initialize extensions
-db = SQLAlchemy(model_class=Base)
+db = SQLAlchemy()
 login_manager = LoginManager()
+csrf = CSRFProtect()
+migrate = Migrate()
 
 def create_app():
     """Create and configure Flask application"""
@@ -39,6 +44,8 @@ def create_app():
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
     login_manager.login_message = 'Please log in to access this page.'
+    csrf.init_app(app)
+    migrate.init_app(app, db)
 
     @login_manager.user_loader
     def load_user(user_id):

@@ -111,7 +111,6 @@
                                     </a>
                                     <form method="POST" action="{{ url_for('screening.toggle_screening_type_status', type_id=type.id) }}" 
                                           style="display: inline;">
-                                        {{ csrf_token() }}
                                         <button type="submit" class="btn btn-outline-warning" 
                                                 title="{{ 'Deactivate' if type.is_active else 'Activate' }}">
                                             <i class="fas fa-toggle-{{ 'off' if type.is_active else 'on' }}"></i>
@@ -120,7 +119,6 @@
                                     <form method="POST" action="{{ url_for('screening.delete_screening_type', type_id=type.id) }}" 
                                           style="display: inline;" 
                                           onsubmit="return confirm('Are you sure you want to delete this screening type?');">
-                                        {{ csrf_token() }}
                                         <button type="submit" class="btn btn-outline-danger" title="Delete">
                                             <i class="fas fa-trash"></i>
                                         </button>
