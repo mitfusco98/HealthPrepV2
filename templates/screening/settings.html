@@ -250,16 +250,19 @@ function applyPreset(labs, imaging, consults, hospital, clickedButton) {
     logDebug('=== APPLY PRESET STARTED ===');
     logDebug('Preset values:', {labs, imaging, consults, hospital});
     
-    // More comprehensive field finding
+    // More comprehensive field finding - check both singular and plural forms
     const fieldMappings = [
         { 
             name: 'labs', 
             value: labs,
             selectors: [
                 '#labs_cutoff_months',
+                '#lab_cutoff_months',
                 'input[name="labs_cutoff_months"]', 
+                'input[name="lab_cutoff_months"]',
                 'input[id*="labs"]',
-                'input[name*="labs"]'
+                'input[name*="labs"]',
+                'input[name*="lab"]'
             ]
         },
         { 
@@ -277,7 +280,9 @@ function applyPreset(labs, imaging, consults, hospital, clickedButton) {
             value: consults,
             selectors: [
                 '#consults_cutoff_months',
+                '#consult_cutoff_months',
                 'input[name="consults_cutoff_months"]', 
+                'input[name="consult_cutoff_months"]',
                 'input[id*="consults"]',
                 'input[name*="consult"]'
             ]
@@ -318,7 +323,7 @@ function applyPreset(labs, imaging, consults, hospital, clickedButton) {
             field.dispatchEvent(new Event('input', { bubbles: true }));
             field.dispatchEvent(new Event('change', { bubbles: true }));
             
-            foundsFields[fieldMap.name] = field;
+            foundFields[fieldMap.name] = field;
             fieldsUpdated++;
             
             logDebug(`Updated ${fieldMap.name} field: ${oldValue} → ${fieldMap.value}`);
@@ -417,11 +422,19 @@ function setupPresetButtons() {
         
         logDebug(`Setting up button ${index}: "${buttonText}" with data: ${presetData}`);
         
-        // Remove existing listeners
+        // Remove existing listeners first
         button.removeEventListener('click', handlePresetClick);
         
-        // Add new listener
-        button.addEventListener('click', handlePresetClick);
+        // Add new listener with immediate logging
+        button.addEventListener('click', function(e) {
+            logDebug('BUTTON CLICKED IMMEDIATELY!', buttonText);
+            handlePresetClick(e);
+        });
+        
+        // Also add a test click handler for debugging
+        button.addEventListener('mousedown', function(e) {
+            logDebug('BUTTON MOUSEDOWN DETECTED!', buttonText);
+        });
     });
     
     logDebug('=== PRESET BUTTONS SETUP COMPLETE ===');
@@ -497,11 +510,11 @@ function checkCurrentPreset() {
         btn.classList.remove('preset-active', 'active');
     });
     
-    // Find current field values
+    // Find current field values - try both singular and plural forms
     const fields = {
-        labs: document.querySelector('#labs_cutoff_months, input[name="labs_cutoff_months"]'),
+        labs: document.querySelector('#labs_cutoff_months, #lab_cutoff_months, input[name="labs_cutoff_months"], input[name="lab_cutoff_months"]'),
         imaging: document.querySelector('#imaging_cutoff_months, input[name="imaging_cutoff_months"]'),
-        consults: document.querySelector('#consults_cutoff_months, input[name="consults_cutoff_months"]'),
+        consults: document.querySelector('#consults_cutoff_months, #consult_cutoff_months, input[name="consults_cutoff_months"], input[name="consult_cutoff_months"]'),
         hospital: document.querySelector('#hospital_cutoff_months, input[name="hospital_cutoff_months"]')
     };
     
