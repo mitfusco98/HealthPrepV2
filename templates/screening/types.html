@@ -65,13 +65,6 @@
                         <tr>
                             <td>
                                 <strong>{{ type.name }}</strong>
-                                <!-- Gender and Age Eligibility -->
-                                <br><small class="text-info">
-                                    {% if type.eligible_genders == 'M' %}Male only{% elif type.eligible_genders == 'F' %}Female only{% else %}All genders{% endif %}
-                                    {% if type.min_age or type.max_age %}
-                                        , Ages: {{ type.min_age or '0' }}-{{ type.max_age or '∞' }}
-                                    {% endif %}
-                                </small>
                             </td>
                             <td>
                                 <small class="text-muted">
