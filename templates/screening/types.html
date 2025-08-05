@@ -93,24 +93,21 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <div class="btn-group btn-group-sm" role="group" style="white-space: nowrap;">
+                                <div class="btn-group btn-group-sm" role="group">
                                     <button type="button" class="btn btn-outline-info btn-sm" 
                                             onclick="openKeywordManager({{ type.id }}, '{{ type.name }}')"
-                                            title="Manage Keywords"
-                                            style="min-width: 36px; height: 32px;">
+                                            title="Manage Keywords">
                                         <i class="fas fa-tags"></i>
                                     </button>
                                     <a href="{{ url_for('screening.edit_screening_type', type_id=type.id) }}" 
-                                       class="btn btn-outline-primary btn-sm" title="Edit"
-                                       style="min-width: 36px; height: 32px; display: inline-flex; align-items: center; justify-content: center;">
+                                       class="btn btn-outline-primary btn-sm" title="Edit">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                     <form method="POST" action="{{ url_for('screening.toggle_screening_type_status', type_id=type.id) }}" 
                                           style="display: inline;">
                                         {{ csrf_token() }}
                                         <button type="submit" class="btn btn-outline-warning btn-sm" 
-                                                title="{{ 'Deactivate' if type.is_active else 'Activate' }}"
-                                                style="min-width: 36px; height: 32px;">
+                                                title="{{ 'Deactivate' if type.is_active else 'Activate' }}">
                                             <i class="fas fa-toggle-{{ 'off' if type.is_active else 'on' }}"></i>
                                         </button>
                                     </form>
@@ -118,8 +115,7 @@
                                           style="display: inline;" 
                                           onsubmit="return confirm('Are you sure you want to delete this screening type?');">
                                         {{ csrf_token() }}
-                                        <button type="submit" class="btn btn-outline-danger btn-sm" title="Delete"
-                                                style="min-width: 36px; height: 32px;">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm" title="Delete">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </form>
