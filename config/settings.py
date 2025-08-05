@@ -96,37 +96,31 @@ def initialize_default_data():
 
     # Create some default screening types
     default_screenings = [
-        {
-            'name': 'Mammogram',
-            'description': 'Breast cancer screening',
-            'keywords': json.dumps(['mammogram', 'mammography', 'breast screening']),
-            'gender_restriction': 'F',
-            'min_age': 40,
-            'max_age': 75,
-            'frequency_number': 1,
-            'frequency_unit': 'years'
-        },
-        {
-            'name': 'Colonoscopy',
-            'description': 'Colorectal cancer screening',
-            'keywords': json.dumps(['colonoscopy', 'colon screening', 'colorectal']),
-            'gender_restriction': None,
-            'min_age': 50,
-            'max_age': 75,
-            'frequency_number': 10,
-            'frequency_unit': 'years'
-        },
-        {
-            'name': 'Pap Smear',
-            'description': 'Cervical cancer screening',
-            'keywords': json.dumps(['pap smear', 'cervical screening', 'cytology']),
-            'gender_restriction': 'F',
-            'min_age': 21,
-            'max_age': 65,
-            'frequency_number': 3,
-            'frequency_unit': 'years'
-        }
-    ]
+            {
+                'name': 'Mammogram',
+                'keywords': json.dumps(['mammogram', 'mammography', 'breast screening']),
+                'eligible_genders': 'F',
+                'min_age': 40,
+                'max_age': 75,
+                'frequency_years': 1.0  # 1 year frequency
+            },
+            {
+                'name': 'Colonoscopy',
+                'keywords': json.dumps(['colonoscopy', 'colon screening', 'colorectal']),
+                'eligible_genders': 'both',
+                'min_age': 50,
+                'max_age': 75,
+                'frequency_years': 10.0  # 10 year frequency
+            },
+            {
+                'name': 'Pap Smear',
+                'keywords': json.dumps(['pap smear', 'cervical screening', 'cytology']),
+                'eligible_genders': 'F',
+                'min_age': 21,
+                'max_age': 65,
+                'frequency_years': 3.0  # 3 year frequency
+            }
+        ]
 
     for screening_data in default_screenings:
         existing = ScreeningType.query.filter_by(name=screening_data['name']).first()
