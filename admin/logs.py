@@ -22,18 +22,34 @@ class AdminLogger:
             if not user_agent and request:
                 user_agent = request.headers.get('User-Agent', '')
 
-            # Create log entry
-            log_entry = AdminLog(
-                user_id=user_id,
-                action=action,
-                details=details,
-                ip_address=ip_address,
-                user_agent=user_agent,
-                timestamp=datetime.utcnow()
-            )
-
-            db.session.add(log_entry)
-            db.session.commit()
+            # Create log entry - try with user_agent first
+            try:
+                log_entry = AdminLog(
+                    user_id=user_id,
+                    action=action,
+                    details=details,
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                    timestamp=datetime.utcnow()
+                )
+                db.session.add(log_entry)
+                db.session.commit()
+            except Exception as db_error:
+                # If user_agent column doesn't exist, try without it
+                if 'user_agent' in str(db_error):
+                    db.session.rollback()
+                    log_entry = AdminLog(
+                        user_id=user_id,
+                        action=action,
+                        details=details,
+                        ip_address=ip_address,
+                        timestamp=datetime.utcnow()
+                    )
+                    # Don't set user_agent if the column doesn't exist
+                    db.session.add(log_entry)
+                    db.session.commit()
+                else:
+                    raise db_error
 
             # Also log to application logger
             logger = logging.getLogger(__name__)
