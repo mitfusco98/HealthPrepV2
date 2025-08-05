@@ -135,12 +135,12 @@ def add_screening_type():
             # Create new screening type
             screening_type = ScreeningType(
                 name=form.name.data,
-                description=form.description.data,
                 keywords=form.keywords.data.split(',') if form.keywords.data else [],
-                eligible_genders=form.eligible_genders.data,
+                gender=form.eligible_genders.data if form.eligible_genders.data != 'both' else None,
                 min_age=form.min_age.data,
                 max_age=form.max_age.data,
-                frequency_years=form.frequency_years.data,
+                frequency_number=int(form.frequency_years.data) if form.frequency_years.data else 1,
+                frequency_unit='years',
                 trigger_conditions=form.trigger_conditions.data.split(',') if form.trigger_conditions.data else []
             )
 
@@ -175,12 +175,12 @@ def edit_screening_type(type_id):
         if form.validate_on_submit():
             # Update screening type
             screening_type.name = form.name.data
-            screening_type.description = form.description.data
             screening_type.keywords = form.keywords.data.split(',') if form.keywords.data else []
-            screening_type.eligible_genders = form.eligible_genders.data
+            screening_type.gender = form.eligible_genders.data if form.eligible_genders.data != 'both' else None
             screening_type.min_age = form.min_age.data
             screening_type.max_age = form.max_age.data
-            screening_type.frequency_years = form.frequency_years.data
+            screening_type.frequency_number = int(form.frequency_years.data) if form.frequency_years.data else 1
+            screening_type.frequency_unit = 'years'
             screening_type.trigger_conditions = form.trigger_conditions.data.split(',') if form.trigger_conditions.data else []
 
             db.session.commit()

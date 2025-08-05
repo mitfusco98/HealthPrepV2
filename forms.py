@@ -43,7 +43,6 @@ class ChangePasswordForm(FlaskForm):
 
 class ScreeningTypeForm(FlaskForm):
     name = StringField('Screening Name', validators=[DataRequired(), Length(min=2, max=100)])
-    description = TextAreaField('Description', validators=[Length(max=500)])
     keywords = TextAreaField('Keywords (comma-separated)', validators=[Length(max=1000)])
     eligible_genders = SelectField('Eligible Genders', 
                                  choices=[('both', 'Both'), ('M', 'Male'), ('F', 'Female')],
