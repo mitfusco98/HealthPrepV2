@@ -181,16 +181,18 @@
                 </div>
                 {% endif %}
 
-                {% if screening_type.trigger_conditions_list %}
                 <div class="mt-3">
                     <strong>Current Triggers:</strong>
                     <div class="mt-1">
-                        {% for condition in screening_type.trigger_conditions_list %}
-                        <span class="badge bg-warning me-1 mb-1">{{ condition }}</span>
-                        {% endfor %}
+                        {% if screening_type.trigger_conditions_list %}
+                            {% for condition in screening_type.trigger_conditions_list %}
+                            <span class="badge bg-warning me-1 mb-1">{{ condition }}</span>
+                            {% endfor %}
+                        {% else %}
+                            <span class="badge bg-light text-muted me-1 mb-1">None</span>
+                        {% endif %}
                     </div>
                 </div>
-                {% endif %}
             </div>
         </div>
     </div>
