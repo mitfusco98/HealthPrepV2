@@ -140,7 +140,6 @@ def add_screening_type():
             
             screening_type = ScreeningType(
                 name=form.name.data,
-                description=form.description.data,
                 keywords=json.dumps(keywords_list),  # Store as JSON
                 eligible_genders=form.eligible_genders.data,
                 min_age=form.min_age.data,
@@ -183,7 +182,6 @@ def edit_screening_type(type_id):
             trigger_conditions_list = [tc.strip() for tc in form.trigger_conditions.data.split(',') if tc.strip()] if form.trigger_conditions.data else []
             
             screening_type.name = form.name.data
-            screening_type.description = form.description.data
             screening_type.keywords = json.dumps(keywords_list)
             screening_type.eligible_genders = form.eligible_genders.data
             screening_type.min_age = form.min_age.data
@@ -205,7 +203,6 @@ def edit_screening_type(type_id):
 
         # Populate form fields for editing
         if not request.method == 'POST':  # Only populate on GET request
-            form.description.data = screening_type.description
             form.eligible_genders.data = screening_type.eligible_genders
             form.frequency_years.data = screening_type.frequency_years
             if screening_type.keywords_list:
