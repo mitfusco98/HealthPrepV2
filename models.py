@@ -83,7 +83,7 @@ class ScreeningType(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     keywords = db.Column(db.Text)  # JSON string of keywords
-    gender = db.Column(db.String(10))  # 'male', 'female', or None for both
+    gender = db.Column(db.String(10))  # 'M', 'F', or None for both
     min_age = db.Column(db.Integer)
     max_age = db.Column(db.Integer)
     frequency_number = db.Column(db.Integer, nullable=False)
