@@ -13,9 +13,25 @@
   border: 1px solid rgba(13, 110, 253, 0.3);
 }
 
+/* Remove medical term styling in conditions display */
+.condition-display .medical-term {
+  background-color: transparent;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+  font-weight: inherit;
+  border: none;
+}
+
 .medical-term:hover {
   background-color: rgba(13, 110, 253, 0.2);
   cursor: help;
+}
+
+/* Remove hover effects for medical terms in conditions display */
+.condition-display .medical-term:hover {
+  background-color: transparent;
+  cursor: inherit;
 }
 
 /* Medical Term Categories */
