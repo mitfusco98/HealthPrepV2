@@ -15,7 +15,7 @@ function getCSRFToken() {
     if (metaToken) {
         return metaToken.getAttribute('content');
     }
-    
+
     // Try to get from cookie
     const cookies = document.cookie.split(';');
     for (let cookie of cookies) {
@@ -24,7 +24,7 @@ function getCSRFToken() {
             return decodeURIComponent(value);
         }
     }
-    
+
     return null;
 }
 
@@ -293,7 +293,7 @@ async function saveKeywords() {
         const headers = {
             'Content-Type': 'application/json'
         };
-        
+
         if (csrfToken) {
             headers['X-CSRFToken'] = csrfToken;
         }
@@ -328,7 +328,11 @@ async function saveKeywords() {
         }
     } catch (error) {
         console.error('Error saving keywords:', error);
-        showKeywordError('Failed to save keywords');
+        let errorMessage = error.message;
+        if (error.message.includes('CSRF') || error.message.includes('400')) {
+            errorMessage = 'Session expired. Please refresh the page and try again.';
+        }
+        showAlert('Error saving keywords: ' + errorMessage, 'error');
     } finally {
         // Restore button state
         const saveBtn = document.getElementById('saveKeywordsBtn');

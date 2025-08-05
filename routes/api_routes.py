@@ -22,12 +22,7 @@ logger = logging.getLogger(__name__)
 
 api_bp = Blueprint('api', __name__)
 
-# Try to import CSRF for exemptions
-try:
-    from flask_wtf.csrf import exempt
-except ImportError:
-    def exempt(f):
-        return f
+from flask_wtf.csrf import exempt
 
 @api_bp.route('/screening-keywords/<int:screening_type_id>', methods=['GET', 'POST'])
 @login_required

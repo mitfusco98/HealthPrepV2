@@ -45,6 +45,7 @@ def create_app():
     login_manager.login_view = 'auth.login'
     login_manager.login_message = 'Please log in to access this page.'
     csrf.init_app(app)
+    configure_csrf_exemptions(app)
     migrate.init_app(app, db)
 
     @login_manager.user_loader
@@ -145,7 +146,15 @@ def register_template_utilities(app):
         return dict(csrf_token=lambda: token_urlsafe(32))
 
 # Configure CSRF protection to exempt API routes
-@csrf.exempt
-def csrf_exempt_api_routes():
-    """Exempt API routes from CSRF protection"""
-    pass
+def configure_csrf_exemptions(app):
+    """Configure CSRF exemptions for API routes"""
+    @csrf.exempt
+    def exempt_api_routes():
+        from flask import request
+        # Exempt all /api/ routes from CSRF
+        if request.endpoint and request.endpoint.startswith('api.'):
+            return True
+        return False
+    
+    # Apply the exemption
+    csrf.exempt(exempt_api_routes)
