@@ -101,6 +101,17 @@ templates/
 - FHIR client integration
 - Template asset organization and modularization
 
+### ✅ Recently Completed
+- **Enhanced Screening Types Architecture** (January 2025)
+  - Aligned model fields with design intent for gender/age/condition eligibility
+  - Added `description` field for better screening documentation
+  - Enhanced `eligible_genders` field with clear 'M', 'F', 'both' options 
+  - Updated `frequency_years` to support fractional frequencies (0.25 for quarterly, etc.)
+  - Implemented proper JSON storage for keywords and trigger conditions
+  - Created comprehensive add/edit forms with examples and guidance
+  - Added proper field validation and help text aligned with healthcare requirements
+  - Implemented full CRUD operations for screening type management
+
 ### ⚠️ Current Issues
 - Some LSP diagnostics in routes (model attribute references need cleanup)
 - Incomplete screening engine implementation  

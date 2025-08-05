@@ -63,12 +63,35 @@
                         <tr>
                             <td>
                                 <strong>{{ type.name }}</strong>
-                                {% if type.keywords %}
-                                    <br><small class="text-muted">Keywords: {{ type.keywords[:50] }}{% if type.keywords|length > 50 %}...{% endif %}</small>
+                                {% if type.keywords_list %}
+                                    <br><small class="text-muted">
+                                        Keywords: {{ type.keywords_list[:3]|join(', ') }}{% if type.keywords_list|length > 3 %}...{% endif %}
+                                    </small>
+                                {% endif %}
+                                <!-- Gender and Age Eligibility -->
+                                <br><small class="text-info">
+                                    {% if type.eligible_genders == 'M' %}Male only{% elif type.eligible_genders == 'F' %}Female only{% else %}All genders{% endif %}
+                                    {% if type.min_age or type.max_age %}
+                                        , Age: {% if type.min_age %}{{ type.min_age }}+{% endif %}{% if type.max_age %} to {{ type.max_age }}{% endif %}
+                                    {% endif %}
+                                </small>
+                            </td>
+                            <td>
+                                {{ type.description[:100] if type.description else 'No description' }}{% if type.description and type.description|length > 100 %}...{% endif %}
+                                {% if type.trigger_conditions_list %}
+                                    <br><small class="text-warning">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>
+                                        Triggers: {{ type.trigger_conditions_list[:2]|join(', ') }}{% if type.trigger_conditions_list|length > 2 %}...{% endif %}
+                                    </small>
                                 {% endif %}
                             </td>
-                            <td>{{ type.description[:100] }}{% if type.description and type.description|length > 100 %}...{% endif %}</td>
-                            <td>{{ type.frequency_years }} years</td>
+                            <td>
+                                {% if type.frequency_years >= 1 %}
+                                    {{ type.frequency_years|int }} year{{ 's' if type.frequency_years != 1 }}
+                                {% else %}
+                                    {{ (type.frequency_years * 12)|round(1) }} month{{ 's' if (type.frequency_years * 12) != 1 }}
+                                {% endif %}
+                            </td>
                             <td>
                                 {% if type.is_active %}
                                     <span class="badge bg-success">Active</span>

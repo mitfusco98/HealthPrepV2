@@ -43,14 +43,21 @@ class ChangePasswordForm(FlaskForm):
 
 class ScreeningTypeForm(FlaskForm):
     name = StringField('Screening Name', validators=[DataRequired(), Length(min=2, max=100)])
-    keywords = TextAreaField('Keywords (comma-separated)', validators=[Length(max=1000)])
+    description = TextAreaField('Description', validators=[Length(max=500)])
+    keywords = TextAreaField('Keywords (comma-separated)', 
+                           validators=[Length(max=1000)],
+                           render_kw={'placeholder': 'mammogram, breast cancer screening, mammography'})
     eligible_genders = SelectField('Eligible Genders', 
-                                 choices=[('both', 'Both'), ('M', 'Male'), ('F', 'Female')],
+                                 choices=[('both', 'Both Genders'), ('M', 'Male Only'), ('F', 'Female Only')],
                                  default='both')
     min_age = IntegerField('Minimum Age', validators=[Optional(), NumberRange(min=0, max=150)])
     max_age = IntegerField('Maximum Age', validators=[Optional(), NumberRange(min=0, max=150)])
-    frequency_years = FloatField('Frequency (Years)', validators=[DataRequired(), NumberRange(min=0.1, max=50)])
-    trigger_conditions = TextAreaField('Trigger Conditions (comma-separated)', validators=[Length(max=1000)])
+    frequency_years = FloatField('Frequency (Years)', 
+                               validators=[DataRequired(), NumberRange(min=0.08, max=50)],  # 0.08 = ~1 month
+                               render_kw={'step': '0.25', 'placeholder': '1.0 for annual, 0.25 for quarterly'})
+    trigger_conditions = TextAreaField('Trigger Conditions (comma-separated)', 
+                                     validators=[Length(max=1000)],
+                                     render_kw={'placeholder': 'diabetes, hypertension, family history'})
     submit = SubmitField('Save Screening Type')
 
 class ScreeningSettingsForm(FlaskForm):

@@ -1,12 +1,12 @@
 {% extends 'base_user.html' %}
 
-{% block title %}Add Screening Type - HealthPrep{% endblock %}
+{% block title %}Edit Screening Type - HealthPrep{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>
-        <i class="fas fa-plus-circle me-2 text-primary"></i>
-        Add Screening Type
+        <i class="fas fa-edit me-2 text-primary"></i>
+        Edit Screening Type: {{ screening_type.name }}
     </h1>
     <a href="{{ url_for('screening.screening_types') }}" class="btn btn-secondary">
         <i class="fas fa-arrow-left me-1"></i>
@@ -114,7 +114,7 @@
                         </a>
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save me-1"></i>
-                            Create Screening Type
+                            Update Screening Type
                         </button>
                     </div>
                 </form>
@@ -126,30 +126,49 @@
         <div class="card">
             <div class="card-header">
                 <h6 class="mb-0">
-                    <i class="fas fa-lightbulb me-2"></i>
-                    Examples
+                    <i class="fas fa-info-circle me-2"></i>
+                    Current Configuration
                 </h6>
             </div>
             <div class="card-body">
-                <h6>Mammogram Example:</h6>
-                <ul class="list-unstyled">
-                    <li><strong>Name:</strong> Mammogram</li>
-                    <li><strong>Gender:</strong> Female Only</li>
-                    <li><strong>Age:</strong> 40+ years</li>
-                    <li><strong>Frequency:</strong> 1.0 years</li>
-                    <li><strong>Keywords:</strong> mammogram, breast cancer screening</li>
-                </ul>
+                <dl class="row">
+                    <dt class="col-5">Status:</dt>
+                    <dd class="col-7">
+                        {% if screening_type.is_active %}
+                            <span class="badge bg-success">Active</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Inactive</span>
+                        {% endif %}
+                    </dd>
+                    
+                    <dt class="col-5">Created:</dt>
+                    <dd class="col-7">{{ screening_type.created_at.strftime('%m/%d/%Y') if screening_type.created_at }}</dd>
+                    
+                    <dt class="col-5">Last Updated:</dt>
+                    <dd class="col-7">{{ screening_type.updated_at.strftime('%m/%d/%Y') if screening_type.updated_at }}</dd>
+                </dl>
                 
-                <hr>
+                {% if screening_type.keywords_list %}
+                <div class="mt-3">
+                    <strong>Current Keywords:</strong>
+                    <div class="mt-1">
+                        {% for keyword in screening_type.keywords_list %}
+                        <span class="badge bg-primary me-1 mb-1">{{ keyword }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
                 
-                <h6>A1C Test Example:</h6>
-                <ul class="list-unstyled">
-                    <li><strong>Name:</strong> A1C Test</li>
-                    <li><strong>Gender:</strong> Both Genders</li>
-                    <li><strong>Age:</strong> 18+ years</li>
-                    <li><strong>Frequency:</strong> 0.25 years (for diabetics)</li>
-                    <li><strong>Triggers:</strong> diabetes, prediabetes</li>
-                </ul>
+                {% if screening_type.trigger_conditions_list %}
+                <div class="mt-3">
+                    <strong>Current Triggers:</strong>
+                    <div class="mt-1">
+                        {% for condition in screening_type.trigger_conditions_list %}
+                        <span class="badge bg-warning me-1 mb-1">{{ condition }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>

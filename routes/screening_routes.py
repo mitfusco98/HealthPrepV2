@@ -11,6 +11,7 @@ from core.engine import ScreeningEngine
 from admin.logs import AdminLogger
 from forms import ScreeningTypeForm
 from app import db
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -132,16 +133,19 @@ def add_screening_type():
         form = ScreeningTypeForm()
 
         if form.validate_on_submit():
-            # Create new screening type
+            # Create new screening type with proper field mapping
+            keywords_list = [kw.strip() for kw in form.keywords.data.split(',') if kw.strip()] if form.keywords.data else []
+            trigger_conditions_list = [tc.strip() for tc in form.trigger_conditions.data.split(',') if tc.strip()] if form.trigger_conditions.data else []
+            
             screening_type = ScreeningType(
                 name=form.name.data,
-                keywords=form.keywords.data.split(',') if form.keywords.data else [],
-                gender=form.eligible_genders.data if form.eligible_genders.data != 'both' else None,
+                description=form.description.data,
+                keywords=json.dumps(keywords_list),  # Store as JSON
+                eligible_genders=form.eligible_genders.data,
                 min_age=form.min_age.data,
                 max_age=form.max_age.data,
-                frequency_number=int(form.frequency_years.data) if form.frequency_years.data else 1,
-                frequency_unit='years',
-                trigger_conditions=form.trigger_conditions.data.split(',') if form.trigger_conditions.data else []
+                frequency_years=form.frequency_years.data,
+                trigger_conditions=json.dumps(trigger_conditions_list)  # Store as JSON
             )
 
             db.session.add(screening_type)
@@ -173,15 +177,18 @@ def edit_screening_type(type_id):
         form = ScreeningTypeForm(obj=screening_type)
 
         if form.validate_on_submit():
-            # Update screening type
+            # Update screening type with proper field mapping
+            keywords_list = [kw.strip() for kw in form.keywords.data.split(',') if kw.strip()] if form.keywords.data else []
+            trigger_conditions_list = [tc.strip() for tc in form.trigger_conditions.data.split(',') if tc.strip()] if form.trigger_conditions.data else []
+            
             screening_type.name = form.name.data
-            screening_type.keywords = form.keywords.data.split(',') if form.keywords.data else []
-            screening_type.gender = form.eligible_genders.data if form.eligible_genders.data != 'both' else None
+            screening_type.description = form.description.data
+            screening_type.keywords = json.dumps(keywords_list)
+            screening_type.eligible_genders = form.eligible_genders.data
             screening_type.min_age = form.min_age.data
             screening_type.max_age = form.max_age.data
-            screening_type.frequency_number = int(form.frequency_years.data) if form.frequency_years.data else 1
-            screening_type.frequency_unit = 'years'
-            screening_type.trigger_conditions = form.trigger_conditions.data.split(',') if form.trigger_conditions.data else []
+            screening_type.frequency_years = form.frequency_years.data
+            screening_type.trigger_conditions = json.dumps(trigger_conditions_list)
 
             db.session.commit()
 
@@ -195,11 +202,15 @@ def edit_screening_type(type_id):
             flash(f'Screening type "{screening_type.name}" updated successfully', 'success')
             return redirect(url_for('screening.screening_types'))
 
-        # Populate form with existing data
-        if screening_type.keywords:
-            form.keywords.data = ','.join(screening_type.keywords)
-        if screening_type.trigger_conditions:
-            form.trigger_conditions.data = ','.join(screening_type.trigger_conditions)
+        # Populate form fields for editing
+        if not request.method == 'POST':  # Only populate on GET request
+            form.description.data = screening_type.description
+            form.eligible_genders.data = screening_type.eligible_genders
+            form.frequency_years.data = screening_type.frequency_years
+            if screening_type.keywords_list:
+                form.keywords.data = ','.join(screening_type.keywords_list)
+            if screening_type.trigger_conditions_list:
+                form.trigger_conditions.data = ','.join(screening_type.trigger_conditions_list)
 
         return render_template('screening/edit_screening_type.html',
                              form=form, screening_type=screening_type)

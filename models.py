@@ -82,13 +82,13 @@ class ScreeningType(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    keywords = db.Column(db.Text)  # JSON string of keywords
-    gender = db.Column(db.String(10))  # 'M', 'F', or None for both
+    description = db.Column(db.Text)  # Added description field
+    keywords = db.Column(db.Text)  # JSON string of keywords for fuzzy detection
+    eligible_genders = db.Column(db.String(10), default='both')  # 'M', 'F', or 'both'
     min_age = db.Column(db.Integer)
     max_age = db.Column(db.Integer)
-    frequency_number = db.Column(db.Integer, nullable=False)
-    frequency_unit = db.Column(db.String(10), nullable=False)  # 'months' or 'years'
-    trigger_conditions = db.Column(db.Text)  # JSON string of conditions
+    frequency_years = db.Column(db.Float, nullable=False)  # Frequency in years (can be fractional like 0.25 for 3 months)
+    trigger_conditions = db.Column(db.Text)  # JSON string of conditions that modify screening protocols
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
