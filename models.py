@@ -126,6 +126,19 @@ class ScreeningType(db.Model):
             self.keywords = json.dumps(keywords)
         else:
             self.keywords = keywords
+    
+    def get_trigger_conditions(self):
+        """Get trigger conditions as a list"""
+        if self.trigger_conditions:
+            try:
+                return json.loads(self.trigger_conditions)
+            except (json.JSONDecodeError, TypeError):
+                return []
+        return []
+    
+    def set_trigger_conditions(self, conditions):
+        """Set trigger conditions from a list"""
+        self.trigger_conditions = json.dumps(conditions) if conditions else None
 
     def __repr__(self):
         return f'<ScreeningType {self.name}>'

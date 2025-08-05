@@ -82,6 +82,19 @@
                                         <small class="text-warning">No keywords configured</small>
                                     </div>
                                 {% endif %}
+                                {% if type.trigger_conditions_list %}
+                                    <div class="mt-1">
+                                        <small class="text-muted">Conditions:</small>
+                                        <div class="condition-display">
+                                            {% for condition in type.trigger_conditions_list[:3] %}
+                                                <span class="badge bg-warning text-dark me-1 mb-1" style="font-size: 0.7em;">{{ condition }}</span>
+                                            {% endfor %}
+                                            {% if type.trigger_conditions_list|length > 3 %}
+                                                <span class="badge bg-secondary" style="font-size: 0.7em;">+{{ type.trigger_conditions_list|length - 3 }} more</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
                             </td>
                             <td>
                                 <small class="text-muted">
@@ -116,6 +129,12 @@
                                             title="Manage Keywords"
                                             style="width: 36px; height: 36px; border-radius: 0; display: inline-flex; align-items: center; justify-content: center;">
                                         <i class="fas fa-tags"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-outline-warning btn-sm"
+                                            onclick="openConditionsModal({{ type.id }}, '{{ type.name }}')"
+                                            title="Manage Trigger Conditions"
+                                            style="width: 36px; height: 36px; border-radius: 0; display: inline-flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-stethoscope"></i>
                                     </button>
                                     <a href="{{ url_for('screening.edit_screening_type', type_id=type.id) }}"
                                        class="btn btn-outline-primary btn-sm" title="Edit"
@@ -219,7 +238,60 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/keyword_modal.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/medical_terminology_ui.css') }}">
 
+<!-- Trigger Conditions Modal -->
+<div class="modal fade" id="conditionsModal" tabindex="-1" aria-labelledby="conditionModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="conditionModalTitle">Manage Trigger Conditions</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger" id="conditionError" style="display: none;"></div>
+                <div class="alert alert-success" id="conditionSuccess" style="display: none;"></div>
+                
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label for="newConditionInput" class="form-label mb-0">Add New Trigger Condition</label>
+                        <button type="button" class="btn btn-sm btn-import-conditions" id="importConditionsBtn" 
+                                onclick="importMedicalConditions()" title="Import standard medical conditions">
+                            <i class="fas fa-download"></i> Import Medical Conditions
+                        </button>
+                    </div>
+                    <div class="autocomplete-container">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="newConditionInput" 
+                                   placeholder="Enter medical condition..." autocomplete="off">
+                            <button type="button" class="btn btn-primary" onclick="addCondition()">
+                                <i class="fas fa-plus"></i> Add
+                            </button>
+                        </div>
+                        <div class="autocomplete-dropdown" id="conditionAutocompleteDropdown"></div>
+                    </div>
+                    <div class="form-text">
+                        Add medical conditions that trigger different screening protocols. Start typing for suggestions.
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Current Trigger Conditions</label>
+                    <div id="conditionTags" class="border rounded p-3 min-height-60">
+                        <!-- Condition tags will be populated here -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveConditionsBtn" onclick="saveConditions()">
+                    <i class="fas fa-save"></i> Save Conditions
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Include JavaScript for tag-based keyword management -->
 <script src="{{ url_for('static', filename='js/screening_modals.js') }}"></script>
+<script src="{{ url_for('static', filename='js/condition_modals.js') }}"></script>
 <script src="{{ url_for('static', filename='js/medical_terminology.js') }}"></script>
 {% endblock %}

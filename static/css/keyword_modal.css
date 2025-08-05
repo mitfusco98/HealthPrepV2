@@ -135,6 +135,40 @@
     color: #0f5132;
 }
 
+/* Condition tag styling */
+.condition-tag {
+    font-size: 0.875rem;
+    padding: 0.5rem 0.75rem;
+    background: linear-gradient(45deg, #dc3545, #fd7e14) !important;
+}
+
+.condition-tag .btn-close {
+    font-size: 0.75rem;
+}
+
+/* Import conditions button */
+.btn-import-conditions {
+    background: linear-gradient(45deg, #dc3545, #fd7e14);
+    border: none;
+    color: white;
+}
+
+.btn-import-conditions:hover {
+    background: linear-gradient(45deg, #c82333, #e06b0a);
+    color: white;
+    transform: translateY(-1px);
+}
+
+/* Condition autocomplete specific styling */
+#conditionAutocompleteDropdown .autocomplete-item {
+    font-size: 0.9rem;
+    color: #495057;
+}
+
+[data-bs-theme="dark"] #conditionAutocompleteDropdown .autocomplete-item {
+    color: #ced4da;
+}
+
 .keyword-tag .badge:hover {
     background-color: #0b5ed7 !important;
     transform: scale(1.05);

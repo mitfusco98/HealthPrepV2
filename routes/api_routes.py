@@ -294,6 +294,140 @@ def get_category_keywords(category):
             'error': str(e)
         }), 500
 
+# Trigger Conditions API Endpoints
+
+@api_bp.route('/screening-conditions/<int:screening_type_id>', methods=['GET'])
+@login_required
+def get_screening_conditions(screening_type_id):
+    """Get trigger conditions for a screening type"""
+    try:
+        screening_type = ScreeningType.query.get_or_404(screening_type_id)
+        conditions = screening_type.get_trigger_conditions()
+        
+        return jsonify({
+            'success': True,
+            'conditions': conditions,
+            'screening_name': screening_type.name
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting screening conditions: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api_bp.route('/screening-conditions/<int:screening_type_id>', methods=['POST'])
+@login_required
+def save_screening_conditions(screening_type_id):
+    """Save trigger conditions for a screening type"""
+    try:
+        screening_type = ScreeningType.query.get_or_404(screening_type_id)
+        
+        data = request.get_json()
+        conditions = data.get('conditions', [])
+        
+        # Validate conditions
+        if not isinstance(conditions, list):
+            return jsonify({
+                'success': False,
+                'error': 'Conditions must be a list'
+            }), 400
+        
+        # Save conditions
+        screening_type.set_trigger_conditions(conditions)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Saved {len(conditions)} trigger conditions',
+            'conditions': conditions
+        })
+
+    except Exception as e:
+        logger.error(f"Error saving screening conditions: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api_bp.route('/condition-suggestions')
+@login_required
+def get_condition_suggestions():
+    """Get condition suggestions for screening types"""
+    try:
+        partial = request.args.get('q', '').strip()
+        if not partial:
+            return jsonify({'suggestions': []})
+
+        from utils.medical_conditions import medical_conditions_db
+        suggestions = medical_conditions_db.search_conditions(partial, limit=10)
+
+        return jsonify({
+            'success': True,
+            'suggestions': suggestions
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting condition suggestions: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'suggestions': []
+        }), 500
+
+@api_bp.route('/import-conditions/<int:screening_type_id>')
+@login_required
+def import_medical_conditions(screening_type_id):
+    """Import standard medical conditions for a screening type"""
+    try:
+        screening_type = ScreeningType.query.get_or_404(screening_type_id)
+        
+        from utils.medical_conditions import medical_conditions_db
+        imported_conditions = medical_conditions_db.import_standard_conditions(screening_type.name)
+        
+        # Get existing conditions
+        existing_conditions = screening_type.get_trigger_conditions()
+        
+        # Merge with existing, avoiding duplicates
+        all_conditions = list(set(existing_conditions + imported_conditions))
+        
+        return jsonify({
+            'success': True,
+            'conditions': all_conditions,
+            'imported_count': len(imported_conditions),
+            'total_count': len(all_conditions),
+            'new_conditions': [c for c in imported_conditions if c not in existing_conditions]
+        })
+
+    except Exception as e:
+        logger.error(f"Error importing medical conditions: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@api_bp.route('/standard-conditions')
+@login_required
+def get_standard_conditions():
+    """Get list of standard trigger conditions"""
+    try:
+        from utils.medical_conditions import medical_conditions_db
+        conditions = medical_conditions_db.get_standard_conditions()
+        
+        return jsonify({
+            'success': True,
+            'conditions': conditions
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting standard conditions: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @api_bp.route('/condition-suggestions')
 @login_required
 def get_condition_suggestions():
