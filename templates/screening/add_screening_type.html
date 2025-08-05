@@ -36,9 +36,17 @@
                         <div class="col-md-12">
                             <div class="mb-3">
                                 {{ form.name.label(class="form-label") }}
-                                {{ form.name(class="form-control") }}
+                                <div class="autocomplete-container">
+                                    {{ form.name(class="form-control", id="screeningNameInput", autocomplete="off") }}
+                                    <div class="autocomplete-dropdown" id="screeningNameAutocomplete"></div>
+                                </div>
                                 <div class="form-text">
-                                    Standard name for this screening (e.g., "Mammogram", "Pap Smear", "A1C Test")
+                                    Start typing for standardized screening names (e.g., "Mammogram", "Pap Smear", "A1C Test")
+                                </div>
+                                <div class="mt-1">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="showPopularScreenings()">
+                                        <i class="fas fa-lightbulb me-1"></i>Show Popular Screenings
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -226,6 +234,9 @@
 
 <!-- Include JavaScript for inline condition management -->
 <script src="{{ url_for('static', filename='js/inline_conditions.js') }}"></script>
+
+<!-- Include JavaScript for screening name autocomplete -->
+<script src="{{ url_for('static', filename='js/screening_name_autocomplete.js') }}"></script>
 
 {% endblock %}
 

@@ -417,6 +417,67 @@ def import_medical_conditions(screening_type_id):
             'error': str(e)
         }), 500
 
+@api_bp.route('/screening-name-suggestions')
+@login_required
+def screening_name_suggestions():
+    """Get standardized screening name suggestions"""
+    try:
+        query = request.args.get('q', '').strip()
+        
+        if not query or len(query) < 2:
+            return jsonify({
+                'success': True,
+                'suggestions': []
+            })
+        
+        from utils.screening_names import standardized_screening_names
+        suggestions = standardized_screening_names.search_screening_names(query, limit=8)
+        
+        return jsonify({
+            'success': True,
+            'suggestions': suggestions
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting screening name suggestions: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'suggestions': []
+        }), 500
+
+@api_bp.route('/standardize-screening-name')
+@login_required
+def standardize_screening_name():
+    """Get standardized name for a screening type"""
+    try:
+        input_name = request.args.get('name', '').strip()
+        
+        if not input_name:
+            return jsonify({
+                'success': False,
+                'error': 'No name provided'
+            })
+        
+        from utils.screening_names import standardized_screening_names
+        standardized_name = standardized_screening_names.get_standardized_name(input_name)
+        suggestions = standardized_screening_names.suggest_corrections(input_name)
+        
+        return jsonify({
+            'success': True,
+            'original_name': input_name,
+            'standardized_name': standardized_name,
+            'suggestions': suggestions,
+            'was_standardized': standardized_name != input_name
+        })
+        
+    except Exception as e:
+        logger.error(f"Error standardizing screening name: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @api_bp.route('/standard-conditions')
 @login_required
 def get_standard_conditions():
