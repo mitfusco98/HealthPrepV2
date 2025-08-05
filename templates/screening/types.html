@@ -85,7 +85,7 @@
                                 <div class="mt-1">
                                     <small class="text-muted">Conditions:</small>
                                     <div class="condition-display">
-                                        {% if type.trigger_conditions_list %}
+                                        {% if type.trigger_conditions_list and type.trigger_conditions_list|length > 0 %}
                                             {% for condition in type.trigger_conditions_list[:3] %}
                                                 <span class="badge bg-warning text-dark me-1 mb-1" style="font-size: 0.7em;">{{ condition }}</span>
                                             {% endfor %}
