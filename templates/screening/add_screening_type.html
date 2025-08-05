@@ -46,18 +46,12 @@
                     
                     <div class="mb-3">
                         <label class="form-label">Keywords</label>
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="keywordDisplay" 
-                                   placeholder="Use the Keywords button to manage screening keywords" readonly>
-                            <button type="button" class="btn btn-primary" 
-                                    onclick="openKeywordManager(0, 'New Screening Type')"
-                                    title="Manage keywords for this screening type">
-                                <i class="fas fa-tags"></i>
-                                Manage Keywords
-                            </button>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Keywords can be managed after creating the screening type from the main Screening Types page.
                         </div>
                         <div class="form-text">
-                            Click "Manage Keywords" to add keywords that help identify this screening in documents
+                            Keywords help identify this screening in documents through fuzzy matching
                         </div>
                     </div>
                     
@@ -160,59 +154,7 @@
     </div>
 </div>
 
-<!-- Keyword Manager Modal -->
-<div class="modal fade" id="keywordManagerModal" tabindex="-1" aria-labelledby="keywordModalTitle" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="keywordModalTitle">Manage Keywords</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="alert alert-danger" id="keywordError" style="display: none;"></div>
-                <div class="alert alert-success" id="keywordSuccess" style="display: none;"></div>
-                
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <label for="newKeywordInput" class="form-label mb-0">Add New Keyword</label>
-                        <button type="button" class="btn btn-sm btn-import" id="importKeywordsBtn" 
-                                onclick="importMedicalKeywords()" title="Import standard medical keywords">
-                            <i class="fas fa-download"></i> Import Medical Terms
-                        </button>
-                    </div>
-                    <div class="autocomplete-container">
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="newKeywordInput" 
-                                   placeholder="Enter keyword..." autocomplete="off">
-                            <button type="button" class="btn btn-primary" onclick="addKeyword()">
-                                <i class="fas fa-plus"></i> Add
-                            </button>
-                        </div>
-                        <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
-                    </div>
-                    <div class="form-text">
-                        Add keywords that help identify this screening in documents. Start typing for suggestions.
-                    </div>
-                </div>
-                
-                <div class="mb-3">
-                    <label class="form-label">Current Keywords</label>
-                    <div id="keywordsContainer" class="border rounded p-3 min-height-100">
-                        <!-- Keywords will be displayed here -->
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="saveKeywordsBtn" onclick="saveKeywords()">
-                    <i class="fas fa-save"></i> Save Keywords
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+
 {% endblock %}
 
-{% block extra_js %}
-<script src="{{ url_for('static', filename='js/screening_modals.js') }}"></script>
 {% endblock %}
