@@ -98,6 +98,9 @@ def register_blueprints(app):
     app.register_blueprint(prep_sheet_bp, url_prefix='/prep-sheet')
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(ui_bp)
+    
+    # Exempt all API routes from CSRF
+    csrf.exempt(api_bp)
 
 def register_error_handlers(app):
     """Register error handlers"""
@@ -148,13 +151,5 @@ def register_template_utilities(app):
 # Configure CSRF protection to exempt API routes
 def configure_csrf_exemptions(app):
     """Configure CSRF exemptions for API routes"""
-    @csrf.exempt
-    def exempt_api_routes():
-        from flask import request
-        # Exempt all /api/ routes from CSRF
-        if request.endpoint and request.endpoint.startswith('api.'):
-            return True
-        return False
-    
-    # Apply the exemption
-    csrf.exempt(exempt_api_routes)
+    # This will be called after blueprints are registered
+    pass
