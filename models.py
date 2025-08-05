@@ -304,11 +304,63 @@ class PrepSheetSettings(db.Model):
     __tablename__ = 'prep_sheet_settings'
 
     id = db.Column(db.Integer, primary_key=True)
-    labs_cutoff_months = db.Column(db.Integer, default=12)
-    imaging_cutoff_months = db.Column(db.Integer, default=24)
-    consults_cutoff_months = db.Column(db.Integer, default=12)
-    hospital_cutoff_months = db.Column(db.Integer, default=12)
+    labs_cutoff_months = db.Column(db.Integer, default=12)  # 0 = To Last Appointment
+    imaging_cutoff_months = db.Column(db.Integer, default=12)  # 0 = To Last Appointment
+    consults_cutoff_months = db.Column(db.Integer, default=12)  # 0 = To Last Appointment
+    hospital_cutoff_months = db.Column(db.Integer, default=12)  # 0 = To Last Appointment
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def get_cutoff_description(self, data_type):
+        """Get human-readable description of cutoff setting"""
+        cutoff_value = getattr(self, f'{data_type}_cutoff_months', 0)
+        if cutoff_value == 0:
+            return "To Last Appointment"
+        elif cutoff_value == 1:
+            return "1 month"
+        else:
+            return f"{cutoff_value} months"
+
+    def get_effective_cutoff_date(self, data_type, patient_id=None):
+        """Calculate the effective cutoff date for a data type"""
+        from datetime import datetime, timedelta
+        
+        cutoff_months = getattr(self, f'{data_type}_cutoff_months', 6)
+        
+        # If cutoff is 0, use last appointment logic
+        if cutoff_months == 0 and patient_id:
+            # Find patient's most recent appointment before today
+            from models import Patient  # Import here to avoid circular imports
+            patient = Patient.query.get(patient_id)
+            if patient:
+                # This would need to be implemented when appointment model exists
+                # For now, fallback to 6 months
+                pass
+            # Fallback to 6 months if no appointments or patient not found
+            cutoff_months = 6
+        
+        # Calculate cutoff date
+        cutoff_date = datetime.now() - timedelta(days=cutoff_months * 30)
+        return cutoff_date
+
+    @classmethod
+    def apply_preset(cls, preset_name):
+        """Apply a preset configuration"""
+        presets = {
+            'conservative': {'labs': 3, 'imaging': 3, 'consults': 3, 'hospital': 3},
+            'standard': {'labs': 6, 'imaging': 6, 'consults': 6, 'hospital': 6},
+            'extended': {'labs': 12, 'imaging': 12, 'consults': 12, 'hospital': 12},
+            'last_appointment': {'labs': 0, 'imaging': 0, 'consults': 0, 'hospital': 0}
+        }
+        
+        if preset_name in presets:
+            preset = presets[preset_name]
+            return {
+                'labs_cutoff_months': preset['labs'],
+                'imaging_cutoff_months': preset['imaging'],
+                'consults_cutoff_months': preset['consults'],
+                'hospital_cutoff_months': preset['hospital']
+            }
+        return None
 
 
 

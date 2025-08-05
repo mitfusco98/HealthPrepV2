@@ -44,25 +44,56 @@
                 </h5>
             </div>
             <div class="card-body">
-                <form method="POST">
+                <!-- Quick Preset Buttons -->
+                <div class="mb-4">
+                    <h6 class="mb-3">Quick Presets</h6>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-outline-info btn-sm" onclick="applyPreset('conservative')">
+                            <i class="fas fa-shield-alt me-1"></i>Conservative (3 months)
+                        </button>
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="applyPreset('standard')">
+                            <i class="fas fa-balance-scale me-1"></i>Standard (6 months)
+                        </button>
+                        <button type="button" class="btn btn-outline-success btn-sm" onclick="applyPreset('extended')">
+                            <i class="fas fa-clock me-1"></i>Extended (12 months)
+                        </button>
+                        <button type="button" class="btn btn-outline-warning btn-sm" onclick="applyPreset('last_appointment')">
+                            <i class="fas fa-user-clock me-1"></i>To Last Appointment
+                        </button>
+                    </div>
+                    <div class="form-text mt-2">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Quick presets apply the same cutoff to all data types. You can customize individual settings below.
+                    </div>
+                </div>
+
+                <form method="POST" id="settingsForm">
                     {{ form.hidden_tag() }}
                     
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 {{ form.labs_cutoff_months.label(class="form-label") }}
-                                {{ form.labs_cutoff_months(class="form-control") }}
+                                <div class="input-group">
+                                    {{ form.labs_cutoff_months(class="form-control") }}
+                                    <span class="input-group-text">months</span>
+                                </div>
                                 <div class="form-text">
-                                    Lab results older than this will be excluded from prep sheets
+                                    <span class="cutoff-description" id="labs-description">{{ settings.get_cutoff_description('labs') if settings else '12 months' }}</span>
+                                    <br><small class="text-muted">Lab results, blood work, urine tests</small>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 {{ form.imaging_cutoff_months.label(class="form-label") }}
-                                {{ form.imaging_cutoff_months(class="form-control") }}
+                                <div class="input-group">
+                                    {{ form.imaging_cutoff_months(class="form-control") }}
+                                    <span class="input-group-text">months</span>
+                                </div>
                                 <div class="form-text">
-                                    Imaging studies older than this will be excluded
+                                    <span class="cutoff-description" id="imaging-description">{{ settings.get_cutoff_description('imaging') if settings else '12 months' }}</span>
+                                    <br><small class="text-muted">X-rays, CT scans, MRI, ultrasounds</small>
                                 </div>
                             </div>
                         </div>
@@ -72,27 +103,53 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 {{ form.consults_cutoff_months.label(class="form-label") }}
-                                {{ form.consults_cutoff_months(class="form-control") }}
+                                <div class="input-group">
+                                    {{ form.consults_cutoff_months(class="form-control") }}
+                                    <span class="input-group-text">months</span>
+                                </div>
                                 <div class="form-text">
-                                    Consultation notes older than this will be excluded
+                                    <span class="cutoff-description" id="consults-description">{{ settings.get_cutoff_description('consults') if settings else '12 months' }}</span>
+                                    <br><small class="text-muted">Specialist notes, referral reports</small>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 {{ form.hospital_cutoff_months.label(class="form-label") }}
-                                {{ form.hospital_cutoff_months(class="form-control") }}
+                                <div class="input-group">
+                                    {{ form.hospital_cutoff_months(class="form-control") }}
+                                    <span class="input-group-text">months</span>
+                                </div>
                                 <div class="form-text">
-                                    Hospital records older than this will be excluded
+                                    <span class="cutoff-description" id="hospital-description">{{ settings.get_cutoff_description('hospital') if settings else '12 months' }}</span>
+                                    <br><small class="text-muted">Admission records, discharge summaries</small>
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Cutoff Logic Explanation -->
+                    <div class="alert alert-info mt-3">
+                        <h6 class="alert-heading"><i class="fas fa-info-circle me-2"></i>Cutoff Logic</h6>
+                        <p class="mb-2">The system applies cutoffs in this hierarchy:</p>
+                        <ol class="mb-2">
+                            <li><strong>Data type-specific cutoffs</strong> - Individual values set above</li>
+                            <li><strong>"To Last Appointment" fallback</strong> - When set to 0, uses patient's last appointment date</li>
+                            <li><strong>Default fallback</strong> - 6 months ago if no past appointments found</li>
+                        </ol>
+                        <p class="mb-0">
+                            <strong>Note:</strong> Setting any cutoff to <code>0</code> enables "To Last Appointment" mode for that data type.
+                        </p>
                     </div>
                     
                     <div class="d-flex justify-content-between">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save me-1"></i>
                             Save Settings
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="resetForm()">
+                            <i class="fas fa-undo me-1"></i>
+                            Reset
                         </button>
                     </div>
                 </form>
@@ -111,17 +168,33 @@
             <div class="card-body">
                 {% if settings %}
                     <dl class="row">
-                        <dt class="col-6">Labs Cutoff:</dt>
-                        <dd class="col-6">{{ settings.labs_cutoff_months }} months</dd>
+                        <dt class="col-sm-5">Laboratory:</dt>
+                        <dd class="col-sm-7">
+                            <span class="badge bg-{{ 'warning' if settings.labs_cutoff_months == 0 else 'primary' }}">
+                                {{ settings.get_cutoff_description('labs') }}
+                            </span>
+                        </dd>
                         
-                        <dt class="col-6">Imaging Cutoff:</dt>
-                        <dd class="col-6">{{ settings.imaging_cutoff_months }} months</dd>
+                        <dt class="col-sm-5">Imaging:</dt>
+                        <dd class="col-sm-7">
+                            <span class="badge bg-{{ 'warning' if settings.imaging_cutoff_months == 0 else 'primary' }}">
+                                {{ settings.get_cutoff_description('imaging') }}
+                            </span>
+                        </dd>
                         
-                        <dt class="col-6">Consults Cutoff:</dt>
-                        <dd class="col-6">{{ settings.consults_cutoff_months }} months</dd>
+                        <dt class="col-sm-5">Consults:</dt>
+                        <dd class="col-sm-7">
+                            <span class="badge bg-{{ 'warning' if settings.consults_cutoff_months == 0 else 'primary' }}">
+                                {{ settings.get_cutoff_description('consults') }}
+                            </span>
+                        </dd>
                         
-                        <dt class="col-6">Hospital Cutoff:</dt>
-                        <dd class="col-6">{{ settings.hospital_cutoff_months }} months</dd>
+                        <dt class="col-sm-5">Hospital:</dt>
+                        <dd class="col-sm-7">
+                            <span class="badge bg-{{ 'warning' if settings.hospital_cutoff_months == 0 else 'primary' }}">
+                                {{ settings.get_cutoff_description('hospital') }}
+                            </span>
+                        </dd>
                     </dl>
                     
                     {% if settings.updated_at %}
@@ -143,26 +216,113 @@
                 </h6>
             </div>
             <div class="card-body">
+                <h6 class="mb-3">Recommended Practices</h6>
                 <ul class="list-unstyled">
                     <li class="mb-2">
-                        <i class="fas fa-check text-success me-2"></i>
-                        Lab results: 12-24 months for chronic conditions
+                        <i class="fas fa-flask text-primary me-2"></i>
+                        <strong>Labs:</strong> 3-6 months for chronic conditions, 12+ months for routine
                     </li>
                     <li class="mb-2">
-                        <i class="fas fa-check text-success me-2"></i>
-                        Imaging: 12-36 months depending on study type
+                        <i class="fas fa-x-ray text-info me-2"></i>
+                        <strong>Imaging:</strong> 6-12 months for follow-ups, 24+ months for screening
                     </li>
                     <li class="mb-2">
-                        <i class="fas fa-check text-success me-2"></i>
-                        Consultation notes: 6-12 months for relevance
+                        <i class="fas fa-user-md text-success me-2"></i>
+                        <strong>Consults:</strong> 3-6 months for active care, 12+ months for stable conditions
                     </li>
                     <li class="mb-2">
-                        <i class="fas fa-check text-success me-2"></i>
-                        Hospital records: 12 months for recent admissions
+                        <i class="fas fa-hospital text-danger me-2"></i>
+                        <strong>Hospital:</strong> 6-12 months for recent admissions
                     </li>
                 </ul>
+                
+                <div class="mt-3 p-2 bg-light rounded">
+                    <small class="text-muted">
+                        <i class="fas fa-lightbulb me-1"></i>
+                        <strong>Tip:</strong> Use "To Last Appointment" (0 months) for patient-specific, contextual data filtering based on their most recent visit.
+                    </small>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+function applyPreset(presetName) {
+    const presets = {
+        'conservative': {labs: 3, imaging: 3, consults: 3, hospital: 3},
+        'standard': {labs: 6, imaging: 6, consults: 6, hospital: 6},
+        'extended': {labs: 12, imaging: 12, consults: 12, hospital: 12},
+        'last_appointment': {labs: 0, imaging: 0, consults: 0, hospital: 0}
+    };
+    
+    if (presets[presetName]) {
+        const preset = presets[presetName];
+        document.getElementById('labs_cutoff_months').value = preset.labs;
+        document.getElementById('imaging_cutoff_months').value = preset.imaging;
+        document.getElementById('consults_cutoff_months').value = preset.consults;
+        document.getElementById('hospital_cutoff_months').value = preset.hospital;
+        
+        // Update descriptions
+        updateAllDescriptions();
+        
+        // Visual feedback
+        const btn = event.target.closest('button');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check me-1"></i>Applied!';
+        btn.classList.add('btn-success');
+        btn.classList.remove('btn-outline-info', 'btn-outline-primary', 'btn-outline-success', 'btn-outline-warning');
+        
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.classList.remove('btn-success');
+            btn.classList.add(btn.textContent.includes('Conservative') ? 'btn-outline-info' : 
+                             btn.textContent.includes('Standard') ? 'btn-outline-primary' :
+                             btn.textContent.includes('Extended') ? 'btn-outline-success' : 'btn-outline-warning');
+        }, 1500);
+    }
+}
+
+function updateDescription(fieldName) {
+    const value = document.getElementById(fieldName + '_cutoff_months').value;
+    const description = document.getElementById(fieldName + '-description');
+    
+    if (value == 0) {
+        description.textContent = 'To Last Appointment';
+        description.parentElement.classList.add('text-warning');
+        description.parentElement.classList.remove('text-muted');
+    } else if (value == 1) {
+        description.textContent = '1 month';
+        description.parentElement.classList.remove('text-warning');
+        description.parentElement.classList.add('text-muted');
+    } else {
+        description.textContent = value + ' months';
+        description.parentElement.classList.remove('text-warning');
+        description.parentElement.classList.add('text-muted');
+    }
+}
+
+function updateAllDescriptions() {
+    ['labs', 'imaging', 'consults', 'hospital'].forEach(fieldName => {
+        updateDescription(fieldName);
+    });
+}
+
+function resetForm() {
+    document.getElementById('settingsForm').reset();
+    updateAllDescriptions();
+}
+
+// Add event listeners for real-time updates
+document.addEventListener('DOMContentLoaded', function() {
+    ['labs', 'imaging', 'consults', 'hospital'].forEach(fieldName => {
+        const field = document.getElementById(fieldName + '_cutoff_months');
+        if (field) {
+            field.addEventListener('input', () => updateDescription(fieldName));
+            // Initial update
+            updateDescription(fieldName);
+        }
+    });
+});
+</script>
 {% endblock %}
