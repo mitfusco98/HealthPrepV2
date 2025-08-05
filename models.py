@@ -108,7 +108,7 @@ class ScreeningType(db.Model):
 
     @property
     def trigger_conditions_list(self):
-        """Return trigger conditions as a list"""
+        """Return trigger conditions as a list, filtering out empty/invalid conditions"""
         if not self.trigger_conditions or self.trigger_conditions.strip() == "":
             return []
         
@@ -121,11 +121,15 @@ class ScreeningType(db.Model):
             # Handle case where JSON loads to None
             if conditions is None:
                 return []
-            # Filter out empty strings and None values from the list
-            return [cond for cond in conditions if cond and str(cond).strip()]
-        except:
+            # Ensure it's a list
+            if not isinstance(conditions, list):
+                return []
+            # Filter out empty strings, None values, and whitespace-only strings
+            filtered_conditions = [cond for cond in conditions if cond and str(cond).strip()]
+            return filtered_conditions
+        except (json.JSONDecodeError, TypeError):
             # Fallback to comma-separated parsing
-            return [cond.strip() for cond in self.trigger_conditions.split(',') if cond.strip()]
+            return [cond.strip() for cond in self.trigger_conditions.split(',') if cond and cond.strip()]
     
     def get_content_keywords(self):
         """Get keywords for content matching"""

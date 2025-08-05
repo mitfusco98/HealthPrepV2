@@ -134,8 +134,17 @@ def add_screening_type():
         form = ScreeningTypeForm()
 
         if form.validate_on_submit():
-            # Create new screening type with proper field mapping
-            trigger_conditions_list = [tc.strip() for tc in form.trigger_conditions.data.split(',') if tc.strip()] if form.trigger_conditions.data else []
+            # Handle trigger conditions - could be JSON from inline management or comma-separated from textarea
+            trigger_conditions_list = []
+            if form.trigger_conditions.data:
+                try:
+                    # Try to parse as JSON first (from inline condition management)
+                    trigger_conditions_list = json.loads(form.trigger_conditions.data)
+                    if not isinstance(trigger_conditions_list, list):
+                        trigger_conditions_list = []
+                except (json.JSONDecodeError, ValueError):
+                    # Fallback to comma-separated parsing (manual textarea input)
+                    trigger_conditions_list = [tc.strip() for tc in form.trigger_conditions.data.split(',') if tc.strip()]
             
             screening_type = ScreeningType(
                 name=form.name.data,
@@ -144,7 +153,7 @@ def add_screening_type():
                 min_age=form.min_age.data,
                 max_age=form.max_age.data,
                 frequency_years=form.frequency_years.data,
-                trigger_conditions=json.dumps(trigger_conditions_list)  # Store as JSON
+                trigger_conditions=json.dumps(trigger_conditions_list) if trigger_conditions_list else None
             )
 
             db.session.add(screening_type)
@@ -176,8 +185,17 @@ def edit_screening_type(type_id):
         form = ScreeningTypeForm(obj=screening_type)
 
         if form.validate_on_submit():
-            # Update screening type with proper field mapping
-            trigger_conditions_list = [tc.strip() for tc in form.trigger_conditions.data.split(',') if tc.strip()] if form.trigger_conditions.data else []
+            # Handle trigger conditions - could be JSON from inline management or comma-separated from textarea
+            trigger_conditions_list = []
+            if form.trigger_conditions.data:
+                try:
+                    # Try to parse as JSON first (from inline condition management)
+                    trigger_conditions_list = json.loads(form.trigger_conditions.data)
+                    if not isinstance(trigger_conditions_list, list):
+                        trigger_conditions_list = []
+                except (json.JSONDecodeError, ValueError):
+                    # Fallback to comma-separated parsing (manual textarea input)
+                    trigger_conditions_list = [tc.strip() for tc in form.trigger_conditions.data.split(',') if tc.strip()]
             
             screening_type.name = form.name.data
             # Keywords are managed via modal - don't update from form
@@ -185,7 +203,7 @@ def edit_screening_type(type_id):
             screening_type.min_age = form.min_age.data
             screening_type.max_age = form.max_age.data
             screening_type.frequency_years = form.frequency_years.data
-            screening_type.trigger_conditions = json.dumps(trigger_conditions_list)
+            screening_type.trigger_conditions = json.dumps(trigger_conditions_list) if trigger_conditions_list else None
 
             db.session.commit()
 
@@ -203,8 +221,11 @@ def edit_screening_type(type_id):
         if not request.method == 'POST':  # Only populate on GET request
             form.eligible_genders.data = screening_type.eligible_genders
             form.frequency_years.data = screening_type.frequency_years
+            # Set trigger conditions as JSON for inline management system
             if screening_type.trigger_conditions_list:
-                form.trigger_conditions.data = ','.join(screening_type.trigger_conditions_list)
+                form.trigger_conditions.data = json.dumps(screening_type.trigger_conditions_list)
+            else:
+                form.trigger_conditions.data = ""
 
         return render_template('screening/edit_screening_type.html',
                              form=form, screening_type=screening_type)
