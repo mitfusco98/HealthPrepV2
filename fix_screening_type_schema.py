@@ -15,28 +15,31 @@ def fix_screening_type_schema():
     with app.app_context():
         try:
             # Check if gender column exists, if not add it
-            result = db.engine.execute("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name='screening_type' AND column_name='gender'
-            """)
-            
-            if not result.fetchone():
-                logger.info("Adding gender column to screening_type table...")
-                db.engine.execute("""
-                    ALTER TABLE screening_type 
-                    ADD COLUMN gender VARCHAR(10)
-                """)
-                logger.info("Gender column added successfully")
-            else:
-                logger.info("Gender column already exists")
-            
-            # Update any existing records with null gender to support both genders
-            db.engine.execute("""
-                UPDATE screening_type 
-                SET gender = NULL 
-                WHERE gender IS NULL OR gender = ''
-            """)
+            with db.engine.connect() as conn:
+                result = conn.execute(db.text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name='screening_type' AND column_name='gender'
+                """))
+                
+                if not result.fetchone():
+                    logger.info("Adding gender column to screening_type table...")
+                    conn.execute(db.text("""
+                        ALTER TABLE screening_type 
+                        ADD COLUMN gender VARCHAR(10)
+                    """))
+                    conn.commit()
+                    logger.info("Gender column added successfully")
+                else:
+                    logger.info("Gender column already exists")
+                
+                # Update any existing records with null gender to support both genders
+                conn.execute(db.text("""
+                    UPDATE screening_type 
+                    SET gender = NULL 
+                    WHERE gender IS NULL OR gender = ''
+                """))
+                conn.commit()
             
             db.session.commit()
             logger.info("Screening type schema fix completed successfully")
