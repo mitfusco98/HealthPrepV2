@@ -176,10 +176,10 @@
                         <label for="screening_type" class="form-label">Screening Type</label>
                         <select class="form-select" id="screening_type" name="screening_type">
                             <option value="">All Types</option>
-                            {% for screening_type in screening_types %}
-                            <option value="{{ screening_type.id }}" 
-                                    {{ 'selected' if request.args.get('screening_type')|int == screening_type.id }}>
-                                {{ screening_type.name }}
+                            {% for group in screening_type_groups %}
+                            <option value="{{ group.name }}" 
+                                    {{ 'selected' if request.args.get('screening_type') == group.name }}>
+                                {{ group.display_name }}
                             </option>
                             {% endfor %}
                         </select>
@@ -217,7 +217,7 @@
                             </span>
                         </div>
                         <div class="card-body">
-                            <h6 class="card-title">{{ screening.screening_type.name }}</h6>
+                            <h6 class="card-title">{{ screening.screening_type.display_name }}</h6>
                             <div class="row text-sm">
                                 <div class="col-6">
                                     <strong>MRN:</strong> {{ screening.patient.mrn }}

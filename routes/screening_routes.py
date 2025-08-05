@@ -43,18 +43,45 @@ def screening_list():
             query = query.filter(Screening.status == status_filter)
 
         if screening_type_filter:
-            query = query.filter(ScreeningType.name.contains(screening_type_filter))
+            query = query.filter(ScreeningType.name == screening_type_filter)
 
         screenings = query.order_by(Patient.name, ScreeningType.name).all()
 
         # Get filter options
         patients = Patient.query.order_by(Patient.name).all()
-        screening_types = ScreeningType.query.filter_by(is_active=True).order_by(ScreeningType.name).all()
+        
+        # Get screening types grouped by base name with variant counts
+        screening_type_groups = []
+        try:
+            base_names_with_counts = ScreeningType.get_base_names_with_counts()
+            
+            for base_name, variant_count, all_active in base_names_with_counts:
+                if all_active:  # Only include if all variants are active
+                    if variant_count > 1:
+                        display_name = f"{base_name} [{variant_count} variants]"
+                    else:
+                        display_name = base_name
+                    
+                    screening_type_groups.append({
+                        'name': base_name,
+                        'display_name': display_name,
+                        'variant_count': variant_count
+                    })
+        except Exception as e:
+            logger.error(f"Error getting screening type groups: {str(e)}")
+            # Fallback to simple list if grouping fails
+            screening_types = ScreeningType.query.filter_by(is_active=True).order_by(ScreeningType.name).all()
+            for st in screening_types:
+                screening_type_groups.append({
+                    'name': st.name,
+                    'display_name': st.display_name,
+                    'variant_count': 1
+                })
 
         return render_template('screening/list.html',
                              screenings=screenings,
                              patients=patients,
-                             screening_types=screening_types,
+                             screening_type_groups=screening_type_groups,
                              filters={
                                  'patient': patient_filter,
                                  'status': status_filter,
@@ -67,7 +94,7 @@ def screening_list():
         return render_template('screening/list.html',
                              screenings=[],
                              patients=[],
-                             screening_types=[],
+                             screening_type_groups=[],
                              filters={
                                  'patient': '',
                                  'status': '',
