@@ -48,16 +48,16 @@
                 <div class="mb-4">
                     <label class="form-label fw-bold">Quick Presets</label>
                     <div class="btn-group w-100" role="group" aria-label="Cutoff presets">
-                        <button type="button" class="btn btn-outline-secondary" onclick="applyPreset(3, 3, 3, 3)">
+                        <button type="button" class="btn btn-outline-secondary" data-preset="3,3,3,3">
                             Conservative<br><small>3m / 3m / 3m / 3m</small>
                         </button>
-                        <button type="button" class="btn btn-outline-primary" onclick="applyPreset(6, 6, 6, 6)">
+                        <button type="button" class="btn btn-outline-primary" data-preset="6,6,6,6">
                             Standard<br><small>6m / 6m / 6m / 6m</small>
                         </button>
-                        <button type="button" class="btn btn-outline-info" onclick="applyPreset(12, 12, 12, 12)">
+                        <button type="button" class="btn btn-outline-info" data-preset="12,12,12,12">
                             Extended<br><small>12m / 12m / 12m / 12m</small>
                         </button>
-                        <button type="button" class="btn btn-outline-warning" onclick="applyPreset(0, 0, 0, 0)">
+                        <button type="button" class="btn btn-outline-warning" data-preset="0,0,0,0">
                             To Last Appointment<br><small>0 / 0 / 0 / 0</small>
                         </button>
                     </div>
@@ -272,17 +272,16 @@ function applyPreset(labs, imaging, consults, hospital, clickedButton) {
 // Add event listeners when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     // Add click handlers to preset buttons
-    const presetButtons = document.querySelectorAll('.btn-group .btn');
+    const presetButtons = document.querySelectorAll('.btn-group .btn[data-preset]');
+    
     presetButtons.forEach(button => {
         button.addEventListener('click', function(e) {
             e.preventDefault();
-            const onclick = this.getAttribute('onclick');
-            if (onclick) {
-                // Extract parameters from onclick attribute
-                const match = onclick.match(/applyPreset\((\d+),\s*(\d+),\s*(\d+),\s*(\d+)\)/);
-                if (match) {
-                    const [, labs, imaging, consults, hospital] = match;
-                    applyPreset(parseInt(labs), parseInt(imaging), parseInt(consults), parseInt(hospital), this);
+            const presetData = this.getAttribute('data-preset');
+            if (presetData) {
+                const values = presetData.split(',').map(v => parseInt(v.trim()));
+                if (values.length === 4) {
+                    applyPreset(values[0], values[1], values[2], values[3], this);
                 }
             }
         });
@@ -290,25 +289,30 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Check current values against presets and highlight matching preset
     function checkCurrentPreset() {
+        // Clear all active states first
+        presetButtons.forEach(btn => {
+            btn.classList.remove('preset-active');
+            btn.classList.remove('active');
+        });
+        
         const labs = parseInt(document.getElementById('labs_cutoff').value) || 0;
         const imaging = parseInt(document.getElementById('imaging_cutoff').value) || 0;
         const consults = parseInt(document.getElementById('consults_cutoff').value) || 0;
         const hospital = parseInt(document.getElementById('hospital_cutoff').value) || 0;
         
-        const presets = [
-            { values: [3, 3, 3, 3], button: presetButtons[0] },
-            { values: [6, 6, 6, 6], button: presetButtons[1] },
-            { values: [12, 12, 12, 12], button: presetButtons[2] },
-            { values: [0, 0, 0, 0], button: presetButtons[3] }
-        ];
-        
-        presets.forEach(preset => {
-            if (preset.values[0] === labs && 
-                preset.values[1] === imaging && 
-                preset.values[2] === consults && 
-                preset.values[3] === hospital) {
-                preset.button.classList.add('preset-active');
-                preset.button.classList.add('active');
+        // Check each preset button to see if it matches current values
+        presetButtons.forEach(button => {
+            const presetData = button.getAttribute('data-preset');
+            if (presetData) {
+                const values = presetData.split(',').map(v => parseInt(v.trim()));
+                if (values.length === 4 && 
+                    values[0] === labs && 
+                    values[1] === imaging && 
+                    values[2] === consults && 
+                    values[3] === hospital) {
+                    button.classList.add('preset-active');
+                    button.classList.add('active');
+                }
             }
         });
     }
@@ -319,15 +323,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Monitor form changes to update preset highlighting
     const formInputs = document.querySelectorAll('#labs_cutoff, #imaging_cutoff, #consults_cutoff, #hospital_cutoff');
     formInputs.forEach(input => {
-        input.addEventListener('change', function() {
-            // Remove active state from all preset buttons when manually changing values
-            presetButtons.forEach(btn => {
-                btn.classList.remove('preset-active');
-                btn.classList.remove('active');
-            });
-            // Re-check if values match a preset
-            setTimeout(checkCurrentPreset, 100);
-        });
+        input.addEventListener('input', checkCurrentPreset);
+        input.addEventListener('change', checkCurrentPreset);
     });
 });
 </script>
