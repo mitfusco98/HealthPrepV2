@@ -82,19 +82,21 @@
                                         <small class="text-warning">No keywords configured</small>
                                     </div>
                                 {% endif %}
-                                {% if type.trigger_conditions_list %}
-                                    <div class="mt-1">
-                                        <small class="text-muted">Conditions:</small>
-                                        <div class="condition-display">
+                                <div class="mt-1">
+                                    <small class="text-muted">Conditions:</small>
+                                    <div class="condition-display">
+                                        {% if type.trigger_conditions_list %}
                                             {% for condition in type.trigger_conditions_list[:3] %}
                                                 <span class="badge bg-warning text-dark me-1 mb-1" style="font-size: 0.7em;">{{ condition }}</span>
                                             {% endfor %}
                                             {% if type.trigger_conditions_list|length > 3 %}
                                                 <span class="badge bg-secondary" style="font-size: 0.7em;">+{{ type.trigger_conditions_list|length - 3 }} more</span>
                                             {% endif %}
-                                        </div>
+                                        {% else %}
+                                            <span class="badge bg-light text-muted me-1 mb-1" style="font-size: 0.7em;">None</span>
+                                        {% endif %}
                                     </div>
-                                {% endif %}
+                                </div>
                             </td>
                             <td>
                                 <small class="text-muted">
