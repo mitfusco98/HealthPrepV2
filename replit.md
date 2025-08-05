@@ -147,15 +147,17 @@ templates/
 - ⚠️ Performance targets (10s prep generation)
 
 ## Recent Changes
+- 2025-01-05: Cleaned up project structure by removing outdated/duplicate files:
+  - Removed root-level route files (routes.py, admin_routes.py, etc.) - now using blueprint structure in /routes/
+  - Removed deprecated templates (base_demo.html, old screening templates)
+  - Removed utility/migration scripts that served their purpose
+  - Fixed remaining LSP diagnostics and import issues
+- 2025-01-04: Enhanced ScreeningType model with description field and proper CRUD operations
+- 2025-01-04: Implemented healthcare-specific screening examples (mammogram for females, A1C protocols)
+- 2025-01-04: Added support for fractional frequencies and JSON storage for fuzzy detection
 - 2025-01-04: Implemented clean URL structure for screening management (/screening/list, /screening/types, /screening/settings)
 - 2025-01-04: Updated navigation templates to use proper links instead of JavaScript tabs
 - 2025-01-04: Fixed indentation errors in screening routes and verified all routes working with authentication
-- 2025-01-04: Replaced ChecklistSettings with PrepSheetSettings system aligned with design intent
-- 2025-01-04: Removed conflicting /patients route, redirected to /screening/list per design requirements
-- 2025-01-04: Cleaned up redundant patient_routes module causing cascading errors
-- 2025-01-04: Consolidated patient listings with screening information on single screening list view
-- 2025-02-02: Initial project setup with models and Flask structure
-- 2025-02-02: Created comprehensive database schema for healthcare data
 
 ## Technical Requirements
 - Python 3.11+ with Flask framework

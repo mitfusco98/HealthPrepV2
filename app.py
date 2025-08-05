@@ -70,6 +70,7 @@ def create_app():
     # Root route
     @app.route('/')
     def index():
+        from flask_login import current_user
         if current_user.is_authenticated:
             return redirect(url_for('ui.dashboard'))
         else:
