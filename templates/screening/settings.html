@@ -48,16 +48,16 @@
                 <div class="mb-4">
                     <label class="form-label fw-bold">Quick Presets</label>
                     <div class="btn-group w-100" role="group" aria-label="Cutoff presets">
-                        <button type="button" class="btn btn-outline-secondary" data-preset="3,3,3,3">
+                        <button type="button" class="btn btn-outline-secondary preset-btn" data-preset="3,3,3,3">
                             Conservative<br><small>3m / 3m / 3m / 3m</small>
                         </button>
-                        <button type="button" class="btn btn-outline-primary" data-preset="6,6,6,6">
+                        <button type="button" class="btn btn-outline-primary preset-btn" data-preset="6,6,6,6">
                             Standard<br><small>6m / 6m / 6m / 6m</small>
                         </button>
-                        <button type="button" class="btn btn-outline-info" data-preset="12,12,12,12">
+                        <button type="button" class="btn btn-outline-info preset-btn" data-preset="12,12,12,12">
                             Extended<br><small>12m / 12m / 12m / 12m</small>
                         </button>
-                        <button type="button" class="btn btn-outline-warning" data-preset="0,0,0,0">
+                        <button type="button" class="btn btn-outline-warning preset-btn" data-preset="0,0,0,0">
                             To Last Appointment<br><small>0 / 0 / 0 / 0</small>
                         </button>
                     </div>
@@ -74,7 +74,7 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 {{ form.labs_cutoff_months.label(class="form-label") }}
-                                {{ form.labs_cutoff_months(class="form-control", id="labs_cutoff") }}
+                                {{ form.labs_cutoff_months(class="form-control") }}
                                 <div class="form-text">
                                     Lab results older than this will be excluded. Set to 0 to use last appointment date.
                                 </div>
@@ -83,7 +83,7 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 {{ form.imaging_cutoff_months.label(class="form-label") }}
-                                {{ form.imaging_cutoff_months(class="form-control", id="imaging_cutoff") }}
+                                {{ form.imaging_cutoff_months(class="form-control") }}
                                 <div class="form-text">
                                     Imaging studies older than this will be excluded. Set to 0 to use last appointment date.
                                 </div>
@@ -95,7 +95,7 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 {{ form.consults_cutoff_months.label(class="form-label") }}
-                                {{ form.consults_cutoff_months(class="form-control", id="consults_cutoff") }}
+                                {{ form.consults_cutoff_months(class="form-control") }}
                                 <div class="form-text">
                                     Consultation notes older than this will be excluded. Set to 0 to use last appointment date.
                                 </div>
@@ -104,7 +104,7 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 {{ form.hospital_cutoff_months.label(class="form-label") }}
-                                {{ form.hospital_cutoff_months(class="form-control", id="hospital_cutoff") }}
+                                {{ form.hospital_cutoff_months(class="form-control") }}
                                 <div class="form-text">
                                     Hospital records older than this will be excluded. Set to 0 to use last appointment date.
                                 </div>
@@ -225,11 +225,11 @@
 
 <script>
 function applyPreset(labs, imaging, consults, hospital, clickedButton) {
-    // Set form values
-    document.getElementById('labs_cutoff').value = labs;
-    document.getElementById('imaging_cutoff').value = imaging;
-    document.getElementById('consults_cutoff').value = consults;
-    document.getElementById('hospital_cutoff').value = hospital;
+    // Set form values using correct field IDs
+    document.getElementById('labs_cutoff_months').value = labs;
+    document.getElementById('imaging_cutoff_months').value = imaging;
+    document.getElementById('consults_cutoff_months').value = consults;
+    document.getElementById('hospital_cutoff_months').value = hospital;
     
     // Visual feedback - remove active class from all preset buttons
     const buttons = document.querySelectorAll('.btn-group .btn');
