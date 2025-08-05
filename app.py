@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 class Base(DeclarativeBase):
     pass
 
-# Initialize extensions - these will be imported by models
-db = SQLAlchemy(model_class=Base)
+# Initialize extensions
+db = SQLAlchemy()
 login_manager = LoginManager()
 csrf = CSRFProtect()
 migrate = Migrate()
@@ -30,9 +30,9 @@ def create_app():
     app = Flask(__name__)
 
     # Configuration
-    app.config['SECRET_KEY'] = os.environ.get('SESSION_SECRET', 'dev-secret-key-change-in-production')
-    # Database configuration - Use PostgreSQL from environment
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///healthprep.db')
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+    # Database configuration - Use SQLite for local development
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///healthprep.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'pool_recycle': 300,
@@ -42,7 +42,7 @@ def create_app():
     # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)
-    login_manager.login_view = 'auth.login'  # type: ignore
+    login_manager.login_view = 'auth.login'
     login_manager.login_message = 'Please log in to access this page.'
     csrf.init_app(app)
     configure_csrf_exemptions(app)

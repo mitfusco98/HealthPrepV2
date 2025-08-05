@@ -2,12 +2,12 @@
 Database models for HealthPrep Medical Screening System
 """
 from datetime import datetime, date
+from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_sqlalchemy import SQLAlchemy
 import json
 
-# Import the db instance from app
+# Import db from app module
 from app import db
 
 class User(UserMixin, db.Model):
@@ -270,7 +270,6 @@ class AdminLog(db.Model):
     action = db.Column(db.String(100), nullable=False)
     details = db.Column(db.Text)
     ip_address = db.Column(db.String(45))
-    user_agent = db.Column(db.Text)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
     user = db.relationship('User', backref=db.backref('admin_logs', lazy=True))
