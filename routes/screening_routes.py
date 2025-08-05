@@ -433,3 +433,52 @@ def import_preset():
         logger.error(f"Error importing preset: {str(e)}")
         flash('Error importing preset', 'error')
         return redirect(url_for('screening.screening_presets'))
+
+@screening_bp.route('/api/screening-type/<int:type_id>/keywords', methods=['GET'])
+@login_required
+def get_screening_type_keywords(type_id):
+    """Get keywords for a screening type"""
+    try:
+        screening_type = ScreeningType.query.get_or_404(type_id)
+        return jsonify({
+            'success': True,
+            'keywords': screening_type.keywords_list
+        })
+    except Exception as e:
+        logger.error(f"Error getting keywords: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@screening_bp.route('/api/screening-type/<int:type_id>/keywords', methods=['POST'])
+@login_required
+def update_screening_type_keywords(type_id):
+    """Update keywords for a screening type"""
+    try:
+        screening_type = ScreeningType.query.get_or_404(type_id)
+        data = request.get_json()
+        
+        keywords = data.get('keywords', [])
+        screening_type.set_content_keywords(keywords)
+        
+        db.session.commit()
+        
+        # Log the action
+        AdminLogger.log(
+            user_id=current_user.id,
+            action='update_screening_type_keywords',
+            details=f'Updated keywords for screening type: {screening_type.name}'
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': 'Keywords updated successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating keywords: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
