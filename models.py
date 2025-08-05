@@ -270,6 +270,7 @@ class AdminLog(db.Model):
     action = db.Column(db.String(100), nullable=False)
     details = db.Column(db.Text)
     ip_address = db.Column(db.String(45))
+    user_agent = db.Column(db.Text)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
     user = db.relationship('User', backref=db.backref('admin_logs', lazy=True))
