@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HealthPrep - Internal Server Error</title>
-    
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    
+
     <style>
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -19,7 +19,7 @@
             align-items: center;
             justify-content: center;
         }
-        
+
         .error-container {
             text-align: center;
             background: var(--bs-dark);
@@ -29,33 +29,33 @@
             max-width: 600px;
             margin: 2rem;
         }
-        
+
         .error-icon {
             font-size: 5rem;
             color: #dc3545;
             margin-bottom: 1.5rem;
             animation: pulse 2s infinite;
         }
-        
+
         @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.5; }
             100% { opacity: 1; }
         }
-        
+
         .error-code {
             font-size: 4rem;
             font-weight: bold;
             color: #dc3545;
             margin-bottom: 1rem;
         }
-        
+
         .error-message {
             font-size: 1.25rem;
             color: var(--bs-light);
             margin-bottom: 2rem;
         }
-        
+
         .error-details {
             background: rgba(220, 53, 69, 0.1);
             border: 1px solid #dc3545;
@@ -64,19 +64,19 @@
             margin-bottom: 2rem;
             text-align: left;
         }
-        
+
         .btn-retry {
             background: linear-gradient(135deg, #28a745, #20c997);
             border: none;
             padding: 0.75rem 2rem;
             font-weight: 600;
         }
-        
+
         .btn-retry:hover {
             transform: translateY(-2px);
             box-shadow: 0 0.5rem 1rem rgba(40, 167, 69, 0.3);
         }
-        
+
         .system-status {
             background: rgba(255, 193, 7, 0.1);
             border: 1px solid #ffc107;
@@ -84,7 +84,7 @@
             padding: 1rem;
             margin-top: 2rem;
         }
-        
+
         .retry-countdown {
             background: var(--bs-info);
             color: var(--bs-dark);
@@ -94,7 +94,7 @@
             display: inline-block;
             margin-top: 1rem;
         }
-        
+
         .troubleshooting {
             background: rgba(13, 110, 253, 0.1);
             border: 1px solid #0d6efd;
@@ -110,15 +110,15 @@
         <div class="error-icon">
             <i class="fas fa-exclamation-circle"></i>
         </div>
-        
+
         <div class="error-code">500</div>
-        
+
         <h2 class="error-message">Internal Server Error</h2>
-        
+
         <div class="error-details">
             <h6><i class="fas fa-bug me-2 text-danger"></i>What happened?</h6>
             <p class="mb-2">The server encountered an unexpected condition that prevented it from fulfilling your request.</p>
-            
+
             <h6><i class="fas fa-cogs me-2 text-danger"></i>This is usually temporary and caused by:</h6>
             <ul class="mb-0">
                 <li>High server load or temporary resource limitations</li>
@@ -127,7 +127,7 @@
                 <li>System maintenance or updates in progress</li>
             </ul>
         </div>
-        
+
         <div class="troubleshooting">
             <h6><i class="fas fa-tools me-2 text-primary"></i>Troubleshooting Steps</h6>
             <ol class="mb-0">
@@ -138,11 +138,11 @@
                 <li><strong>Check system status:</strong> Verify if maintenance is in progress</li>
             </ol>
         </div>
-        
+
         <div class="retry-countdown" id="retryCountdown">
             Auto-retry in: <span id="countdown">10</span> seconds
         </div>
-        
+
         <div class="d-grid gap-2 mt-3">
             <button type="button" class="btn btn-retry btn-lg" onclick="retryRequest()">
                 <i class="fas fa-redo me-2"></i>Retry Now
@@ -150,14 +150,14 @@
             <button type="button" class="btn btn-outline-light" onclick="goBack()">
                 <i class="fas fa-arrow-left me-2"></i>Go Back
             </button>
-            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+            <a href="{{ url_for('ui.dashboard') }}" class="btn btn-outline-secondary">
                 <i class="fas fa-home me-2"></i>Return to Dashboard
             </a>
             <button type="button" class="btn btn-outline-warning" onclick="reportError()">
                 <i class="fas fa-envelope me-2"></i>Report Error
             </button>
         </div>
-        
+
         <div class="system-status">
             <h6><i class="fas fa-heartbeat me-2 text-warning"></i>System Status</h6>
             <div class="row text-start">
@@ -175,7 +175,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="mt-4">
             <small class="text-muted">
                 <i class="fas fa-heartbeat me-1"></i>
@@ -190,54 +190,54 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
+
     <script>
         // Generate unique error ID for tracking
         const errorId = 'ERR-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
         document.getElementById('errorId').textContent = errorId;
-        
+
         // Auto-retry countdown
         let countdownSeconds = 10;
         const countdownElement = document.getElementById('countdown');
         const retryCountdownElement = document.getElementById('retryCountdown');
-        
+
         const countdownTimer = setInterval(function() {
             countdownSeconds--;
             countdownElement.textContent = countdownSeconds;
-            
+
             if (countdownSeconds <= 0) {
                 clearInterval(countdownTimer);
                 retryCountdownElement.style.display = 'none';
                 retryRequest();
             }
         }, 1000);
-        
+
         function retryRequest() {
             clearInterval(countdownTimer);
-            
+
             const button = document.querySelector('.btn-retry');
             const originalText = button.innerHTML;
-            
+
             button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Retrying...';
             button.disabled = true;
-            
+
             // Add retry attempt to URL to track retry count
             const url = new URL(window.location);
             const retryCount = parseInt(url.searchParams.get('retry') || '0') + 1;
             url.searchParams.set('retry', retryCount.toString());
-            
+
             // Reload with retry parameter
             window.location.href = url.toString();
         }
-        
+
         function goBack() {
             if (window.history.length > 1) {
                 window.history.back();
             } else {
-                window.location.href = "{{ url_for('index') }}";
+                window.location.href = "{{ url_for('ui.dashboard') }}";
             }
         }
-        
+
         function reportError() {
             const errorReport = `Hello Support Team,
 
@@ -258,26 +258,26 @@ Additional Information:
 [Please provide any additional context that might help diagnose the issue]
 
 Thank you for your assistance.`;
-            
+
             const subject = `HealthPrep 500 Error Report - ${errorId}`;
             const mailtoLink = `mailto:support@example.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(errorReport)}`;
-            
+
             window.location.href = mailtoLink;
         }
-        
+
         // System status checking (simulated)
         function checkSystemStatus() {
             const services = ['dbStatus', 'ocrStatus', 'fhirStatus'];
             let checkIndex = 0;
-            
+
             const statusCheck = setInterval(function() {
                 if (checkIndex < services.length) {
                     const serviceElement = document.getElementById(services[checkIndex]);
                     const serviceName = serviceElement.textContent.split(':')[0];
-                    
+
                     // Simulate random status check
                     const isOnline = Math.random() > 0.3; // 70% chance of being online
-                    
+
                     if (isOnline) {
                         serviceElement.className = 'badge bg-success';
                         serviceElement.textContent = serviceName + ': Online';
@@ -285,17 +285,17 @@ Thank you for your assistance.`;
                         serviceElement.className = 'badge bg-danger';
                         serviceElement.textContent = serviceName + ': Offline';
                     }
-                    
+
                     checkIndex++;
                 } else {
                     clearInterval(statusCheck);
                 }
             }, 1500);
         }
-        
+
         // Start system status check
         setTimeout(checkSystemStatus, 2000);
-        
+
         // Log error for monitoring
         fetch('/admin/log-error', {
             method: 'POST',
@@ -311,14 +311,14 @@ Thank you for your assistance.`;
                 user: '{{ current_user.username if current_user.is_authenticated else "Anonymous" }}'
             })
         }).catch(err => console.warn('Failed to log error:', err));
-        
+
         // Prevent multiple rapid retries
         if (window.location.search.includes('retry=')) {
             const retryCount = parseInt(new URLSearchParams(window.location.search).get('retry'));
             if (retryCount >= 3) {
                 retryCountdownElement.style.display = 'none';
                 clearInterval(countdownTimer);
-                
+
                 const warning = document.createElement('div');
                 warning.className = 'alert alert-warning mt-3';
                 warning.innerHTML = `
@@ -326,7 +326,7 @@ Thank you for your assistance.`;
                     <p class="mb-0">You've attempted to retry this request ${retryCount} times. 
                     Please wait a few minutes before trying again, or contact support if the issue persists.</p>
                 `;
-                
+
                 document.querySelector('.error-container').insertBefore(
                     warning, 
                     document.querySelector('.d-grid')
