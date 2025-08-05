@@ -109,10 +109,12 @@ class ScreeningType(db.Model):
     @property
     def trigger_conditions_list(self):
         """Return trigger conditions as a list"""
-        if not self.trigger_conditions:
+        if not self.trigger_conditions or self.trigger_conditions.strip() == "":
             return []
         try:
-            return json.loads(self.trigger_conditions)
+            conditions = json.loads(self.trigger_conditions)
+            # Filter out empty strings from the list
+            return [cond for cond in conditions if cond and cond.strip()]
         except:
             return [cond.strip() for cond in self.trigger_conditions.split(',') if cond.strip()]
     
