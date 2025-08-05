@@ -44,20 +44,7 @@
                         </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <label class="form-label">Keywords</label>
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="keywordDisplay" 
-                                   value="{% if screening_type.keywords_list %}{{ screening_type.keywords_list|join(', ') }}{% else %}No keywords set{% endif %}" readonly>
-                            <a href="{{ url_for('screening.screening_types') }}" class="btn btn-outline-primary">
-                                <i class="fas fa-tags"></i>
-                                Manage from Types Page
-                            </a>
-                        </div>
-                        <div class="form-text">
-                            Keywords can be managed from the main Screening Types page using the keyword manager
-                        </div>
-                    </div>
+                    
                     
                     <div class="row">
                         <div class="col-md-4">
