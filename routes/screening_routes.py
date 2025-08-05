@@ -79,24 +79,10 @@ def screening_list():
 def screening_types():
     """Screening types management"""
     try:
-        # Get all screening types with optional grouping by variant view
-        view_mode = request.args.get('view', 'list')  # 'list' or 'grouped'
-        
-        if view_mode == 'grouped':
-            # Group by base name and show variant counts
-            base_names_with_counts = ScreeningType.get_base_names_with_counts()
-            return render_template('screening/types_grouped.html',
-                                 base_names_with_counts=base_names_with_counts,
-                                 view_mode=view_mode)
-        else:
-            # Standard list view
-            screening_types = ScreeningType.query.order_by(
-                ScreeningType.name, 
-                ScreeningType.variant_name.asc()
-            ).all()
-            return render_template('screening/types.html',
-                                 screening_types=screening_types,
-                                 view_mode=view_mode)
+        screening_types = ScreeningType.query.order_by(ScreeningType.name).all()
+
+        return render_template('screening/types.html',
+                             screening_types=screening_types)
 
     except Exception as e:
         logger.error(f"Error loading screening types: {str(e)}")
@@ -167,7 +153,6 @@ def add_screening_type():
             
             screening_type = ScreeningType(
                 name=form.name.data,
-                variant_name=form.variant_name.data if form.variant_name.data else None,
                 keywords=json.dumps([]),  # Start with empty keywords - will be set via modal
                 eligible_genders=form.eligible_genders.data,
                 min_age=form.min_age.data,
@@ -223,7 +208,6 @@ def edit_screening_type(type_id):
                 frequency_years = form.frequency_value.data / 12.0
             
             screening_type.name = form.name.data
-            screening_type.variant_name = form.variant_name.data if form.variant_name.data else None
             # Keywords are managed via modal - don't update from form
             screening_type.eligible_genders = form.eligible_genders.data
             screening_type.min_age = form.min_age.data
@@ -246,7 +230,6 @@ def edit_screening_type(type_id):
         # Populate form fields for editing
         if not request.method == 'POST':  # Only populate on GET request
             form.eligible_genders.data = screening_type.eligible_genders
-            form.variant_name.data = screening_type.variant_name
             
             # Convert frequency_years back to appropriate display units
             frequency_years = screening_type.frequency_years
@@ -287,10 +270,6 @@ def toggle_screening_type_status(type_id):
         screening_type = ScreeningType.query.get_or_404(type_id)
 
         screening_type.is_active = not screening_type.is_active
-        
-        # Sync status to all other variants of the same base name
-        screening_type.sync_status_to_variants()
-        
         db.session.commit()
 
         # Log the action

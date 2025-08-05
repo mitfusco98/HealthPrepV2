@@ -33,7 +33,7 @@
                     {{ form.hidden_tag() }}
 
                     <div class="row">
-                        <div class="col-md-8">
+                        <div class="col-md-12">
                             <div class="mb-3">
                                 {{ form.name.label(class="form-label") }}
                                 <div class="autocomplete-container">
@@ -47,16 +47,6 @@
                                     <button type="button" class="btn btn-sm btn-outline-secondary" onclick="showPopularScreenings()">
                                         <i class="fas fa-lightbulb me-1"></i>Show Popular Screenings
                                     </button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                {{ form.variant_name.label(class="form-label") }}
-                                {{ form.variant_name(class="form-control") }}
-                                <div class="form-text">
-                                    <i class="fas fa-info-circle me-1"></i>
-                                    Distinguish this variant from others
                                 </div>
                             </div>
                         </div>
