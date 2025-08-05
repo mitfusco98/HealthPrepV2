@@ -300,12 +300,24 @@ function applyPreset(labs, imaging, consults, hospital, clickedButton) {
     console.log('=== APPLY PRESET STARTED ===');
     console.log('Preset values:', {labs, imaging, consults, hospital});
     
-    // Simple field finding by ID (which should match the form field IDs)
+    // Log all available inputs for debugging
+    const allInputs = document.querySelectorAll('input[type="number"]');
+    console.log('All number inputs found:', allInputs.length);
+    allInputs.forEach((input, idx) => {
+        console.log(`Input ${idx}:`, {
+            id: input.id,
+            name: input.name,
+            value: input.value,
+            placeholder: input.placeholder
+        });
+    });
+    
+    // Find fields using multiple methods - Flask-WTF might generate different IDs
     const fields = {
-        labs: document.getElementById('labs_cutoff_months'),
-        imaging: document.getElementById('imaging_cutoff_months'),
-        consults: document.getElementById('consults_cutoff_months'),
-        hospital: document.getElementById('hospital_cutoff_months')
+        labs: document.querySelector('#labs_cutoff_months, input[name="labs_cutoff_months"], input[id*="labs"]'),
+        imaging: document.querySelector('#imaging_cutoff_months, input[name="imaging_cutoff_months"], input[id*="imaging"]'),
+        consults: document.querySelector('#consults_cutoff_months, input[name="consults_cutoff_months"], input[id*="consults"]'),
+        hospital: document.querySelector('#hospital_cutoff_months, input[name="hospital_cutoff_months"], input[id*="hospital"]')
     };
     
     let fieldsUpdated = 0;
