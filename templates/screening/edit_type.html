@@ -39,17 +39,7 @@
                             </div>
                         </div>
 
-                        <div class="row mb-3">
-                            <div class="col-md-12">
-                                <label for="{{ form.description.id }}" class="form-label">Description</label>
-                                {{ form.description(class="form-control", rows="3") }}
-                                {% if form.description.errors %}
-                                    <div class="text-danger small">
-                                        {% for error in form.description.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                        </div>
+                        
 
                         <!-- Keywords -->
                         <div class="row mb-3">

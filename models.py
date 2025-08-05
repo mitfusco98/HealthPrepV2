@@ -82,7 +82,6 @@ class ScreeningType(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text)  # Added description field
     keywords = db.Column(db.Text)  # JSON string of keywords for fuzzy detection
     eligible_genders = db.Column(db.String(10), default='both')  # 'M', 'F', or 'both'
     min_age = db.Column(db.Integer)

@@ -52,7 +52,7 @@
                     <thead>
                         <tr>
                             <th>Name</th>
-                            <th>Description</th>
+                            <th>Keywords</th>
                             <th>Frequency</th>
                             <th>Status</th>
                             <th>Actions</th>
@@ -77,7 +77,11 @@
                                 </small>
                             </td>
                             <td>
-                                {{ type.description[:100] if type.description else 'No description' }}{% if type.description and type.description|length > 100 %}...{% endif %}
+                                {% if type.keywords_list %}
+                                    <small class="text-muted">{{ type.keywords_list[:3]|join(', ') }}{% if type.keywords_list|length > 3 %}...{% endif %}</small>
+                                {% else %}
+                                    <small class="text-muted">No keywords</small>
+                                {% endif %}
                                 {% if type.trigger_conditions_list %}
                                     <br><small class="text-warning">
                                         <i class="fas fa-exclamation-triangle me-1"></i>

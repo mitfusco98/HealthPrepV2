@@ -1,4 +1,3 @@
-
 """
 HealthPrep Medical Screening System
 Clean Flask application factory
@@ -24,42 +23,43 @@ login_manager = LoginManager()
 def create_app():
     """Create and configure Flask application"""
     app = Flask(__name__)
-    
+
     # Configuration
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///healthprep.db')
+    # Database configuration - Use SQLite for local development
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///healthprep.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'pool_recycle': 300,
         'pool_pre_ping': True,
     }
-    
+
     # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
     login_manager.login_message = 'Please log in to access this page.'
-    
+
     @login_manager.user_loader
     def load_user(user_id):
         from models import User
         return User.query.get(int(user_id))
-    
+
     # Register blueprints
     register_blueprints(app)
-    
+
     # Register error handlers
     register_error_handlers(app)
-    
+
     # Template filters and context processors
     register_template_utilities(app)
-    
+
     # Create tables
     with app.app_context():
         import models  # Import after app context
         db.create_all()
         logger.info("Database tables created successfully")
-    
+
     # Root route
     @app.route('/')
     def index():
@@ -67,7 +67,7 @@ def create_app():
             return redirect(url_for('ui.dashboard'))
         else:
             return redirect(url_for('auth.login'))
-    
+
     return app
 
 def register_blueprints(app):
@@ -78,7 +78,7 @@ def register_blueprints(app):
     from routes.prep_sheet_routes import prep_sheet_bp
     from routes.api_routes import api_bp
     from ui.routes import ui_bp
-    
+
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(screening_bp, url_prefix='/screening')
