@@ -178,17 +178,7 @@
                     </div>
                 </div>
                 
-                <div class="mb-3">
-                    {{ form.description.label(class="form-label") }}
-                    {{ form.description(class="form-control", rows="3") }}
-                    {% if form.description.errors %}
-                        <div class="invalid-feedback d-block">
-                            {% for error in form.description.errors %}{{ error }}{% endfor %}
-                        </div>
-                    {% endif %}
-                    <div class="help-text">Optional description of the screening purpose and requirements</div>
                 </div>
-            </div>
 
             <!-- Keywords and Document Matching -->
             <div class="form-section">
