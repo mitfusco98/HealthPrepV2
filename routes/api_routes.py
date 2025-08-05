@@ -22,12 +22,20 @@ logger = logging.getLogger(__name__)
 
 api_bp = Blueprint('api', __name__)
 
+# Try to import CSRF for exemptions
+try:
+    from flask_wtf.csrf import exempt
+except ImportError:
+    def exempt(f):
+        return f
+
 @api_bp.route('/screening-keywords/<int:screening_type_id>', methods=['GET', 'POST'])
 @login_required
+@exempt
 def screening_keywords(screening_type_id):
     """Get or update keywords for a screening type"""
     screening_type = ScreeningType.query.get_or_404(screening_type_id)
-    
+
     if request.method == 'GET':
         # Get keywords
         try:
@@ -44,7 +52,7 @@ def screening_keywords(screening_type_id):
                 'error': str(e),
                 'keywords': []
             }), 500
-    
+
     elif request.method == 'POST':
         # Save keywords
         try:
@@ -54,32 +62,32 @@ def screening_keywords(screening_type_id):
                     'success': False,
                     'error': 'No data provided'
                 }), 400
-            
+
             keywords = data.get('keywords', [])
-            
+
             # Validate keywords
             if not isinstance(keywords, list):
                 return jsonify({
                     'success': False,
                     'error': 'Keywords must be an array'
                 }), 400
-            
+
             # Clean and validate keywords
             clean_keywords = []
             for keyword in keywords:
                 if isinstance(keyword, str) and keyword.strip():
                     clean_keywords.append(keyword.strip())
-            
+
             # Save keywords
             screening_type.set_content_keywords(clean_keywords)
             db.session.commit()
-            
+
             return jsonify({
                 'success': True,
                 'message': f'Updated {len(clean_keywords)} keywords for {screening_type.name}',
                 'keywords': clean_keywords
             })
-            
+
         except Exception as e:
             db.session.rollback()
             logger.error(f"Error saving screening keywords: {str(e)}")
@@ -90,6 +98,7 @@ def screening_keywords(screening_type_id):
 
 @api_bp.route('/patient-screenings/<int:patient_id>')
 @login_required
+@exempt
 def get_patient_screenings(patient_id):
     """Get all screenings for a patient"""
     try:
@@ -142,6 +151,7 @@ def get_patient_screenings(patient_id):
 
 @api_bp.route('/refresh-screenings', methods=['POST'])
 @login_required
+@exempt
 def refresh_screenings():
     """Refresh screenings via API"""
     try:
@@ -199,6 +209,7 @@ def refresh_screenings():
 
 @api_bp.route('/keyword-suggestions')
 @login_required
+@exempt
 def get_keyword_suggestions():
     """Get keyword suggestions for screening types"""
     try:
@@ -224,20 +235,21 @@ def get_keyword_suggestions():
 
 @api_bp.route('/import-keywords/<int:screening_type_id>')
 @login_required
+@exempt
 def import_medical_keywords(screening_type_id):
     """Import standard medical keywords for a screening type"""
     try:
         screening_type = ScreeningType.query.get_or_404(screening_type_id)
-        
+
         from utils.medical_terminology import medical_terminology_db
         imported_keywords = medical_terminology_db.import_standard_keywords(screening_type.name)
-        
+
         # Get existing keywords
         existing_keywords = screening_type.get_content_keywords()
-        
+
         # Merge with existing, avoiding duplicates
         all_keywords = list(set(existing_keywords + imported_keywords))
-        
+
         return jsonify({
             'success': True,
             'keywords': all_keywords,
@@ -255,12 +267,13 @@ def import_medical_keywords(screening_type_id):
 
 @api_bp.route('/medical-categories')
 @login_required
+@exempt
 def get_medical_categories():
     """Get list of medical categories for keyword import"""
     try:
         from utils.medical_terminology import medical_terminology_db
         categories = medical_terminology_db.get_all_categories()
-        
+
         return jsonify({
             'success': True,
             'categories': categories
@@ -275,12 +288,13 @@ def get_medical_categories():
 
 @api_bp.route('/category-keywords/<category>')
 @login_required
+@exempt
 def get_category_keywords(category):
     """Get all keywords for a specific medical category"""
     try:
         from utils.medical_terminology import medical_terminology_db
         keywords = medical_terminology_db.get_category_keywords(category)
-        
+
         return jsonify({
             'success': True,
             'category': category,
@@ -298,12 +312,13 @@ def get_category_keywords(category):
 
 @api_bp.route('/screening-conditions/<int:screening_type_id>', methods=['GET'])
 @login_required
+@exempt
 def get_screening_conditions(screening_type_id):
     """Get trigger conditions for a screening type"""
     try:
         screening_type = ScreeningType.query.get_or_404(screening_type_id)
         conditions = screening_type.get_trigger_conditions()
-        
+
         return jsonify({
             'success': True,
             'conditions': conditions,
@@ -319,25 +334,26 @@ def get_screening_conditions(screening_type_id):
 
 @api_bp.route('/screening-conditions/<int:screening_type_id>', methods=['POST'])
 @login_required
+@exempt
 def save_screening_conditions(screening_type_id):
     """Save trigger conditions for a screening type"""
     try:
         screening_type = ScreeningType.query.get_or_404(screening_type_id)
-        
+
         data = request.get_json()
         conditions = data.get('conditions', [])
-        
+
         # Validate conditions
         if not isinstance(conditions, list):
             return jsonify({
                 'success': False,
                 'error': 'Conditions must be a list'
             }), 400
-        
+
         # Save conditions
         screening_type.set_trigger_conditions(conditions)
         db.session.commit()
-        
+
         return jsonify({
             'success': True,
             'message': f'Saved {len(conditions)} trigger conditions',
@@ -354,6 +370,7 @@ def save_screening_conditions(screening_type_id):
 
 @api_bp.route('/condition-suggestions')
 @login_required
+@exempt
 def get_condition_suggestions():
     """Get condition suggestions for screening types"""
     try:
@@ -379,6 +396,7 @@ def get_condition_suggestions():
 
 @api_bp.route('/import-conditions/<int:screening_type_id>')
 @login_required
+@exempt
 def import_medical_conditions(screening_type_id):
     """Import standard medical conditions for a screening type"""
     try:
@@ -388,10 +406,10 @@ def import_medical_conditions(screening_type_id):
         else:
             screening_type = ScreeningType.query.get_or_404(screening_type_id)
             screening_name = screening_type.name
-        
+
         from utils.medical_conditions import medical_conditions_db
         imported_conditions = medical_conditions_db.import_standard_conditions(screening_name)
-        
+
         # For existing screening types, get current conditions
         if screening_type_id != 0:
             existing_conditions = screening_type.get_trigger_conditions()
@@ -401,7 +419,7 @@ def import_medical_conditions(screening_type_id):
             # For new screening types (inline forms), just return imported conditions
             existing_conditions = []
             all_conditions = imported_conditions
-        
+
         return jsonify({
             'success': True,
             'conditions': all_conditions,
@@ -419,25 +437,26 @@ def import_medical_conditions(screening_type_id):
 
 @api_bp.route('/screening-name-suggestions')
 @login_required
+@exempt
 def screening_name_suggestions():
     """Get standardized screening name suggestions"""
     try:
         query = request.args.get('q', '').strip()
-        
+
         if not query or len(query) < 2:
             return jsonify({
                 'success': True,
                 'suggestions': []
             })
-        
+
         from utils.screening_names import standardized_screening_names
         suggestions = standardized_screening_names.search_screening_names(query, limit=8)
-        
+
         return jsonify({
             'success': True,
             'suggestions': suggestions
         })
-        
+
     except Exception as e:
         logger.error(f"Error getting screening name suggestions: {str(e)}")
         return jsonify({
@@ -448,21 +467,22 @@ def screening_name_suggestions():
 
 @api_bp.route('/standardize-screening-name')
 @login_required
+@exempt
 def standardize_screening_name():
     """Get standardized name for a screening type"""
     try:
         input_name = request.args.get('name', '').strip()
-        
+
         if not input_name:
             return jsonify({
                 'success': False,
                 'error': 'No name provided'
             })
-        
+
         from utils.screening_names import standardized_screening_names
         standardized_name = standardized_screening_names.get_standardized_name(input_name)
         suggestions = standardized_screening_names.suggest_corrections(input_name)
-        
+
         return jsonify({
             'success': True,
             'original_name': input_name,
@@ -470,7 +490,7 @@ def standardize_screening_name():
             'suggestions': suggestions,
             'was_standardized': standardized_name != input_name
         })
-        
+
     except Exception as e:
         logger.error(f"Error standardizing screening name: {str(e)}")
         return jsonify({
@@ -480,12 +500,13 @@ def standardize_screening_name():
 
 @api_bp.route('/standard-conditions')
 @login_required
+@exempt
 def get_standard_conditions():
     """Get list of standard trigger conditions"""
     try:
         from utils.medical_conditions import medical_conditions_db
         conditions = medical_conditions_db.get_standard_conditions()
-        
+
         return jsonify({
             'success': True,
             'conditions': conditions
@@ -502,6 +523,7 @@ def get_standard_conditions():
 
 @api_bp.route('/document/<int:document_id>/content')
 @login_required
+@exempt
 def get_document_content(document_id):
     """Get document content for viewing"""
     try:
@@ -530,6 +552,7 @@ def get_document_content(document_id):
 
 @api_bp.route('/patient/<int:patient_id>/prep-sheet')
 @login_required
+@exempt
 def generate_prep_sheet_api(patient_id):
     """Generate prep sheet via API"""
     try:
@@ -550,6 +573,7 @@ def generate_prep_sheet_api(patient_id):
 
 @api_bp.route('/phi/test', methods=['POST'])
 @login_required
+@exempt
 def test_phi_filter_api():
     """Test PHI filtering via API"""
     try:
@@ -564,7 +588,7 @@ def test_phi_filter_api():
         enabled_filters = data.get('enabled_filters', None)
 
         phi_filter = PHIFilter()
-        
+
         # Basic PHI filtering - implement full test_phi_filter method later
         filtered_text = phi_filter.filter_phi(test_text)
         report = {'phi_found': 0, 'replacements': []}
@@ -586,6 +610,7 @@ def test_phi_filter_api():
 
 @api_bp.route('/search')
 @login_required
+@exempt
 def search_api():
     """Global search API"""
     try:
@@ -677,6 +702,7 @@ def search_api():
 
 @api_bp.route('/statistics')
 @login_required
+@exempt
 def get_statistics():
     """Get system statistics"""
     try:

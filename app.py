@@ -143,3 +143,9 @@ def register_template_utilities(app):
     def inject_csrf_token():
         from secrets import token_urlsafe
         return dict(csrf_token=lambda: token_urlsafe(32))
+
+# Configure CSRF protection to exempt API routes
+@csrf.exempt
+def csrf_exempt_api_routes():
+    """Exempt API routes from CSRF protection"""
+    pass

@@ -7,6 +7,28 @@ let currentScreeningTypeId = null;
 let currentKeywords = [];
 
 /**
+ * Get CSRF token from meta tag or cookie
+ */
+function getCSRFToken() {
+    // Try to get from meta tag first
+    const metaToken = document.querySelector('meta[name="csrf-token"]');
+    if (metaToken) {
+        return metaToken.getAttribute('content');
+    }
+    
+    // Try to get from cookie
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'csrf_token') {
+            return decodeURIComponent(value);
+        }
+    }
+    
+    return null;
+}
+
+/**
  * Open the keyword manager modal
  * @param {number} screeningTypeId - The screening type ID
  * @param {string} screeningName - The screening type name
@@ -267,12 +289,18 @@ async function saveKeywords() {
         saveBtn.textContent = 'Saving...';
         saveBtn.disabled = true;
 
+        const csrfToken = getCSRFToken();
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        
+        if (csrfToken) {
+            headers['X-CSRFToken'] = csrfToken;
+        }
+
         const response = await fetch(`/api/screening-keywords/${currentScreeningTypeId}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCSRFToken()
-            },
+            headers: headers,
             body: JSON.stringify({
                 keywords: currentKeywords
             })
