@@ -1,0 +1,186 @@
+
+{% extends 'base.html' %}
+
+{% block title %}HealthPrep - Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Welcome Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h1 class="card-title mb-0">
+                        <i class="fas fa-heartbeat me-2"></i>
+                        Welcome to HealthPrep
+                    </h1>
+                    <p class="card-text mb-0">Medical Screening & Document Preparation System</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-file-medical fa-3x text-primary mb-3"></i>
+                    <h4>{{ stats.documents or 0 }}</h4>
+                    <p class="text-muted mb-0">Documents Processed</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-stethoscope fa-3x text-success mb-3"></i>
+                    <h4>{{ stats.screenings or 0 }}</h4>
+                    <p class="text-muted mb-0">Screenings Available</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-clipboard-list fa-3x text-info mb-3"></i>
+                    <h4>{{ stats.prep_sheets or 0 }}</h4>
+                    <p class="text-muted mb-0">Prep Sheets Generated</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-users fa-3x text-warning mb-3"></i>
+                    <h4>{{ stats.users or 0 }}</h4>
+                    <p class="text-muted mb-0">Active Users</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="row">
+        <!-- Quick Actions -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-rocket me-2"></i>
+                        Quick Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <a href="{{ url_for('document_routes.upload') }}" class="btn btn-outline-primary w-100 p-3">
+                                <i class="fas fa-upload fa-2x d-block mb-2"></i>
+                                Upload Documents
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <a href="{{ url_for('screening_routes.list') }}" class="btn btn-outline-success w-100 p-3">
+                                <i class="fas fa-list-alt fa-2x d-block mb-2"></i>
+                                View Screenings
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <a href="{{ url_for('prep_sheet_routes.generate') }}" class="btn btn-outline-info w-100 p-3">
+                                <i class="fas fa-file-download fa-2x d-block mb-2"></i>
+                                Generate Prep Sheet
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <a href="{{ url_for('screening_routes.types') }}" class="btn btn-outline-warning w-100 p-3">
+                                <i class="fas fa-cogs fa-2x d-block mb-2"></i>
+                                Manage Types
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history me-2"></i>
+                        Recent Activity
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_activity %}
+                        <div class="list-group list-group-flush">
+                            {% for activity in recent_activity %}
+                            <div class="list-group-item px-0 py-2">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <span class="fw-medium">{{ activity.action }}</span>
+                                        <small class="text-muted d-block">
+                                            {{ activity.timestamp.strftime('%m/%d %H:%M') }}
+                                        </small>
+                                    </div>
+                                    <span class="badge bg-secondary small">{{ activity.type }}</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-clipboard-list fa-2x text-muted mb-2"></i>
+                            <p class="text-muted">No recent activity</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Status -->
+    {% if current_user.role == 'admin' %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-server me-2"></i>
+                        System Status
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-database text-success me-2"></i>
+                                <span>Database: <strong class="text-success">Online</strong></span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-eye text-info me-2"></i>
+                                <span>OCR Service: <strong class="text-info">Ready</strong></span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-shield-alt text-warning me-2"></i>
+                                <span>Security: <strong class="text-warning">Active</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-primary">
+                            <i class="fas fa-cog me-1"></i>
+                            Admin Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
