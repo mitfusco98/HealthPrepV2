@@ -48,9 +48,12 @@ class ScreeningTypeForm(FlaskForm):
                                  default='both')
     min_age = IntegerField('Minimum Age', validators=[Optional(), NumberRange(min=0, max=150)])
     max_age = IntegerField('Maximum Age', validators=[Optional(), NumberRange(min=0, max=150)])
-    frequency_years = FloatField('Frequency (Years)', 
-                               validators=[DataRequired(), NumberRange(min=0.08, max=50)],  # 0.08 = ~1 month
-                               render_kw={'step': '0.25', 'placeholder': '1.0 for annual, 0.25 for quarterly'})
+    frequency_value = FloatField('Frequency', 
+                               validators=[DataRequired(), NumberRange(min=1, max=600)],  # 1-600 to handle both months and years
+                               render_kw={'step': '0.5', 'placeholder': 'e.g., 1, 2, 6, 12'})
+    frequency_unit = SelectField('Unit', 
+                               choices=[('years', 'Years'), ('months', 'Months')],
+                               default='years')
     trigger_conditions = TextAreaField('Trigger Conditions', 
                                      validators=[Length(max=1000)],
                                      render_kw={'placeholder': 'diabetes, hypertension, family history'})

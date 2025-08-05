@@ -87,10 +87,13 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                {{ form.frequency_years.label(class="form-label") }}
-                                {{ form.frequency_years(class="form-control") }}
+                                <label class="form-label">Frequency</label>
+                                <div class="input-group">
+                                    {{ form.frequency_value(class="form-control") }}
+                                    {{ form.frequency_unit(class="form-select", style="max-width: 100px;") }}
+                                </div>
                                 <div class="form-text">
-                                    How often this screening should be done (e.g., 1.0 = annually, 0.25 = quarterly)
+                                    How often this screening should be done (e.g., 1 year, 6 months, 2 years)
                                 </div>
                             </div>
                         </div>

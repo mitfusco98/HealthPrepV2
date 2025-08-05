@@ -146,13 +146,18 @@ def add_screening_type():
                     # Fallback to comma-separated parsing (manual textarea input)
                     trigger_conditions_list = [tc.strip() for tc in form.trigger_conditions.data.split(',') if tc.strip()]
             
+            # Convert frequency to years for storage
+            frequency_years = form.frequency_value.data
+            if form.frequency_unit.data == 'months':
+                frequency_years = form.frequency_value.data / 12.0
+            
             screening_type = ScreeningType(
                 name=form.name.data,
                 keywords=json.dumps([]),  # Start with empty keywords - will be set via modal
                 eligible_genders=form.eligible_genders.data,
                 min_age=form.min_age.data,
                 max_age=form.max_age.data,
-                frequency_years=form.frequency_years.data,
+                frequency_years=frequency_years,
                 trigger_conditions=json.dumps(trigger_conditions_list) if trigger_conditions_list else None
             )
 
@@ -197,12 +202,17 @@ def edit_screening_type(type_id):
                     # Fallback to comma-separated parsing (manual textarea input)
                     trigger_conditions_list = [tc.strip() for tc in form.trigger_conditions.data.split(',') if tc.strip()]
             
+            # Convert frequency to years for storage
+            frequency_years = form.frequency_value.data
+            if form.frequency_unit.data == 'months':
+                frequency_years = form.frequency_value.data / 12.0
+            
             screening_type.name = form.name.data
             # Keywords are managed via modal - don't update from form
             screening_type.eligible_genders = form.eligible_genders.data
             screening_type.min_age = form.min_age.data
             screening_type.max_age = form.max_age.data
-            screening_type.frequency_years = form.frequency_years.data
+            screening_type.frequency_years = frequency_years
             screening_type.trigger_conditions = json.dumps(trigger_conditions_list) if trigger_conditions_list else None
 
             db.session.commit()
@@ -220,7 +230,24 @@ def edit_screening_type(type_id):
         # Populate form fields for editing
         if not request.method == 'POST':  # Only populate on GET request
             form.eligible_genders.data = screening_type.eligible_genders
-            form.frequency_years.data = screening_type.frequency_years
+            
+            # Convert frequency_years back to appropriate display units
+            frequency_years = screening_type.frequency_years
+            frequency_months = frequency_years * 12
+            
+            # If it's a clean number of months and less than 24 months, show in months
+            if frequency_months < 24 and frequency_months == int(frequency_months):
+                form.frequency_value.data = int(frequency_months)
+                form.frequency_unit.data = 'months'
+            # If it's 0.5 years (6 months), show as 6 months
+            elif frequency_years == 0.5:
+                form.frequency_value.data = 6
+                form.frequency_unit.data = 'months'
+            # Otherwise show in years
+            else:
+                form.frequency_value.data = frequency_years
+                form.frequency_unit.data = 'years'
+            
             # Set trigger conditions as JSON for inline management system
             if screening_type.trigger_conditions_list:
                 form.trigger_conditions.data = json.dumps(screening_type.trigger_conditions_list)

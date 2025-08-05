@@ -155,6 +155,34 @@ class ScreeningType(db.Model):
         """Set trigger conditions from a list"""
         self.trigger_conditions = json.dumps(conditions) if conditions else None
 
+    @property
+    def frequency_display(self):
+        """Return frequency in user-friendly format"""
+        frequency_months = self.frequency_years * 12
+        
+        # Special cases for common frequencies
+        if self.frequency_years == 1.0:
+            return "Every year"
+        elif self.frequency_years == 0.5:
+            return "Every 6 months"
+        elif self.frequency_years == 2.0:
+            return "Every 2 years"
+        
+        # If it's a clean number of months and less than 12 months, show in months
+        if frequency_months < 12 and frequency_months == int(frequency_months):
+            months = int(frequency_months)
+            return f"Every {months} month{'s' if months != 1 else ''}"
+        # If it's a clean number of months between 12-23 months (but not 12), show in months
+        elif 12 < frequency_months < 24 and frequency_months == int(frequency_months):
+            months = int(frequency_months)
+            return f"Every {months} months"
+        # Otherwise show in years
+        else:
+            years = self.frequency_years
+            if years == int(years):
+                years = int(years)
+            return f"Every {years} year{'s' if years != 1 else ''}"
+
     def __repr__(self):
         return f'<ScreeningType {self.name}>'
 
