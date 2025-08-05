@@ -184,7 +184,7 @@
                 <div class="mt-3">
                     <strong>Current Triggers:</strong>
                     <div class="mt-1">
-                        {% if screening_type.trigger_conditions_list %}
+                        {% if screening_type.trigger_conditions_list and screening_type.trigger_conditions_list|length > 0 %}
                             {% for condition in screening_type.trigger_conditions_list %}
                             <span class="badge bg-warning me-1 mb-1">{{ condition }}</span>
                             {% endfor %}
