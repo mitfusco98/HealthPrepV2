@@ -1,8 +1,8 @@
 """
 Fixing the URL reference for 'dashboard' to 'ui.dashboard' in screening routes.
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_user
-from flask_login import login_required
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask_login import login_required, current_user
 
 from datetime import datetime
 import logging
