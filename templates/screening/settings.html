@@ -67,14 +67,19 @@
                     </div>
                 </div>
 
-                <form method="POST">
+                <!-- Debug info - remove after testing -->
+                <div class="alert alert-info" id="debug-info" style="display: none;">
+                    <small>Debug: Form fields loaded</small>
+                </div>
+
+                <form method="POST" id="cutoff-settings-form">
                     {{ form.hidden_tag() }}
                     
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 {{ form.labs_cutoff_months.label(class="form-label") }}
-                                {{ form.labs_cutoff_months(class="form-control") }}
+                                {{ form.labs_cutoff_months(class="form-control", id="labs_cutoff_months") }}
                                 <div class="form-text">
                                     Lab results older than this will be excluded. Set to 0 to use last appointment date.
                                 </div>
@@ -83,7 +88,7 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 {{ form.imaging_cutoff_months.label(class="form-label") }}
-                                {{ form.imaging_cutoff_months(class="form-control") }}
+                                {{ form.imaging_cutoff_months(class="form-control", id="imaging_cutoff_months") }}
                                 <div class="form-text">
                                     Imaging studies older than this will be excluded. Set to 0 to use last appointment date.
                                 </div>
@@ -95,7 +100,7 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 {{ form.consults_cutoff_months.label(class="form-label") }}
-                                {{ form.consults_cutoff_months(class="form-control") }}
+                                {{ form.consults_cutoff_months(class="form-control", id="consults_cutoff_months") }}
                                 <div class="form-text">
                                     Consultation notes older than this will be excluded. Set to 0 to use last appointment date.
                                 </div>
@@ -104,7 +109,7 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 {{ form.hospital_cutoff_months.label(class="form-label") }}
-                                {{ form.hospital_cutoff_months(class="form-control") }}
+                                {{ form.hospital_cutoff_months(class="form-control", id="hospital_cutoff_months") }}
                                 <div class="form-text">
                                     Hospital records older than this will be excluded. Set to 0 to use last appointment date.
                                 </div>
@@ -116,6 +121,10 @@
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save me-1"></i>
                             Save Settings
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="debugFormFields()">
+                            <i class="fas fa-bug me-1"></i>
+                            Debug Fields
                         </button>
                     </div>
                 </form>
@@ -227,11 +236,27 @@
 function applyPreset(labs, imaging, consults, hospital, clickedButton) {
     console.log('Applying preset:', labs, imaging, consults, hospital);
     
-    // Use the actual form field names from the Flask form
-    const labsField = document.getElementById('labs_cutoff_months');
-    const imagingField = document.getElementById('imaging_cutoff_months');
-    const consultsField = document.getElementById('consults_cutoff_months');
-    const hospitalField = document.getElementById('hospital_cutoff_months');
+    // Try multiple ways to find the form fields
+    let labsField = document.getElementById('labs_cutoff_months') || 
+                   document.querySelector('input[name="labs_cutoff_months"]') ||
+                   document.querySelector('input[id*="labs"]');
+    let imagingField = document.getElementById('imaging_cutoff_months') || 
+                      document.querySelector('input[name="imaging_cutoff_months"]') ||
+                      document.querySelector('input[id*="imaging"]');
+    let consultsField = document.getElementById('consults_cutoff_months') || 
+                       document.querySelector('input[name="consults_cutoff_months"]') ||
+                       document.querySelector('input[id*="consults"]');
+    let hospitalField = document.getElementById('hospital_cutoff_months') || 
+                       document.querySelector('input[name="hospital_cutoff_months"]') ||
+                       document.querySelector('input[id*="hospital"]');
+    
+    // Debug: Log all input fields
+    const allInputs = document.querySelectorAll('input[type="number"], input[type="text"]');
+    console.log('All inputs on page:', Array.from(allInputs).map(input => ({
+        id: input.id,
+        name: input.name,
+        value: input.value
+    })));
     
     console.log('Form fields found:', {
         labs: labsField,
@@ -240,21 +265,42 @@ function applyPreset(labs, imaging, consults, hospital, clickedButton) {
         hospital: hospitalField
     });
     
+    let fieldsUpdated = 0;
+    
     if (labsField) {
         labsField.value = labs;
+        labsField.dispatchEvent(new Event('input', { bubbles: true }));
+        fieldsUpdated++;
         console.log('Set labs field to:', labs);
+    } else {
+        console.error('Labs field not found');
     }
+    
     if (imagingField) {
         imagingField.value = imaging;
+        imagingField.dispatchEvent(new Event('input', { bubbles: true }));
+        fieldsUpdated++;
         console.log('Set imaging field to:', imaging);
+    } else {
+        console.error('Imaging field not found');
     }
+    
     if (consultsField) {
         consultsField.value = consults;
+        consultsField.dispatchEvent(new Event('input', { bubbles: true }));
+        fieldsUpdated++;
         console.log('Set consults field to:', consults);
+    } else {
+        console.error('Consults field not found');
     }
+    
     if (hospitalField) {
         hospitalField.value = hospital;
+        hospitalField.dispatchEvent(new Event('input', { bubbles: true }));
+        fieldsUpdated++;
         console.log('Set hospital field to:', hospital);
+    } else {
+        console.error('Hospital field not found');
     }
     
     // Visual feedback - remove active class from all preset buttons
@@ -278,41 +324,56 @@ function applyPreset(labs, imaging, consults, hospital, clickedButton) {
     }
     
     const alert = document.createElement('div');
-    alert.className = 'alert alert-success alert-dismissible fade show mt-2 preset-alert';
-    alert.innerHTML = `
-        <i class="fas fa-check me-2"></i>
-        Preset applied! Don't forget to save your changes.
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
+    if (fieldsUpdated === 4) {
+        alert.className = 'alert alert-success alert-dismissible fade show mt-2 preset-alert';
+        alert.innerHTML = `
+            <i class="fas fa-check me-2"></i>
+            Preset applied successfully! Don't forget to save your changes.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+    } else {
+        alert.className = 'alert alert-warning alert-dismissible fade show mt-2 preset-alert';
+        alert.innerHTML = `
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Preset partially applied (${fieldsUpdated}/4 fields updated). Check the form fields.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+    }
     
     const cardBody = document.querySelector('.card-body');
     if (cardBody) {
         cardBody.insertBefore(alert, cardBody.firstChild);
     }
     
-    // Auto-remove alert after 4 seconds
+    // Auto-remove alert after 5 seconds
     setTimeout(() => {
         if (alert.parentNode) {
             alert.remove();
         }
-    }, 4000);
+    }, 5000);
 }
 
 // Add event listeners when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, setting up preset buttons');
     
-    // Wait a bit longer for the form to be fully rendered
+    // Wait for form to be fully rendered
     setTimeout(function() {
         // Add click handlers to preset buttons
         const presetButtons = document.querySelectorAll('.preset-btn[data-preset]');
         console.log('Found preset buttons:', presetButtons.length);
         
+        if (presetButtons.length === 0) {
+            console.error('No preset buttons found! Check HTML structure.');
+            return;
+        }
+        
         presetButtons.forEach((button, index) => {
-            console.log('Setting up button', index, button);
+            console.log(`Setting up button ${index}:`, button.textContent.trim());
             button.addEventListener('click', function(e) {
                 e.preventDefault();
-                console.log('Preset button clicked:', this);
+                e.stopPropagation();
+                console.log('Preset button clicked:', this.textContent.trim());
                 
                 const presetData = this.getAttribute('data-preset');
                 console.log('Preset data:', presetData);
@@ -327,35 +388,32 @@ document.addEventListener('DOMContentLoaded', function() {
                         console.error('Invalid preset data length:', values.length);
                     }
                 } else {
-                    console.error('No preset data found');
+                    console.error('No preset data found on button');
                 }
             });
         });
         
-        // Check current values against presets and highlight matching preset
+        // Function to check current values against presets
         function checkCurrentPreset() {
-            console.log('Checking current preset');
+            console.log('Checking current preset match');
             
             // Clear all active states first
             presetButtons.forEach(btn => {
-                btn.classList.remove('preset-active');
-                btn.classList.remove('active');
+                btn.classList.remove('preset-active', 'active');
             });
             
-            const labsField = document.getElementById('labs_cutoff_months');
-            const imagingField = document.getElementById('imaging_cutoff_months');
-            const consultsField = document.getElementById('consults_cutoff_months');
-            const hospitalField = document.getElementById('hospital_cutoff_months');
-            
-            console.log('Form fields for checking:', {
-                labs: labsField,
-                imaging: imagingField,
-                consults: consultsField,
-                hospital: hospitalField
-            });
+            // Find form fields using multiple methods
+            const labsField = document.getElementById('labs_cutoff_months') || 
+                             document.querySelector('input[name="labs_cutoff_months"]');
+            const imagingField = document.getElementById('imaging_cutoff_months') || 
+                                document.querySelector('input[name="imaging_cutoff_months"]');
+            const consultsField = document.getElementById('consults_cutoff_months') || 
+                                 document.querySelector('input[name="consults_cutoff_months"]');
+            const hospitalField = document.getElementById('hospital_cutoff_months') || 
+                                 document.querySelector('input[name="hospital_cutoff_months"]');
             
             if (!labsField || !imagingField || !consultsField || !hospitalField) {
-                console.error('Form fields not found');
+                console.error('Could not find all form fields for preset checking');
                 return;
             }
             
@@ -364,7 +422,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const consults = parseInt(consultsField.value) || 0;
             const hospital = parseInt(hospitalField.value) || 0;
             
-            console.log('Current values:', labs, imaging, consults, hospital);
+            console.log('Current form values:', {labs, imaging, consults, hospital});
             
             // Check each preset button to see if it matches current values
             presetButtons.forEach(button => {
@@ -376,27 +434,102 @@ document.addEventListener('DOMContentLoaded', function() {
                         values[1] === imaging && 
                         values[2] === consults && 
                         values[3] === hospital) {
-                        button.classList.add('preset-active');
-                        button.classList.add('active');
-                        console.log('Matched preset button:', button);
+                        button.classList.add('preset-active', 'active');
+                        console.log('Matched preset button:', button.textContent.trim());
                     }
                 }
             });
         }
         
-        // Check current preset on load
-        setTimeout(checkCurrentPreset, 200);
+        // Check current preset after a delay
+        setTimeout(checkCurrentPreset, 500);
         
         // Monitor form changes to update preset highlighting
-        const formInputs = document.querySelectorAll('#labs_cutoff_months, #imaging_cutoff_months, #consults_cutoff_months, #hospital_cutoff_months');
-        console.log('Found form inputs:', formInputs.length);
+        const formInputSelectors = [
+            '#labs_cutoff_months', 
+            '#imaging_cutoff_months', 
+            '#consults_cutoff_months', 
+            '#hospital_cutoff_months',
+            'input[name="labs_cutoff_months"]',
+            'input[name="imaging_cutoff_months"]',
+            'input[name="consults_cutoff_months"]',
+            'input[name="hospital_cutoff_months"]'
+        ];
         
-        formInputs.forEach(input => {
-            input.addEventListener('input', checkCurrentPreset);
-            input.addEventListener('change', checkCurrentPreset);
+        formInputSelectors.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(input => {
+                if (input) {
+                    input.addEventListener('input', checkCurrentPreset);
+                    input.addEventListener('change', checkCurrentPreset);
+                }
+            });
         });
         
-    }, 300); // Wait 300ms for the form to be fully rendered
+        console.log('Preset functionality setup complete');
+        
+    }, 500); // Increased delay to ensure form is fully rendered
 });
+
+// Debug function to help troubleshoot form field issues
+function debugFormFields() {
+    console.log('=== DEBUG: Form Field Analysis ===');
+    
+    // Show all input fields
+    const allInputs = document.querySelectorAll('input');
+    console.log('All input elements:', Array.from(allInputs).map(input => ({
+        id: input.id,
+        name: input.name,
+        type: input.type,
+        value: input.value,
+        className: input.className
+    })));
+    
+    // Show all form elements
+    const allForms = document.querySelectorAll('form');
+    console.log('All form elements:', Array.from(allForms).map(form => ({
+        id: form.id,
+        className: form.className,
+        children: form.children.length
+    })));
+    
+    // Test field selection methods
+    const testSelectors = [
+        'labs_cutoff_months',
+        'imaging_cutoff_months', 
+        'consults_cutoff_months',
+        'hospital_cutoff_months'
+    ];
+    
+    testSelectors.forEach(fieldName => {
+        const byId = document.getElementById(fieldName);
+        const byName = document.querySelector(`input[name="${fieldName}"]`);
+        const byPartialId = document.querySelector(`input[id*="${fieldName.split('_')[0]}"]`);
+        
+        console.log(`Field ${fieldName}:`, {
+            byId: byId ? byId.value : 'NOT FOUND',
+            byName: byName ? byName.value : 'NOT FOUND',
+            byPartialId: byPartialId ? byPartialId.value : 'NOT FOUND'
+        });
+    });
+    
+    // Show debug info
+    const debugDiv = document.getElementById('debug-info');
+    if (debugDiv) {
+        debugDiv.style.display = 'block';
+        debugDiv.innerHTML = `
+            <strong>Debug Info:</strong><br>
+            Total inputs: ${allInputs.length}<br>
+            Total forms: ${allForms.length}<br>
+            Preset buttons: ${document.querySelectorAll('.preset-btn').length}<br>
+            Current values: Labs=${document.getElementById('labs_cutoff_months')?.value || 'N/A'}, 
+            Imaging=${document.getElementById('imaging_cutoff_months')?.value || 'N/A'}, 
+            Consults=${document.getElementById('consults_cutoff_months')?.value || 'N/A'}, 
+            Hospital=${document.getElementById('hospital_cutoff_months')?.value || 'N/A'}
+        `;
+    }
+    
+    console.log('=== END DEBUG ===');
+}
 </script>
 {% endblock %}
