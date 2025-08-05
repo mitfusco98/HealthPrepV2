@@ -74,7 +74,7 @@
 
                 <form method="POST" id="cutoff-settings-form">
                     {{ form.hidden_tag() }}
-                    
+
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -95,7 +95,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -116,7 +116,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="d-flex justify-content-between">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save me-1"></i>
@@ -135,7 +135,7 @@
             </div>
         </div>
     </div>
-    
+
     <div class="col-lg-4">
         <div class="card">
             <div class="card-header">
@@ -149,17 +149,17 @@
                     <dl class="row">
                         <dt class="col-6">Labs Cutoff:</dt>
                         <dd class="col-6">{{ settings.get_cutoff_display('labs') }}</dd>
-                        
+
                         <dt class="col-6">Imaging Cutoff:</dt>
                         <dd class="col-6">{{ settings.get_cutoff_display('imaging') }}</dd>
-                        
+
                         <dt class="col-6">Consults Cutoff:</dt>
                         <dd class="col-6">{{ settings.get_cutoff_display('consults') }}</dd>
-                        
+
                         <dt class="col-6">Hospital Cutoff:</dt>
                         <dd class="col-6">{{ settings.get_cutoff_display('hospital') }}</dd>
                     </dl>
-                    
+
                     {% if settings.updated_at %}
                         <small class="text-muted">
                             Last updated: {{ settings.updated_at.strftime('%m/%d/%Y %H:%M') }}
@@ -170,7 +170,7 @@
                 {% endif %}
             </div>
         </div>
-        
+
         <div class="card mt-3">
             <div class="card-header">
                 <h6 class="mb-0">
@@ -194,9 +194,9 @@
                         <strong>Default Fallback:</strong> 6 months if no past appointments found
                     </li>
                 </ol>
-                
+
                 <hr class="my-3">
-                
+
                 <h6 class="fw-bold mb-3">Best Practices:</h6>
                 <ul class="list-unstyled">
                     <li class="mb-2">
@@ -216,7 +216,7 @@
                         <strong>Hospital:</strong> 12 months for recent admissions
                     </li>
                 </ul>
-                
+
                 <div class="alert alert-info mt-3" role="alert">
                     <i class="fas fa-lightbulb me-2"></i>
                     <strong>Tip:</strong> Set cutoff to 0 for patient-specific, contextual filtering based on their last appointment.
@@ -249,11 +249,11 @@ function logDebug(message, data = null) {
 // Enhanced debug function - run first to see what's available
 function debugFormFields() {
     console.log('=== FORM FIELD DEBUG INFO ===');
-    
+
     // All inputs
     const allInputs = document.querySelectorAll('input');
     console.log('Total input elements:', allInputs.length);
-    
+
     // List all inputs with their details
     allInputs.forEach((input, idx) => {
         console.log(`Input ${idx}:`, {
@@ -264,16 +264,16 @@ function debugFormFields() {
             tagName: input.tagName
         });
     });
-    
+
     // All forms  
     const allForms = document.querySelectorAll('form');
     console.log('Total form elements:', allForms.length);
-    
+
     // Preset buttons
     const presetButtons = document.querySelectorAll('.preset-btn');  
     const presetButtonsWithData = document.querySelectorAll('.preset-btn[data-preset]');
     console.log('Preset buttons (total/with data):', `${presetButtons.length}/${presetButtonsWithData.length}`);
-    
+
     // List all preset buttons
     presetButtons.forEach((btn, idx) => {
         console.log(`Preset Button ${idx}:`, {
@@ -282,7 +282,7 @@ function debugFormFields() {
             classes: btn.className
         });
     });
-    
+
     // Update debug display
     const debugDiv = document.getElementById('debug-info');
     if (debugDiv) {
@@ -292,14 +292,14 @@ function debugFormFields() {
             Inputs: ${allInputs.length} | Forms: ${allForms.length} | Preset Buttons: ${presetButtons.length}/${presetButtonsWithData.length}
         `;
     }
-    
+
     console.log('=== END FORM FIELD DEBUG ===');
 }
 
 function applyPreset(labs, imaging, consults, hospital, clickedButton) {
     console.log('=== APPLY PRESET STARTED ===');
     console.log('Preset values:', {labs, imaging, consults, hospital});
-    
+
     // Log all available inputs for debugging
     const allInputs = document.querySelectorAll('input[type="number"]');
     console.log('All number inputs found:', allInputs.length);
@@ -311,7 +311,7 @@ function applyPreset(labs, imaging, consults, hospital, clickedButton) {
             placeholder: input.placeholder
         });
     });
-    
+
     // Find fields using multiple methods - Flask-WTF might generate different IDs
     const fields = {
         labs: document.querySelector('#labs_cutoff_months, input[name="labs_cutoff_months"], input[id*="labs"]'),
@@ -319,9 +319,9 @@ function applyPreset(labs, imaging, consults, hospital, clickedButton) {
         consults: document.querySelector('#consults_cutoff_months, input[name="consults_cutoff_months"], input[id*="consults"]'),
         hospital: document.querySelector('#hospital_cutoff_months, input[name="hospital_cutoff_months"], input[id*="hospital"]')
     };
-    
+
     let fieldsUpdated = 0;
-    
+
     // Update labs field
     if (fields.labs) {
         const oldValue = fields.labs.value;
@@ -333,7 +333,7 @@ function applyPreset(labs, imaging, consults, hospital, clickedButton) {
     } else {
         console.log('ERROR: Labs field not found');
     }
-    
+
     // Update imaging field
     if (fields.imaging) {
         const oldValue = fields.imaging.value;
@@ -345,7 +345,7 @@ function applyPreset(labs, imaging, consults, hospital, clickedButton) {
     } else {
         console.log('ERROR: Imaging field not found');
     }
-    
+
     // Update consults field
     if (fields.consults) {
         const oldValue = fields.consults.value;
@@ -357,7 +357,7 @@ function applyPreset(labs, imaging, consults, hospital, clickedButton) {
     } else {
         console.log('ERROR: Consults field not found');
     }
-    
+
     // Update hospital field
     if (fields.hospital) {
         const oldValue = fields.hospital.value;
@@ -369,20 +369,20 @@ function applyPreset(labs, imaging, consults, hospital, clickedButton) {
     } else {
         console.log('ERROR: Hospital field not found');
     }
-    
+
     // Update button visual state
     document.querySelectorAll('.preset-btn').forEach(btn => {
         btn.classList.remove('preset-active', 'active');
     });
-    
+
     if (clickedButton) {
         clickedButton.classList.add('preset-active', 'active');
         console.log('Button activated:', clickedButton.textContent.trim());
     }
-    
+
     // Show feedback message
     showPresetFeedback(fieldsUpdated, 4);
-    
+
     console.log('=== APPLY PRESET COMPLETED ===', {fieldsUpdated, totalExpected: 4});
 }
 
@@ -392,7 +392,7 @@ function showPresetFeedback(updated, total) {
     if (existingAlert) {
         existingAlert.remove();
     }
-    
+
     const alert = document.createElement('div');
     if (updated === total) {
         alert.className = 'alert alert-success alert-dismissible fade show mt-2 preset-alert';
@@ -409,12 +409,12 @@ function showPresetFeedback(updated, total) {
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
     }
-    
+
     const cardBody = document.querySelector('.card-body');
     if (cardBody) {
         cardBody.insertBefore(alert, cardBody.firstChild);
     }
-    
+
     // Auto-remove alert after 8 seconds
     setTimeout(() => {
         if (alert.parentNode) {
@@ -435,10 +435,10 @@ function testPresetClick(preset) {
 // Setup function
 function setupPresetFunctionality() {
     console.log('=== SETTING UP FUNCTIONALITY ===');
-    
+
     // Run debug first to see what's available
     debugFormFields();
-    
+
     // Set up debug button
     const debugBtn = document.getElementById('debug-btn');
     if (debugBtn) {
@@ -450,7 +450,7 @@ function setupPresetFunctionality() {
     } else {
         console.log('ERROR: Debug button not found');
     }
-    
+
     // Set up test button
     const testBtn = document.getElementById('test-preset-btn');
     if (testBtn) {
@@ -462,45 +462,56 @@ function setupPresetFunctionality() {
     } else {
         console.log('ERROR: Test preset button not found');
     }
-    
+
     // Set up preset buttons
     const presetButtons = document.querySelectorAll('.preset-btn[data-preset]');
     console.log('Found preset buttons:', presetButtons.length);
-    
+
     presetButtons.forEach((button, index) => {
         const presetData = button.getAttribute('data-preset');
         const buttonText = button.textContent.trim().substring(0, 20);
-        
+
         console.log(`Setting up button ${index}: "${buttonText}" with data: ${presetData}`);
-        
+
         button.onclick = function(e) {
             e.preventDefault();
-            console.log('Preset button clicked:', buttonText, 'data:', presetData);
-            
-            if (!presetData) {
-                console.log('ERROR: No data-preset attribute');
-                return;
-            }
-            
-            const values = presetData.split(',').map(v => parseInt(v.trim()));
-            console.log('Parsed values:', values);
-            
-            if (values.length !== 4) {
-                console.log('ERROR: Expected 4 values, got:', values.length);
-                return;
-            }
-            
-            if (values.some(v => isNaN(v))) {
-                console.log('ERROR: Some values are not valid numbers:', values);
-                return;
-            }
-            
-            applyPreset(values[0], values[1], values[2], values[3], button);
+            window.handlePresetClick(this, this.getAttribute('data-preset'));
         };
     });
-    
+
     console.log('=== SETUP COMPLETE ===');
 }
+
+// Make functions available globally
+window.debugFormFields = debugFormFields;
+window.testPresetClick = testPresetClick;
+
+// Global preset click handler
+window.handlePresetClick = function(button, presetData) {
+    console.log('=== PRESET BUTTON CLICKED ===');
+    console.log('Button:', button);
+    console.log('Preset data:', presetData);
+
+    if (!presetData) {
+        console.log('ERROR: No data-preset attribute');
+        return;
+    }
+
+    const values = presetData.split(',').map(v => parseInt(v.trim()));
+    console.log('Parsed values:', values);
+
+    if (values.length !== 4) {
+        console.log('ERROR: Expected 4 values, got:', values.length);
+        return;
+    }
+
+    if (values.some(v => isNaN(v))) {
+        console.log('ERROR: Some values are not valid numbers:', values);
+        return;
+    }
+
+    applyPreset(values[0], values[1], values[2], values[3], button);
+};
 
 // Try multiple ways to ensure setup runs
 console.log('=== SCRIPT LOADING ===');
