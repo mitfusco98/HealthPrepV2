@@ -4,16 +4,48 @@
 {% block title %}Screening Types - HealthPrep{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>
-        <i class="fas fa-cogs me-2 text-primary"></i>
-        Screening Types
-    </h1>
-    <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-success">
-        <i class="fas fa-plus me-1"></i>
-        Add Screening Type
-    </a>
+<!-- Page Header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h3 mb-1">
+                    <i class="fas fa-stethoscope me-2 text-primary"></i>
+                    Screening Management
+                </h1>
+                <p class="text-muted">Manage screening types and configurations</p>
+            </div>
+            <div>
+                <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-success">
+                    <i class="fas fa-plus me-1"></i>
+                    Add Screening Type
+                </a>
+            </div>
+        </div>
+    </div>
 </div>
+
+<!-- Tab Navigation -->
+<ul class="nav nav-tabs mb-4" id="screeningTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <a class="nav-link" href="{{ url_for('screening.screening_list') }}" role="tab">
+            <i class="fas fa-list me-1"></i>
+            Screening List
+        </a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link active" href="{{ url_for('screening.screening_types') }}" role="tab">
+            <i class="fas fa-tags me-1"></i>
+            Screening Types
+        </a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link" href="{{ url_for('screening.screening_settings') }}" role="tab">
+            <i class="fas fa-cog me-1"></i>
+            Settings
+        </a>
+    </li>
+</ul>
 
 <div class="card">
     <div class="card-body">
