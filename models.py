@@ -225,10 +225,22 @@ class ScreeningType(db.Model):
 
     def sync_status_to_variants(self):
         """Sync the is_active status to all other variants of the same base name"""
-        variants = self.get_variants(self.name)
+        # Get the base name (everything before ' - ' if it exists)
+        base_name = self.name.split(' - ')[0] if ' - ' in self.name else self.name
+        
+        # Find all screening types that share the same base name
+        variants = ScreeningType.query.filter(
+            db.or_(
+                ScreeningType.name == base_name,
+                ScreeningType.name.like(f"{base_name} - %")
+            )
+        ).all()
+        
+        # Update all variants to match this screening type's status
         for variant in variants:
             if variant.id != self.id:
                 variant.is_active = self.is_active
+        
         db.session.commit()
 
     def __repr__(self):

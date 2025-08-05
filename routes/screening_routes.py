@@ -292,26 +292,29 @@ def edit_screening_type(type_id):
 @screening_bp.route('/type/<int:type_id>/toggle-status', methods=['POST'])
 @login_required
 def toggle_screening_type_status(type_id):
-    """Toggle screening type active status"""
+    """Toggle screening type active status and sync to all variants"""
     try:
         screening_type = ScreeningType.query.get_or_404(type_id)
 
         screening_type.is_active = not screening_type.is_active
-        db.session.commit()
+        
+        # Sync status to all variants of the same base name
+        screening_type.sync_status_to_variants()
 
         # Log the action
         AdminLogger.log(
             user_id=current_user.id,
             action='toggle_screening_type_status',
-            details=f'Toggled screening type status: {screening_type.name} -> {screening_type.is_active}'
+            details=f'Toggled screening type status: {screening_type.name} -> {screening_type.is_active} (synced to variants)'
         )
 
         status = 'activated' if screening_type.is_active else 'deactivated'
-        flash(f'Screening type "{screening_type.name}" {status}', 'success')
+        flash(f'Screening type "{screening_type.name}" {status} (all variants synced)', 'success')
 
         return redirect(url_for('screening.screening_types'))
 
     except Exception as e:
+        db.session.rollback()
         logger.error(f"Error toggling screening type status: {str(e)}")
         flash('Error updating screening type status', 'error')
         return redirect(url_for('screening.screening_types'))
