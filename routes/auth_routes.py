@@ -34,12 +34,16 @@ def login():
 
             flash('Login successful!', 'success')
 
-            # Redirect to next page or home
+            # Redirect to next page or appropriate dashboard
             next_page = request.args.get('next')
             if next_page:
                 return redirect(next_page)
             else:
-                return redirect(url_for('ui.home'))
+                # Redirect based on user role
+                if user.is_admin:
+                    return redirect(url_for('admin.dashboard'))
+                else:
+                    return redirect(url_for('ui.dashboard'))
         else:
             flash('Invalid username or password.', 'error')
 

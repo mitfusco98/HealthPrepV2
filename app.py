@@ -72,7 +72,11 @@ def create_app():
     def index():
         from flask_login import current_user
         if current_user.is_authenticated:
-            return redirect(url_for('ui.dashboard'))
+            # Redirect based on user role
+            if current_user.is_admin:
+                return redirect(url_for('admin.dashboard'))
+            else:
+                return redirect(url_for('ui.dashboard'))
         else:
             return redirect(url_for('auth.login'))
 
