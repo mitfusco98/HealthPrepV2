@@ -42,7 +42,10 @@ class ChangePasswordForm(FlaskForm):
     submit = SubmitField('Change Password')
 
 class ScreeningTypeForm(FlaskForm):
-    name = StringField('Screening Name', validators=[DataRequired(), Length(min=2, max=100)])
+    name = StringField('Screening Name', validators=[DataRequired(), Length(min=2, max=100)],
+                      render_kw={'placeholder': 'e.g., A1C Test, Mammogram, Colonoscopy'})
+    variant_name = StringField('Variant Name (Optional)', validators=[Length(max=100)],
+                              render_kw={'placeholder': 'e.g., Diabetic, Standard, High-Risk'})
     eligible_genders = SelectField('Eligible Genders', 
                                  choices=[('both', 'Both Genders'), ('M', 'Male Only'), ('F', 'Female Only')],
                                  default='both')

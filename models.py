@@ -78,11 +78,12 @@ class Patient(db.Model):
         return f'<Patient {self.name} ({self.mrn})>'
 
 class ScreeningType(db.Model):
-    """Screening type configuration"""
+    """Screening type configuration with variant support"""
     __tablename__ = 'screening_type'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
+    name = db.Column(db.String(100), nullable=False)  # Base screening name (e.g., "A1C Test")
+    variant_name = db.Column(db.String(100))  # Optional variant identifier (e.g., "Diabetic", "Standard")
     keywords = db.Column(db.Text)  # JSON string of keywords for fuzzy detection
     eligible_genders = db.Column(db.String(10), default='both')  # 'M', 'F', or 'both'
     min_age = db.Column(db.Integer)
@@ -95,6 +96,9 @@ class ScreeningType(db.Model):
 
     # Relationships
     screenings = db.relationship('Screening', backref='screening_type', lazy=True)
+    
+    # Unique constraint ensuring name+variant_name combination is unique
+    __table_args__ = (db.UniqueConstraint('name', 'variant_name', name='unique_name_variant'),)
 
     @property
     def keywords_list(self):
@@ -183,7 +187,52 @@ class ScreeningType(db.Model):
                 years = int(years)
             return f"Every {years} year{'s' if years != 1 else ''}"
 
+    @property
+    def display_name(self):
+        """Return the display name including variant if applicable"""
+        if self.variant_name:
+            return f"{self.name} ({self.variant_name})"
+        return self.name
+
+    @property
+    def base_name(self):
+        """Return the base screening name without variant"""
+        return self.name
+
+    @classmethod
+    def get_variants(cls, base_name):
+        """Get all variants for a given base screening name"""
+        return cls.query.filter_by(name=base_name).order_by(cls.variant_name.asc()).all()
+
+    @classmethod
+    def get_variant_count(cls, base_name):
+        """Get the count of variants for a given base screening name"""
+        return cls.query.filter_by(name=base_name).count()
+
+    @classmethod
+    def get_base_names_with_counts(cls):
+        """Get all unique base names with their variant counts"""
+        from sqlalchemy import func
+        
+        results = db.session.query(
+            cls.name,
+            func.count(cls.id).label('variant_count'),
+            func.bool_and(cls.is_active).label('all_active')
+        ).group_by(cls.name).order_by(cls.name).all()
+        
+        return [(name, count, all_active) for name, count, all_active in results]
+
+    def sync_status_to_variants(self):
+        """Sync the is_active status to all other variants of the same base name"""
+        variants = self.get_variants(self.name)
+        for variant in variants:
+            if variant.id != self.id:
+                variant.is_active = self.is_active
+        db.session.commit()
+
     def __repr__(self):
+        if self.variant_name:
+            return f'<ScreeningType {self.name} ({self.variant_name})>'
         return f'<ScreeningType {self.name}>'
 
 class Screening(db.Model):

@@ -46,6 +46,25 @@
     </li>
 </ul>
 
+<!-- View Mode Toggle -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <div class="btn-group" role="group" aria-label="View mode">
+            <a href="{{ url_for('screening.screening_types', view='list') }}" 
+               class="btn {{ 'btn-primary' if view_mode != 'grouped' else 'btn-outline-primary' }} btn-sm">
+                <i class="fas fa-list me-1"></i>List View
+            </a>
+            <a href="{{ url_for('screening.screening_types', view='grouped') }}" 
+               class="btn {{ 'btn-primary' if view_mode == 'grouped' else 'btn-outline-primary' }} btn-sm">
+                <i class="fas fa-sitemap me-1"></i>Grouped by Variants
+            </a>
+        </div>
+    </div>
+    <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-primary">
+        <i class="fas fa-plus me-1"></i>Add Screening Type
+    </a>
+</div>
+
 <div class="card">
     <div class="card-body">
         {% if screening_types %}
@@ -64,7 +83,10 @@
                         {% for type in screening_types %}
                         <tr>
                             <td>
-                                <strong>{{ type.name }}</strong>
+                                <strong>{{ type.display_name }}</strong>
+                                {% if type.variant_name %}
+                                    <span class="badge bg-info ms-2" title="This is a variant screening">Variant</span>
+                                {% endif %}
                                 {% if type.keywords_list %}
                                     <div class="mt-1">
                                         <small class="text-muted">Keywords:</small>

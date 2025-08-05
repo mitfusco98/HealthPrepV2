@@ -29,6 +29,7 @@ The frontend reuses assets from V1, organized under `templates/`. It includes `b
 - Medical conditions database with FHIR-compatible codes for trigger conditions.
 - One-click medical terminology import system and tag-based keyword management.
 - Enhanced `ScreeningType` architecture supporting gender/age/condition eligibility, fractional frequencies, and JSON storage for keywords and trigger conditions.
+- **Screening Type Variants System:** Multiple protocols under the same screening name with different trigger conditions, frequencies, and eligibility criteria. Status syncing across variants prevents confusion. Supports complex scenarios like diabetic vs standard A1C frequencies.
 
 ### External Dependencies
 - **FHIR-based EMRs:** e.g., Epic (for real-time data integration)

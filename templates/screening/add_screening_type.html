@@ -33,7 +33,7 @@
                     {{ form.hidden_tag() }}
 
                     <div class="row">
-                        <div class="col-md-12">
+                        <div class="col-md-8">
                             <div class="mb-3">
                                 {{ form.name.label(class="form-label") }}
                                 <div class="autocomplete-container">
@@ -50,6 +50,28 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                {{ form.variant_name.label(class="form-label") }}
+                                {{ form.variant_name(class="form-control") }}
+                                <div class="form-text">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Create variants for different protocols (e.g., "Diabetic", "High-Risk")
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Variant Information Alert -->
+                    <div class="alert alert-info">
+                        <h6 class="alert-heading"><i class="fas fa-sitemap me-2"></i>Screening Variants</h6>
+                        <p class="mb-2">Use variants to create different protocols for the same screening type:</p>
+                        <ul class="mb-2">
+                            <li><strong>Same Name, Different Criteria:</strong> Multiple variants can share the same base name but have different frequencies, age ranges, or trigger conditions</li>
+                            <li><strong>Example:</strong> "A1C Test" could have "Diabetic" (every 3 months) and "Standard" (yearly) variants</li>
+                            <li><strong>Status Sync:</strong> Activating/deactivating one variant affects all variants with the same base name</li>
+                        </ul>
+                        <p class="mb-0">Leave variant name blank for a standard (non-variant) screening type.</p>
                     </div>
 
 
