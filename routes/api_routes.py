@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
-from flask_wtf.csrf import exempt
+from flask_wtf.csrf import CSRFProtect
 import json
 
 from models import Patient, ScreeningType, Screening, Document
@@ -24,7 +24,6 @@ api_bp = Blueprint('api', __name__)
 
 @api_bp.route('/screening-keywords/<int:screening_type_id>', methods=['GET', 'POST'])
 @login_required
-@exempt
 def screening_keywords(screening_type_id):
     """Get or update keywords for a screening type"""
     screening_type = ScreeningType.query.get_or_404(screening_type_id)

@@ -13,13 +13,13 @@ let currentKeywords = [];
  */
 function openKeywordManager(screeningTypeId, screeningName) {
     currentScreeningTypeId = screeningTypeId;
-    
+
     // Update modal title
     document.getElementById('keywordModalTitle').textContent = `Manage Keywords: ${screeningName}`;
-    
+
     // Load existing keywords
     loadKeywords(screeningTypeId);
-    
+
     // Show modal
     const modal = new bootstrap.Modal(document.getElementById('keywordManagerModal'));
     modal.show();
@@ -33,7 +33,7 @@ async function loadKeywords(screeningTypeId) {
     try {
         const response = await fetch(`/api/screening-keywords/${screeningTypeId}`);
         const data = await response.json();
-        
+
         if (data.success) {
             currentKeywords = data.keywords || [];
             displayKeywords();
@@ -53,12 +53,12 @@ async function loadKeywords(screeningTypeId) {
 function displayKeywords() {
     const container = document.getElementById('keywordsContainer');
     container.innerHTML = '';
-    
+
     if (currentKeywords.length === 0) {
         container.innerHTML = '<p class="text-muted text-center">No keywords added yet.</p>';
         return;
     }
-    
+
     currentKeywords.forEach((keyword, index) => {
         const keywordElement = document.createElement('div');
         keywordElement.className = 'keyword-tag';
@@ -79,24 +79,24 @@ function displayKeywords() {
 function addKeyword() {
     const input = document.getElementById('newKeywordInput');
     const keyword = input.value.trim();
-    
+
     if (!keyword) {
         showKeywordError('Please enter a keyword');
         return;
     }
-    
+
     // Check for duplicates
     if (currentKeywords.includes(keyword)) {
         showKeywordError('Keyword already exists');
         return;
     }
-    
+
     // Add keyword
     currentKeywords.push(keyword);
     input.value = '';
     displayKeywords();
     clearKeywordError();
-    
+
     // Hide autocomplete dropdown
     hideAutocomplete();
 }
@@ -109,21 +109,21 @@ async function importMedicalKeywords() {
         showKeywordError('No screening type selected');
         return;
     }
-    
+
     try {
         // Show loading state
         const importBtn = document.getElementById('importKeywordsBtn');
         const originalText = importBtn.textContent;
         importBtn.textContent = 'Importing...';
         importBtn.disabled = true;
-        
+
         const response = await fetch(`/api/import-keywords/${currentScreeningTypeId}`);
         const data = await response.json();
-        
+
         if (data.success) {
             currentKeywords = data.keywords;
             displayKeywords();
-            
+
             // Show import summary
             const newCount = data.new_keywords ? data.new_keywords.length : 0;
             if (newCount > 0) {
@@ -151,25 +151,25 @@ async function importMedicalKeywords() {
 function setupAutocomplete() {
     const input = document.getElementById('newKeywordInput');
     const dropdown = document.getElementById('autocompleteDropdown');
-    
+
     if (!input || !dropdown) return;
-    
+
     let timeoutId;
-    
+
     input.addEventListener('input', function() {
         clearTimeout(timeoutId);
         const query = this.value.trim();
-        
+
         if (query.length < 2) {
             hideAutocomplete();
             return;
         }
-        
+
         timeoutId = setTimeout(() => {
             searchKeywords(query);
         }, 300);
     });
-    
+
     // Hide autocomplete when clicking outside
     document.addEventListener('click', function(e) {
         if (!input.contains(e.target) && !dropdown.contains(e.target)) {
@@ -185,7 +185,7 @@ async function searchKeywords(query) {
     try {
         const response = await fetch(`/api/keyword-suggestions?q=${encodeURIComponent(query)}`);
         const data = await response.json();
-        
+
         if (data.success && data.suggestions.length > 0) {
             showAutocomplete(data.suggestions);
         } else {
@@ -203,20 +203,20 @@ async function searchKeywords(query) {
 function showAutocomplete(suggestions) {
     const dropdown = document.getElementById('autocompleteDropdown');
     if (!dropdown) return;
-    
+
     dropdown.innerHTML = '';
-    
+
     suggestions.forEach(suggestion => {
         // Skip if already in current keywords
         if (currentKeywords.includes(suggestion)) return;
-        
+
         const item = document.createElement('div');
         item.className = 'autocomplete-item';
         item.textContent = suggestion;
         item.onclick = () => selectSuggestion(suggestion);
         dropdown.appendChild(item);
     });
-    
+
     dropdown.style.display = dropdown.children.length > 0 ? 'block' : 'none';
 }
 
@@ -259,14 +259,14 @@ async function saveKeywords() {
         showKeywordError('No screening type selected');
         return;
     }
-    
+
     try {
         // Show loading state
         const saveBtn = document.getElementById('saveKeywordsBtn');
         const originalText = saveBtn.textContent;
         saveBtn.textContent = 'Saving...';
         saveBtn.disabled = true;
-        
+
         const response = await fetch(`/api/screening-keywords/${currentScreeningTypeId}`, {
             method: 'POST',
             headers: {
@@ -277,17 +277,17 @@ async function saveKeywords() {
                 keywords: currentKeywords
             })
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
             // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('keywordManagerModal'));
             modal.hide();
-            
+
             // Show success message
             showAlert('success', data.message || 'Keywords updated successfully');
-            
+
             // Refresh the page or update the display
             if (typeof refreshKeywordDisplay === 'function') {
                 refreshKeywordDisplay();
@@ -317,7 +317,7 @@ function showKeywordError(message) {
     const errorDiv = document.getElementById('keywordError');
     errorDiv.textContent = message;
     errorDiv.style.display = 'block';
-    
+
     // Hide success message
     const successDiv = document.getElementById('keywordSuccess');
     if (successDiv) {
@@ -335,11 +335,11 @@ function showKeywordSuccess(message) {
         successDiv.textContent = message;
         successDiv.style.display = 'block';
     }
-    
+
     // Hide error message
     const errorDiv = document.getElementById('keywordError');
     errorDiv.style.display = 'none';
-    
+
     // Auto-hide after 3 seconds
     setTimeout(() => {
         if (successDiv) {
@@ -361,8 +361,16 @@ function clearKeywordError() {
  * @returns {string} CSRF token
  */
 function getCSRFToken() {
-    const token = document.querySelector('meta[name="csrf-token"]');
-    return token ? token.getAttribute('content') : '';
+    const token = document.querySelector('meta[name=csrf-token]');
+    if (token) {
+        return token.getAttribute('content');
+    }
+    // Fallback: try to get from form
+    const csrfInput = document.querySelector('input[name="csrf_token"]');
+    if (csrfInput) {
+        return csrfInput.value;
+    }
+    return null;
 }
 
 /**
@@ -392,11 +400,11 @@ function showAlert(type, message) {
         ${message}
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     `;
-    
+
     // Insert at top of main content
     const main = document.querySelector('main') || document.querySelector('.container').firstElementChild;
     main.insertBefore(alertDiv, main.firstChild);
-    
+
     // Auto-dismiss after 5 seconds
     setTimeout(() => {
         if (alertDiv.parentNode) {
@@ -417,14 +425,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // Clear error when typing
     if (newKeywordInput) {
         newKeywordInput.addEventListener('input', function() {
             clearKeywordError();
         });
     }
-    
+
     // Setup autocomplete
     setupAutocomplete();
 });
