@@ -105,18 +105,22 @@ class DocumentUploadForm(FlaskForm):
     submit = SubmitField('Upload Document')
 
 class PrepSheetSettingsForm(FlaskForm):
-    labs_cutoff_months = IntegerField('Labs Cutoff (months)',
-                                     validators=[DataRequired(), NumberRange(min=1, max=120)],
-                                     default=12)
-    imaging_cutoff_months = IntegerField('Imaging Cutoff (months)',
-                                        validators=[DataRequired(), NumberRange(min=1, max=120)],
-                                        default=12)
-    consults_cutoff_months = IntegerField('Consults Cutoff (months)',
-                                         validators=[DataRequired(), NumberRange(min=1, max=120)],
-                                         default=12)
-    hospital_cutoff_months = IntegerField('Hospital Records Cutoff (months)',
-                                         validators=[DataRequired(), NumberRange(min=1, max=120)],
-                                         default=12)
+    labs_cutoff_months = IntegerField('Laboratory Results Cutoff (months)',
+                                     validators=[DataRequired(), NumberRange(min=0, max=120)],
+                                     default=12,
+                                     render_kw={'placeholder': '0 = To Last Appointment'})
+    imaging_cutoff_months = IntegerField('Imaging Studies Cutoff (months)',
+                                        validators=[DataRequired(), NumberRange(min=0, max=120)],
+                                        default=12,
+                                        render_kw={'placeholder': '0 = To Last Appointment'})
+    consults_cutoff_months = IntegerField('Consult Reports Cutoff (months)',
+                                         validators=[DataRequired(), NumberRange(min=0, max=120)],
+                                         default=12,
+                                         render_kw={'placeholder': '0 = To Last Appointment'})
+    hospital_cutoff_months = IntegerField('Hospital Visits Cutoff (months)',
+                                         validators=[DataRequired(), NumberRange(min=0, max=120)],
+                                         default=12,
+                                         render_kw={'placeholder': '0 = To Last Appointment'})
     submit = SubmitField('Save Settings')
 
 class PHIFilterForm(FlaskForm):

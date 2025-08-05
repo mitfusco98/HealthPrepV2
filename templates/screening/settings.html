@@ -44,6 +44,29 @@
                 </h5>
             </div>
             <div class="card-body">
+                <!-- Quick Preset Buttons -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">Quick Presets</label>
+                    <div class="btn-group w-100" role="group" aria-label="Cutoff presets">
+                        <button type="button" class="btn btn-outline-secondary" onclick="applyPreset(3, 3, 3, 3)">
+                            Conservative<br><small>3m / 3m / 3m / 3m</small>
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="applyPreset(6, 6, 6, 6)">
+                            Standard<br><small>6m / 6m / 6m / 6m</small>
+                        </button>
+                        <button type="button" class="btn btn-outline-info" onclick="applyPreset(12, 12, 12, 12)">
+                            Extended<br><small>12m / 12m / 12m / 12m</small>
+                        </button>
+                        <button type="button" class="btn btn-outline-warning" onclick="applyPreset(0, 0, 0, 0)">
+                            To Last Appointment<br><small>0 / 0 / 0 / 0</small>
+                        </button>
+                    </div>
+                    <div class="form-text mt-2">
+                        <i class="fas fa-info-circle me-1"></i>
+                        <strong>Quick presets:</strong> Conservative (3 months), Standard (6 months), Extended (12 months), or To Last Appointment (0 = uses patient's last appointment date)
+                    </div>
+                </div>
+
                 <form method="POST">
                     {{ form.hidden_tag() }}
                     
@@ -51,18 +74,18 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 {{ form.labs_cutoff_months.label(class="form-label") }}
-                                {{ form.labs_cutoff_months(class="form-control") }}
+                                {{ form.labs_cutoff_months(class="form-control", id="labs_cutoff") }}
                                 <div class="form-text">
-                                    Lab results older than this will be excluded from prep sheets
+                                    Lab results older than this will be excluded. Set to 0 to use last appointment date.
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 {{ form.imaging_cutoff_months.label(class="form-label") }}
-                                {{ form.imaging_cutoff_months(class="form-control") }}
+                                {{ form.imaging_cutoff_months(class="form-control", id="imaging_cutoff") }}
                                 <div class="form-text">
-                                    Imaging studies older than this will be excluded
+                                    Imaging studies older than this will be excluded. Set to 0 to use last appointment date.
                                 </div>
                             </div>
                         </div>
@@ -72,18 +95,18 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 {{ form.consults_cutoff_months.label(class="form-label") }}
-                                {{ form.consults_cutoff_months(class="form-control") }}
+                                {{ form.consults_cutoff_months(class="form-control", id="consults_cutoff") }}
                                 <div class="form-text">
-                                    Consultation notes older than this will be excluded
+                                    Consultation notes older than this will be excluded. Set to 0 to use last appointment date.
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
                                 {{ form.hospital_cutoff_months.label(class="form-label") }}
-                                {{ form.hospital_cutoff_months(class="form-control") }}
+                                {{ form.hospital_cutoff_months(class="form-control", id="hospital_cutoff") }}
                                 <div class="form-text">
-                                    Hospital records older than this will be excluded
+                                    Hospital records older than this will be excluded. Set to 0 to use last appointment date.
                                 </div>
                             </div>
                         </div>
@@ -112,16 +135,16 @@
                 {% if settings %}
                     <dl class="row">
                         <dt class="col-6">Labs Cutoff:</dt>
-                        <dd class="col-6">{{ settings.labs_cutoff_months }} months</dd>
+                        <dd class="col-6">{{ settings.get_cutoff_display('labs') }}</dd>
                         
                         <dt class="col-6">Imaging Cutoff:</dt>
-                        <dd class="col-6">{{ settings.imaging_cutoff_months }} months</dd>
+                        <dd class="col-6">{{ settings.get_cutoff_display('imaging') }}</dd>
                         
                         <dt class="col-6">Consults Cutoff:</dt>
-                        <dd class="col-6">{{ settings.consults_cutoff_months }} months</dd>
+                        <dd class="col-6">{{ settings.get_cutoff_display('consults') }}</dd>
                         
                         <dt class="col-6">Hospital Cutoff:</dt>
-                        <dd class="col-6">{{ settings.hospital_cutoff_months }} months</dd>
+                        <dd class="col-6">{{ settings.get_cutoff_display('hospital') }}</dd>
                     </dl>
                     
                     {% if settings.updated_at %}
@@ -143,26 +166,85 @@
                 </h6>
             </div>
             <div class="card-body">
+                <h6 class="fw-bold mb-3">Cutoff Logic Hierarchy:</h6>
+                <ol class="list-unstyled">
+                    <li class="mb-2">
+                        <span class="badge bg-primary me-2">1</span>
+                        <strong>Data Type Cutoffs:</strong> Individual values for each medical data type
+                    </li>
+                    <li class="mb-2">
+                        <span class="badge bg-info me-2">2</span>
+                        <strong>"To Last Appointment":</strong> When cutoff = 0, uses patient's last appointment date
+                    </li>
+                    <li class="mb-2">
+                        <span class="badge bg-warning me-2">3</span>
+                        <strong>Default Fallback:</strong> 6 months if no past appointments found
+                    </li>
+                </ol>
+                
+                <hr class="my-3">
+                
+                <h6 class="fw-bold mb-3">Best Practices:</h6>
                 <ul class="list-unstyled">
                     <li class="mb-2">
-                        <i class="fas fa-check text-success me-2"></i>
-                        Lab results: 12-24 months for chronic conditions
+                        <i class="fas fa-flask text-primary me-2"></i>
+                        <strong>Lab results:</strong> 6-12 months for chronic conditions
                     </li>
                     <li class="mb-2">
-                        <i class="fas fa-check text-success me-2"></i>
-                        Imaging: 12-36 months depending on study type
+                        <i class="fas fa-x-ray text-info me-2"></i>
+                        <strong>Imaging:</strong> 12-36 months depending on study type
                     </li>
                     <li class="mb-2">
-                        <i class="fas fa-check text-success me-2"></i>
-                        Consultation notes: 6-12 months for relevance
+                        <i class="fas fa-user-md text-success me-2"></i>
+                        <strong>Consults:</strong> 6-12 months for relevance
                     </li>
                     <li class="mb-2">
-                        <i class="fas fa-check text-success me-2"></i>
-                        Hospital records: 12 months for recent admissions
+                        <i class="fas fa-hospital text-danger me-2"></i>
+                        <strong>Hospital:</strong> 12 months for recent admissions
                     </li>
                 </ul>
+                
+                <div class="alert alert-info mt-3" role="alert">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    <strong>Tip:</strong> Set cutoff to 0 for patient-specific, contextual filtering based on their last appointment.
+                </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function applyPreset(labs, imaging, consults, hospital) {
+    document.getElementById('labs_cutoff').value = labs;
+    document.getElementById('imaging_cutoff').value = imaging;
+    document.getElementById('consults_cutoff').value = consults;
+    document.getElementById('hospital_cutoff').value = hospital;
+    
+    // Visual feedback
+    const buttons = document.querySelectorAll('.btn-group .btn');
+    buttons.forEach(btn => btn.classList.remove('active'));
+    event.target.closest('button').classList.add('active');
+    
+    // Show success message
+    const alert = document.createElement('div');
+    alert.className = 'alert alert-success alert-dismissible fade show mt-2';
+    alert.innerHTML = `
+        <i class="fas fa-check me-2"></i>
+        Preset applied! Don't forget to save your changes.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const form = document.querySelector('form');
+    form.parentNode.insertBefore(alert, form);
+    
+    // Auto-remove alert after 3 seconds
+    setTimeout(() => {
+        if (alert.parentNode) {
+            alert.remove();
+        }
+    }, 3000);
+}
+</script>
 {% endblock %}
