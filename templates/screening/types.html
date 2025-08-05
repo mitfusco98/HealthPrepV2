@@ -1,0 +1,192 @@
+
+{% extends 'base_user.html' %}
+
+{% block title %}Screening Types - HealthPrep{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>
+        <i class="fas fa-cogs me-2 text-primary"></i>
+        Screening Types
+    </h1>
+    <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-success">
+        <i class="fas fa-plus me-1"></i>
+        Add Screening Type
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if screening_types %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Eligibility</th>
+                            <th>Frequency</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for type in screening_types %}
+                        <tr>
+                            <td>
+                                <strong>{{ type.name }}</strong>
+                                <!-- Gender and Age Eligibility -->
+                                <br><small class="text-info">
+                                    {% if type.eligible_genders == 'M' %}Male only{% elif type.eligible_genders == 'F' %}Female only{% else %}All genders{% endif %}
+                                    {% if type.min_age or type.max_age %}
+                                        , Ages: {{ type.min_age or '0' }}-{{ type.max_age or '∞' }}
+                                    {% endif %}
+                                </small>
+                            </td>
+                            <td>
+                                <small class="text-muted">
+                                    {% if type.eligible_genders == 'M' %}
+                                        Male only
+                                    {% elif type.eligible_genders == 'F' %}
+                                        Female only
+                                    {% else %}
+                                        All genders
+                                    {% endif %}
+                                    {% if type.min_age or type.max_age %}
+                                        <br>Ages: {{ type.min_age or '0' }}-{{ type.max_age or '∞' }}
+                                    {% endif %}
+                                </small>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">
+                                    Every {{ type.frequency_years }} year{{ 's' if type.frequency_years != 1 else '' }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if type.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-info" 
+                                            onclick="openKeywordManager({{ type.id }}, '{{ type.name }}')"
+                                            title="Manage Keywords">
+                                        <i class="fas fa-tags"></i>
+                                    </button>
+                                    <a href="{{ url_for('screening.edit_screening_type', type_id=type.id) }}" 
+                                       class="btn btn-outline-primary" title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <form method="POST" action="{{ url_for('screening.toggle_screening_type_status', type_id=type.id) }}" 
+                                          style="display: inline;">
+                                        <button type="submit" class="btn btn-outline-warning" 
+                                                title="{{ 'Deactivate' if type.is_active else 'Activate' }}">
+                                            <i class="fas fa-toggle-{{ 'off' if type.is_active else 'on' }}"></i>
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="{{ url_for('screening.delete_screening_type', type_id=type.id) }}" 
+                                          style="display: inline;" 
+                                          onsubmit="return confirm('Are you sure you want to delete this screening type?');">
+                                        <button type="submit" class="btn btn-outline-danger" title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                <h5 class="alert-heading">No Screening Types</h5>
+                <p>No screening types have been configured yet.</p>
+                <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>
+                    Add First Screening Type
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Keyword Manager Modal -->
+<div class="modal fade" id="keywordModal" tabindex="-1" aria-labelledby="keywordModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="keywordModalLabel">Manage Keywords</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="keywordForm">
+                    <input type="hidden" id="screeningTypeId" name="screening_type_id">
+                    <div class="mb-3">
+                        <label for="keywords" class="form-label">Keywords (comma-separated)</label>
+                        <textarea class="form-control" id="keywords" name="keywords" rows="4" 
+                                  placeholder="Enter keywords separated by commas"></textarea>
+                        <div class="form-text">These keywords will be used to match this screening type with documents.</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveKeywords()">Save Keywords</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentScreeningTypeId = null;
+
+function openKeywordManager(typeId, typeName) {
+    currentScreeningTypeId = typeId;
+    document.getElementById('keywordModalLabel').textContent = `Manage Keywords for ${typeName}`;
+    document.getElementById('screeningTypeId').value = typeId;
+    
+    // Load current keywords
+    fetch(`/api/screening-type/${typeId}/keywords`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('keywords').value = data.keywords.join(', ');
+            }
+        })
+        .catch(error => console.error('Error loading keywords:', error));
+    
+    const modal = new bootstrap.Modal(document.getElementById('keywordModal'));
+    modal.show();
+}
+
+function saveKeywords() {
+    const keywords = document.getElementById('keywords').value;
+    const typeId = document.getElementById('screeningTypeId').value;
+    
+    fetch(`/api/screening-type/${typeId}/keywords`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            keywords: keywords.split(',').map(k => k.trim()).filter(k => k.length > 0)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error saving keywords: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error saving keywords:', error);
+        alert('Error saving keywords');
+    });
+}
+</script>
+{% endblock %}
