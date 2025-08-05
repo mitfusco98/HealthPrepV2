@@ -135,12 +135,11 @@ def add_screening_type():
 
         if form.validate_on_submit():
             # Create new screening type with proper field mapping
-            keywords_list = [kw.strip() for kw in form.keywords.data.split(',') if kw.strip()] if form.keywords.data else []
             trigger_conditions_list = [tc.strip() for tc in form.trigger_conditions.data.split(',') if tc.strip()] if form.trigger_conditions.data else []
             
             screening_type = ScreeningType(
                 name=form.name.data,
-                keywords=json.dumps(keywords_list),  # Store as JSON
+                keywords=json.dumps([]),  # Start with empty keywords - will be set via modal
                 eligible_genders=form.eligible_genders.data,
                 min_age=form.min_age.data,
                 max_age=form.max_age.data,
@@ -178,11 +177,10 @@ def edit_screening_type(type_id):
 
         if form.validate_on_submit():
             # Update screening type with proper field mapping
-            keywords_list = [kw.strip() for kw in form.keywords.data.split(',') if kw.strip()] if form.keywords.data else []
             trigger_conditions_list = [tc.strip() for tc in form.trigger_conditions.data.split(',') if tc.strip()] if form.trigger_conditions.data else []
             
             screening_type.name = form.name.data
-            screening_type.keywords = json.dumps(keywords_list)
+            # Keywords are managed via modal - don't update from form
             screening_type.eligible_genders = form.eligible_genders.data
             screening_type.min_age = form.min_age.data
             screening_type.max_age = form.max_age.data
@@ -205,8 +203,6 @@ def edit_screening_type(type_id):
         if not request.method == 'POST':  # Only populate on GET request
             form.eligible_genders.data = screening_type.eligible_genders
             form.frequency_years.data = screening_type.frequency_years
-            if screening_type.keywords_list:
-                form.keywords.data = ','.join(screening_type.keywords_list)
             if screening_type.trigger_conditions_list:
                 form.trigger_conditions.data = ','.join(screening_type.trigger_conditions_list)
 

@@ -43,9 +43,6 @@ class ChangePasswordForm(FlaskForm):
 
 class ScreeningTypeForm(FlaskForm):
     name = StringField('Screening Name', validators=[DataRequired(), Length(min=2, max=100)])
-    keywords = TextAreaField('Keywords (comma-separated)', 
-                           validators=[Length(max=1000)],
-                           render_kw={'placeholder': 'mammogram, breast cancer screening, mammography'})
     eligible_genders = SelectField('Eligible Genders', 
                                  choices=[('both', 'Both Genders'), ('M', 'Male Only'), ('F', 'Female Only')],
                                  default='both')

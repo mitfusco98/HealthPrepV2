@@ -45,18 +45,19 @@
                     </div>
                     
                     <div class="mb-3">
-                        {{ form.keywords.label(class="form-label") }}
+                        <label class="form-label">Keywords</label>
                         <div class="input-group">
-                            {{ form.keywords(class="form-control", rows="3") }}
-                            <button type="button" class="btn btn-outline-secondary" 
+                            <input type="text" class="form-control" id="keywordDisplay" 
+                                   value="{% if screening_type.keywords_list %}{{ screening_type.keywords_list|join(', ') }}{% else %}No keywords set{% endif %}" readonly>
+                            <button type="button" class="btn btn-primary" 
                                     onclick="openKeywordManager({{ screening_type.id }}, '{{ screening_type.name }}')"
-                                    title="Advanced keyword management">
+                                    title="Manage keywords for this screening type">
                                 <i class="fas fa-tags"></i>
-                                Keywords
+                                Manage Keywords
                             </button>
                         </div>
                         <div class="form-text">
-                            Keywords that help identify this screening in documents (comma-separated)
+                            Click "Manage Keywords" to modify keywords that help identify this screening in documents
                         </div>
                     </div>
                     
