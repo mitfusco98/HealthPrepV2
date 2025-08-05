@@ -25,4 +25,5 @@ dependencies = [
     "flask-dance>=7.1.0",
     "pymupdf>=1.26.3",
     "opencv-python>=4.12.0.88",
+    "flask-migrate>=4.1.0",
 ]
