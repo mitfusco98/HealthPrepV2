@@ -246,116 +246,132 @@ function logDebug(message, data = null) {
     }
 }
 
-function applyPreset(labs, imaging, consults, hospital, clickedButton) {
-    logDebug('=== APPLY PRESET STARTED ===');
-    logDebug('Preset values:', {labs, imaging, consults, hospital});
+// Enhanced debug function - run first to see what's available
+function debugFormFields() {
+    console.log('=== FORM FIELD DEBUG INFO ===');
     
-    // More comprehensive field finding - check both singular and plural forms
-    const fieldMappings = [
-        { 
-            name: 'labs', 
-            value: labs,
-            selectors: [
-                '#labs_cutoff_months',
-                '#lab_cutoff_months',
-                'input[name="labs_cutoff_months"]', 
-                'input[name="lab_cutoff_months"]',
-                'input[id*="labs"]',
-                'input[name*="labs"]',
-                'input[name*="lab"]'
-            ]
-        },
-        { 
-            name: 'imaging', 
-            value: imaging,
-            selectors: [
-                '#imaging_cutoff_months',
-                'input[name="imaging_cutoff_months"]', 
-                'input[id*="imaging"]',
-                'input[name*="imaging"]'
-            ]
-        },
-        { 
-            name: 'consults', 
-            value: consults,
-            selectors: [
-                '#consults_cutoff_months',
-                '#consult_cutoff_months',
-                'input[name="consults_cutoff_months"]', 
-                'input[name="consult_cutoff_months"]',
-                'input[id*="consults"]',
-                'input[name*="consult"]'
-            ]
-        },
-        { 
-            name: 'hospital', 
-            value: hospital,
-            selectors: [
-                '#hospital_cutoff_months',
-                'input[name="hospital_cutoff_months"]', 
-                'input[id*="hospital"]',
-                'input[name*="hospital"]'
-            ]
-        }
-    ];
+    // All inputs
+    const allInputs = document.querySelectorAll('input');
+    console.log('Total input elements:', allInputs.length);
     
-    let fieldsUpdated = 0;
-    const foundFields = {};
-    
-    // Try to find and update each field
-    fieldMappings.forEach(fieldMap => {
-        let field = null;
-        
-        // Try each selector until we find the field
-        for (const selector of fieldMap.selectors) {
-            field = document.querySelector(selector);
-            if (field) {
-                logDebug(`Found ${fieldMap.name} field using selector: ${selector}`);
-                break;
-            }
-        }
-        
-        if (field) {
-            const oldValue = field.value;
-            field.value = fieldMap.value;
-            
-            // Trigger events to ensure form validation
-            field.dispatchEvent(new Event('input', { bubbles: true }));
-            field.dispatchEvent(new Event('change', { bubbles: true }));
-            
-            foundFields[fieldMap.name] = field;
-            fieldsUpdated++;
-            
-            logDebug(`Updated ${fieldMap.name} field: ${oldValue} → ${fieldMap.value}`);
-        } else {
-            logDebug(`ERROR: Could not find ${fieldMap.name} field with any selector`);
-        }
+    // List all inputs with their details
+    allInputs.forEach((input, idx) => {
+        console.log(`Input ${idx}:`, {
+            id: input.id,
+            name: input.name,
+            type: input.type,
+            value: input.value,
+            tagName: input.tagName
+        });
     });
     
-    // Debug: Show all form inputs for troubleshooting
-    const allInputs = document.querySelectorAll('input');
-    logDebug('All input elements on page:', Array.from(allInputs).map(input => ({
-        id: input.id,
-        name: input.name,
-        type: input.type,
-        value: input.value
-    })));
+    // All forms  
+    const allForms = document.querySelectorAll('form');
+    console.log('Total form elements:', allForms.length);
+    
+    // Preset buttons
+    const presetButtons = document.querySelectorAll('.preset-btn');  
+    const presetButtonsWithData = document.querySelectorAll('.preset-btn[data-preset]');
+    console.log('Preset buttons (total/with data):', `${presetButtons.length}/${presetButtonsWithData.length}`);
+    
+    // List all preset buttons
+    presetButtons.forEach((btn, idx) => {
+        console.log(`Preset Button ${idx}:`, {
+            text: btn.textContent.trim().substring(0, 20),
+            dataPreset: btn.getAttribute('data-preset'),
+            classes: btn.className
+        });
+    });
+    
+    // Update debug display
+    const debugDiv = document.getElementById('debug-info');
+    if (debugDiv) {
+        debugDiv.style.display = 'block';
+        debugDiv.innerHTML = `
+            <strong>Debug Info:</strong><br>
+            Inputs: ${allInputs.length} | Forms: ${allForms.length} | Preset Buttons: ${presetButtons.length}/${presetButtonsWithData.length}
+        `;
+    }
+    
+    console.log('=== END FORM FIELD DEBUG ===');
+}
+
+function applyPreset(labs, imaging, consults, hospital, clickedButton) {
+    console.log('=== APPLY PRESET STARTED ===');
+    console.log('Preset values:', {labs, imaging, consults, hospital});
+    
+    // Simple field finding by ID (which should match the form field IDs)
+    const fields = {
+        labs: document.getElementById('labs_cutoff_months'),
+        imaging: document.getElementById('imaging_cutoff_months'),
+        consults: document.getElementById('consults_cutoff_months'),
+        hospital: document.getElementById('hospital_cutoff_months')
+    };
+    
+    let fieldsUpdated = 0;
+    
+    // Update labs field
+    if (fields.labs) {
+        const oldValue = fields.labs.value;
+        fields.labs.value = labs;
+        fields.labs.dispatchEvent(new Event('input', { bubbles: true }));
+        fields.labs.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log(`Updated labs field: ${oldValue} → ${labs}`);
+        fieldsUpdated++;
+    } else {
+        console.log('ERROR: Labs field not found');
+    }
+    
+    // Update imaging field
+    if (fields.imaging) {
+        const oldValue = fields.imaging.value;
+        fields.imaging.value = imaging;
+        fields.imaging.dispatchEvent(new Event('input', { bubbles: true }));
+        fields.imaging.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log(`Updated imaging field: ${oldValue} → ${imaging}`);
+        fieldsUpdated++;
+    } else {
+        console.log('ERROR: Imaging field not found');
+    }
+    
+    // Update consults field
+    if (fields.consults) {
+        const oldValue = fields.consults.value;
+        fields.consults.value = consults;
+        fields.consults.dispatchEvent(new Event('input', { bubbles: true }));
+        fields.consults.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log(`Updated consults field: ${oldValue} → ${consults}`);
+        fieldsUpdated++;
+    } else {
+        console.log('ERROR: Consults field not found');
+    }
+    
+    // Update hospital field
+    if (fields.hospital) {
+        const oldValue = fields.hospital.value;
+        fields.hospital.value = hospital;
+        fields.hospital.dispatchEvent(new Event('input', { bubbles: true }));
+        fields.hospital.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log(`Updated hospital field: ${oldValue} → ${hospital}`);
+        fieldsUpdated++;
+    } else {
+        console.log('ERROR: Hospital field not found');
+    }
     
     // Update button visual state
-    const buttons = document.querySelectorAll('.preset-btn');
-    buttons.forEach(btn => {
+    document.querySelectorAll('.preset-btn').forEach(btn => {
         btn.classList.remove('preset-active', 'active');
     });
     
     if (clickedButton) {
         clickedButton.classList.add('preset-active', 'active');
-        logDebug('Button activated:', clickedButton.textContent.trim());
+        console.log('Button activated:', clickedButton.textContent.trim());
     }
     
     // Show feedback message
     showPresetFeedback(fieldsUpdated, 4);
     
-    logDebug('=== APPLY PRESET COMPLETED ===', {fieldsUpdated, totalExpected: 4});
+    console.log('=== APPLY PRESET COMPLETED ===', {fieldsUpdated, totalExpected: 4});
 }
 
 function showPresetFeedback(updated, total) {
@@ -395,240 +411,83 @@ function showPresetFeedback(updated, total) {
     }, 8000);
 }
 
-function setupPresetButtons() {
-    logDebug('=== SETTING UP PRESET BUTTONS ===');
-    
-    const presetButtons = document.querySelectorAll('.preset-btn[data-preset]');
-    logDebug('Found preset buttons:', presetButtons.length);
-    
-    if (presetButtons.length === 0) {
-        logDebug('ERROR: No preset buttons found! Checking HTML structure...');
-        // Debug: Check for buttons without data-preset
-        const allButtons = document.querySelectorAll('.preset-btn');
-        logDebug('All preset-btn elements:', allButtons.length);
-        Array.from(allButtons).forEach((btn, idx) => {
-            logDebug(`Button ${idx}:`, {
-                text: btn.textContent.trim(),
-                dataPreset: btn.getAttribute('data-preset'),
-                className: btn.className
-            });
-        });
-        return false;
-    }
-    
-    presetButtons.forEach((button, index) => {
-        const buttonText = button.textContent.trim();
-        const presetData = button.getAttribute('data-preset');
-        
-        logDebug(`Setting up button ${index}: "${buttonText}" with data: ${presetData}`);
-        
-        // Remove existing listeners first
-        button.removeEventListener('click', handlePresetClick);
-        
-        // Add new listener with immediate logging
-        button.addEventListener('click', function(e) {
-            logDebug('BUTTON CLICKED IMMEDIATELY!', buttonText);
-            handlePresetClick(e);
-        });
-        
-        // Also add a test click handler for debugging
-        button.addEventListener('mousedown', function(e) {
-            logDebug('BUTTON MOUSEDOWN DETECTED!', buttonText);
-        });
-    });
-    
-    logDebug('=== PRESET BUTTONS SETUP COMPLETE ===');
-    return true;
-}
-
-function handlePresetClick(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const button = e.currentTarget;
-    const buttonText = button.textContent.trim();
-    const presetData = button.getAttribute('data-preset');
-    
-    logDebug('=== PRESET BUTTON CLICKED ===');
-    logDebug('Button:', buttonText);
-    logDebug('Data attribute:', presetData);
-    
-    if (!presetData) {
-        logDebug('ERROR: No data-preset attribute found');
-        return;
-    }
-    
-    const values = presetData.split(',').map(v => parseInt(v.trim()));
-    logDebug('Parsed values:', values);
-    
-    if (values.length !== 4) {
-        logDebug('ERROR: Expected 4 values, got:', values.length);
-        return;
-    }
-    
-    if (values.some(v => isNaN(v))) {
-        logDebug('ERROR: Some values are not valid numbers:', values);
-        return;
-    }
-    
-    applyPreset(values[0], values[1], values[2], values[3], button);
-}
-
-// Initialize everything when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-    logDebug('=== DOM CONTENT LOADED ===');
-    
-    // Show initial debug info
-    debugFormFields();
-    
-    // Set up debug and test button event listeners
-    const debugBtn = document.getElementById('debug-btn');
-    const testBtn = document.getElementById('test-preset-btn');
-    
-    if (debugBtn) {
-        debugBtn.addEventListener('click', function() {
-            debugFormFields();
-        });
-    }
-    
-    if (testBtn) {
-        testBtn.addEventListener('click', function() {
-            testPresetClick('6,6,6,6');
-        });
-    }
-    
-    // Wait for form to be fully rendered, then set up buttons
-    setTimeout(() => {
-        logDebug('Setting up preset functionality...');
-        
-        const success = setupPresetButtons();
-        if (success) {
-            logDebug('Preset functionality initialized successfully');
-        } else {
-            logDebug('ERROR: Failed to initialize preset functionality');
-        }
-        
-        // Check current preset highlighting
-        setTimeout(() => {
-            checkCurrentPreset();
-        }, 200);
-        
-    }, 100);
-});
-
-function checkCurrentPreset() {
-    logDebug('=== CHECKING CURRENT PRESET MATCH ===');
-    
-    const presetButtons = document.querySelectorAll('.preset-btn[data-preset]');
-    
-    // Clear all active states
-    presetButtons.forEach(btn => {
-        btn.classList.remove('preset-active', 'active');
-    });
-    
-    // Find current field values - try both singular and plural forms
-    const fields = {
-        labs: document.querySelector('#labs_cutoff_months, #lab_cutoff_months, input[name="labs_cutoff_months"], input[name="lab_cutoff_months"]'),
-        imaging: document.querySelector('#imaging_cutoff_months, input[name="imaging_cutoff_months"]'),
-        consults: document.querySelector('#consults_cutoff_months, #consult_cutoff_months, input[name="consults_cutoff_months"], input[name="consult_cutoff_months"]'),
-        hospital: document.querySelector('#hospital_cutoff_months, input[name="hospital_cutoff_months"]')
-    };
-    
-    logDebug('Current fields found:', Object.keys(fields).reduce((acc, key) => {
-        acc[key] = fields[key] ? fields[key].value : 'NOT FOUND';
-        return acc;
-    }, {}));
-    
-    if (!fields.labs || !fields.imaging || !fields.consults || !fields.hospital) {
-        logDebug('ERROR: Could not find all form fields for preset checking');
-        return;
-    }
-    
-    const currentValues = {
-        labs: parseInt(fields.labs.value) || 0,
-        imaging: parseInt(fields.imaging.value) || 0,
-        consults: parseInt(fields.consults.value) || 0,
-        hospital: parseInt(fields.hospital.value) || 0
-    };
-    
-    logDebug('Current values:', currentValues);
-    
-    // Check each preset button for matches
-    presetButtons.forEach(button => {
-        const presetData = button.getAttribute('data-preset');
-        if (presetData) {
-            const values = presetData.split(',').map(v => parseInt(v.trim()));
-            if (values.length === 4 && 
-                values[0] === currentValues.labs && 
-                values[1] === currentValues.imaging && 
-                values[2] === currentValues.consults && 
-                values[3] === currentValues.hospital) {
-                button.classList.add('preset-active', 'active');
-                logDebug('Matched preset:', button.textContent.trim());
-            }
-        }
-    });
-}
-
-// Enhanced debug function
-function debugFormFields() {
-    logDebug('=== FORM FIELD DEBUG INFO ===');
-    
-    // All inputs
-    const allInputs = document.querySelectorAll('input');
-    logDebug('Total input elements:', allInputs.length);
-    
-    // All forms  
-    const allForms = document.querySelectorAll('form');
-    logDebug('Total form elements:', allForms.length);
-    
-    // Preset buttons
-    const presetButtons = document.querySelectorAll('.preset-btn');
-    const presetButtonsWithData = document.querySelectorAll('.preset-btn[data-preset]');
-    logDebug('Preset buttons (total/with data):', `${presetButtons.length}/${presetButtonsWithData.length}`);
-    
-    // Test specific field selectors
-    const testFields = [
-        'labs_cutoff_months',
-        'imaging_cutoff_months', 
-        'consults_cutoff_months',
-        'hospital_cutoff_months'
-    ];
-    
-    testFields.forEach(fieldName => {
-        const byId = document.getElementById(fieldName);
-        const byName = document.querySelector(`input[name="${fieldName}"]`);
-        
-        logDebug(`Field ${fieldName}:`, {
-            byId: byId ? `Found (value: ${byId.value})` : 'NOT FOUND',  
-            byName: byName ? `Found (value: ${byName.value})` : 'NOT FOUND'
-        });
-    });
-    
-    // Update debug display
-    const debugDiv = document.getElementById('debug-info');
-    if (debugDiv) {
-        debugDiv.style.display = 'block';
-        debugDiv.innerHTML = `
-            <strong>Debug Info:</strong><br>
-            Inputs: ${allInputs.length} | Forms: ${allForms.length} | Preset Buttons: ${presetButtons.length}/${presetButtonsWithData.length}<br>
-            Fields: Labs=${document.getElementById('labs_cutoff_months')?.value || 'N/A'}, 
-            Imaging=${document.getElementById('imaging_cutoff_months')?.value || 'N/A'}, 
-            Consults=${document.getElementById('consults_cutoff_months')?.value || 'N/A'}, 
-            Hospital=${document.getElementById('hospital_cutoff_months')?.value || 'N/A'}
-        `;
-    }
-    
-    logDebug('=== END FORM FIELD DEBUG ===');
-}
-
-// Add click test function for manual testing
+// Test preset function for debugging
 function testPresetClick(preset) {
-    logDebug('=== MANUAL PRESET TEST ===', preset);
+    console.log('=== MANUAL PRESET TEST ===', preset);
     const values = preset.split(',').map(v => parseInt(v.trim()));
     if (values.length === 4) {
         applyPreset(values[0], values[1], values[2], values[3], null);
     }
 }
+
+// Wait for page to fully load, then set up everything
+window.addEventListener('load', function() {
+    console.log('=== WINDOW LOADED - SETTING UP FUNCTIONALITY ===');
+    
+    // Run debug first to see what's available
+    debugFormFields();
+    
+    // Set up debug button
+    const debugBtn = document.getElementById('debug-btn');
+    if (debugBtn) {
+        debugBtn.onclick = function() {
+            console.log('Debug button clicked!');
+            debugFormFields();
+        };
+        console.log('Debug button event handler attached');
+    } else {
+        console.log('ERROR: Debug button not found');
+    }
+    
+    // Set up test button
+    const testBtn = document.getElementById('test-preset-btn');
+    if (testBtn) {
+        testBtn.onclick = function() {
+            console.log('Test preset button clicked!');
+            testPresetClick('6,6,6,6');
+        };
+        console.log('Test preset button event handler attached');
+    } else {
+        console.log('ERROR: Test preset button not found');
+    }
+    
+    // Set up preset buttons
+    const presetButtons = document.querySelectorAll('.preset-btn[data-preset]');
+    console.log('Found preset buttons:', presetButtons.length);
+    
+    presetButtons.forEach((button, index) => {
+        const presetData = button.getAttribute('data-preset');
+        const buttonText = button.textContent.trim().substring(0, 20);
+        
+        console.log(`Setting up button ${index}: "${buttonText}" with data: ${presetData}`);
+        
+        button.onclick = function(e) {
+            e.preventDefault();
+            console.log('Preset button clicked:', buttonText, 'data:', presetData);
+            
+            if (!presetData) {
+                console.log('ERROR: No data-preset attribute');
+                return;
+            }
+            
+            const values = presetData.split(',').map(v => parseInt(v.trim()));
+            console.log('Parsed values:', values);
+            
+            if (values.length !== 4) {
+                console.log('ERROR: Expected 4 values, got:', values.length);
+                return;
+            }
+            
+            if (values.some(v => isNaN(v))) {
+                console.log('ERROR: Some values are not valid numbers:', values);
+                return;
+            }
+            
+            applyPreset(values[0], values[1], values[2], values[3], button);
+        };
+    });
+    
+    console.log('=== SETUP COMPLETE ===');
+});
 </script>
 {% endblock %}
