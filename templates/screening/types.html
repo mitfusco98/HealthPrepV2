@@ -67,11 +67,6 @@
                         <tr>
                             <td>
                                 <strong>{{ type.name }}</strong>
-                                {% if type.keywords_list %}
-                                    <br><small class="text-muted">
-                                        Keywords: {{ type.keywords_list[:3]|join(', ') }}{% if type.keywords_list|length > 3 %}...{% endif %}
-                                    </small>
-                                {% endif %}
                                 <!-- Gender and Age Eligibility -->
                                 <br><small class="text-info">
                                     {% if type.eligible_genders == 'M' %}Male only{% elif type.eligible_genders == 'F' %}Female only{% else %}All genders{% endif %}
