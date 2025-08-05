@@ -145,8 +145,8 @@ def register_template_utilities(app):
 
     @app.context_processor
     def inject_csrf_token():
-        from secrets import token_urlsafe
-        return dict(csrf_token=lambda: token_urlsafe(32))
+        from flask_wtf.csrf import generate_csrf
+        return dict(csrf_token=lambda: generate_csrf())
 
 # Configure CSRF protection to exempt API routes
 def configure_csrf_exemptions(app):
