@@ -108,15 +108,19 @@ class PrepSheetGenerator:
         }
     
     def _generate_medical_data(self, patient_id):
-        """Generate recent medical data sections"""
-        settings = self._get_prep_settings()
-        cutoff_date = self._calculate_cutoff_date(settings.labs_cutoff_months)
+        """
+        Generate recent medical data sections using prep sheet settings
         
-        # Get documents by type within cutoff periods
-        lab_cutoff = self._calculate_cutoff_date(settings.labs_cutoff_months)
-        imaging_cutoff = self._calculate_cutoff_date(settings.imaging_cutoff_months)
-        consults_cutoff = self._calculate_cutoff_date(settings.consults_cutoff_months)
-        hospital_cutoff = self._calculate_cutoff_date(settings.hospital_cutoff_months)
+        This applies the broad medical data cutoffs configured in /screening/settings
+        which control how far back to look for data in each category (labs, imaging, consults, hospital)
+        """
+        settings = self._get_prep_settings()
+        
+        # Calculate cutoff dates for each data type using prep sheet settings
+        lab_cutoff = self._calculate_cutoff_date(settings.labs_cutoff_months, patient_id)
+        imaging_cutoff = self._calculate_cutoff_date(settings.imaging_cutoff_months, patient_id)
+        consults_cutoff = self._calculate_cutoff_date(settings.consults_cutoff_months, patient_id)
+        hospital_cutoff = self._calculate_cutoff_date(settings.hospital_cutoff_months, patient_id)
         
         medical_data = {
             'lab_results': self._get_documents_by_type(patient_id, 'lab', lab_cutoff),
@@ -133,6 +137,8 @@ class PrepSheetGenerator:
             'consults': consults_cutoff,
             'hospital': hospital_cutoff
         }
+        
+        self.logger.info(f"Applied prep sheet data cutoffs: labs={settings.labs_cutoff_months}m, imaging={settings.imaging_cutoff_months}m, consults={settings.consults_cutoff_months}m, hospital={settings.hospital_cutoff_months}m")
         
         return medical_data
     
@@ -256,45 +262,53 @@ class PrepSheetGenerator:
         return relevant_docs
     
     def _get_enhanced_lab_data(self, patient_id, cutoff_months):
-        """Get enhanced lab data with filtering"""
-        cutoff_date = self._calculate_cutoff_date(cutoff_months)
+        """Get enhanced lab data with filtering based on prep sheet settings"""
+        cutoff_date = self._calculate_cutoff_date(cutoff_months, patient_id)
         lab_docs = self._get_documents_by_type(patient_id, 'lab', cutoff_date)
+        
+        cutoff_description = "To Last Appointment" if cutoff_months == 0 else f"Last {cutoff_months} months"
         
         return {
             'documents': lab_docs,
-            'cutoff_period': f"Last {cutoff_months} months",
+            'cutoff_period': cutoff_description,
             'document_count': len(lab_docs),
             'most_recent': lab_docs[0] if lab_docs else None
         }
     
     def _get_enhanced_imaging_data(self, patient_id, cutoff_months):
-        """Get enhanced imaging data with filtering"""
-        cutoff_date = self._calculate_cutoff_date(cutoff_months)
+        """Get enhanced imaging data with filtering based on prep sheet settings"""
+        cutoff_date = self._calculate_cutoff_date(cutoff_months, patient_id)
         imaging_docs = self._get_documents_by_type(patient_id, 'imaging', cutoff_date)
+        
+        cutoff_description = "To Last Appointment" if cutoff_months == 0 else f"Last {cutoff_months} months"
         
         return {
             'documents': imaging_docs,
-            'cutoff_period': f"Last {cutoff_months} months",
+            'cutoff_period': cutoff_description,
             'document_count': len(imaging_docs),
             'most_recent': imaging_docs[0] if imaging_docs else None
         }
     
     def _get_enhanced_consult_data(self, patient_id, cutoff_months):
-        """Get enhanced consult data with filtering"""
-        cutoff_date = self._calculate_cutoff_date(cutoff_months)
+        """Get enhanced consult data with filtering based on prep sheet settings"""
+        cutoff_date = self._calculate_cutoff_date(cutoff_months, patient_id)
         consult_docs = self._get_documents_by_type(patient_id, 'consult', cutoff_date)
+        
+        cutoff_description = "To Last Appointment" if cutoff_months == 0 else f"Last {cutoff_months} months"
         
         return {
             'documents': consult_docs,
-            'cutoff_period': f"Last {cutoff_months} months",
+            'cutoff_period': cutoff_description,
             'document_count': len(consult_docs),
             'most_recent': consult_docs[0] if consult_docs else None
         }
     
     def _get_enhanced_hospital_data(self, patient_id, cutoff_months):
-        """Get enhanced hospital data with filtering"""
-        cutoff_date = self._calculate_cutoff_date(cutoff_months)
+        """Get enhanced hospital data with filtering based on prep sheet settings"""
+        cutoff_date = self._calculate_cutoff_date(cutoff_months, patient_id)
         hospital_docs = self._get_documents_by_type(patient_id, 'hospital', cutoff_date)
+        
+        cutoff_description = "To Last Appointment" if cutoff_months == 0 else f"Last {cutoff_months} months"
         
         return {
             'documents': hospital_docs,
@@ -303,9 +317,30 @@ class PrepSheetGenerator:
             'most_recent': hospital_docs[0] if hospital_docs else None
         }
     
-    def _calculate_cutoff_date(self, months):
-        """Calculate cutoff date based on months"""
-        return date.today() - relativedelta(months=months)
+    def _calculate_cutoff_date(self, months, patient_id=None):
+        """
+        Calculate cutoff date based on prep sheet settings
+        
+        If months = 0, use "To Last Appointment" logic
+        Otherwise, use months from today
+        """
+        if months == 0:
+            # "To Last Appointment" mode - find most recent completed appointment
+            if patient_id:
+                last_appointment = Appointment.query.filter_by(
+                    patient_id=patient_id,
+                    status='completed'
+                ).order_by(Appointment.appointment_date.desc()).first()
+                
+                if last_appointment:
+                    return last_appointment.appointment_date.date() if hasattr(last_appointment.appointment_date, 'date') else last_appointment.appointment_date
+            
+            # Fallback to 6 months if no appointments found
+            self.logger.warning(f"No completed appointments found for patient {patient_id}, using 6-month fallback")
+            return date.today() - relativedelta(months=6)
+        else:
+            # Standard months-based cutoff
+            return date.today() - relativedelta(months=months)
     
     def _get_prep_settings(self):
         """Get prep sheet settings"""

@@ -8,6 +8,8 @@ Health-Prep v2 is a real-time medical preparation sheet generation engine design
 - Reuse existing template assets where possible
 - Maintain separation between user and admin interfaces
 - Prioritize screening engine accuracy and performance
+- Implement document relevancy filtering using exact formulas: `cutoff_date = last_completed - relativedelta(years/months=frequency_number)`
+- Use dual filtering systems: frequency-based for screening documents, settings-based for medical data categories
 
 ### System Architecture
 
@@ -31,7 +33,9 @@ The frontend reuses assets from V1, organized under `templates/`. It includes `b
 - Enhanced `ScreeningType` architecture supporting gender/age/condition eligibility, fractional frequencies, and JSON storage for keywords and trigger conditions.
 - **Comprehensive prep sheet generation system** with patient header, quality checklist, recent medical data sections, document relevancy filtering, interactive document links, color-coded badges, configurable time periods, and dynamic response to screening type changes.
 - **Variant grouping functionality** ensuring screening variants display properly as grouped entities with status syncing across variants.
-- **Document relevancy filtering system** implementing the specified formula: `cutoff_date = last_completed - relativedelta(years/months=frequency_number)`, ensuring matched documents for screening types only show documents created after the cutoff date, filtering out documents older than one frequency cycle. Separate broad medical data cutoffs control prep sheet sections.
+- **Dual filtering system for comprehensive prep sheet data control:**
+  - **Document relevancy filtering** for screening matched documents using the formula: `cutoff_date = last_completed - relativedelta(years/months=frequency_number)`, showing only documents within the last frequency period from last completion
+  - **Medical data cutoffs** via `/screening/settings` controlling broad medical data categories (laboratories, imaging, consults, hospital visits) displayed in prep sheet sections, with "To Last Appointment" mode support (cutoff = 0)
 
 ### External Dependencies
 - **FHIR-based EMRs:** e.g., Epic (for real-time data integration)
