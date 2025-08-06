@@ -31,7 +31,7 @@ The frontend reuses assets from V1, organized under `templates/`. It includes `b
 - Enhanced `ScreeningType` architecture supporting gender/age/condition eligibility, fractional frequencies, and JSON storage for keywords and trigger conditions.
 - **Comprehensive prep sheet generation system** with patient header, quality checklist, recent medical data sections, document relevancy filtering, interactive document links, color-coded badges, configurable time periods, and dynamic response to screening type changes.
 - **Variant grouping functionality** ensuring screening variants display properly as grouped entities with status syncing across variants.
-- **Medical data filtering framework** using PrepSheetFilters for frequency-based document filtering and relevancy matching.
+- **Medical data filtering framework** using PrepSheetFilters for frequency-based document filtering from last completed dates, ensuring matched documents are only shown within the relevant screening frequency period, and broad medical data cutoffs for prep sheet sections.
 
 ### External Dependencies
 - **FHIR-based EMRs:** e.g., Epic (for real-time data integration)

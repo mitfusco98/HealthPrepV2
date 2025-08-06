@@ -13,15 +13,16 @@ class PrepSheetFilters:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
     
-    def filter_documents_by_frequency(self, documents, screening_type):
-        """Filter documents based on screening frequency"""
+    def filter_documents_by_frequency(self, documents, screening_type, last_completed_date=None):
+        """Filter documents based on screening frequency from last completed date"""
         if not screening_type.frequency_value or not screening_type.frequency_unit:
             return documents
         
-        # Calculate cutoff date based on frequency
-        cutoff_date = self._calculate_frequency_cutoff(
+        # Calculate cutoff date based on frequency from last completed date
+        cutoff_date = self._calculate_frequency_cutoff_from_last_completed(
             screening_type.frequency_value,
-            screening_type.frequency_unit
+            screening_type.frequency_unit,
+            last_completed_date
         )
         
         # Filter documents after cutoff date
@@ -56,7 +57,7 @@ class PrepSheetFilters:
         return filtered_data
     
     def filter_screening_documents(self, screening_id):
-        """Filter documents for a specific screening based on its frequency"""
+        """Filter documents for a specific screening based on its frequency from last completed date"""
         screening = Screening.query.get(screening_id)
         if not screening:
             return []
@@ -66,15 +67,16 @@ class PrepSheetFilters:
             patient_id=screening.patient_id
         ).all()
         
-        # Apply frequency filtering
+        # Apply frequency filtering using last completed date
         filtered_docs = self.filter_documents_by_frequency(
             patient_docs, 
-            screening.screening_type
+            screening.screening_type,
+            screening.last_completed_date
         )
         
         return filtered_docs
     
-    def get_relevant_documents(self, patient_id, screening_type_name):
+    def get_relevant_documents(self, patient_id, screening_type_name, last_completed_date=None):
         """Get documents relevant to a specific screening type"""
         screening_type = ScreeningType.query.filter_by(name=screening_type_name).first()
         if not screening_type:
@@ -83,8 +85,12 @@ class PrepSheetFilters:
         # Get documents that might match this screening
         all_docs = Document.query.filter_by(patient_id=patient_id).all()
         
-        # Filter by frequency
-        frequency_filtered = self.filter_documents_by_frequency(all_docs, screening_type)
+        # Filter by frequency from last completed date
+        frequency_filtered = self.filter_documents_by_frequency(
+            all_docs, 
+            screening_type, 
+            last_completed_date
+        )
         
         # Further filter by keyword matching
         keyword_filtered = self._filter_by_keywords(frequency_filtered, screening_type)
@@ -111,7 +117,7 @@ class PrepSheetFilters:
         return relevant_docs
     
     def _calculate_frequency_cutoff(self, frequency_value, frequency_unit):
-        """Calculate cutoff date based on frequency"""
+        """Calculate cutoff date based on frequency from today"""
         today = date.today()
         
         if frequency_unit == 'years':
@@ -121,6 +127,29 @@ class PrepSheetFilters:
         else:
             # Default to years
             cutoff_date = today - relativedelta(years=frequency_value)
+        
+        return cutoff_date
+    
+    def _calculate_frequency_cutoff_from_last_completed(self, frequency_value, frequency_unit, last_completed_date):
+        """Calculate cutoff date based on frequency from last completed date"""
+        # If no last completed date, use today as reference
+        if not last_completed_date:
+            return self._calculate_frequency_cutoff(frequency_value, frequency_unit)
+        
+        # Convert to date if it's a datetime
+        if hasattr(last_completed_date, 'date'):
+            reference_date = last_completed_date.date()
+        else:
+            reference_date = last_completed_date
+        
+        # Calculate cutoff date from last completed date
+        if frequency_unit == 'years':
+            cutoff_date = reference_date - relativedelta(years=frequency_value)
+        elif frequency_unit == 'months':
+            cutoff_date = reference_date - relativedelta(months=frequency_value)
+        else:
+            # Default to years
+            cutoff_date = reference_date - relativedelta(years=frequency_value)
         
         return cutoff_date
     

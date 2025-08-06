@@ -244,11 +244,12 @@ class PrepSheetGenerator:
         return extracted_values
     
     def _get_screening_documents(self, screening):
-        """Get documents that match a screening"""
-        # Use filters to get relevant documents based on keywords and frequency
+        """Get documents that match a screening within frequency period"""
+        # Use filters to get relevant documents based on keywords and frequency from last completed date
         relevant_docs = self.filters.get_relevant_documents(
             screening.patient_id, 
-            screening.screening_type.name
+            screening.screening_type.name,
+            screening.last_completed_date
         )
         
         # Return document objects directly for template compatibility
