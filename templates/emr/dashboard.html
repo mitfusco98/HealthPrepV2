@@ -1,0 +1,207 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}EMR Synchronization - HealthPrep{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            <i class="fas fa-sync-alt me-2 text-primary"></i>
+            EMR Synchronization
+        </h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Admin</a></li>
+                <li class="breadcrumb-item active">EMR Sync</li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-play me-2"></i>
+                        Manual Synchronization
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('emr_sync.trigger_sync') }}">
+                        <div class="mb-3">
+                            <label for="emr_endpoint" class="form-label">EMR Endpoint</label>
+                            <input type="url" class="form-control" id="emr_endpoint" name="emr_endpoint" 
+                                   placeholder="https://fhir.epic.com/api/FHIR/R4/" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="sync_mode" class="form-label">Sync Mode</label>
+                            <select class="form-select" id="sync_mode" name="sync_mode">
+                                <option value="full">Full Synchronization</option>
+                                <option value="incremental">Incremental Changes Only</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="include_documents" name="include_documents" checked>
+                                <label class="form-check-label" for="include_documents">
+                                    Include Documents
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="include_conditions" name="include_conditions" checked>
+                                <label class="form-check-label" for="include_conditions">
+                                    Include Patient Conditions
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="date_range" class="form-label">Date Range (days)</label>
+                            <select class="form-select" id="date_range" name="date_range">
+                                <option value="7">Last 7 days</option>
+                                <option value="30" selected>Last 30 days</option>
+                                <option value="90">Last 90 days</option>
+                                <option value="365">Last year</option>
+                            </select>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-sync me-2"></i>
+                            Start Synchronization
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Selective Refresh Status
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border rounded p-3">
+                                <h3 class="text-success mb-1">0</h3>
+                                <small class="text-muted">Screenings Preserved</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="border rounded p-3">
+                                <h3 class="text-primary mb-1">0</h3>
+                                <small class="text-muted">Screenings Updated</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr class="my-3">
+                    
+                    <h6 class="fw-bold">Efficiency Metrics</h6>
+                    <div class="d-flex justify-content-between">
+                        <span>Last Sync Efficiency:</span>
+                        <span class="badge bg-success">N/A</span>
+                    </div>
+                    <div class="d-flex justify-content-between mt-2">
+                        <span>Average Efficiency:</span>
+                        <span class="badge bg-info">N/A</span>
+                    </div>
+                    
+                    <div class="alert alert-info mt-3 small">
+                        <i class="fas fa-info-circle me-1"></i>
+                        <strong>Selective Refresh:</strong> Only regenerates screenings affected by changes, preserving unaffected data for maximum efficiency.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Sync History -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-history me-2"></i>
+                Recent Synchronizations
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if recent_syncs %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Date/Time</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Affected Screenings</th>
+                                <th>Preserved Screenings</th>
+                                <th>Efficiency</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sync in recent_syncs %}
+                            <tr>
+                                <td>{{ sync.timestamp.strftime('%m/%d/%Y %H:%M') }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'primary' if sync.type == 'full' else 'secondary' }}">
+                                        {{ sync.type.title() }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if sync.status == 'success' else 'danger' }}">
+                                        {{ sync.status.title() }}
+                                    </span>
+                                </td>
+                                <td>{{ sync.affected_screenings }}</td>
+                                <td>{{ sync.preserved_screenings }}</td>
+                                <td>{{ (sync.efficiency * 100)|round(1) }}%</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-info">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-sync-alt fa-2x mb-3"></i>
+                    <p>No synchronizations performed yet</p>
+                    <p class="small">Start your first EMR sync using the form above</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Settings Quick Link -->
+    <div class="mt-4">
+        <a href="{{ url_for('emr_sync.sync_settings') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-cog me-2"></i>
+            EMR Sync Settings
+        </a>
+    </div>
+</div>
+
+<script>
+// Auto-refresh status every 30 seconds
+setInterval(function() {
+    fetch('/emr/api/sync/status')
+        .then(response => response.json())
+        .then(data => {
+            // Update status indicators
+            // This would update the dashboard with current status
+        })
+        .catch(error => console.error('Error fetching sync status:', error));
+}, 30000);
+</script>
+
+{% endblock %}

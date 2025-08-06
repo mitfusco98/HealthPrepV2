@@ -90,6 +90,7 @@ def register_blueprints(app):
     from routes.screening_routes import screening_bp
     from routes.prep_sheet_routes import prep_sheet_bp
     from routes.api_routes import api_bp
+    from routes.emr_sync_routes import emr_sync_bp
     from ui.routes import ui_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -97,10 +98,12 @@ def register_blueprints(app):
     app.register_blueprint(screening_bp, url_prefix='/screening')
     app.register_blueprint(prep_sheet_bp, url_prefix='/prep-sheet')
     app.register_blueprint(api_bp, url_prefix='/api')
+    app.register_blueprint(emr_sync_bp, url_prefix='/emr')
     app.register_blueprint(ui_bp)
     
     # Exempt all API routes from CSRF
     csrf.exempt(api_bp)
+    csrf.exempt(emr_sync_bp)  # Exempt EMR webhooks from CSRF
 
 def register_error_handlers(app):
     """Register error handlers"""

@@ -1,0 +1,218 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}EMR Sync Settings - HealthPrep{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            <i class="fas fa-cog me-2 text-primary"></i>
+            EMR Synchronization Settings
+        </h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Admin</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('emr_sync.emr_dashboard') }}">EMR Sync</a></li>
+                <li class="breadcrumb-item active">Settings</li>
+            </ol>
+        </nav>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-server me-2"></i>
+                        EMR Connection Settings
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="emr_endpoint" class="form-label">Default EMR Endpoint</label>
+                            <input type="url" class="form-control" id="emr_endpoint" name="emr_endpoint" 
+                                   value="{{ settings.emr_endpoint }}" 
+                                   placeholder="https://fhir.epic.com/api/FHIR/R4/">
+                            <div class="form-text">FHIR R4 endpoint URL for your EMR system</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="sync_frequency" class="form-label">Automatic Sync Frequency</label>
+                            <select class="form-select" id="sync_frequency" name="sync_frequency">
+                                <option value="disabled" {% if settings.sync_frequency == 'disabled' %}selected{% endif %}>Disabled</option>
+                                <option value="hourly" {% if settings.sync_frequency == 'hourly' %}selected{% endif %}>Every Hour</option>
+                                <option value="daily" {% if settings.sync_frequency == 'daily' %}selected{% endif %}>Daily</option>
+                                <option value="weekly" {% if settings.sync_frequency == 'weekly' %}selected{% endif %}>Weekly</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="auto_sync_enabled" name="auto_sync_enabled" 
+                                       {% if settings.auto_sync_enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="auto_sync_enabled">
+                                    Enable Automatic Synchronization
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="webhook_enabled" name="webhook_enabled" 
+                                       {% if settings.webhook_enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="webhook_enabled">
+                                    Enable Real-time Webhooks
+                                </label>
+                            </div>
+                            <div class="form-text">Allow EMR system to send real-time change notifications</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="selective_refresh_enabled" name="selective_refresh_enabled" 
+                                       {% if settings.selective_refresh_enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="selective_refresh_enabled">
+                                    Enable Selective Refresh
+                                </label>
+                            </div>
+                            <div class="form-text">Only update affected screenings for improved efficiency</div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>
+                                Save Settings
+                            </button>
+                            <a href="{{ url_for('emr_sync.emr_dashboard') }}" class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Selective Refresh Benefits
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-primary">Maximum Efficiency</h6>
+                    <p class="small text-muted">
+                        Selective refresh automatically detects what has changed and only regenerates affected screenings, 
+                        preserving unchanged data for optimal performance.
+                    </p>
+                    
+                    <h6 class="text-primary">Change Detection</h6>
+                    <ul class="small text-muted">
+                        <li>Screening type modifications</li>
+                        <li>New or deleted documents</li>
+                        <li>Patient demographic changes</li>
+                        <li>Condition updates</li>
+                    </ul>
+                    
+                    <h6 class="text-primary">Smart Updates</h6>
+                    <p class="small text-muted">
+                        The system identifies which screenings are affected by changes and only updates those, 
+                        while preserving all unaffected screening data.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header bg-light">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-shield-alt me-2"></i>
+                        Security & Compliance
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-primary">FHIR R4 Compliance</h6>
+                    <p class="small text-muted">
+                        Full support for FHIR R4 standard ensuring compatibility with major EMR systems.
+                    </p>
+                    
+                    <h6 class="text-primary">HIPAA Security</h6>
+                    <p class="small text-muted">
+                        All data transmission is encrypted and complies with HIPAA security requirements.
+                    </p>
+                    
+                    <h6 class="text-primary">Audit Trail</h6>
+                    <p class="small text-muted">
+                        Complete logging of all synchronization activities for compliance and monitoring.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header bg-light">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-test-tube me-2"></i>
+                        Connection Test
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">Test your EMR connection before saving settings</p>
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="testConnection()">
+                        <i class="fas fa-plug me-1"></i>
+                        Test Connection
+                    </button>
+                    <div id="connectionResult" class="mt-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function testConnection() {
+    const endpoint = document.getElementById('emr_endpoint').value;
+    const resultDiv = document.getElementById('connectionResult');
+    
+    if (!endpoint) {
+        resultDiv.innerHTML = '<div class="alert alert-warning small">Please enter an EMR endpoint first</div>';
+        return;
+    }
+    
+    resultDiv.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Testing connection...';
+    
+    fetch('/emr/api/sync/test', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ endpoint: endpoint })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success small">
+                    <i class="fas fa-check-circle me-1"></i>
+                    Connection successful! Found ${data.results.available_resources.length} resource types.
+                </div>
+            `;
+        } else {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger small">
+                    <i class="fas fa-times-circle me-1"></i>
+                    Connection failed: ${data.error}
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        resultDiv.innerHTML = `
+            <div class="alert alert-danger small">
+                <i class="fas fa-times-circle me-1"></i>
+                Test failed: ${error.message}
+            </div>
+        `;
+    });
+}
+</script>
+
+{% endblock %}
