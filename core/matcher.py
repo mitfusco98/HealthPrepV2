@@ -1,18 +1,19 @@
 """
-Fuzzy keyword matching and document matching functionality
+Advanced fuzzy keyword matching and document matching functionality with semantic detection
 """
 from app import db
 from models import Document, Screening, ScreeningType, ScreeningDocumentMatch
-from difflib import SequenceMatcher
-import re
+from .fuzzy_detection import FuzzyDetectionEngine
 import logging
 
 class DocumentMatcher:
-    """Handles document matching against screening criteria using fuzzy matching"""
+    """Handles document matching against screening criteria using advanced fuzzy matching"""
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        # Common medical terminology mappings for fuzzy detection
+        self.fuzzy_engine = FuzzyDetectionEngine()
+        
+        # Legacy term mappings (maintained for backward compatibility)
         self.term_mappings = {
             'dxa': ['dexa', 'bone density', 'densitometry'],
             'mammogram': ['mammography', 'breast imaging'],
@@ -70,60 +71,63 @@ class DocumentMatcher:
         return sorted(matches, key=lambda x: x['document_date'] or date.min, reverse=True)
     
     def _calculate_match_confidence(self, document, screening_type):
-        """Calculate confidence score for document-screening match"""
+        """Calculate confidence score for document-screening match using advanced fuzzy detection"""
         confidence = 0.0
         
         # Get text to search (filename + OCR text)
-        search_text = f"{document.filename} {document.ocr_text or ''}".lower()
+        search_text = f"{document.filename or ''} {document.ocr_text or ''}".strip()
         
-        # Check direct keyword matches
+        if not search_text:
+            return 0.0
+        
+        # Use advanced fuzzy matching for keywords
         keywords = screening_type.keywords_list
         if keywords:
-            for keyword in keywords:
-                keyword = keyword.lower().strip()
-                if keyword in search_text:
-                    confidence += 0.4
-                else:
-                    # Check fuzzy matches
-                    fuzzy_confidence = self._fuzzy_match_keyword(keyword, search_text)
-                    confidence += fuzzy_confidence * 0.3
+            # Get fuzzy matches for all keywords
+            fuzzy_matches = self.fuzzy_engine.fuzzy_match_keywords(
+                search_text, keywords, threshold=0.6
+            )
+            
+            if fuzzy_matches:
+                # Calculate weighted confidence based on best matches
+                best_match_confidence = fuzzy_matches[0][1]  # Highest confidence
+                match_count = len(fuzzy_matches)
+                
+                # Base confidence from best match
+                confidence += best_match_confidence * 0.5
+                
+                # Bonus for multiple keyword matches
+                if match_count > 1:
+                    multi_match_bonus = min(0.2, (match_count - 1) * 0.05)
+                    confidence += multi_match_bonus
+                
+                self.logger.debug(f"Fuzzy matches for {screening_type.name}: {fuzzy_matches}")
         
         # Check document type alignment
         if document.document_type:
             type_confidence = self._get_document_type_confidence(
                 document.document_type, screening_type.name.lower()
             )
-            confidence += type_confidence * 0.2
+            confidence += type_confidence * 0.15
         
-        # Check medical terminology mappings
-        terminology_confidence = self._check_medical_terminology(
+        # Enhanced medical terminology check using fuzzy engine
+        terminology_confidence = self._check_enhanced_medical_terminology(
             search_text, screening_type.name.lower()
         )
-        confidence += terminology_confidence * 0.3
+        confidence += terminology_confidence * 0.25
+        
+        # Semantic term extraction bonus
+        semantic_terms = self.fuzzy_engine.extract_semantic_terms(search_text)
+        if semantic_terms.get('medical_terms'):
+            confidence += min(0.1, len(semantic_terms['medical_terms']) * 0.02)
         
         return min(confidence, 1.0)  # Cap at 1.0
     
     def _fuzzy_match_keyword(self, keyword, text):
-        """Perform fuzzy matching for a keyword in text"""
-        best_ratio = 0.0
-        
-        # Split text into words for better matching
-        words = re.findall(r'\b\w+\b', text.lower())
-        
-        for word in words:
-            ratio = SequenceMatcher(None, keyword, word).ratio()
-            if ratio > best_ratio:
-                best_ratio = ratio
-        
-        # Also check for partial matches in phrases
-        for i in range(len(words) - len(keyword.split()) + 1):
-            phrase = ' '.join(words[i:i + len(keyword.split())])
-            ratio = SequenceMatcher(None, keyword, phrase).ratio()
-            if ratio > best_ratio:
-                best_ratio = ratio
-        
-        # Return confidence only if similarity is high enough
-        return best_ratio if best_ratio > 0.6 else 0.0
+        """Legacy fuzzy matching method - replaced by FuzzyDetectionEngine"""
+        # Use the new fuzzy detection engine for better results
+        matches = self.fuzzy_engine.fuzzy_match_keywords(text, [keyword], threshold=0.6)
+        return matches[0][1] if matches else 0.0
     
     def _get_document_type_confidence(self, doc_type, screening_name):
         """Get confidence based on document type alignment with screening"""
@@ -142,7 +146,7 @@ class DocumentMatcher:
         return 0.0
     
     def _check_medical_terminology(self, text, screening_name):
-        """Check for medical terminology matches using predefined mappings"""
+        """Legacy medical terminology check - kept for compatibility"""
         confidence = 0.0
         
         for main_term, variants in self.term_mappings.items():
@@ -154,6 +158,19 @@ class DocumentMatcher:
                         break
         
         return confidence
+    
+    def _check_enhanced_medical_terminology(self, text, screening_name):
+        """Enhanced medical terminology check using fuzzy detection engine"""
+        # Extract all possible screening name variations
+        screening_variations = self.fuzzy_engine._get_keyword_variations(screening_name)
+        
+        # Use fuzzy matching to find terminology matches
+        matches = self.fuzzy_engine.fuzzy_match_keywords(
+            text, screening_variations, threshold=0.7
+        )
+        
+        # Return confidence based on best match
+        return matches[0][1] if matches else 0.0
     
     def update_all_matches(self):
         """Update all document-screening matches in the database"""
@@ -178,5 +195,65 @@ class DocumentMatcher:
         
         db.session.commit()
         self.logger.info("Completed updating all document-screening matches")
+    
+    def suggest_keywords_for_screening(self, screening_type_id, sample_documents=None):
+        """Suggest keywords for a screening type based on document analysis"""
+        screening_type = ScreeningType.query.get(screening_type_id)
+        if not screening_type:
+            return []
+        
+        # Get sample documents if not provided
+        if not sample_documents:
+            sample_documents = Document.query.limit(50).all()
+        
+        # Extract text from documents
+        document_texts = []
+        for doc in sample_documents:
+            text = f"{doc.filename or ''} {doc.ocr_text or ''}".strip()
+            if text:
+                document_texts.append(text)
+        
+        # Use fuzzy engine to suggest keywords
+        existing_keywords = screening_type.keywords_list
+        suggestions = []
+        
+        for text in document_texts[:10]:  # Analyze first 10 documents
+            text_suggestions = self.fuzzy_engine.suggest_keywords(text, existing_keywords)
+            suggestions.extend(text_suggestions)
+        
+        # Remove duplicates and validate relevance
+        unique_suggestions = list(set(suggestions))
+        validated_suggestions = []
+        
+        for suggestion in unique_suggestions:
+            relevance = self.fuzzy_engine.validate_keyword_relevance(suggestion, document_texts)
+            if relevance > 0.3:  # Only include relevant suggestions
+                validated_suggestions.append((suggestion, relevance))
+        
+        # Sort by relevance and return top suggestions
+        validated_suggestions.sort(key=lambda x: x[1], reverse=True)
+        return [suggestion for suggestion, _ in validated_suggestions[:10]]
+    
+    def analyze_document_content(self, document):
+        """Analyze document content using fuzzy detection for semantic understanding"""
+        if not document:
+            return {}
+        
+        text = f"{document.filename or ''} {document.ocr_text or ''}".strip()
+        if not text:
+            return {}
+        
+        # Extract semantic terms
+        semantic_analysis = self.fuzzy_engine.extract_semantic_terms(text)
+        
+        # Add confidence scores for detected terms
+        analysis = {
+            'semantic_terms': semantic_analysis,
+            'suggested_keywords': self.fuzzy_engine.suggest_keywords(text),
+            'document_complexity': len(text.split()) if text else 0,
+            'has_medical_content': bool(semantic_analysis.get('medical_terms'))
+        }
+        
+        return analysis
 
 from datetime import date

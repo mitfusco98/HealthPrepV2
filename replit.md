@@ -10,6 +10,8 @@ Health-Prep v2 is a real-time medical preparation sheet generation engine design
 - Prioritize screening engine accuracy and performance
 - Implement document relevancy filtering using exact formulas: `cutoff_date = last_completed - relativedelta(years/months=frequency_number)`
 - Use dual filtering systems: frequency-based for screening documents, settings-based for medical data categories
+- Implement fuzzy detection for semantic keyword matching regardless of separator formatting (underscores, dashes, periods, spaces)
+- Use advanced fuzzy matching to identify semantically equivalent terms for improved document-keyword matching accuracy
 
 ### System Architecture
 
@@ -37,6 +39,7 @@ The frontend reuses assets from V1, organized under `templates/`. It includes `b
   - **Document relevancy filtering** for screening matched documents using the formula: `cutoff_date = last_completed - relativedelta(years/months=frequency_number)`, showing only documents within the last frequency period from last completion
   - **Medical data cutoffs** via `/screening/settings` controlling broad medical data categories (laboratories, imaging, consults, hospital visits) displayed in prep sheet sections, with "To Last Appointment" mode support (cutoff = 0)
 - **Selective refreshing system for EMR synchronization** implementing intelligent change detection for screening criteria modifications, document additions/deletions, and patient updates, with targeted regeneration of only affected screenings while preserving unchanged data for maximum efficiency and FHIR R4 compatibility
+- **Advanced fuzzy detection engine** with semantic separator handling for filename matching regardless of formatting (underscores, dashes, periods, spaces), medical terminology equivalence mapping, keyword variation generation, and confidence-based matching with automatic keyword optimization and suggestion capabilities
 
 ### External Dependencies
 - **FHIR-based EMRs:** e.g., Epic (for real-time data integration)

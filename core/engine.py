@@ -1,10 +1,11 @@
 """
-Core screening engine that orchestrates the screening process
+Core screening engine that orchestrates the screening process with fuzzy detection
 """
 from app import db
 from models import Patient, ScreeningType, Screening, Document
 from .matcher import DocumentMatcher
 from .criteria import EligibilityCriteria
+from .fuzzy_detection import FuzzyDetectionEngine
 from datetime import datetime, date
 import logging
 
@@ -14,6 +15,7 @@ class ScreeningEngine:
     def __init__(self):
         self.matcher = DocumentMatcher()
         self.criteria = EligibilityCriteria()
+        self.fuzzy_engine = FuzzyDetectionEngine()
         self.logger = logging.getLogger(__name__)
     
     def refresh_all_screenings(self):
@@ -162,3 +164,135 @@ class ScreeningEngine:
             })
         
         return summary
+    
+    def analyze_screening_keywords(self, screening_type_id):
+        """Analyze and optimize keywords for a screening type using fuzzy detection"""
+        screening_type = ScreeningType.query.get(screening_type_id)
+        if not screening_type:
+            return None
+        
+        # Get related documents for analysis
+        related_documents = []
+        screenings = Screening.query.filter_by(screening_type_id=screening_type_id).all()
+        
+        for screening in screenings:
+            matches = self.matcher.find_screening_matches(screening)
+            for match in matches:
+                related_documents.append(match['document'])
+        
+        # Analyze current keywords effectiveness
+        current_keywords = screening_type.keywords_list
+        keyword_analysis = {}
+        
+        for keyword in current_keywords:
+            document_texts = [f"{doc.filename or ''} {doc.ocr_text or ''}" 
+                             for doc in related_documents if doc.filename or doc.ocr_text]
+            
+            relevance = self.fuzzy_engine.validate_keyword_relevance(keyword, document_texts)
+            keyword_analysis[keyword] = {
+                'relevance': relevance,
+                'effective': relevance > 0.5
+            }
+        
+        # Get keyword suggestions
+        suggested_keywords = self.matcher.suggest_keywords_for_screening(
+            screening_type_id, related_documents
+        )
+        
+        return {
+            'screening_type': screening_type.name,
+            'current_keywords': keyword_analysis,
+            'suggested_keywords': suggested_keywords,
+            'total_related_documents': len(related_documents),
+            'recommendations': self._generate_keyword_recommendations(keyword_analysis, suggested_keywords)
+        }
+    
+    def _generate_keyword_recommendations(self, keyword_analysis, suggested_keywords):
+        """Generate actionable keyword recommendations"""
+        recommendations = []
+        
+        # Identify ineffective keywords
+        ineffective_keywords = [kw for kw, analysis in keyword_analysis.items() 
+                               if not analysis['effective']]
+        
+        if ineffective_keywords:
+            recommendations.append({
+                'type': 'remove',
+                'message': f"Consider removing these ineffective keywords: {', '.join(ineffective_keywords)}",
+                'keywords': ineffective_keywords
+            })
+        
+        # Recommend new keywords
+        if suggested_keywords:
+            recommendations.append({
+                'type': 'add',
+                'message': f"Consider adding these relevant keywords: {', '.join(suggested_keywords[:5])}",
+                'keywords': suggested_keywords[:5]
+            })
+        
+        # Check for keyword gaps
+        high_relevance_keywords = [kw for kw, analysis in keyword_analysis.items() 
+                                  if analysis['relevance'] > 0.8]
+        
+        if len(high_relevance_keywords) < 3:
+            recommendations.append({
+                'type': 'optimize',
+                'message': "Consider expanding keyword coverage for better document matching",
+                'keywords': []
+            })
+        
+        return recommendations
+    
+    def optimize_all_screening_keywords(self):
+        """Optimize keywords for all active screening types"""
+        screening_types = ScreeningType.query.filter_by(is_active=True).all()
+        optimization_results = []
+        
+        for screening_type in screening_types:
+            try:
+                analysis = self.analyze_screening_keywords(screening_type.id)
+                if analysis:
+                    optimization_results.append(analysis)
+                    
+                    # Auto-apply high-confidence recommendations
+                    auto_applied = self._auto_apply_recommendations(
+                        screening_type, analysis['recommendations']
+                    )
+                    
+                    if auto_applied:
+                        self.logger.info(f"Auto-applied keyword optimizations for {screening_type.name}")
+                        
+            except Exception as e:
+                self.logger.error(f"Error optimizing keywords for {screening_type.name}: {str(e)}")
+        
+        if optimization_results:
+            db.session.commit()
+        
+        return optimization_results
+    
+    def _auto_apply_recommendations(self, screening_type, recommendations):
+        """Automatically apply high-confidence keyword recommendations"""
+        applied = False
+        current_keywords = screening_type.keywords_list.copy()
+        
+        for rec in recommendations:
+            if rec['type'] == 'remove' and len(current_keywords) > 2:
+                # Only remove if we have enough keywords left
+                for keyword in rec['keywords'][:2]:  # Remove max 2 at a time
+                    if keyword in current_keywords:
+                        current_keywords.remove(keyword)
+                        applied = True
+            
+            elif rec['type'] == 'add' and len(current_keywords) < 10:
+                # Add high-confidence suggestions
+                for keyword in rec['keywords'][:3]:  # Add max 3 at a time
+                    if keyword not in current_keywords:
+                        current_keywords.append(keyword)
+                        applied = True
+        
+        if applied:
+            # Update the screening type keywords
+            import json
+            screening_type.keywords = json.dumps(current_keywords)
+        
+        return applied

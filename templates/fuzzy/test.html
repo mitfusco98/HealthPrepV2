@@ -1,0 +1,531 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Fuzzy Detection Testing - HealthPrep{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            <i class="fas fa-search me-2 text-primary"></i>
+            Fuzzy Detection Testing
+        </h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Admin</a></li>
+                <li class="breadcrumb-item active">Fuzzy Detection</li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Test Tabs -->
+    <ul class="nav nav-tabs" id="fuzzyTestTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="keyword-match-tab" data-bs-toggle="tab" data-bs-target="#keyword-match" type="button" role="tab">
+                <i class="fas fa-key me-1"></i>
+                Keyword Matching
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="separator-test-tab" data-bs-toggle="tab" data-bs-target="#separator-test" type="button" role="tab">
+                <i class="fas fa-minus me-1"></i>
+                Separator Handling
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="document-analysis-tab" data-bs-toggle="tab" data-bs-target="#document-analysis" type="button" role="tab">
+                <i class="fas fa-file-alt me-1"></i>
+                Document Analysis
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="keyword-optimization-tab" data-bs-toggle="tab" data-bs-target="#keyword-optimization" type="button" role="tab">
+                <i class="fas fa-cogs me-1"></i>
+                Keyword Optimization
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content mt-4" id="fuzzyTestTabsContent">
+        <!-- Keyword Matching Tab -->
+        <div class="tab-pane fade show active" id="keyword-match" role="tabpanel">
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Test Fuzzy Keyword Matching</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="keywordMatchForm">
+                                <div class="mb-3">
+                                    <label for="testText" class="form-label">Text to Analyze</label>
+                                    <textarea class="form-control" id="testText" rows="4" 
+                                              placeholder="Enter document text or filename (e.g., 'mammogram_results_2024-01-15.pdf')"></textarea>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="testKeywords" class="form-label">Keywords to Match</label>
+                                    <textarea class="form-control" id="testKeywords" rows="3" 
+                                              placeholder="Enter keywords separated by commas (e.g., mammography, breast screening, mammogram)"></textarea>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="confidenceThreshold" class="form-label">Confidence Threshold</label>
+                                    <input type="range" class="form-range" id="confidenceThreshold" 
+                                           min="0.1" max="1.0" step="0.1" value="0.7">
+                                    <div class="d-flex justify-content-between">
+                                        <small>0.1</small>
+                                        <span id="thresholdValue">0.7</span>
+                                        <small>1.0</small>
+                                    </div>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search me-2"></i>
+                                    Test Matching
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Matching Results</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="matchingResults">
+                                <div class="text-muted text-center py-4">
+                                    <i class="fas fa-search fa-2x mb-3"></i>
+                                    <p>Enter text and keywords to see fuzzy matching results</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Separator Testing Tab -->
+        <div class="tab-pane fade" id="separator-test" role="tabpanel">
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Test Separator Handling</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="separatorTestForm">
+                                <div class="mb-3">
+                                    <label for="baseKeyword" class="form-label">Base Keyword</label>
+                                    <input type="text" class="form-control" id="baseKeyword" 
+                                           placeholder="Enter a keyword (e.g., mammography, pap smear)">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="testTexts" class="form-label">Test Texts with Different Separators</label>
+                                    <textarea class="form-control" id="testTexts" rows="6" 
+                                              placeholder="Enter test texts, one per line:
+mammography_results.pdf
+mammogram-screening-2024.doc
+mammogram.results.txt
+MammographyReport
+mammo_gram_study"></textarea>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-vial me-2"></i>
+                                    Test Separators
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Separator Test Results</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="separatorResults">
+                                <div class="text-muted text-center py-4">
+                                    <i class="fas fa-minus fa-2x mb-3"></i>
+                                    <p>Test separator handling results will appear here</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Document Analysis Tab -->
+        <div class="tab-pane fade" id="document-analysis" role="tabpanel">
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Analyze Document Content</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="documentAnalysisForm">
+                                <div class="mb-3">
+                                    <label for="documentFilename" class="form-label">Document Filename</label>
+                                    <input type="text" class="form-control" id="documentFilename" 
+                                           placeholder="e.g., mammogram_results_2024-01-15.pdf">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="documentContent" class="form-label">Document Content</label>
+                                    <textarea class="form-control" id="documentContent" rows="8" 
+                                              placeholder="Enter document text content or OCR results..."></textarea>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-analytics me-2"></i>
+                                    Analyze Document
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Analysis Results</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="analysisResults">
+                                <div class="text-muted text-center py-4">
+                                    <i class="fas fa-file-alt fa-2x mb-3"></i>
+                                    <p>Document analysis results will appear here</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Keyword Optimization Tab -->
+        <div class="tab-pane fade" id="keyword-optimization" role="tabpanel">
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Screening Type Optimization</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="screeningTypeSelect" class="form-label">Select Screening Type</label>
+                                <select class="form-select" id="screeningTypeSelect">
+                                    <option value="">Choose a screening type...</option>
+                                    {% for screening_type in screening_types %}
+                                    <option value="{{ screening_type.id }}">{{ screening_type.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="d-grid gap-2 d-md-flex">
+                                <button type="button" class="btn btn-primary" onclick="optimizeKeywords()">
+                                    <i class="fas fa-cog me-2"></i>
+                                    Analyze Keywords
+                                </button>
+                                <button type="button" class="btn btn-outline-primary" onclick="batchOptimize()">
+                                    <i class="fas fa-cogs me-2"></i>
+                                    Optimize All Types
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Optimization Results</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="optimizationResults">
+                                <div class="text-muted text-center py-4">
+                                    <i class="fas fa-cogs fa-2x mb-3"></i>
+                                    <p>Select a screening type to analyze</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Update threshold display
+document.getElementById('confidenceThreshold').addEventListener('input', function() {
+    document.getElementById('thresholdValue').textContent = this.value;
+});
+
+// Keyword matching form
+document.getElementById('keywordMatchForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const text = document.getElementById('testText').value;
+    const keywords = document.getElementById('testKeywords').value.split(',').map(k => k.trim()).filter(k => k);
+    const threshold = parseFloat(document.getElementById('confidenceThreshold').value);
+    
+    if (!text || keywords.length === 0) {
+        alert('Please enter both text and keywords');
+        return;
+    }
+    
+    fetch('/fuzzy/api/match-keywords', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ text, keywords, threshold })
+    })
+    .then(response => response.json())
+    .then(data => {
+        displayMatchingResults(data);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error performing fuzzy matching');
+    });
+});
+
+// Separator test form
+document.getElementById('separatorTestForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const keyword = document.getElementById('baseKeyword').value;
+    const testTexts = document.getElementById('testTexts').value.split('\n').map(t => t.trim()).filter(t => t);
+    
+    if (!keyword || testTexts.length === 0) {
+        alert('Please enter both keyword and test texts');
+        return;
+    }
+    
+    fetch('/fuzzy/api/test-separator-matching', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ keyword, test_texts: testTexts })
+    })
+    .then(response => response.json())
+    .then(data => {
+        displaySeparatorResults(data);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error testing separator matching');
+    });
+});
+
+// Document analysis form
+document.getElementById('documentAnalysisForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const filename = document.getElementById('documentFilename').value;
+    const text = document.getElementById('documentContent').value;
+    
+    if (!filename && !text) {
+        alert('Please enter either filename or content');
+        return;
+    }
+    
+    fetch('/fuzzy/api/analyze-document', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ filename, text })
+    })
+    .then(response => response.json())
+    .then(data => {
+        displayAnalysisResults(data);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error analyzing document');
+    });
+});
+
+function displayMatchingResults(data) {
+    const container = document.getElementById('matchingResults');
+    
+    if (data.success && data.matches.length > 0) {
+        let html = `
+            <div class="alert alert-success">
+                <strong>Found ${data.total_matches} matches</strong>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Keyword</th>
+                            <th>Confidence</th>
+                            <th>Matched Text</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        data.matches.forEach(match => {
+            const confidenceClass = match.confidence > 0.8 ? 'success' : match.confidence > 0.6 ? 'warning' : 'danger';
+            html += `
+                <tr>
+                    <td><code>${match.keyword}</code></td>
+                    <td><span class="badge bg-${confidenceClass}">${match.confidence_percentage}%</span></td>
+                    <td><em>${match.matched_text}</em></td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+    } else {
+        container.innerHTML = '<div class="alert alert-warning">No matches found with the current threshold</div>';
+    }
+}
+
+function displaySeparatorResults(data) {
+    const container = document.getElementById('separatorResults');
+    
+    if (data.success) {
+        let html = `
+            <div class="mb-3">
+                <h6>Test Summary</h6>
+                <ul class="list-unstyled small">
+                    <li>✓ ${data.summary.successful_matches}/${data.summary.total_tests} matched</li>
+                    <li>📊 ${(data.summary.average_confidence * 100).toFixed(1)}% avg confidence</li>
+                </ul>
+            </div>
+        `;
+        
+        data.test_results.forEach(result => {
+            const icon = result.has_match ? '✅' : '❌';
+            const confidence = result.has_match ? `(${(result.best_confidence * 100).toFixed(1)}%)` : '';
+            html += `
+                <div class="border-bottom pb-2 mb-2">
+                    <div class="small">
+                        ${icon} <code>${result.text}</code> ${confidence}
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+}
+
+function displayAnalysisResults(data) {
+    const container = document.getElementById('analysisResults');
+    
+    if (data.success) {
+        const analysis = data.analysis;
+        let html = `
+            <div class="mb-3">
+                <h6>Document Analysis</h6>
+                <ul class="list-unstyled small">
+                    <li>📄 ${analysis.text_complexity} words</li>
+                    <li>${analysis.has_medical_content ? '🏥' : '📝'} ${analysis.has_medical_content ? 'Medical content detected' : 'General content'}</li>
+                </ul>
+            </div>
+        `;
+        
+        if (analysis.semantic_terms.medical_terms && analysis.semantic_terms.medical_terms.length > 0) {
+            html += `
+                <div class="mb-3">
+                    <h6>Medical Terms Found</h6>
+                    ${analysis.semantic_terms.medical_terms.map(term => `<span class="badge bg-info me-1">${term}</span>`).join('')}
+                </div>
+            `;
+        }
+        
+        if (analysis.keyword_suggestions.length > 0) {
+            html += `
+                <div class="mb-3">
+                    <h6>Keyword Suggestions</h6>
+                    ${analysis.keyword_suggestions.slice(0, 5).map(kw => `<span class="badge bg-secondary me-1">${kw}</span>`).join('')}
+                </div>
+            `;
+        }
+        
+        container.innerHTML = html;
+    }
+}
+
+function optimizeKeywords() {
+    const screeningTypeId = document.getElementById('screeningTypeSelect').value;
+    
+    if (!screeningTypeId) {
+        alert('Please select a screening type');
+        return;
+    }
+    
+    fetch(`/fuzzy/api/optimize-keywords/${screeningTypeId}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(response => response.json())
+    .then(data => {
+        displayOptimizationResults(data);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error optimizing keywords');
+    });
+}
+
+function batchOptimize() {
+    if (!confirm('This will analyze all screening types. Continue?')) {
+        return;
+    }
+    
+    fetch('/fuzzy/api/batch-optimize', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(`Batch optimization completed for ${data.total_screening_types} screening types`);
+        console.log('Optimization results:', data.optimization_results);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error in batch optimization');
+    });
+}
+
+function displayOptimizationResults(data) {
+    const container = document.getElementById('optimizationResults');
+    
+    if (data.success && data.analysis) {
+        const analysis = data.analysis;
+        let html = `
+            <div class="mb-3">
+                <h6>${analysis.screening_type}</h6>
+                <p class="small text-muted">${analysis.total_related_documents} related documents</p>
+            </div>
+        `;
+        
+        if (analysis.recommendations.length > 0) {
+            html += '<div class="mb-3"><h6>Recommendations</h6>';
+            analysis.recommendations.forEach(rec => {
+                const iconClass = rec.type === 'add' ? 'plus' : rec.type === 'remove' ? 'minus' : 'cog';
+                html += `
+                    <div class="alert alert-info small py-2">
+                        <i class="fas fa-${iconClass} me-1"></i>
+                        ${rec.message}
+                    </div>
+                `;
+            });
+            html += '</div>';
+        }
+        
+        container.innerHTML = html;
+    }
+}
+</script>
+
+{% endblock %}
