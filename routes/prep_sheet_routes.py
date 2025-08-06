@@ -155,6 +155,37 @@ def batch_generate():
         flash('Error in batch generation', 'error')
         return redirect(url_for('prep_sheet.batch_generate'))
 
+@prep_sheet_bp.route('/regenerate/<int:patient_id>')
+@login_required
+def regenerate(patient_id):
+    """Regenerate prep sheet for a patient"""
+    try:
+        patient = Patient.query.get_or_404(patient_id)
+        appointment_id = request.args.get('appointment_id', type=int)
+        
+        # Generate fresh prep sheet
+        generator = PrepSheetGenerator()
+        result = generator.generate_prep_sheet(patient_id, appointment_id)
+        
+        if result['success']:
+            # Log the regeneration
+            AdminLogger.log(
+                user_id=current_user.id,
+                action='regenerate_prep_sheet',
+                details=f'Regenerated prep sheet for patient {patient.mrn}'
+            )
+            
+            return render_template('prep_sheet/prep_sheet.html', 
+                                 **result['data'])
+        else:
+            flash(f'Error regenerating prep sheet: {result["error"]}', 'error')
+            return redirect(url_for('main.patient_detail', patient_id=patient_id))
+        
+    except Exception as e:
+        logger.error(f"Error regenerating prep sheet: {str(e)}")
+        flash('Error regenerating prep sheet', 'error')
+        return redirect(url_for('main.patient_detail', patient_id=patient_id))
+
 @prep_sheet_bp.route('/export/<int:patient_id>')
 @login_required
 def export_prep_sheet(patient_id):

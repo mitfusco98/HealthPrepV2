@@ -1,7 +1,7 @@
 # Health-Prep v2 - HIPAA-Compliant Healthcare Preparation System
 
 ### Overview
-Health-Prep v2 is a real-time medical preparation sheet generation engine designed to integrate with FHIR-based EMRs (e.g., Epic). It parses incoming patient documents and data, determines eligibility for medical screenings based on customizable logic, and generates prep sheets reflecting the patient's care status. Its core capabilities include an intelligent screening engine with fuzzy detection, dynamic status updates for compliance tracking, comprehensive prep sheet generation, and administrative controls. The project aims to provide a robust solution for healthcare preparation, improving efficiency and compliance.
+Health-Prep v2 is a real-time medical preparation sheet generation engine designed to integrate with FHIR-based EMRs (e.g., Epic). It parses incoming patient documents and data, determines eligibility for medical screenings based on customizable logic, and generates prep sheets reflecting the patient's care status. Its core capabilities include an intelligent screening engine with fuzzy detection, dynamic status updates for compliance tracking, comprehensive prep sheet generation with enhanced medical data sections, and administrative controls. The system features advanced variant management for screening types, document relevancy filtering, interactive document links, and configurable time periods for medical data display. The project provides a robust solution for healthcare preparation, improving efficiency and compliance.
 
 ### User Preferences
 - Focus on healthcare compliance and FHIR integration
@@ -29,6 +29,9 @@ The frontend reuses assets from V1, organized under `templates/`. It includes `b
 - Medical conditions database with FHIR-compatible codes for trigger conditions.
 - One-click medical terminology import system and tag-based keyword management.
 - Enhanced `ScreeningType` architecture supporting gender/age/condition eligibility, fractional frequencies, and JSON storage for keywords and trigger conditions.
+- **Comprehensive prep sheet generation system** with patient header, quality checklist, recent medical data sections, document relevancy filtering, interactive document links, color-coded badges, configurable time periods, and dynamic response to screening type changes.
+- **Variant grouping functionality** ensuring screening variants display properly as grouped entities with status syncing across variants.
+- **Medical data filtering framework** using PrepSheetFilters for frequency-based document filtering and relevancy matching.
 
 ### External Dependencies
 - **FHIR-based EMRs:** e.g., Epic (for real-time data integration)

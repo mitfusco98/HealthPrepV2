@@ -15,24 +15,61 @@ class PrepSheetGenerator:
         self.logger = logging.getLogger(__name__)
         self.filters = PrepSheetFilters()
     
-    def generate_prep_sheet(self, patient_id):
+    def generate_prep_sheet(self, patient_id, appointment_id=None):
         """Generate complete prep sheet for a patient"""
         patient = Patient.query.get(patient_id)
         if not patient:
-            raise ValueError(f"Patient {patient_id} not found")
+            return {'success': False, 'error': f'Patient {patient_id} not found'}
         
-        prep_data = {
-            'patient': patient,
-            'generated_at': datetime.now(),
-            'last_visit': self._get_last_visit(patient_id),
-            'summary': self._generate_summary(patient_id),
-            'medical_data': self._generate_medical_data(patient_id),
-            'quality_checklist': self._generate_quality_checklist(patient_id),
-            'enhanced_data': self._generate_enhanced_data(patient_id)
-        }
-        
-        self.logger.info(f"Generated prep sheet for patient {patient.name}")
-        return prep_data
+        try:
+            # Get appointment if specified
+            appointment = None
+            if appointment_id:
+                appointment = Appointment.query.get(appointment_id)
+            
+            # Generate all sections
+            quality_checklist_data = self._generate_quality_checklist(patient_id)
+            summary_data = self._generate_summary(patient_id)
+            medical_data = self._generate_medical_data(patient_id)
+            enhanced_data = self._generate_enhanced_data(patient_id)
+            
+            # Create prep sheet object-like structure for template
+            prep_sheet = {
+                'generated_at': datetime.now(),
+                'appointment_date': appointment.appointment_date if appointment else None,
+                'documents_processed': summary_data.get('total_documents', 0),
+                'screenings_included': quality_checklist_data['summary']['total'],
+                'generation_time_seconds': 0.5,  # Mock timing for now
+                'content': {
+                    'summary': summary_data,
+                    'medical_data': medical_data,
+                    'quality_checklist': quality_checklist_data['items'],
+                    'enhanced_data': {
+                        'checklist_items': [
+                            'Obtain vital signs (weight, height, BP, temp)',
+                            'Review current medications and allergies',
+                            'Verify insurance and contact information',
+                            'Review screening recommendations',
+                            'Review recent lab/imaging results',
+                            'Update care plan and next steps'
+                        ],
+                        **enhanced_data
+                    }
+                }
+            }
+            
+            prep_data = {
+                'patient': patient,
+                'appointment': appointment,
+                'prep_sheet': prep_sheet
+            }
+            
+            self.logger.info(f"Generated prep sheet for patient {patient.mrn}")
+            return {'success': True, 'data': prep_data}
+            
+        except Exception as e:
+            self.logger.error(f"Error generating prep sheet: {str(e)}")
+            return {'success': False, 'error': str(e)}
     
     def _get_last_visit(self, patient_id):
         """Get patient's most recent visit information"""
@@ -208,17 +245,14 @@ class PrepSheetGenerator:
     
     def _get_screening_documents(self, screening):
         """Get documents that match a screening"""
-        from models import ScreeningDocumentMatch
+        # Use filters to get relevant documents based on keywords and frequency
+        relevant_docs = self.filters.get_relevant_documents(
+            screening.patient_id, 
+            screening.screening_type.name
+        )
         
-        matches = ScreeningDocumentMatch.query.filter_by(
-            screening_id=screening.id
-        ).join(Document).all()
-        
-        return [{
-            'document': match.document,
-            'confidence': match.match_confidence,
-            'confidence_class': self._get_confidence_class(match.match_confidence)
-        } for match in matches]
+        # Return document objects directly for template compatibility
+        return relevant_docs
     
     def _get_enhanced_lab_data(self, patient_id, cutoff_months):
         """Get enhanced lab data with filtering"""

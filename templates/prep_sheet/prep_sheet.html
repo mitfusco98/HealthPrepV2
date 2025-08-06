@@ -183,34 +183,54 @@
                     
                     <div class="row">
                         <div class="col-md-6">
-                            <h5>Active Conditions</h5>
-                            {% set conditions = patient.conditions|selectattr('status', 'equalto', 'active')|list %}
-                            {% if conditions %}
-                                <ul class="list-unstyled">
-                                    {% for condition in conditions %}
-                                    <li class="mb-2">
-                                        <strong>{{ condition.condition_name }}</strong>
-                                        {% if condition.icd_code %}
-                                            <span class="badge bg-secondary">{{ condition.icd_code }}</span>
-                                        {% endif %}
-                                        {% if condition.diagnosis_date %}
-                                            <br><small class="text-muted">Diagnosed: {{ condition.diagnosis_date.strftime('%m/%d/%Y') }}</small>
-                                        {% endif %}
-                                    </li>
-                                    {% endfor %}
-                                </ul>
+                            <h5>Recent Visit History</h5>
+                            {% if prep_sheet.content and 'summary' in prep_sheet.content and prep_sheet.content.summary.recent_appointments %}
+                                {% set recent_appointments = prep_sheet.content.summary.recent_appointments %}
+                                {% if recent_appointments %}
+                                    <ul class="list-unstyled">
+                                        {% for appointment in recent_appointments[:5] %}
+                                        <li class="mb-2">
+                                            <strong>{{ appointment.appointment_date.strftime('%m/%d/%Y') }}</strong>
+                                            {% if appointment.appointment_type %}
+                                                - {{ appointment.appointment_type }}
+                                            {% endif %}
+                                            {% if appointment.provider %}
+                                                <br><small class="text-muted">Provider: {{ appointment.provider }}</small>
+                                            {% endif %}
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                {% else %}
+                                    <p class="text-muted">No recent appointments on record</p>
+                                {% endif %}
                             {% else %}
-                                <p class="text-muted">No active conditions recorded</p>
+                                <p class="text-muted">Visit history not available</p>
                             {% endif %}
                         </div>
                         
                         <div class="col-md-6">
-                            <h5>Contact Information</h5>
-                            {% if patient.emergency_contact %}
-                                <p><strong>Emergency Contact:</strong> {{ patient.emergency_contact }}</p>
-                            {% endif %}
-                            {% if patient.address %}
-                                <p><strong>Address:</strong><br>{{ patient.address }}</p>
+                            <h5>Active Medical Conditions</h5>
+                            {% if prep_sheet.content and 'summary' in prep_sheet.content and prep_sheet.content.summary.active_conditions %}
+                                {% set conditions = prep_sheet.content.summary.active_conditions %}
+                                {% if conditions %}
+                                    <ul class="list-unstyled">
+                                        {% for condition in conditions %}
+                                        <li class="mb-2">
+                                            <strong>{{ condition.condition_name }}</strong>
+                                            {% if condition.icd_code %}
+                                                <span class="badge bg-secondary">{{ condition.icd_code }}</span>
+                                            {% endif %}
+                                            {% if condition.diagnosis_date %}
+                                                <br><small class="text-muted">Diagnosed: {{ condition.diagnosis_date.strftime('%m/%d/%Y') }}</small>
+                                            {% endif %}
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                {% else %}
+                                    <p class="text-muted">No active conditions recorded</p>
+                                {% endif %}
+                            {% else %}
+                                <p class="text-muted">Condition information not available</p>
                             {% endif %}
                         </div>
                     </div>
@@ -219,78 +239,354 @@
                 <div class="prep-section">
                     <h3 class="border-bottom pb-2 mb-3">
                         <i class="fas fa-clipboard-check me-2"></i>
-                        Screening Status
+                        Quality Checklist - Screening Status
                     </h3>
                     
-                    {% set screenings = patient.screenings %}
-                    {% if screenings %}
-                        <div class="row">
-                            {% for screening in screenings %}
-                            <div class="col-md-6 mb-3">
-                                <div class="card border-start border-4 border-{% if screening.status == 'complete' %}success{% elif screening.status == 'due_soon' %}warning{% elif screening.status == 'overdue' %}danger{% else %}primary{% endif %}">
-                                    <div class="card-body">
-                                        <h6 class="card-title">{{ screening.screening_type.name }}</h6>
-                                        <p class="card-text">
-                                            <span class="badge bg-{% if screening.status == 'complete' %}success{% elif screening.status == 'due_soon' %}warning{% elif screening.status == 'overdue' %}danger{% else %}primary{% endif %}">
-                                                {{ screening.status.replace('_', ' ').title() }}
-                                            </span>
-                                        </p>
-                                        {% if screening.last_completed_date %}
-                                            <small class="text-muted">Last completed: {{ screening.last_completed_date.strftime('%m/%d/%Y') }}</small>
-                                        {% else %}
-                                            <small class="text-muted">Never completed</small>
+                    {% if prep_sheet.content and 'quality_checklist' in prep_sheet.content %}
+                        {% set checklist_items = prep_sheet.content.quality_checklist %}
+                    {% else %}
+                        {% set checklist_items = patient.screenings %}
+                    {% endif %}
+
+                    {% if checklist_items %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Screening</th>
+                                        <th>Last Completed</th>
+                                        <th>Frequency</th>
+                                        <th>Status</th>
+                                        <th>Matched Documents</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in checklist_items %}
+                                    {% if item.screening_type %}
+                                        {% set screening = item %}
+                                        {% set screening_name = screening.screening_type.display_name %}
+                                        {% set frequency = screening.screening_type.frequency_display %}
+                                        {% set status = screening.status %}
+                                        {% set last_completed = screening.last_completed %}
+                                        {% set matched_docs = screening.matched_documents_list %}
+                                    {% else %}
+                                        {% set screening_name = item.screening_name %}
+                                        {% set frequency = item.frequency %}
+                                        {% set status = item.status %}
+                                        {% set last_completed = item.last_completed %}
+                                        {% set matched_docs = item.matched_documents %}
+                                    {% endif %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ screening_name }}</strong>
+                                            {% if screening.screening_type and screening.screening_type.variant_name %}
+                                                <br><small class="text-muted">{{ screening.screening_type.variant_name }} variant</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if last_completed %}
+                                                {{ last_completed.strftime('%m/%d/%Y') }}
+                                            {% else %}
+                                                <span class="text-muted">Never</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ frequency }}</span>
+                                        </td>
+                                        <td>
+                                            {% if status == 'Complete' %}
+                                                <span class="badge bg-success">{{ status }}</span>
+                                            {% elif status == 'Due Soon' %}
+                                                <span class="badge bg-warning text-dark">{{ status }}</span>
+                                            {% elif status == 'Due' %}
+                                                <span class="badge bg-primary">{{ status }}</span>
+                                            {% elif status == 'Overdue' %}
+                                                <span class="badge bg-danger">{{ status }}</span>
+                                            {% else %}
+                                                <span class="badge bg-light text-dark">{{ status }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if matched_docs and matched_docs|length > 0 %}
+                                                {% for doc in matched_docs[:3] %}
+                                                    <a href="{{ url_for('document.view_document', document_id=doc.id) }}" 
+                                                       target="_blank" 
+                                                       class="btn btn-sm btn-outline-primary mb-1 me-1"
+                                                       title="View {{ doc.filename }}">
+                                                        <i class="fas fa-file-medical me-1"></i>
+                                                        {{ doc.filename[:15] }}...
+                                                        {% if doc.ocr_confidence %}
+                                                            <span class="confidence-indicator {{ 'confidence-high' if doc.ocr_confidence >= 0.8 else 'confidence-medium' if doc.ocr_confidence >= 0.6 else 'confidence-low' }}"></span>
+                                                        {% endif %}
+                                                    </a>
+                                                {% endfor %}
+                                                {% if matched_docs|length > 3 %}
+                                                    <br><small class="text-muted">+{{ matched_docs|length - 3 }} more documents</small>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-muted">No matching documents</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            No screenings configured for this patient. 
+                            <a href="{{ url_for('screening.screening_types') }}" target="_blank">Configure screening types</a> 
+                            to enable quality checklist generation.
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Recent Medical Data Sections -->
+                {% if prep_sheet.content and 'medical_data' in prep_sheet.content %}
+                    {% set medical_data = prep_sheet.content.medical_data %}
+                    {% set cutoff_dates = medical_data.cutoff_dates %}
+                    
+                    <!-- Recent Lab Results -->
+                    <div class="prep-section">
+                        <h3 class="border-bottom pb-2 mb-3">
+                            <i class="fas fa-flask me-2"></i>
+                            Recent Lab Results
+                            <small class="text-muted">
+                                ({{ cutoff_dates.labs.strftime('%m/%d/%Y') if cutoff_dates and cutoff_dates.labs else 'last 12 months' }})
+                            </small>
+                        </h3>
+                        
+                        {% if medical_data.lab_results and medical_data.lab_results|length > 0 %}
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Test Name</th>
+                                            <th>Date</th>
+                                            <th>Results</th>
+                                            <th>Reference Range</th>
+                                            <th>Status</th>
+                                            <th>Document</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for doc in medical_data.lab_results %}
+                                        <tr>
+                                            <td>{{ doc.test_name or doc.filename }}</td>
+                                            <td>{{ doc.document_date.strftime('%m/%d/%Y') if doc.document_date else 'N/A' }}</td>
+                                            <td>{{ doc.result_value or 'See document' }}</td>
+                                            <td>{{ doc.reference_range or 'N/A' }}</td>
+                                            <td>
+                                                {% if doc.result_status == 'normal' %}
+                                                    <span class="badge bg-success">Normal</span>
+                                                {% elif doc.result_status == 'abnormal' %}
+                                                    <span class="badge bg-warning text-dark">Abnormal</span>
+                                                {% elif doc.result_status == 'critical' %}
+                                                    <span class="badge bg-danger">Critical</span>
+                                                {% else %}
+                                                    <span class="badge bg-light text-dark">Pending</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <a href="{{ url_for('document.view_document', document_id=doc.id) }}" 
+                                                   target="_blank" 
+                                                   class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <p class="text-muted">No recent lab results available</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Recent Imaging Studies -->
+                    <div class="prep-section">
+                        <h3 class="border-bottom pb-2 mb-3">
+                            <i class="fas fa-x-ray me-2"></i>
+                            Recent Imaging Studies
+                            <small class="text-muted">
+                                ({{ cutoff_dates.imaging.strftime('%m/%d/%Y') if cutoff_dates and cutoff_dates.imaging else 'last 12 months' }})
+                            </small>
+                        </h3>
+                        
+                        {% if medical_data.imaging_studies and medical_data.imaging_studies|length > 0 %}
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Study Type</th>
+                                            <th>Body Site</th>
+                                            <th>Date</th>
+                                            <th>Impression</th>
+                                            <th>Document</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for doc in medical_data.imaging_studies %}
+                                        <tr>
+                                            <td>{{ doc.study_type or doc.filename }}</td>
+                                            <td>{{ doc.body_site or 'N/A' }}</td>
+                                            <td>{{ doc.document_date.strftime('%m/%d/%Y') if doc.document_date else 'N/A' }}</td>
+                                            <td>{{ doc.impression or 'See document' }}</td>
+                                            <td>
+                                                <a href="{{ url_for('document.view_document', document_id=doc.id) }}" 
+                                                   target="_blank" 
+                                                   class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <p class="text-muted">No recent imaging studies available</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Recent Specialist Consults -->
+                    <div class="prep-section">
+                        <h3 class="border-bottom pb-2 mb-3">
+                            <i class="fas fa-user-md me-2"></i>
+                            Recent Specialist Consults
+                            <small class="text-muted">
+                                ({{ cutoff_dates.consults.strftime('%m/%d/%Y') if cutoff_dates and cutoff_dates.consults else 'last 12 months' }})
+                            </small>
+                        </h3>
+                        
+                        {% if medical_data.specialist_consults and medical_data.specialist_consults|length > 0 %}
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Specialty</th>
+                                            <th>Specialist</th>
+                                            <th>Date</th>
+                                            <th>Recommendations</th>
+                                            <th>Document</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for doc in medical_data.specialist_consults %}
+                                        <tr>
+                                            <td>{{ doc.specialty or 'Unknown' }}</td>
+                                            <td>{{ doc.specialist_name or 'See document' }}</td>
+                                            <td>{{ doc.document_date.strftime('%m/%d/%Y') if doc.document_date else 'N/A' }}</td>
+                                            <td>{{ doc.recommendations or 'See document' }}</td>
+                                            <td>
+                                                <a href="{{ url_for('document.view_document', document_id=doc.id) }}" 
+                                                   target="_blank" 
+                                                   class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <p class="text-muted">No recent specialist consults available</p>
+                        {% endif %}
+                    </div>
+
+                    <!-- Recent Hospital Stays -->
+                    <div class="prep-section">
+                        <h3 class="border-bottom pb-2 mb-3">
+                            <i class="fas fa-hospital me-2"></i>
+                            Recent Hospital Stays
+                            <small class="text-muted">
+                                ({{ cutoff_dates.hospital.strftime('%m/%d/%Y') if cutoff_dates and cutoff_dates.hospital else 'last 12 months' }})
+                            </small>
+                        </h3>
+                        
+                        {% if medical_data.hospital_stays and medical_data.hospital_stays|length > 0 %}
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Hospital</th>
+                                            <th>Admission Date</th>
+                                            <th>Discharge Date</th>
+                                            <th>Diagnosis</th>
+                                            <th>Document</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for doc in medical_data.hospital_stays %}
+                                        <tr>
+                                            <td>{{ doc.hospital_name or 'See document' }}</td>
+                                            <td>{{ doc.admission_date.strftime('%m/%d/%Y') if doc.admission_date else 'N/A' }}</td>
+                                            <td>{{ doc.discharge_date.strftime('%m/%d/%Y') if doc.discharge_date else 'N/A' }}</td>
+                                            <td>{{ doc.discharge_diagnosis or 'See document' }}</td>
+                                            <td>
+                                                <a href="{{ url_for('document.view_document', document_id=doc.id) }}" 
+                                                   target="_blank" 
+                                                   class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <p class="text-muted">No recent hospital stays available</p>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <!-- Fallback Recent Documents Section -->
+                    <div class="prep-section">
+                        <h3 class="border-bottom pb-2 mb-3">
+                            <i class="fas fa-file-medical me-2"></i>
+                            Recent Medical Documents
+                        </h3>
+                        
+                        {% set recent_documents = patient.documents|sort(attribute='document_date', reverse=true)|list %}
+                        {% if recent_documents %}
+                            {% for doc in recent_documents[:10] %}
+                            <div class="document-item {{ 'high-confidence' if doc.ocr_confidence and doc.ocr_confidence >= 0.8 else 'medium-confidence' if doc.ocr_confidence and doc.ocr_confidence >= 0.6 else 'low-confidence' }}">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <a href="{{ url_for('document.view_document', document_id=doc.id) }}" 
+                                           target="_blank" 
+                                           class="text-decoration-none">
+                                            <strong>{{ doc.original_filename or doc.filename }}</strong>
+                                        </a>
+                                        <span class="badge bg-secondary">{{ doc.document_type.title() if doc.document_type else 'Unknown' }}</span>
+                                        {% if doc.ocr_confidence %}
+                                            <span class="confidence-indicator {{ 'confidence-high' if doc.ocr_confidence >= 0.8 else 'confidence-medium' if doc.ocr_confidence >= 0.6 else 'confidence-low' }}"></span>
                                         {% endif %}
-                                        {% if screening.next_due_date %}
-                                            <br><small class="text-muted">Next due: {{ screening.next_due_date.strftime('%m/%d/%Y') }}</small>
+                                    </div>
+                                    <div class="text-end">
+                                        {% if doc.document_date %}
+                                            <small class="text-muted">{{ doc.document_date.strftime('%m/%d/%Y') }}</small>
+                                        {% else %}
+                                            <small class="text-muted">{{ doc.upload_date.strftime('%m/%d/%Y') }}</small>
                                         {% endif %}
                                     </div>
                                 </div>
                             </div>
                             {% endfor %}
-                        </div>
-                    {% else %}
-                        <p class="text-muted">No screenings configured for this patient</p>
-                    {% endif %}
-                </div>
-
-                <div class="prep-section">
-                    <h3 class="border-bottom pb-2 mb-3">
-                        <i class="fas fa-file-medical me-2"></i>
-                        Recent Medical Documents
-                    </h3>
-                    
-                    {% set recent_documents = patient.documents|sort(attribute='document_date', reverse=true)|list %}
-                    {% if recent_documents %}
-                        {% for doc in recent_documents[:10] %}
-                        <div class="document-item {{ 'high-confidence' if doc.ocr_confidence and doc.ocr_confidence >= 0.8 else 'medium-confidence' if doc.ocr_confidence and doc.ocr_confidence >= 0.6 else 'low-confidence' }}">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <strong>{{ doc.original_filename or doc.filename }}</strong>
-                                    <span class="badge bg-secondary">{{ doc.document_type.title() if doc.document_type else 'Unknown' }}</span>
-                                    {% if doc.ocr_confidence %}
-                                        <span class="confidence-indicator {{ 'confidence-high' if doc.ocr_confidence >= 0.8 else 'confidence-medium' if doc.ocr_confidence >= 0.6 else 'confidence-low' }}"></span>
-                                    {% endif %}
-                                </div>
-                                <div class="text-end">
-                                    {% if doc.document_date %}
-                                        <small class="text-muted">{{ doc.document_date.strftime('%m/%d/%Y') }}</small>
-                                    {% else %}
-                                        <small class="text-muted">{{ doc.upload_date.strftime('%m/%d/%Y') }}</small>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                        
-                        {% if recent_documents|length > 10 %}
-                            <p class="text-muted text-center mt-3">
-                                ... and {{ recent_documents|length - 10 }} more documents
-                            </p>
+                            
+                            {% if recent_documents|length > 10 %}
+                                <p class="text-muted text-center mt-3">
+                                    ... and {{ recent_documents|length - 10 }} more documents
+                                </p>
+                            {% endif %}
+                        {% else %}
+                            <p class="text-muted">No medical documents available</p>
                         {% endif %}
-                    {% else %}
-                        <p class="text-muted">No medical documents available</p>
-                    {% endif %}
-                </div>
+                    </div>
+                {% endif %}
 
                 <div class="prep-section">
                     <h3 class="border-bottom pb-2 mb-3">
@@ -298,45 +594,84 @@
                         Pre-Visit Checklist
                     </h3>
                     
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="checklist-item">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="vitals">
-                                    <label class="form-check-label" for="vitals">
-                                        Obtain vital signs (weight, height, BP, temp)
-                                    </label>
+                    {% if prep_sheet.content and 'enhanced_data' in prep_sheet.content and prep_sheet.content.enhanced_data.checklist_items %}
+                        {% set checklist_items = prep_sheet.content.enhanced_data.checklist_items %}
+                        <div class="row">
+                            {% for item in checklist_items %}
+                            <div class="col-md-6 mb-2">
+                                <div class="checklist-item">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="checklist-{{ loop.index }}">
+                                        <label class="form-check-label" for="checklist-{{ loop.index }}">
+                                            {{ item }}
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <!-- Default checklist items -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="checklist-item">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="vitals">
+                                        <label class="form-check-label" for="vitals">
+                                            Obtain vital signs (weight, height, BP, temp)
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="checklist-item">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="medications">
+                                        <label class="form-check-label" for="medications">
+                                            Review current medications and allergies
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="checklist-item">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="insurance">
+                                        <label class="form-check-label" for="insurance">
+                                            Verify insurance and contact information
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                             
-                            <div class="checklist-item">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="medications">
-                                    <label class="form-check-label" for="medications">
-                                        Review current medications and allergies
-                                    </label>
+                            <div class="col-md-6">
+                                <div class="checklist-item">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="screening-review">
+                                        <label class="form-check-label" for="screening-review">
+                                            Review screening recommendations
+                                        </label>
+                                    </div>
                                 </div>
-                            </div>
-                            
-                            <div class="checklist-item">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="insurance">
-                                    <label class="form-check-label" for="insurance">
-                                        Verify insurance and contact information
-                                    </label>
+                                
+                                <div class="checklist-item">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="document-review">
+                                        <label class="form-check-label" for="document-review">
+                                            Review recent lab/imaging results
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="checklist-item">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="update-plan">
+                                        <label class="form-check-label" for="update-plan">
+                                            Update care plan and next steps
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        
-                        <div class="col-md-6">
-                            <div class="checklist-item">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="screening-review">
-                                    <label class="form-check-label" for="screening-review">
-                                        Review screening recommendations
-                                    </label>
-                                </div>
-                            </div>
+                    {% endif %}
                             
                             <div class="checklist-item">
                                 <div class="form-check">
