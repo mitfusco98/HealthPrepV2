@@ -29,24 +29,24 @@
 <div class="card">
     <div class="card-header p-0">
         <nav>
-            <div class="nav nav-tabs" id="nav-tab" role="tablist">
-                <a class="nav-link {{ 'active' if active_tab == 'activity' else '' }}" href="{{ url_for('admin.dashboard_logs') }}">
+            <div class="nav nav-tabs d-flex" id="nav-tab" role="tablist">
+                <a class="nav-link flex-fill text-center {{ 'active' if active_tab == 'activity' else '' }}" href="{{ url_for('admin.dashboard_logs') }}">
                     <i class="fas fa-history me-2"></i>
                     Activity Logs
                 </a>
-                <a class="nav-link {{ 'active' if active_tab == 'users' else '' }}" href="{{ url_for('admin.dashboard_users') }}">
+                <a class="nav-link flex-fill text-center {{ 'active' if active_tab == 'users' else '' }}" href="{{ url_for('admin.dashboard_users') }}">
                     <i class="fas fa-users me-2"></i>
                     User Management
                 </a>
-                <a class="nav-link {{ 'active' if active_tab == 'presets' else '' }}" href="{{ url_for('admin.dashboard_presets') }}">
+                <a class="nav-link flex-fill text-center {{ 'active' if active_tab == 'presets' else '' }}" href="{{ url_for('admin.dashboard_presets') }}">
                     <i class="fas fa-cogs me-2"></i>
                     Preset Management
                 </a>
-                <a class="nav-link {{ 'active' if active_tab == 'phi' else '' }}" href="{{ url_for('admin.dashboard_phi') }}">
+                <a class="nav-link flex-fill text-center {{ 'active' if active_tab == 'phi' else '' }}" href="{{ url_for('admin.dashboard_phi') }}">
                     <i class="fas fa-user-shield me-2"></i>
                     PHI Statistics
                 </a>
-                <a class="nav-link {{ 'active' if active_tab == 'analytics' else '' }}" href="{{ url_for('admin.dashboard_analytics') }}">
+                <a class="nav-link flex-fill text-center {{ 'active' if active_tab == 'analytics' else '' }}" href="{{ url_for('admin.dashboard_analytics') }}">
                     <i class="fas fa-chart-bar me-2"></i>
                     Customer Analytics
                 </a>
