@@ -9,6 +9,17 @@ from sqlalchemy import text
 import os
 from datetime import datetime
 
+def check_column_exists(table_name, column_name):
+    """Check if a column exists in a table"""
+    result = db.session.execute(text(f"PRAGMA table_info({table_name});")).fetchall()
+    columns = [row[1] for row in result]
+    return column_name in columns
+
+def check_table_exists(table_name):
+    """Check if a table exists"""
+    result = db.session.execute(text(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}';")).fetchone()
+    return result is not None
+
 def run_migration():
     """Run the complete multi-tenancy migration"""
 
@@ -17,10 +28,8 @@ def run_migration():
         print("Starting multi-tenancy migration...")
 
         try:
-            # Check if organizations table already exists
-            result = db.session.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='organizations';")).fetchone()
-
-            if not result:
+            # Step 1: Create organizations table
+            if not check_table_exists('organizations'):
                 print("1. Creating organizations table...")
                 db.session.execute(text("""
                     CREATE TABLE organizations (
@@ -43,12 +52,11 @@ def run_migration():
                         trial_expires TIMESTAMP
                     );
                 """))
+                db.session.commit()  # Commit after creating table
                 print("   ✓ Organizations table created")
 
-            # Check if epic_credentials table already exists
-            result = db.session.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='epic_credentials';")).fetchone()
-
-            if not result:
+            # Step 2: Create epic_credentials table
+            if not check_table_exists('epic_credentials'):
                 print("2. Creating epic_credentials table...")
                 db.session.execute(text("""
                     CREATE TABLE epic_credentials (
@@ -67,49 +75,67 @@ def run_migration():
                         FOREIGN KEY (user_id) REFERENCES users(id)
                     );
                 """))
+                db.session.commit()  # Commit after creating table
                 print("   ✓ Epic credentials table created")
 
-            # Check if org_id column exists in users table
-            result = db.session.execute(text("PRAGMA table_info(users);")).fetchall()
-            columns = [row[1] for row in result]
-
-            if 'org_id' not in columns:
-                print("3. Adding org_id columns to existing tables...")
-
-                # Add columns to users table one by one (SQLite limitations)
+            # Step 3: Add columns to users table
+            if not check_column_exists('users', 'org_id'):
+                print("3. Adding columns to users table...")
                 db.session.execute(text("ALTER TABLE users ADD COLUMN org_id INTEGER;"))
                 db.session.execute(text("ALTER TABLE users ADD COLUMN epic_user_id VARCHAR(100);"))
                 db.session.execute(text("ALTER TABLE users ADD COLUMN two_factor_enabled BOOLEAN DEFAULT 0;"))
                 db.session.execute(text("ALTER TABLE users ADD COLUMN session_timeout_minutes INTEGER DEFAULT 30;"))
-                
-                # Add columns with NULL defaults first, then update
                 db.session.execute(text("ALTER TABLE users ADD COLUMN last_activity TIMESTAMP;"))
                 db.session.execute(text("ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER DEFAULT 0;"))
                 db.session.execute(text("ALTER TABLE users ADD COLUMN locked_until TIMESTAMP;"))
+                db.session.commit()  # Commit after adding columns
                 
                 # Set last_activity to current timestamp for existing users
                 current_time = datetime.utcnow().isoformat()
                 db.session.execute(text(f"UPDATE users SET last_activity = '{current_time}' WHERE last_activity IS NULL;"))
+                db.session.commit()
                 print("   ✓ Added columns to users table")
 
-                # Add org_id to other tables
+            # Step 4: Add columns to patient table
+            if not check_column_exists('patient', 'org_id'):
+                print("4. Adding columns to patient table...")
                 db.session.execute(text("ALTER TABLE patient ADD COLUMN org_id INTEGER;"))
                 db.session.execute(text("ALTER TABLE patient ADD COLUMN epic_patient_id VARCHAR(100);"))
+                db.session.commit()  # Commit after adding columns
                 print("   ✓ Added columns to patient table")
                 
+            # Step 5: Add columns to screening table
+            if not check_column_exists('screening', 'org_id'):
+                print("5. Adding columns to screening table...")
                 db.session.execute(text("ALTER TABLE screening ADD COLUMN org_id INTEGER;"))
+                db.session.commit()  # Commit after adding columns
                 print("   ✓ Added columns to screening table")
                 
+            # Step 6: Add columns to document table
+            if not check_column_exists('document', 'org_id'):
+                print("6. Adding columns to document table...")
                 db.session.execute(text("ALTER TABLE document ADD COLUMN org_id INTEGER;"))
+                db.session.commit()  # Commit after adding columns
                 print("   ✓ Added columns to document table")
                 
+            # Step 7: Add columns to screening_type table
+            if not check_column_exists('screening_type', 'org_id'):
+                print("7. Adding columns to screening_type table...")
                 db.session.execute(text("ALTER TABLE screening_type ADD COLUMN org_id INTEGER;"))
+                db.session.commit()  # Commit after adding columns
                 print("   ✓ Added columns to screening_type table")
                 
+            # Step 8: Add columns to screening_preset table
+            if not check_column_exists('screening_preset', 'org_id'):
+                print("8. Adding columns to screening_preset table...")
                 db.session.execute(text("ALTER TABLE screening_preset ADD COLUMN org_id INTEGER;"))
                 db.session.execute(text("ALTER TABLE screening_preset ADD COLUMN preset_scope VARCHAR(20) DEFAULT 'organization';"))
+                db.session.commit()  # Commit after adding columns
                 print("   ✓ Added columns to screening_preset table")
                 
+            # Step 9: Add columns to admin_logs table
+            if not check_column_exists('admin_logs', 'org_id'):
+                print("9. Adding columns to admin_logs table...")
                 db.session.execute(text("ALTER TABLE admin_logs ADD COLUMN org_id INTEGER;"))
                 db.session.execute(text("ALTER TABLE admin_logs ADD COLUMN patient_id INTEGER;"))
                 db.session.execute(text("ALTER TABLE admin_logs ADD COLUMN resource_type VARCHAR(50);"))
@@ -117,55 +143,72 @@ def run_migration():
                 db.session.execute(text("ALTER TABLE admin_logs ADD COLUMN action_details TEXT;"))
                 db.session.execute(text("ALTER TABLE admin_logs ADD COLUMN session_id VARCHAR(100);"))
                 db.session.execute(text("ALTER TABLE admin_logs ADD COLUMN user_agent TEXT;"))
+                db.session.commit()  # Commit after adding columns
                 print("   ✓ Added columns to admin_logs table")
 
-            # Create default organization if it doesn't exist
+            # Step 10: Create default organization if it doesn't exist
             result = db.session.execute(text("SELECT COUNT(*) FROM organizations;")).fetchone()
             if result[0] == 0:
-                print("4. Creating default organization...")
+                print("10. Creating default organization...")
                 db.session.execute(text("""
                     INSERT INTO organizations (name, display_name, contact_email, setup_status, custom_presets_enabled, auto_sync_enabled)
                     VALUES ('Default Organization', 'Default Healthcare Organization', 'admin@healthprep.com', 'live', 1, 0);
                 """))
+                db.session.commit()  # Commit after creating org
                 print("   ✓ Default organization created")
 
-            # Update existing data to use default organization (org_id = 1)
-            print("5. Migrating existing data to default organization...")
+            # Step 11: Update existing data to use default organization (org_id = 1)
+            print("11. Migrating existing data to default organization...")
             
-            db.session.execute(text("UPDATE users SET org_id = 1 WHERE org_id IS NULL;"))
-            print("   ✓ Migrated users to default organization")
-            
-            db.session.execute(text("UPDATE patient SET org_id = 1 WHERE org_id IS NULL;"))
-            print("   ✓ Migrated patients to default organization")
-            
-            db.session.execute(text("UPDATE screening SET org_id = 1 WHERE org_id IS NULL;"))
-            print("   ✓ Migrated screenings to default organization")
-            
-            db.session.execute(text("UPDATE document SET org_id = 1 WHERE org_id IS NULL;"))
-            print("   ✓ Migrated documents to default organization")
-            
-            db.session.execute(text("UPDATE screening_type SET org_id = 1 WHERE org_id IS NULL;"))
-            print("   ✓ Migrated screening types to default organization")
-            
-            db.session.execute(text("UPDATE screening_preset SET org_id = 1 WHERE org_id IS NULL;"))
-            print("   ✓ Migrated screening presets to default organization")
-            
-            db.session.execute(text("UPDATE admin_logs SET org_id = 1 WHERE org_id IS NULL;"))
-            print("   ✓ Migrated admin logs to default organization")
+            # Check if tables exist and have data before updating
+            try:
+                if check_table_exists('users'):
+                    db.session.execute(text("UPDATE users SET org_id = 1 WHERE org_id IS NULL;"))
+                    print("   ✓ Migrated users to default organization")
+                
+                if check_table_exists('patient'):
+                    db.session.execute(text("UPDATE patient SET org_id = 1 WHERE org_id IS NULL;"))
+                    print("   ✓ Migrated patients to default organization")
+                
+                if check_table_exists('screening'):
+                    db.session.execute(text("UPDATE screening SET org_id = 1 WHERE org_id IS NULL;"))
+                    print("   ✓ Migrated screenings to default organization")
+                
+                if check_table_exists('document'):
+                    db.session.execute(text("UPDATE document SET org_id = 1 WHERE org_id IS NULL;"))
+                    print("   ✓ Migrated documents to default organization")
+                
+                if check_table_exists('screening_type'):
+                    db.session.execute(text("UPDATE screening_type SET org_id = 1 WHERE org_id IS NULL;"))
+                    print("   ✓ Migrated screening types to default organization")
+                
+                if check_table_exists('screening_preset'):
+                    db.session.execute(text("UPDATE screening_preset SET org_id = 1 WHERE org_id IS NULL;"))
+                    print("   ✓ Migrated screening presets to default organization")
+                
+                if check_table_exists('admin_logs'):
+                    db.session.execute(text("UPDATE admin_logs SET org_id = 1 WHERE org_id IS NULL;"))
+                    print("   ✓ Migrated admin logs to default organization")
+                    
+                db.session.commit()  # Commit all data updates
+                
+            except Exception as e:
+                print(f"   ⚠️  Data migration warning: {e}")
+                print("   Some tables may not exist yet - this is normal for new installations")
 
-            # Create indexes for better performance
-            print("6. Creating performance indexes...")
+            # Step 12: Create indexes for better performance
+            print("12. Creating performance indexes...")
             try:
                 db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_users_org_id ON users(org_id);"))
                 db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_patient_org_id ON patient(org_id);"))
                 db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_screening_org_id ON screening(org_id);"))
                 db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_document_org_id ON document(org_id);"))
                 db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_screening_type_org_id ON screening_type(org_id);"))
+                db.session.commit()  # Commit indexes
                 print("   ✓ Performance indexes created")
             except Exception as e:
                 print(f"   ⚠️  Index creation warning: {e}")
 
-            db.session.commit()
             print("\n✅ Multi-tenancy migration completed successfully!")
             print("\nNext steps:")
             print("1. All existing data has been assigned to 'Default Organization'")
@@ -180,6 +223,7 @@ def run_migration():
             print("- Check if the database file is locked")
             print("- Ensure no other processes are using the database")
             print("- Consider backing up your database before running migration")
+            print(f"- Error details: {str(e)}")
             raise
 
 if __name__ == "__main__":
