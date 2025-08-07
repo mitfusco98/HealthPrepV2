@@ -29,26 +29,31 @@
 <div class="card">
     <div class="card-header p-0">
         <nav>
-            <div class="nav nav-tabs d-flex" id="nav-tab" role="tablist">
-                <a class="nav-link flex-fill text-center {{ 'active' if active_tab == 'activity' else '' }}" href="{{ url_for('admin.dashboard_logs') }}">
-                    <i class="fas fa-history me-2"></i>
-                    Activity Logs
+            <div class="nav nav-tabs d-flex" id="nav-tab" role="tablist" style="white-space: nowrap;">
+                <a class="nav-link flex-fill text-center small {{ 'active' if active_tab == 'activity' else '' }}" href="{{ url_for('admin.dashboard_logs') }}" style="min-width: 0; padding: 0.5rem 0.25rem;">
+                    <i class="fas fa-history me-1"></i>
+                    <span class="d-none d-md-inline">Activity Logs</span>
+                    <span class="d-md-none">Activity</span>
                 </a>
-                <a class="nav-link flex-fill text-center {{ 'active' if active_tab == 'users' else '' }}" href="{{ url_for('admin.dashboard_users') }}">
-                    <i class="fas fa-users me-2"></i>
-                    User Management
+                <a class="nav-link flex-fill text-center small {{ 'active' if active_tab == 'users' else '' }}" href="{{ url_for('admin.dashboard_users') }}" style="min-width: 0; padding: 0.5rem 0.25rem;">
+                    <i class="fas fa-users me-1"></i>
+                    <span class="d-none d-md-inline">User Management</span>
+                    <span class="d-md-none">Users</span>
                 </a>
-                <a class="nav-link flex-fill text-center {{ 'active' if active_tab == 'presets' else '' }}" href="{{ url_for('admin.dashboard_presets') }}">
-                    <i class="fas fa-cogs me-2"></i>
-                    Preset Management
+                <a class="nav-link flex-fill text-center small {{ 'active' if active_tab == 'presets' else '' }}" href="{{ url_for('admin.dashboard_presets') }}" style="min-width: 0; padding: 0.5rem 0.25rem;">
+                    <i class="fas fa-cogs me-1"></i>
+                    <span class="d-none d-md-inline">Preset Management</span>
+                    <span class="d-md-none">Presets</span>
                 </a>
-                <a class="nav-link flex-fill text-center {{ 'active' if active_tab == 'phi' else '' }}" href="{{ url_for('admin.dashboard_phi') }}">
-                    <i class="fas fa-user-shield me-2"></i>
-                    PHI Statistics
+                <a class="nav-link flex-fill text-center small {{ 'active' if active_tab == 'phi' else '' }}" href="{{ url_for('admin.dashboard_phi') }}" style="min-width: 0; padding: 0.5rem 0.25rem;">
+                    <i class="fas fa-user-shield me-1"></i>
+                    <span class="d-none d-md-inline">PHI Statistics</span>
+                    <span class="d-md-none">PHI</span>
                 </a>
-                <a class="nav-link flex-fill text-center {{ 'active' if active_tab == 'analytics' else '' }}" href="{{ url_for('admin.dashboard_analytics') }}">
-                    <i class="fas fa-chart-bar me-2"></i>
-                    Customer Analytics
+                <a class="nav-link flex-fill text-center small {{ 'active' if active_tab == 'analytics' else '' }}" href="{{ url_for('admin.dashboard_analytics') }}" style="min-width: 0; padding: 0.5rem 0.25rem;">
+                    <i class="fas fa-chart-bar me-1"></i>
+                    <span class="d-none d-md-inline">Customer Analytics</span>
+                    <span class="d-md-none">Analytics</span>
                 </a>
             </div>
         </nav>
