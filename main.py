@@ -15,4 +15,11 @@ app = create_app()
 
 if __name__ == '__main__':
     logger.info("Starting HealthPrep Medical Screening System")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Use production-compatible settings for workflow stability
+    app.run(
+        host='0.0.0.0', 
+        port=5000, 
+        debug=False,  # Disable debug mode for workflow compatibility
+        threaded=True,
+        use_reloader=False  # Disable auto-reloader for workflow compatibility
+    )
