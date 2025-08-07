@@ -9,7 +9,7 @@ import logging
 
 from models import Patient, Appointment, PrepSheetSettings
 from prep_sheet.generator import PrepSheetGenerator
-from admin.logs import AdminLogger
+from models import log_admin_event
 from forms import PrepSheetSettingsForm
 from app import db
 
@@ -32,10 +32,11 @@ def generate_for_patient(patient_id):
         
         if result['success']:
             # Log the generation
-            AdminLogger.log(
+            log_admin_event(
+                event_type='generate_prep_sheet',
                 user_id=current_user.id,
-                action='generate_prep_sheet',
-                details=f'Generated prep sheet for patient {patient.mrn}, appointment {appointment_id}'
+                ip=request.remote_addr,
+                data={'patient_mrn': patient.mrn, 'appointment_id': appointment_id, 'description': f'Generated prep sheet for patient {patient.mrn}, appointment {appointment_id}'}
             )
             
             return render_template('prep_sheet/prep_sheet.html', 
@@ -62,10 +63,11 @@ def generate_for_appointment(appointment_id):
         
         if result['success']:
             # Log the generation
-            AdminLogger.log(
+            log_admin_event(
+                event_type='generate_prep_sheet',
                 user_id=current_user.id,
-                action='generate_prep_sheet',
-                details=f'Generated prep sheet for appointment {appointment_id}, patient {appointment.patient.mrn}'
+                ip=request.remote_addr,
+                data={'appointment_id': appointment_id, 'patient_mrn': appointment.patient.mrn, 'description': f'Generated prep sheet for appointment {appointment_id}, patient {appointment.patient.mrn}'}
             )
             
             return render_template('prep_sheet/prep_sheet.html', 
@@ -137,10 +139,11 @@ def batch_generate():
                 logger.error(f"Error generating prep sheet for appointment {apt_id}: {str(e)}")
         
         # Log the batch generation
-        AdminLogger.log(
+        log_admin_event(
+            event_type='batch_generate_prep_sheets',
             user_id=current_user.id,
-            action='batch_generate_prep_sheets',
-            details=f'Batch generated {generated_count} prep sheets, {error_count} errors, {len(appointment_ids)} total requested'
+            ip=request.remote_addr,
+            data={'generated_count': generated_count, 'error_count': error_count, 'total_requested': len(appointment_ids), 'description': f'Batch generated {generated_count} prep sheets, {error_count} errors, {len(appointment_ids)} total requested'}
         )
         
         if generated_count > 0:
@@ -172,10 +175,11 @@ def regenerate(patient_id):
         
         if result['success']:
             # Log the regeneration
-            AdminLogger.log(
+            log_admin_event(
+                event_type='regenerate_prep_sheet',
                 user_id=current_user.id,
-                action='regenerate_prep_sheet',
-                details=f'Regenerated prep sheet for patient {patient.mrn}'
+                ip=request.remote_addr,
+                data={'patient_mrn': patient.mrn, 'description': f'Regenerated prep sheet for patient {patient.mrn}'}
             )
             
             return render_template('prep_sheet/prep_sheet.html', 
@@ -217,10 +221,11 @@ def export_prep_sheet(patient_id):
                 response.headers['Content-Disposition'] = f'attachment; filename="{export_result["filename"]}"'
                 
                 # Log the export
-                AdminLogger.log(
+                log_admin_event(
+                    event_type='export_prep_sheet',
                     user_id=current_user.id,
-                    action='export_prep_sheet',
-                    details=f'Exported prep sheet for patient {patient.mrn} in {format_type} format'
+                    ip=request.remote_addr,
+                    data={'patient_mrn': patient.mrn, 'format_type': format_type, 'description': f'Exported prep sheet for patient {patient.mrn} in {format_type} format'}
                 )
                 
                 return response
@@ -368,10 +373,11 @@ def prep_sheet_settings():
             db.session.commit()
             
             # Log the change
-            AdminLogger.log(
+            log_admin_event(
+                event_type='update_prep_sheet_settings',
                 user_id=current_user.id,
-                action='update_prep_sheet_settings',
-                details=f'Updated prep sheet settings - Labs: {settings.labs_cutoff_months}, Imaging: {settings.imaging_cutoff_months}, Consults: {settings.consults_cutoff_months}, Hospital: {settings.hospital_cutoff_months}'
+                ip=request.remote_addr,
+                data={'labs_cutoff': settings.labs_cutoff_months, 'imaging_cutoff': settings.imaging_cutoff_months, 'consults_cutoff': settings.consults_cutoff_months, 'hospital_cutoff': settings.hospital_cutoff_months, 'description': f'Updated prep sheet settings - Labs: {settings.labs_cutoff_months}, Imaging: {settings.imaging_cutoff_months}, Consults: {settings.consults_cutoff_months}, Hospital: {settings.hospital_cutoff_months}'}
             )
             
             flash('Prep sheet settings updated successfully', 'success')

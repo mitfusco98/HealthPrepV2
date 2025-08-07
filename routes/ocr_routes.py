@@ -7,11 +7,11 @@ from datetime import datetime
 import logging
 import os
 
-from models import Document, Patient
+from models import Document, Patient, log_admin_event
 from ocr.processor import OCRProcessor
 from ocr.monitor import OCRMonitor
 from ocr.phi_filter import PHIFilter
-from admin.logs import AdminLogger
+from app import db
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +59,11 @@ def upload_document():
             flash(f'Document uploaded and processed successfully. OCR confidence: {result["confidence"]:.1f}%', 'success')
 
             # Log the action
-            AdminLogger.log(
+            log_admin_event(
+                event_type='upload_document',
                 user_id=current_user.id,
-                action='upload_document',
-                details=f"Uploaded document {file.filename} for patient {patient.mrn} with OCR confidence {result['confidence']:.1f}%"
+                ip=request.remote_addr,
+                data={'filename': file.filename, 'patient_mrn': patient.mrn, 'confidence': result['confidence'], 'description': f"Uploaded document {file.filename} for patient {patient.mrn} with OCR confidence {result['confidence']:.1f}%"}
             )
 
             return redirect(url_for('main.patient_detail', patient_id=patient_id))
@@ -281,10 +282,11 @@ def batch_process():
         db.session.commit()
 
         # Log the batch processing action
-        AdminLogger.log(
+        log_admin_event(
+            event_type='batch_process_documents',
             user_id=current_user.id,
-            action='batch_process_documents',
-            details=f"Batch processed {processed_count} documents successfully, {error_count} failed out of {len(document_ids)} requested"
+            ip=request.remote_addr,
+            data={'processed_count': processed_count, 'error_count': error_count, 'total_requested': len(document_ids), 'description': f"Batch processed {processed_count} documents successfully, {error_count} failed out of {len(document_ids)} requested"}
         )
 
         if processed_count > 0:

@@ -10,7 +10,7 @@ import logging
 
 from models import ScreeningType, Screening, Patient
 from core.engine import ScreeningEngine
-from admin.logs import AdminLogger
+from models import log_admin_event
 from forms import ScreeningTypeForm
 from app import db
 import json
@@ -141,10 +141,11 @@ def screening_settings():
             db.session.commit()
             
             # Log the action
-            AdminLogger.log(
+            log_admin_event(
+                event_type='update_screening_settings',
                 user_id=current_user.id,
-                action='update_screening_settings',
-                details='Updated screening settings'
+                ip=request.remote_addr,
+                data={'description': 'Updated screening settings'}
             )
             
             flash('Screening settings updated successfully', 'success')
@@ -197,10 +198,11 @@ def add_screening_type():
             db.session.commit()
 
             # Log the action
-            AdminLogger.log(
+            log_admin_event(
+                event_type='add_screening_type',
                 user_id=current_user.id,
-                action='add_screening_type',
-                details=f'Added screening type: {screening_type.name}'
+                ip=request.remote_addr,
+                data={'screening_type_name': screening_type.name, 'description': f'Added screening type: {screening_type.name}'}
             )
 
             flash(f'Screening type "{screening_type.name}" added successfully', 'success')
@@ -251,10 +253,11 @@ def edit_screening_type(type_id):
             db.session.commit()
 
             # Log the action
-            AdminLogger.log(
+            log_admin_event(
+                event_type='edit_screening_type',
                 user_id=current_user.id,
-                action='edit_screening_type',
-                details=f'Edited screening type: {screening_type.name}'
+                ip=request.remote_addr,
+                data={'screening_type_name': screening_type.name, 'description': f'Edited screening type: {screening_type.name}'}
             )
 
             flash(f'Screening type "{screening_type.name}" updated successfully', 'success')
@@ -309,10 +312,11 @@ def toggle_screening_type_status(type_id):
         screening_type.sync_status_to_variants()
 
         # Log the action
-        AdminLogger.log(
+        log_admin_event(
+            event_type='toggle_screening_type_status',
             user_id=current_user.id,
-            action='toggle_screening_type_status',
-            details=f'Toggled screening type status: {screening_type.name} -> {screening_type.is_active} (synced to variants)'
+            ip=request.remote_addr,
+            data={'screening_type_name': screening_type.name, 'new_status': screening_type.is_active, 'synced_to_variants': True, 'description': f'Toggled screening type status: {screening_type.name} -> {screening_type.is_active} (synced to variants)'}
         )
 
         status = 'activated' if screening_type.is_active else 'deactivated'
@@ -345,10 +349,11 @@ def delete_screening_type(type_id):
         db.session.commit()
 
         # Log the action
-        AdminLogger.log(
+        log_admin_event(
+            event_type='delete_screening_type',
             user_id=current_user.id,
-            action='delete_screening_type',
-            details=f'Deleted screening type: {screening_name}'
+            ip=request.remote_addr,
+            data={'screening_type_name': screening_name, 'description': f'Deleted screening type: {screening_name}'}
         )
 
         flash(f'Screening type "{screening_name}" deleted successfully', 'success')
@@ -378,10 +383,11 @@ def refresh_screenings():
             flash(f'Refreshed screenings for patient. Processed: {result["processed_screenings"]}', 'success')
 
             # Log the action
-            AdminLogger.log(
+            log_admin_event(
+                event_type='refresh_patient_screenings',
                 user_id=current_user.id,
-                action='refresh_patient_screenings',
-                details=f'Refreshed screenings for patient {patient_id} - processed: {result.get("processed_screenings", 0)}'
+                ip=request.remote_addr,
+                data={'patient_id': patient_id, 'processed_screenings': result.get('processed_screenings', 0), 'description': f'Refreshed screenings for patient {patient_id} - processed: {result.get("processed_screenings", 0)}'}
             )
 
         else:
@@ -390,10 +396,11 @@ def refresh_screenings():
             flash(f'Refreshed all screenings. Processed {result["total_screenings"]} screenings for {result["processed_patients"]} patients', 'success')
 
             # Log the action
-            AdminLogger.log(
+            log_admin_event(
+                event_type='refresh_all_screenings',
                 user_id=current_user.id,
-                action='refresh_all_screenings',
-                details=f'Refreshed all screenings - processed {result.get("total_screenings", 0)} screenings for {result.get("processed_patients", 0)} patients'
+                ip=request.remote_addr,
+                data={'total_screenings': result.get('total_screenings', 0), 'processed_patients': result.get('processed_patients', 0), 'description': f'Refreshed all screenings - processed {result.get("total_screenings", 0)} screenings for {result.get("processed_patients", 0)} patients'}
             )
 
         return redirect(url_for('screening.screening_list'))
@@ -573,10 +580,11 @@ def manage_screening_keywords(screening_type_id):
             db.session.commit()
             
             # Log the action
-            AdminLogger.log(
+            log_admin_event(
+                event_type='update_screening_type_keywords',
                 user_id=current_user.id,
-                action='update_screening_type_keywords',
-                details=f'Updated keywords for screening type: {screening_type.name}'
+                ip=request.remote_addr,
+                data={'screening_type_name': screening_type.name, 'keywords_count': len(clean_keywords), 'description': f'Updated keywords for screening type: {screening_type.name}'}
             )
             
             return jsonify({
@@ -660,10 +668,11 @@ def import_medical_keywords(screening_type_id):
         db.session.commit()
         
         # Log the action
-        AdminLogger.log(
+        log_admin_event(
+            event_type='import_medical_keywords',
             user_id=current_user.id,
-            action='import_medical_keywords',
-            details=f'Imported {len(new_keywords)} new medical keywords for screening type: {screening_type.name}'
+            ip=request.remote_addr,
+            data={'screening_type_name': screening_type.name, 'imported_count': len(new_keywords), 'description': f'Imported {len(new_keywords)} new medical keywords for screening type: {screening_type.name}'}
         )
         
         return jsonify({

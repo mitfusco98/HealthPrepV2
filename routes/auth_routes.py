@@ -6,6 +6,7 @@ import logging
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
+from models import log_admin_event
 
 logger = logging.getLogger(__name__)
 auth_bp = Blueprint('auth', __name__)
@@ -129,20 +130,14 @@ def change_password():
 
             # Log password change
             try:
-                from admin.logs import AdminLogger
-                admin_logger = AdminLogger()
-                if hasattr(admin_logger, 'log_action'):
-                    admin_logger.log_action(
-                        user_id=current_user.id,
-                        action='password_changed',
-                        resource_type='user',
-                        resource_id=current_user.id,
-                        details={'username': current_user.username},
-                        ip_address=request.remote_addr,
-                        user_agent=request.user_agent.string
-                    )
-            except ImportError:
-                # Admin logging not available
+                log_admin_event(
+                    event_type='password_changed',
+                    user_id=current_user.id,
+                    ip=request.remote_addr,
+                    data={'username': current_user.username, 'user_agent': request.user_agent.string, 'description': f'Password changed for user {current_user.username}'}
+                )
+            except Exception as e:
+                logger.error(f'Failed to log password change: {str(e)}')
                 pass
 
             flash('Password changed successfully!', 'success')

@@ -126,11 +126,22 @@ def export_logs():
         format_type = request.args.get('format', 'json')
         days = request.args.get('days', 30, type=int)
 
-        # Use AdminLogger's export method
+        # Export logs directly from AdminLog model
         from datetime import timedelta
         start_date = datetime.utcnow() - timedelta(days=days)
-        export_data = AdminLogger.export_logs(start_date=start_date)
-
+        
+        logs = AdminLog.query.filter(AdminLog.timestamp >= start_date).order_by(AdminLog.timestamp.desc()).all()
+        export_data = []
+        for log in logs:
+            export_data.append({
+                'timestamp': log.timestamp.isoformat(),
+                'event_type': log.event_type,
+                'user_id': log.user_id,
+                'username': log.user.username if log.user else 'System',
+                'ip_address': log.ip_address,
+                'data': log.data
+            })
+        
         result = {'success': True, 'data': export_data}
 
         if result['success']:
