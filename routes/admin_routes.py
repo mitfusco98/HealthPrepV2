@@ -26,11 +26,6 @@ logger = logging.getLogger(__name__)
 
 admin_bp = Blueprint('admin', __name__)
 
-@admin_bp.route('/health')
-def admin_health():
-    """Health check endpoint for admin module"""
-    return {'status': 'ok', 'message': 'Admin module is running'}, 200
-
 def admin_required(f):
     """Decorator to require admin role"""
     @functools.wraps(f)
@@ -42,17 +37,10 @@ def admin_required(f):
     return decorated_function
 
 @admin_bp.route('/dashboard')
+@login_required
+@admin_required
 def dashboard():
     """Main admin dashboard - comprehensive system overview"""
-    # Health check mode for workflow monitoring
-    if request.method == 'GET' and 'curl' in request.headers.get('User-Agent', '').lower():
-        return {'status': 'ok', 'message': 'Admin dashboard is running'}, 200
-    
-    # Normal authentication flow
-    if not current_user.is_authenticated or not current_user.can_access_admin_dashboard():
-        flash('Admin access required', 'error')
-        return redirect(url_for('auth.login'))
-    
     try:
         # Initialize analytics modules
         value_analytics = ValueAnalytics()
@@ -216,7 +204,16 @@ def add_user():
             AdminLogger.log(
                 user_id=current_user.id,
                 action='create_user',
-                details=f"Created user: {username} with role: {role}, admin: {is_admin}"
+                details=f"Created user: {username}",
+                previous_value=None,
+                new_value=json.dumps({
+                    'username': username,
+                    'email': email,
+                    'role': role,
+                    'is_admin': is_admin
+                }),
+                resource_type='user',
+                resource_id=str(new_user.id)
             )
 
             flash(f'User {username} created successfully as {role}', 'success')
@@ -258,7 +255,11 @@ def edit_user_role(user_id):
         AdminLogger.log(
             user_id=current_user.id,
             action='update_user_role',
-            details=f"Changed user {user.username} role from {old_role} to {new_role}"
+            details=f"Changed user {user.username} role from {old_role} to {new_role}",
+            previous_value=old_role,
+            new_value=new_role,
+            resource_type='user',
+            resource_id=str(user_id)
         )
 
         flash(f'User {user.username} role updated to {new_role}', 'success')
@@ -310,7 +311,9 @@ def create_preset():
                 AdminLogger.log(
                     user_id=current_user.id,
                     action='create_preset',
-                    details=f"Created preset: {name} for specialty: {specialty}"
+                    details=f"Created preset: {name}",
+                    resource_type='preset',
+                    resource_id=str(result['preset_id'])
                 )
                 flash(f'Preset "{name}" created successfully', 'success')
                 return redirect(url_for('admin.preset_management'))
@@ -373,11 +376,10 @@ def import_preset():
 
         # Read and parse file
         content = file.read().decode('utf-8')
-        filename = file.filename or ''
         
-        if filename.endswith('.json'):
+        if file.filename.endswith('.json'):
             data = json.loads(content)
-        elif filename.endswith('.yaml') or filename.endswith('.yml'):
+        elif file.filename.endswith('.yaml') or file.filename.endswith('.yml'):
             data = yaml.safe_load(content)
         else:
             flash('Only JSON and YAML files are supported', 'error')
@@ -391,7 +393,9 @@ def import_preset():
             AdminLogger.log(
                 user_id=current_user.id,
                 action='import_preset',
-                details=f"Imported preset from file: {file.filename}"
+                details=f"Imported preset from file: {file.filename}",
+                resource_type='preset',
+                resource_id=str(result['preset_id'])
             )
             flash('Preset imported successfully', 'success')
         else:
@@ -416,7 +420,7 @@ def phi_monitoring():
         phi_stats = phi_filter.get_processing_statistics(30)
         
         # Get current settings
-        phi_settings = phi_filter._get_filter_settings()
+        phi_settings = phi_filter.get_settings()
         
         return render_template('admin/phi_monitoring.html',
                              phi_stats=phi_stats,

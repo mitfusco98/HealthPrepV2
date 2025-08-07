@@ -23,7 +23,7 @@ def login():
         from models import User
         user = User.query.filter_by(username=form.username.data).first()
 
-        if user and user.check_password(form.password.data):
+        if user and form.password.data and check_password_hash(user.password_hash, form.password.data):
             login_user(user)
 
             # Update last login
