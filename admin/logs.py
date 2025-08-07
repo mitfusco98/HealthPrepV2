@@ -23,14 +23,13 @@ class AdminLogger:
                 user_agent = request.headers.get('User-Agent', '')
 
             # Create log entry
-            log_entry = AdminLog(
-                user_id=user_id,
-                action=action,
-                details=details,
-                ip_address=ip_address,
-                user_agent=user_agent,
-                timestamp=datetime.utcnow()
-            )
+            log_entry = AdminLog()
+            log_entry.user_id = user_id
+            log_entry.action = action
+            log_entry.details = details
+            log_entry.ip_address = ip_address
+            log_entry.user_agent = user_agent
+            log_entry.timestamp = datetime.utcnow()
 
             db.session.add(log_entry)
             db.session.commit()

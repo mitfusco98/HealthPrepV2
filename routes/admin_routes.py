@@ -1,18 +1,23 @@
-# Applying the changes to correct the import errors and references to non-existent classes.
+# Comprehensive admin dashboard routes and functionality
 """
-Admin dashboard routes and functionality
+Admin dashboard routes and functionality - completely separate from EMR/screening dashboards
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 import logging
 import functools
+import json
+import yaml
+import io
 
-from models import User, AdminLog, PHIFilterSettings, PrepSheetSettings
+from models import User, AdminLog, PHIFilterSettings, PrepSheetSettings, ScreeningPreset, ScreeningType
 from app import db
 from admin.logs import AdminLogger
 from admin.analytics import HealthPrepAnalytics
 from admin.config import AdminConfig
+from admin.presets import PresetManager
+from admin.value_analytics import ValueAnalytics
 from ocr.monitor import OCRMonitor
 from ocr.phi_filter import PHIFilter
 from forms import PrepSheetSettingsForm
@@ -25,7 +30,7 @@ def admin_required(f):
     """Decorator to require admin role"""
     @functools.wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or not current_user.is_admin_user():
+        if not current_user.is_authenticated or not current_user.can_access_admin_dashboard():
             flash('Admin access required', 'error')
             return redirect(url_for('main.index'))
         return f(*args, **kwargs)
@@ -35,22 +40,37 @@ def admin_required(f):
 @login_required
 @admin_required
 def dashboard():
-    """Main admin dashboard"""
+    """Main admin dashboard - comprehensive system overview"""
     try:
-        analytics = HealthPrepAnalytics()
+        # Initialize analytics modules
+        value_analytics = ValueAnalytics()
+        ocr_monitor = OCRMonitor()
+        phi_filter = PHIFilter()
+        preset_manager = PresetManager()
 
-        # Get dashboard statistics
-        dashboard_stats = analytics.get_roi_metrics()
+        # Get comprehensive dashboard data
+        value_metrics = value_analytics.calculate_comprehensive_value(30)
+        ocr_dashboard = ocr_monitor.get_processing_dashboard()
+        phi_stats = phi_filter.get_processing_statistics(30)
+        preset_stats = preset_manager.get_preset_statistics()
 
-        # Get recent activity
+        # Get recent admin activity
         recent_logs = AdminLogger.get_recent_activity(hours=24, limit=10)
 
-        # Get system health indicators
-        system_health = analytics.get_usage_statistics()
+        # User management stats
+        config_manager = AdminConfig()
+        user_summary = config_manager.get_user_summary()
 
-        return render_template('admin/dashboard.html',
-                             stats=dashboard_stats,
+        # System health
+        system_health = config_manager.validate_system_health()
+
+        return render_template('admin/comprehensive_dashboard.html',
+                             value_metrics=value_metrics,
+                             ocr_dashboard=ocr_dashboard,
+                             phi_stats=phi_stats,
+                             preset_stats=preset_stats,
                              recent_logs=recent_logs,
+                             user_summary=user_summary,
                              system_health=system_health)
 
     except Exception as e:
@@ -58,11 +78,11 @@ def dashboard():
         flash('Error loading admin dashboard', 'error')
         return render_template('error/500.html'), 500
 
-@admin_bp.route('/logs')
+@admin_bp.route('/activity-monitoring')
 @login_required
 @admin_required
-def logs():
-    """Admin logs viewer"""
+def activity_monitoring():
+    """Activity monitoring with enhanced filters"""
     try:
         # Get filter parameters
         page = request.args.get('page', 1, type=int)
@@ -72,45 +92,34 @@ def logs():
         end_date = request.args.get('end_date', '')
 
         # Build filters
-        filters = {}
-        if event_type:
-            filters['action'] = event_type
-        if user_id:
-            filters['user_id'] = user_id
-        if start_date:
-            filters['start_date'] = datetime.strptime(start_date, '%Y-%m-%d')
-        if end_date:
-            filters['end_date'] = datetime.strptime(end_date, '%Y-%m-%d')
-
-        # Get filtered logs - using basic query since AdminLogger doesn't have get_filtered_logs
         query = AdminLog.query
-        if filters.get('action'):
-            query = query.filter(AdminLog.action == filters['action'])
-        if filters.get('user_id'):
-            query = query.filter(AdminLog.user_id == filters['user_id'])
-        if filters.get('start_date'):
-            query = query.filter(AdminLog.timestamp >= filters['start_date'])
-        if filters.get('end_date'):
-            query = query.filter(AdminLog.timestamp <= filters['end_date'])
+        if event_type:
+            query = query.filter(AdminLog.action == event_type)
+        if user_id:
+            query = query.filter(AdminLog.user_id == user_id)
+        if start_date:
+            query = query.filter(AdminLog.timestamp >= datetime.strptime(start_date, '%Y-%m-%d'))
+        if end_date:
+            query = query.filter(AdminLog.timestamp <= datetime.strptime(end_date, '%Y-%m-%d'))
 
         logs_pagination = query.order_by(AdminLog.timestamp.desc()).paginate(
             page=page, per_page=50, error_out=False
         )
-        logs_result = {
-            'logs': logs_pagination.items,
-            'pagination': logs_pagination
-        }
 
         # Get filter options
         users = User.query.all()
         event_types = db.session.query(AdminLog.action).distinct().all()
         event_types = [event.action for event in event_types]
 
-        return render_template('admin/logs.html',
-                             logs=logs_result['logs'],
-                             pagination=logs_result['pagination'],
+        # Get activity summary
+        activity_summary = AdminLogger.get_activity_summary(7)
+
+        return render_template('admin/activity_monitoring.html',
+                             logs=logs_pagination.items,
+                             pagination=logs_pagination,
                              users=users,
                              event_types=event_types,
+                             activity_summary=activity_summary,
                              filters={
                                  'event_type': event_type,
                                  'user_id': user_id,
@@ -119,239 +128,51 @@ def logs():
                              })
 
     except Exception as e:
-        logger.error(f"Error in admin logs: {str(e)}")
-        flash('Error loading admin logs', 'error')
+        logger.error(f"Error in activity monitoring: {str(e)}")
+        flash('Error loading activity monitoring', 'error')
         return render_template('error/500.html'), 500
 
-@admin_bp.route('/logs/export')
+@admin_bp.route('/user-management')
 @login_required
 @admin_required
-def export_logs():
-    """Export admin logs"""
-    try:
-        # Get export parameters
-        format_type = request.args.get('format', 'json')
-        days = request.args.get('days', 30, type=int)
-
-        # Use AdminLogger's export method
-        from datetime import timedelta
-        start_date = datetime.utcnow() - timedelta(days=days)
-        export_data = AdminLogger.export_logs(start_date=start_date)
-
-        result = {'success': True, 'data': export_data}
-
-        if result['success']:
-            return jsonify(result)
-        else:
-            flash(f'Error exporting logs: {result["error"]}', 'error')
-            return redirect(url_for('admin.logs'))
-
-    except Exception as e:
-        logger.error(f"Error exporting logs: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@admin_bp.route('/ocr')
-@login_required
-@admin_required
-def ocr_dashboard():
-    """OCR processing dashboard"""
-    try:
-        monitor = OCRMonitor()
-
-        # Get OCR dashboard data
-        dashboard_data = monitor.get_processing_dashboard()
-
-        # Get low confidence documents
-        low_confidence_docs = monitor.get_low_confidence_documents()
-
-        # Get basic OCR statistics
-        total_docs = db.session.execute(db.text("SELECT COUNT(*) FROM medical_documents")).scalar() or 0
-        processed_docs = db.session.execute(db.text("SELECT COUNT(*) FROM medical_documents WHERE ocr_processed = true")).scalar() or 0
-        ocr_stats = {
-            'processed_documents': processed_docs,
-            'pending_documents': total_docs - processed_docs,
-            'average_confidence': 0.8  # placeholder
-        }
-
-        return render_template('admin/ocr_dashboard.html',
-                             dashboard=dashboard_data,
-                             low_confidence_docs=low_confidence_docs,
-                             ocr_stats=ocr_stats)
-
-    except Exception as e:
-        logger.error(f"Error in OCR dashboard: {str(e)}")
-        flash('Error loading OCR dashboard', 'error')
-        return render_template('error/500.html'), 500
-
-@admin_bp.route('/phi-settings', methods=['GET', 'POST'])
-@login_required
-@admin_required
-def phi_settings():
-    """PHI filter settings management"""
-    try:
-        phi_filter = PHIFilter()
-
-        if request.method == 'POST':
-            # Update PHI settings
-            new_settings = {
-                'enabled': request.form.get('enabled') == 'on',
-                'filter_ssn': request.form.get('filter_ssn') == 'on',
-                'filter_phone': request.form.get('filter_phone') == 'on',
-                'filter_mrn': request.form.get('filter_mrn') == 'on',
-                'filter_insurance': request.form.get('filter_insurance') == 'on',
-                'filter_addresses': request.form.get('filter_addresses') == 'on',
-                'filter_names': request.form.get('filter_names') == 'on',
-                'filter_dates': request.form.get('filter_dates') == 'on'
-            }
-
-            result = phi_filter.update_settings(new_settings)
-
-            if result['success']:
-                flash('PHI filter settings updated successfully', 'success')
-
-                # Log the change
-                AdminLogger.log(
-                    user_id=current_user.id,
-                    action='update_phi_settings',
-                    details=str(new_settings)
-                )
-            else:
-                flash(f'Error updating settings: {result["error"]}', 'error')
-
-            return redirect(url_for('admin.phi_settings'))
-
-        # GET request - show current settings
-        current_settings = PHIFilterSettings.query.first() or PHIFilterSettings()
-        processing_stats = phi_filter.get_processing_statistics()
-
-        return render_template('admin/phi_settings.html',
-                             settings=current_settings,
-                             stats=processing_stats)
-
-    except Exception as e:
-        logger.error(f"Error in PHI settings: {str(e)}")
-        flash('Error loading PHI settings', 'error')
-        return render_template('error/500.html'), 500
-
-@admin_bp.route('/phi-test', methods=['POST'])
-@login_required
-@admin_required
-def phi_test():
-    """Test PHI filter with sample text"""
-    try:
-        phi_filter = PHIFilter()
-
-        test_text = request.form.get('test_text', '')
-        if not test_text:
-            return jsonify({'success': False, 'error': 'No test text provided'})
-
-        result = phi_filter.test_filter(test_text)
-
-        return jsonify({
-            'success': True,
-            'result': result
-        })
-
-    except Exception as e:
-        logger.error(f"Error testing PHI filter: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)})
-
-@admin_bp.route('/users')
-@login_required
-@admin_required
-def users():
-    """User management"""
+def user_management():
+    """User management with roles: admin, nurse, MA"""
     try:
         users = User.query.order_by(User.username).all()
-
-        return render_template('admin/users.html', users=users)
-
-    except Exception as e:
-        logger.error(f"Error loading users: {str(e)}")
-        flash('Error loading users', 'error')
-        return render_template('error/500.html'), 500
-
-@admin_bp.route('/user/<int:user_id>/toggle-status', methods=['POST'])
-@login_required
-@admin_required
-def toggle_user_status(user_id):
-    """Toggle user active status"""
-    try:
-        user = User.query.get_or_404(user_id)
-
-        # Don't allow disabling own account
-        if user.id == current_user.id:
-            flash('Cannot disable your own account', 'error')
-            return redirect(url_for('admin.users'))
-
-        # Add is_active field if it doesn't exist
-        if not hasattr(user, 'is_active'):
-            user.is_active = True
         
-        user.is_active = not getattr(user, 'is_active', True)
-        db.session.commit()
+        # Get user statistics
+        total_users = User.query.count()
+        admin_users = User.query.filter_by(is_admin=True).count()
+        active_users = User.query.filter_by(is_active=True).count()
+        
+        role_counts = {}
+        for role in ['admin', 'nurse', 'ma']:
+            role_counts[role] = User.query.filter_by(role=role).count()
 
-        # Log the action
-        AdminLogger.log(
-            user_id=current_user.id,
-            action='toggle_user_status',
-            details=f"User {user_id} status changed to {user.is_active}"
-        )
-
-        status = 'activated' if user.is_active else 'deactivated'
-        flash(f'User {user.username} {status} successfully', 'success')
-
-        return redirect(url_for('admin.users'))
-
-    except Exception as e:
-        logger.error(f"Error toggling user status: {str(e)}")
-        flash('Error updating user status', 'error')
-        return redirect(url_for('admin.users'))
-
-@admin_bp.route('/user/<int:user_id>/toggle-admin', methods=['POST'])
-@login_required
-@admin_required
-def toggle_admin_status(user_id):
-    """Toggle user admin privileges"""
-    try:
-        user = User.query.get_or_404(user_id)
-
-        # Don't allow removing own admin privileges
-        if user.id == current_user.id:
-            flash('Cannot modify your own admin privileges', 'error')
-            return redirect(url_for('admin.users'))
-
-        user.is_admin = not user.is_admin
-        db.session.commit()
-
-        # Log the action
-        AdminLogger.log(
-            user_id=current_user.id,
-            action='toggle_admin_status',
-            details=f"User {user_id} admin status changed to {user.is_admin}"
-        )
-
-        status = 'granted' if user.is_admin else 'revoked'
-        flash(f'Admin privileges {status} for {user.username}', 'success')
-
-        return redirect(url_for('admin.users'))
+        return render_template('admin/user_management.html', 
+                             users=users,
+                             total_users=total_users,
+                             admin_users=admin_users,
+                             active_users=active_users,
+                             role_counts=role_counts)
 
     except Exception as e:
-        logger.error(f"Error toggling admin status: {str(e)}")
-        flash('Error updating admin status', 'error')
-        return redirect(url_for('admin.users'))
+        logger.error(f"Error loading user management: {str(e)}")
+        flash('Error loading user management', 'error')
+        return render_template('error/500.html'), 500
 
 @admin_bp.route('/user/add', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def add_user():
-    """Add new user"""
+    """Add new user with role assignment"""
     try:
         if request.method == 'POST':
             username = request.form.get('username')
             email = request.form.get('email')
             password = request.form.get('password')
-            is_admin = request.form.get('is_admin') == 'on'
+            role = request.form.get('role', 'nurse')
+            is_admin = role == 'admin'
 
             # Validate input
             if not username or not email or not password:
@@ -368,25 +189,35 @@ def add_user():
                 return render_template('admin/add_user.html')
 
             # Create new user
-            new_user = User(
-                username=username,
-                email=email,
-                is_admin=is_admin
-            )
+            new_user = User()
+            new_user.username = username
+            new_user.email = email
+            new_user.role = role
+            new_user.is_admin = is_admin
+            new_user.created_by = current_user.id
             new_user.set_password(password)
             
             db.session.add(new_user)
             db.session.commit()
 
-            # Log the action
+            # Log the action with enhanced tracking
             AdminLogger.log(
                 user_id=current_user.id,
                 action='create_user',
-                details=f"Created user: {username} (Admin: {is_admin})"
+                details=f"Created user: {username}",
+                previous_value=None,
+                new_value=json.dumps({
+                    'username': username,
+                    'email': email,
+                    'role': role,
+                    'is_admin': is_admin
+                }),
+                resource_type='user',
+                resource_id=str(new_user.id)
             )
 
-            flash(f'User {username} created successfully', 'success')
-            return redirect(url_for('admin.users'))
+            flash(f'User {username} created successfully as {role}', 'success')
+            return redirect(url_for('admin.user_management'))
 
         return render_template('admin/add_user.html')
 
@@ -395,149 +226,331 @@ def add_user():
         flash('Error creating user', 'error')
         return render_template('admin/add_user.html')
 
-@admin_bp.route('/settings/prep-sheet', methods=['GET', 'POST'])
+@admin_bp.route('/user/<int:user_id>/edit-role', methods=['POST'])
 @login_required
 @admin_required
-def prep_sheet_settings():
-    """Configure prep sheet generation settings"""
+def edit_user_role(user_id):
+    """Edit user role"""
     try:
-        if request.method == 'POST':
-            settings = PrepSheetSettings.query.first()
-            if not settings:
-                settings = PrepSheetSettings()
-                db.session.add(settings)
-            
-            form = PrepSheetSettingsForm(request.form)
-            if form.validate():
-                form.populate_obj(settings)
-                settings.updated_at = datetime.utcnow()
-                db.session.commit()
-                
-                # Log the change
-                AdminLogger.log(
-                    user_id=current_user.id,
-                    action='update_prep_sheet_settings',
-                    details=f'Updated prep sheet settings - Labs: {settings.labs_cutoff_months}, Imaging: {settings.imaging_cutoff_months}, Consults: {settings.consults_cutoff_months}, Hospital: {settings.hospital_cutoff_months}'
-                )
-                
-                flash('Prep sheet settings updated successfully', 'success')
-                return redirect(url_for('admin.prep_sheet_settings'))
-            else:
-                flash('Please correct the errors below', 'error')
+        user = User.query.get_or_404(user_id)
+        new_role = request.form.get('role')
         
-        # GET request - show current settings
-        settings = PrepSheetSettings.query.first()
-        if not settings:
-            settings = PrepSheetSettings()
+        if new_role not in ['admin', 'nurse', 'ma']:
+            flash('Invalid role specified', 'error')
+            return redirect(url_for('admin.user_management'))
         
-        form = PrepSheetSettingsForm(obj=settings)
+        # Don't allow changing own role
+        if user.id == current_user.id:
+            flash('Cannot modify your own role', 'error')
+            return redirect(url_for('admin.user_management'))
+
+        old_role = user.role
+        user.role = new_role
+        user.is_admin = (new_role == 'admin')
+        user.updated_at = datetime.utcnow()
         
-        return render_template('admin/prep_sheet_settings.html', 
-                             form=form, 
-                             settings=settings)
-        
+        db.session.commit()
+
+        # Enhanced logging with previous/new values
+        AdminLogger.log(
+            user_id=current_user.id,
+            action='update_user_role',
+            details=f"Changed user {user.username} role from {old_role} to {new_role}",
+            previous_value=old_role,
+            new_value=new_role,
+            resource_type='user',
+            resource_id=str(user_id)
+        )
+
+        flash(f'User {user.username} role updated to {new_role}', 'success')
+        return redirect(url_for('admin.user_management'))
+
     except Exception as e:
-        logger.error(f"Error in prep sheet settings: {str(e)}")
-        flash('Error loading prep sheet settings', 'error')
+        logger.error(f"Error editing user role: {str(e)}")
+        flash('Error updating user role', 'error')
+        return redirect(url_for('admin.user_management'))
+
+@admin_bp.route('/preset-management')
+@login_required
+@admin_required
+def preset_management():
+    """Screening type preset management"""
+    try:
+        preset_manager = PresetManager()
+        presets = preset_manager.get_all_presets()
+        preset_stats = preset_manager.get_preset_statistics()
+
+        return render_template('admin/preset_management.html',
+                             presets=presets,
+                             preset_stats=preset_stats)
+
+    except Exception as e:
+        logger.error(f"Error loading preset management: {str(e)}")
+        flash('Error loading preset management', 'error')
         return render_template('error/500.html'), 500
 
-@admin_bp.route('/settings', methods=['GET', 'POST'])
+@admin_bp.route('/preset/create', methods=['GET', 'POST'])
 @login_required
 @admin_required
-def settings():
-    """System settings management"""
+def create_preset():
+    """Create new screening preset"""
+    try:
+        if request.method == 'POST':
+            preset_manager = PresetManager()
+            
+            name = request.form.get('name')
+            description = request.form.get('description', '')
+            specialty = request.form.get('specialty', 'general')
+            
+            # Generate preset from current screening types
+            result = preset_manager.generate_preset_from_current(
+                name, description, specialty, current_user.id
+            )
+            
+            if result['success']:
+                AdminLogger.log(
+                    user_id=current_user.id,
+                    action='create_preset',
+                    details=f"Created preset: {name}",
+                    resource_type='preset',
+                    resource_id=str(result['preset_id'])
+                )
+                flash(f'Preset "{name}" created successfully', 'success')
+                return redirect(url_for('admin.preset_management'))
+            else:
+                flash(f'Error creating preset: {result["error"]}', 'error')
+
+        return render_template('admin/create_preset.html')
+
+    except Exception as e:
+        logger.error(f"Error creating preset: {str(e)}")
+        flash('Error creating preset', 'error')
+        return render_template('admin/create_preset.html')
+
+@admin_bp.route('/preset/<int:preset_id>/export')
+@login_required
+@admin_required
+def export_preset(preset_id):
+    """Export preset as JSON"""
+    try:
+        preset_manager = PresetManager()
+        result = preset_manager.export_preset_json(preset_id)
+        
+        if result['success']:
+            # Create downloadable file
+            preset_data = json.dumps(result['data'], indent=2)
+            
+            output = io.StringIO()
+            output.write(preset_data)
+            output.seek(0)
+            
+            return send_file(
+                io.BytesIO(output.getvalue().encode()),
+                mimetype='application/json',
+                as_attachment=True,
+                download_name=f"preset_{result['data']['name'].replace(' ', '_')}.json"
+            )
+        else:
+            flash(f'Error exporting preset: {result["error"]}', 'error')
+            return redirect(url_for('admin.preset_management'))
+
+    except Exception as e:
+        logger.error(f"Error exporting preset: {str(e)}")
+        flash('Error exporting preset', 'error')
+        return redirect(url_for('admin.preset_management'))
+
+@admin_bp.route('/preset/import', methods=['POST'])
+@login_required
+@admin_required
+def import_preset():
+    """Import preset from JSON/YAML file"""
+    try:
+        if 'file' not in request.files:
+            flash('No file selected', 'error')
+            return redirect(url_for('admin.preset_management'))
+        
+        file = request.files['file']
+        if file.filename == '':
+            flash('No file selected', 'error')
+            return redirect(url_for('admin.preset_management'))
+
+        # Read and parse file
+        content = file.read().decode('utf-8')
+        
+        if file.filename.endswith('.json'):
+            data = json.loads(content)
+        elif file.filename.endswith('.yaml') or file.filename.endswith('.yml'):
+            data = yaml.safe_load(content)
+        else:
+            flash('Only JSON and YAML files are supported', 'error')
+            return redirect(url_for('admin.preset_management'))
+
+        # Import preset
+        preset_manager = PresetManager()
+        result = preset_manager.import_preset_from_data(data, current_user.id)
+        
+        if result['success']:
+            AdminLogger.log(
+                user_id=current_user.id,
+                action='import_preset',
+                details=f"Imported preset from file: {file.filename}",
+                resource_type='preset',
+                resource_id=str(result['preset_id'])
+            )
+            flash('Preset imported successfully', 'success')
+        else:
+            flash(f'Error importing preset: {result["error"]}', 'error')
+
+        return redirect(url_for('admin.preset_management'))
+
+    except Exception as e:
+        logger.error(f"Error importing preset: {str(e)}")
+        flash('Error importing preset', 'error')
+        return redirect(url_for('admin.preset_management'))
+
+@admin_bp.route('/phi-monitoring')
+@login_required
+@admin_required
+def phi_monitoring():
+    """PHI statistics and monitoring dashboard"""
+    try:
+        phi_filter = PHIFilter()
+        
+        # Get PHI statistics
+        phi_stats = phi_filter.get_processing_statistics(30)
+        
+        # Get current settings
+        phi_settings = phi_filter.get_settings()
+        
+        return render_template('admin/phi_monitoring.html',
+                             phi_stats=phi_stats,
+                             phi_settings=phi_settings)
+
+    except Exception as e:
+        logger.error(f"Error loading PHI monitoring: {str(e)}")
+        flash('Error loading PHI monitoring', 'error')
+        return render_template('error/500.html'), 500
+
+@admin_bp.route('/phi-test', methods=['POST'])
+@login_required
+@admin_required
+def phi_test():
+    """Test PHI filter with sample text"""
+    try:
+        phi_filter = PHIFilter()
+        test_text = request.form.get('test_text', '')
+        
+        if not test_text:
+            return jsonify({'success': False, 'error': 'No test text provided'})
+
+        result = phi_filter.test_filter(test_text)
+        return jsonify({'success': True, 'result': result})
+
+    except Exception as e:
+        logger.error(f"Error testing PHI filter: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin_bp.route('/value-analytics')
+@login_required
+@admin_required
+def value_analytics():
+    """Customer value analytics dashboard"""
+    try:
+        value_analytics = ValueAnalytics()
+        
+        # Get comprehensive value data
+        value_data = value_analytics.calculate_comprehensive_value(30)
+        
+        # Get ROI report
+        roi_report = value_analytics.generate_roi_report(30)
+        
+        # Get trend analysis
+        trends = value_analytics.get_trend_analysis(4)
+        
+        return render_template('admin/value_analytics.html',
+                             value_data=value_data,
+                             roi_report=roi_report,
+                             trends=trends)
+
+    except Exception as e:
+        logger.error(f"Error loading value analytics: {str(e)}")
+        flash('Error loading value analytics', 'error')
+        return render_template('error/500.html'), 500
+
+@admin_bp.route('/export-logs')
+@login_required
+@admin_required
+def export_logs():
+    """Export admin logs with enhanced tracking data"""
+    try:
+        format_type = request.args.get('format', 'json')
+        days = request.args.get('days', 30, type=int)
+
+        start_date = datetime.utcnow() - timedelta(days=days)
+        export_data = AdminLogger.export_logs(start_date=start_date)
+
+        if format_type == 'json':
+            output = json.dumps(export_data, indent=2)
+            mimetype = 'application/json'
+            filename = f'admin_logs_{start_date.strftime("%Y%m%d")}.json'
+        else:
+            # CSV format
+            import csv
+            output = io.StringIO()
+            if export_data:
+                writer = csv.DictWriter(output, fieldnames=export_data[0].keys())
+                writer.writeheader()
+                writer.writerows(export_data)
+            output.seek(0)
+            output = output.getvalue()
+            mimetype = 'text/csv'
+            filename = f'admin_logs_{start_date.strftime("%Y%m%d")}.csv'
+
+        return send_file(
+            io.BytesIO(output.encode()),
+            mimetype=mimetype,
+            as_attachment=True,
+            download_name=filename
+        )
+
+    except Exception as e:
+        logger.error(f"Error exporting logs: {str(e)}")
+        flash('Error exporting logs', 'error')
+        return redirect(url_for('admin.activity_monitoring'))
+
+# API endpoints for dashboard updates
+@admin_bp.route('/api/dashboard-metrics')
+@login_required
+@admin_required
+def dashboard_metrics_api():
+    """API endpoint for real-time dashboard metrics"""
+    try:
+        value_analytics = ValueAnalytics()
+        ocr_monitor = OCRMonitor()
+        
+        metrics = {
+            'value_metrics': value_analytics.calculate_comprehensive_value(1),  # Last 24 hours
+            'ocr_metrics': ocr_monitor.get_processing_dashboard(),
+            'user_count': User.query.filter_by(is_active=True).count(),
+            'updated_at': datetime.utcnow().isoformat()
+        }
+        
+        return jsonify({'success': True, 'metrics': metrics})
+
+    except Exception as e:
+        logger.error(f"Error getting dashboard metrics: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@admin_bp.route('/api/system-health')
+@login_required
+@admin_required
+def system_health_api():
+    """API endpoint for system health monitoring"""
     try:
         config_manager = AdminConfig()
-
-        if request.method == 'POST':
-            # Update system settings
-            settings_data = {
-                'lab_cutoff_months': request.form.get('lab_cutoff_months', type=int),
-                'imaging_cutoff_months': request.form.get('imaging_cutoff_months', type=int),
-                'consult_cutoff_months': request.form.get('consult_cutoff_months', type=int),
-                'hospital_cutoff_months': request.form.get('hospital_cutoff_months', type=int)
-            }
-
-            result = config_manager.update_checklist_settings(settings_data)
-
-            if result['success']:
-                flash('Settings updated successfully', 'success')
-
-                # Log the change
-                AdminLogger.log(
-                    user_id=current_user.id,
-                    action='update_system_settings',
-                    details=str(settings_data)
-                )
-            else:
-                flash(f'Error updating settings: {result["error"]}', 'error')
-
-            return redirect(url_for('admin.settings'))
-
-        # GET request - show current settings
-        current_settings = PrepSheetSettings.query.first() or PrepSheetSettings()
-
-        return render_template('admin/settings.html',
-                             settings=current_settings)
-
-    except Exception as e:
-        logger.error(f"Error in admin settings: {str(e)}")
-        flash('Error loading settings', 'error')
-        return render_template('error/500.html'), 500
-
-@admin_bp.route('/analytics')
-@login_required
-@admin_required
-def analytics():
-    """Advanced analytics dashboard"""
-    try:
-        analytics = HealthPrepAnalytics()
-
-        # Get comprehensive analytics
-        analytics_data = {
-            'system_performance': analytics.get_roi_metrics(),
-            'time_saved': analytics.calculate_time_savings(),
-            'compliance_gaps': analytics.calculate_compliance_gaps_closed(),
-            'roi_report': analytics.generate_executive_summary()
-        }
-
-        return render_template('admin/analytics.html',
-                             analytics=analytics_data)
-
-    except Exception as e:
-        logger.error(f"Error in admin analytics: {str(e)}")
-        flash('Error loading analytics', 'error')
-        return render_template('error/500.html'), 500
-
-@admin_bp.route('/system-health')
-@login_required
-@admin_required
-def system_health():
-    """System health monitoring"""
-    try:
-        analytics = HealthPrepAnalytics()
-
-        health_data = analytics.get_roi_metrics()
-
+        health_data = config_manager.validate_system_health()
         return jsonify(health_data)
 
     except Exception as e:
         logger.error(f"Error getting system health: {str(e)}")
         return jsonify({'error': str(e)}), 500
-
-@admin_bp.route('/backup-data', methods=['POST'])
-@login_required
-@admin_required
-def backup_data():
-    """Create system backup"""
-    try:
-        # This would implement a backup strategy
-        # For now, return a placeholder response
-
-        flash('Backup functionality not yet implemented', 'info')
-        return redirect(url_for('admin.dashboard'))
-
-    except Exception as e:
-        logger.error(f"Error creating backup: {str(e)}")
-        flash('Error creating backup', 'error')
-        return redirect(url_for('admin.dashboard'))

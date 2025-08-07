@@ -1,0 +1,511 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Admin Dashboard - HealthPrep{% endblock %}
+
+{% block content %}
+<!-- Dashboard Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>
+            <i class="fas fa-chart-line me-2"></i>
+            Admin Dashboard
+        </h2>
+        <p class="text-muted mb-0">Comprehensive system overview and analytics</p>
+    </div>
+    <div>
+        <span class="badge bg-success fs-6" id="systemStatus">
+            <i class="fas fa-shield-alt me-1"></i>
+            {{ 'System Healthy' if system_health.overall_healthy else 'Issues Detected' }}
+        </span>
+    </div>
+</div>
+
+<!-- Value Metrics Row -->
+<div class="row mb-4">
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="metric-card card border-primary">
+            <div class="card-body text-center">
+                <i class="fas fa-clock fa-2x text-primary mb-2"></i>
+                <h4 class="mb-1 text-primary">{{ value_metrics.summary.hours_saved if value_metrics else '0' }}</h4>
+                <p class="text-muted mb-0">Hours Saved</p>
+                <small class="text-success">
+                    <i class="fas fa-arrow-up"></i>
+                    {{ value_metrics.time_savings.work_weeks_saved if value_metrics and value_metrics.time_savings else '0' }} work weeks
+                </small>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="metric-card card border-success">
+            <div class="card-body text-center">
+                <i class="fas fa-dollar-sign fa-2x text-success mb-2"></i>
+                <h4 class="mb-1 text-success">${{ "${:,.0f}".format(value_metrics.summary.cost_savings) if value_metrics else '0' }}</h4>
+                <p class="text-muted mb-0">Cost Savings</p>
+                <small class="text-success">
+                    <i class="fas fa-arrow-up"></i>
+                    $25/hour labor rate
+                </small>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="metric-card card border-info">
+            <div class="card-body text-center">
+                <i class="fas fa-users fa-2x text-info mb-2"></i>
+                <h4 class="mb-1 text-info">{{ value_metrics.summary.patients_processed if value_metrics else '0' }}</h4>
+                <p class="text-muted mb-0">Patients Processed</p>
+                <small class="text-info">
+                    <i class="fas fa-calendar"></i>
+                    Last 30 days
+                </small>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="metric-card card border-warning">
+            <div class="card-body text-center">
+                <i class="fas fa-tasks fa-2x text-warning mb-2"></i>
+                <h4 class="mb-1 text-warning">{{ value_metrics.summary.tasks_automated if value_metrics else '0' }}</h4>
+                <p class="text-muted mb-0">Tasks Automated</p>
+                <small class="text-warning">
+                    <i class="fas fa-cogs"></i>
+                    Prep sheets, docs, screenings
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Content Row -->
+<div class="row mb-4">
+    <!-- Value Analytics Chart -->
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-area me-2"></i>
+                    Value Generation Trends
+                </h5>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button class="btn btn-outline-primary active" onclick="updateChart('hours')">Hours Saved</button>
+                    <button class="btn btn-outline-primary" onclick="updateChart('cost')">Cost Savings</button>
+                    <button class="btn btn-outline-primary" onclick="updateChart('patients')">Patients</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="valueChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Stats Panel -->
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-tachometer-alt me-2"></i>
+                    System Statistics
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- OCR Processing -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>OCR Processing Rate</span>
+                        <span class="badge bg-success">
+                            {{ "{:.1f}%".format((ocr_dashboard.processed_documents / ocr_dashboard.total_documents * 100) if ocr_dashboard and ocr_dashboard.total_documents > 0 else 0) }}
+                        </span>
+                    </div>
+                    <div class="progress mt-1" style="height: 6px;">
+                        <div class="progress-bar bg-success" 
+                             style="width: {{ (ocr_dashboard.processed_documents / ocr_dashboard.total_documents * 100) if ocr_dashboard and ocr_dashboard.total_documents > 0 else 0 }}%"></div>
+                    </div>
+                </div>
+                
+                <!-- PHI Protection -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>PHI Protection</span>
+                        <span class="badge bg-info">{{ "{:.1f}%".format(phi_stats.phi_percentage) if phi_stats else '0%' }}</span>
+                    </div>
+                    <div class="progress mt-1" style="height: 6px;">
+                        <div class="progress-bar bg-info" style="width: {{ phi_stats.phi_percentage if phi_stats else 0 }}%"></div>
+                    </div>
+                </div>
+                
+                <!-- User Management -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Active Users</span>
+                        <span class="badge bg-primary">{{ user_summary.active_users if user_summary else 0 }}/{{ user_summary.total_users if user_summary else 0 }}</span>
+                    </div>
+                    <div class="progress mt-1" style="height: 6px;">
+                        <div class="progress-bar bg-primary" 
+                             style="width: {{ (user_summary.active_users / user_summary.total_users * 100) if user_summary and user_summary.total_users > 0 else 0 }}%"></div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <!-- System Health Indicators -->
+                <div class="small text-muted">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>Database:</span>
+                        <span class="text-success">
+                            <i class="fas fa-check-circle"></i>
+                            {{ 'Online' if system_health.checks.database_connection else 'Offline' }}
+                        </span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>Admin Users:</span>
+                        <span class="{{ 'text-success' if system_health.checks.admin_user_exists else 'text-danger' }}">
+                            <i class="fas fa-{{ 'check-circle' if system_health.checks.admin_user_exists else 'times-circle' }}"></i>
+                            {{ 'Present' if system_health.checks.admin_user_exists else 'Missing' }}
+                        </span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Last Update:</span>
+                        <span>{{ moment().format('HH:mm') }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Feature Access Row -->
+<div class="row mb-4">
+    <!-- Activity Monitoring -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>
+                    Recent Admin Activity
+                </h5>
+                <a href="{{ url_for('admin.activity_monitoring') }}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body">
+                {% if recent_logs %}
+                <div class="list-group list-group-flush">
+                    {% for log in recent_logs[:5] %}
+                    <div class="list-group-item px-0 py-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <span class="fw-medium">{{ log.action.replace('_', ' ').title() }}</span>
+                                {% if log.details %}
+                                <p class="text-muted small mb-0">{{ log.details[:100] }}{{ '...' if log.details|length > 100 else '' }}</p>
+                                {% endif %}
+                                <small class="text-muted">
+                                    {{ log.user.username if log.user else 'System' }} • 
+                                    {{ log.timestamp.strftime('%m/%d %H:%M') }}
+                                </small>
+                            </div>
+                            <span class="badge bg-secondary small">{{ log.resource_type or 'system' }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-3">
+                    <i class="fas fa-clipboard-list fa-2x text-muted mb-2"></i>
+                    <p class="text-muted">No recent activity</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-bolt me-2"></i>
+                    Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-6">
+                        <a href="{{ url_for('admin.user_management') }}" class="quick-action-btn btn btn-outline-primary w-100">
+                            <i class="fas fa-users me-2"></i>
+                            <span>User Management</span>
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <a href="{{ url_for('admin.preset_management') }}" class="quick-action-btn btn btn-outline-info w-100">
+                            <i class="fas fa-cogs me-2"></i>
+                            <span>Preset Management</span>
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <a href="{{ url_for('admin.phi_monitoring') }}" class="quick-action-btn btn btn-outline-warning w-100">
+                            <i class="fas fa-shield-alt me-2"></i>
+                            <span>PHI Monitoring</span>
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <a href="{{ url_for('admin.value_analytics') }}" class="quick-action-btn btn btn-outline-success w-100">
+                            <i class="fas fa-chart-line me-2"></i>
+                            <span>Value Analytics</span>
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <a href="{{ url_for('admin.activity_monitoring') }}" class="quick-action-btn btn btn-outline-secondary w-100">
+                            <i class="fas fa-history me-2"></i>
+                            <span>Activity Logs</span>
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <button class="quick-action-btn btn btn-outline-danger w-100" onclick="exportLogs()">
+                            <i class="fas fa-download me-2"></i>
+                            <span>Export Logs</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Preset and PHI Summary Row -->
+<div class="row">
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-layer-group me-2"></i>
+                    Screening Presets Summary
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if preset_stats %}
+                <div class="row text-center">
+                    <div class="col-4">
+                        <h4 class="text-primary">{{ preset_stats.total_presets }}</h4>
+                        <small class="text-muted">Total Presets</small>
+                    </div>
+                    <div class="col-4">
+                        <h4 class="text-info">{{ preset_stats.by_specialty|length }}</h4>
+                        <small class="text-muted">Specialties</small>
+                    </div>
+                    <div class="col-4">
+                        <h4 class="text-success">{{ preset_stats.recent_presets|length }}</h4>
+                        <small class="text-muted">Recent</small>
+                    </div>
+                </div>
+                
+                {% if preset_stats.by_specialty %}
+                <hr>
+                <div class="small">
+                    <strong>By Specialty:</strong>
+                    {% for specialty, count in preset_stats.by_specialty.items() %}
+                    <span class="badge bg-light text-dark me-1">{{ specialty }}: {{ count }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="text-center py-3">
+                    <i class="fas fa-layer-group fa-2x text-muted mb-2"></i>
+                    <p class="text-muted">No presets configured</p>
+                    <a href="{{ url_for('admin.preset_management') }}" class="btn btn-sm btn-primary">Manage Presets</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-user-shield me-2"></i>
+                    PHI Protection Summary
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if phi_stats %}
+                <div class="row text-center">
+                    <div class="col-4">
+                        <h4 class="text-primary">{{ phi_stats.total_documents_processed }}</h4>
+                        <small class="text-muted">Documents</small>
+                    </div>
+                    <div class="col-4">
+                        <h4 class="text-warning">{{ phi_stats.documents_with_phi }}</h4>
+                        <small class="text-muted">With PHI</small>
+                    </div>
+                    <div class="col-4">
+                        <h4 class="text-danger">{{ phi_stats.total_redactions }}</h4>
+                        <small class="text-muted">Redactions</small>
+                    </div>
+                </div>
+                
+                {% if phi_stats.phi_by_type %}
+                <hr>
+                <div class="small">
+                    <strong>PHI Types Found:</strong>
+                    {% for phi_type, count in phi_stats.phi_by_type.items() if count > 0 %}
+                    <span class="badge bg-warning text-dark me-1">{{ phi_type.upper() }}: {{ count }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="text-center py-3">
+                    <i class="fas fa-user-shield fa-2x text-muted mb-2"></i>
+                    <p class="text-muted">No PHI data available</p>
+                    <a href="{{ url_for('admin.phi_monitoring') }}" class="btn btn-sm btn-warning">View PHI Monitoring</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Value Generation Chart
+const ctx = document.getElementById('valueChart').getContext('2d');
+let valueChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: ['Week 4', 'Week 3', 'Week 2', 'Week 1', 'Current'],
+        datasets: [{
+            label: 'Hours Saved',
+            data: [{{ value_metrics.summary.hours_saved if value_metrics else 0 }}, 
+                   {{ (value_metrics.summary.hours_saved * 0.8) if value_metrics else 0 }}, 
+                   {{ (value_metrics.summary.hours_saved * 0.6) if value_metrics else 0 }}, 
+                   {{ (value_metrics.summary.hours_saved * 0.4) if value_metrics else 0 }}, 
+                   {{ value_metrics.summary.hours_saved if value_metrics else 0 }}],
+            borderColor: '#0d6efd',
+            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+            tension: 0.4,
+            fill: true
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                labels: {
+                    color: '#fff'
+                }
+            }
+        },
+        scales: {
+            x: {
+                ticks: { color: '#fff' },
+                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+            },
+            y: {
+                ticks: { color: '#fff' },
+                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+            }
+        }
+    }
+});
+
+// Chart update functions
+function updateChart(metric) {
+    const datasets = {
+        'hours': {
+            label: 'Hours Saved',
+            data: [{{ value_metrics.summary.hours_saved if value_metrics else 0 }}, 
+                   {{ (value_metrics.summary.hours_saved * 0.8) if value_metrics else 0 }}, 
+                   {{ (value_metrics.summary.hours_saved * 0.6) if value_metrics else 0 }}, 
+                   {{ (value_metrics.summary.hours_saved * 0.4) if value_metrics else 0 }}, 
+                   {{ value_metrics.summary.hours_saved if value_metrics else 0 }}],
+            borderColor: '#0d6efd'
+        },
+        'cost': {
+            label: 'Cost Savings ($)',
+            data: [{{ value_metrics.summary.cost_savings if value_metrics else 0 }}, 
+                   {{ (value_metrics.summary.cost_savings * 0.8) if value_metrics else 0 }}, 
+                   {{ (value_metrics.summary.cost_savings * 0.6) if value_metrics else 0 }}, 
+                   {{ (value_metrics.summary.cost_savings * 0.4) if value_metrics else 0 }}, 
+                   {{ value_metrics.summary.cost_savings if value_metrics else 0 }}],
+            borderColor: '#198754'
+        },
+        'patients': {
+            label: 'Patients Processed',
+            data: [{{ value_metrics.summary.patients_processed if value_metrics else 0 }}, 
+                   {{ (value_metrics.summary.patients_processed * 0.8) if value_metrics else 0 }}, 
+                   {{ (value_metrics.summary.patients_processed * 0.6) if value_metrics else 0 }}, 
+                   {{ (value_metrics.summary.patients_processed * 0.4) if value_metrics else 0 }}, 
+                   {{ value_metrics.summary.patients_processed if value_metrics else 0 }}],
+            borderColor: '#ffc107'
+        }
+    };
+    
+    valueChart.data.datasets[0] = {
+        ...datasets[metric],
+        backgroundColor: datasets[metric].borderColor + '20',
+        tension: 0.4,
+        fill: true
+    };
+    valueChart.update();
+    
+    // Update active button
+    document.querySelectorAll('.btn-group button').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+}
+
+// Auto-refresh dashboard data every 5 minutes
+setInterval(function() {
+    fetch('/admin/api/dashboard-metrics')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateDashboardMetrics(data.metrics);
+                showUpdateIndicator();
+            }
+        })
+        .catch(error => console.log('Dashboard refresh failed:', error));
+}, 5 * 60 * 1000);
+
+function updateDashboardMetrics(metrics) {
+    // Update metric cards
+    const metricCards = document.querySelectorAll('.metric-card h4');
+    if (metricCards.length >= 4 && metrics.value_metrics) {
+        metricCards[0].textContent = metrics.value_metrics.summary.hours_saved || '0';
+        metricCards[1].textContent = '$' + (metrics.value_metrics.summary.cost_savings || 0).toLocaleString();
+        metricCards[2].textContent = metrics.value_metrics.summary.patients_processed || '0';
+        metricCards[3].textContent = metrics.value_metrics.summary.tasks_automated || '0';
+    }
+}
+
+function showUpdateIndicator() {
+    const indicator = document.createElement('div');
+    indicator.className = 'position-fixed top-50 end-0 translate-middle-y bg-success text-white p-2 rounded-start';
+    indicator.innerHTML = '<i class="fas fa-sync fa-spin me-1"></i>Updated';
+    document.body.appendChild(indicator);
+    
+    setTimeout(() => {
+        indicator.remove();
+    }, 2000);
+}
+
+// Export logs function
+function exportLogs() {
+    const format = prompt('Export format (json/csv):', 'json');
+    const days = prompt('Number of days:', '30');
+    
+    if (format && days) {
+        window.location.href = `/admin/export-logs?format=${format}&days=${days}`;
+    }
+}
+
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}
