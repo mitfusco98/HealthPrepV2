@@ -1,0 +1,40 @@
+HealthPrepV2 Multi-Tenancy Migration
+====================================
+
+This script will:
+• Add organization tables and relationships
+• Update existing models with org_id fields
+• Create a default organization for existing data
+• Migrate existing data to use the default organization
+
+Are you sure you want to run this migration? (yes/no): yes
+INFO:app:Database tables created successfully
+Starting multi-tenancy migration...
+❌ Migration failed: Textual SQL expression 'SELECT name FROM sqlite_m...' should be explicitly declared as text('SELECT name FROM sqlite_m...')
+Traceback (most recent call last):
+  File "/home/runner/workspace/migrate_multi_tenancy.py", line 139, in <module>
+    run_migration()
+  File "/home/runner/workspace/migrate_multi_tenancy.py", line 18, in run_migration
+    result = db.session.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='organizations';").fetchone()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/scoping.py", line 779, in execute
+    return self._proxied.execute(
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2149, in _execute_internal
+    statement = coercions.expect(roles.StatementRole, statement)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/coercions.py", line 395, in expect
+    resolved = impl._literal_coercion(
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/coercions.py", line 621, in _literal_coercion
+    return self._text_coercion(element, argname, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/coercions.py", line 614, in _text_coercion
+    return _no_text_coercion(element, argname)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/coercions.py", line 584, in _no_text_coercion
+    raise exc_cls(
+sqlalchemy.exc.ArgumentError: Textual SQL expression 'SELECT name FROM sqlite_m...' should be explicitly declared as text('SELECT name FROM sqlite_m...')
