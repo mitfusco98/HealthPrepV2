@@ -59,11 +59,13 @@ def get_dashboard_data():
         documents_processed = Document.query.filter(
             Document.ocr_confidence.isnot(None)
         ).count()
-    except:
+    except Exception as e:
+        logger.warning(f"Could not count processed documents: {str(e)}")
         documents_processed = 0
         
+    # Ensure all PHI stats are proper numeric types
     phi_stats = {
-        'documents_processed': documents_processed,
+        'documents_processed': int(documents_processed) if documents_processed else 0,
         'phi_items_redacted': 892,  # placeholder
         'detection_accuracy': 97.3,  # placeholder
         'avg_processing_time': 1.2   # placeholder
@@ -296,74 +298,7 @@ def ocr_dashboard():
         flash('Error loading OCR dashboard', 'error')
         return render_template('error/500.html'), 500
 
-@admin_bp.route('/phi-settings', methods=['GET', 'POST'])
-@login_required
-@admin_required
-def phi_settings():
-    """PHI filter settings management"""
-    try:
-        phi_filter = PHIFilter()
-
-        if request.method == 'POST':
-            # Update PHI settings
-            new_settings = {
-                'enabled': request.form.get('enabled') == 'on',
-                'filter_ssn': request.form.get('filter_ssn') == 'on',
-                'filter_phone': request.form.get('filter_phone') == 'on',
-                'filter_mrn': request.form.get('filter_mrn') == 'on',
-                'filter_insurance': request.form.get('filter_insurance') == 'on',
-                'filter_addresses': request.form.get('filter_addresses') == 'on',
-                'filter_names': request.form.get('filter_names') == 'on',
-                'filter_dates': request.form.get('filter_dates') == 'on'
-            }
-
-            # Update PHI settings in database (simplified approach)
-            settings = PHIFilterSettings.query.first()
-            if not settings:
-                settings = PHIFilterSettings()
-                db.session.add(settings)
-            
-            settings.enabled = new_settings['enabled']
-            settings.filter_ssn = new_settings['filter_ssn']
-            settings.filter_phone = new_settings['filter_phone']
-            settings.filter_mrn = new_settings['filter_mrn']
-            settings.filter_insurance = new_settings['filter_insurance']
-            settings.filter_addresses = new_settings['filter_addresses']
-            settings.filter_names = new_settings['filter_names']
-            settings.filter_dates = new_settings['filter_dates']
-            
-            db.session.commit()
-            
-            flash('PHI filter settings updated successfully', 'success')
-            
-            # Log the change
-            log_admin_event(
-                event_type='update_phi_settings',
-                user_id=current_user.id,
-                ip=flask_request.remote_addr,
-                data={'settings': new_settings, 'description': 'PHI filter settings updated'}
-            )
-
-            return redirect(url_for('admin.phi_settings'))
-
-        # GET request - show current settings
-        current_settings = PHIFilterSettings.query.first() or PHIFilterSettings()
-        # Get basic processing statistics (placeholder)
-        processing_stats = {
-            'documents_processed': 0,
-            'phi_items_filtered': 0,
-            'processing_accuracy': 97.3,
-            'avg_processing_time': 1.2
-        }
-
-        return render_template('admin/phi_settings.html',
-                             settings=current_settings,
-                             stats=processing_stats)
-
-    except Exception as e:
-        logger.error(f"Error in PHI settings: {str(e)}")
-        flash('Error loading PHI settings', 'error')
-        return render_template('error/500.html'), 500
+# PHI settings route removed - consolidated into dashboard
 
 @admin_bp.route('/phi-test', methods=['POST'])
 @login_required
