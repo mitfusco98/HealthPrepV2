@@ -82,10 +82,14 @@ def run_migration():
                 db.session.execute(text("ALTER TABLE users ADD COLUMN two_factor_enabled BOOLEAN DEFAULT 0;"))
                 db.session.execute(text("ALTER TABLE users ADD COLUMN session_timeout_minutes INTEGER DEFAULT 30;"))
                 
-                # For timestamp columns, add without default and set later
+                # Add columns with NULL defaults first, then update
                 db.session.execute(text("ALTER TABLE users ADD COLUMN last_activity TIMESTAMP;"))
                 db.session.execute(text("ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER DEFAULT 0;"))
                 db.session.execute(text("ALTER TABLE users ADD COLUMN locked_until TIMESTAMP;"))
+                
+                # Set last_activity to current timestamp for existing users
+                current_time = datetime.utcnow().isoformat()
+                db.session.execute(text(f"UPDATE users SET last_activity = '{current_time}' WHERE last_activity IS NULL;"))
                 print("   ✓ Added columns to users table")
 
                 # Add org_id to other tables
@@ -127,10 +131,6 @@ def run_migration():
 
             # Update existing data to use default organization (org_id = 1)
             print("5. Migrating existing data to default organization...")
-            
-            # Set current timestamp for last_activity where it's NULL
-            current_time = datetime.utcnow().isoformat()
-            db.session.execute(text(f"UPDATE users SET last_activity = '{current_time}' WHERE last_activity IS NULL;"))
             
             db.session.execute(text("UPDATE users SET org_id = 1 WHERE org_id IS NULL;"))
             print("   ✓ Migrated users to default organization")
