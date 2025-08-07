@@ -4,6 +4,7 @@ Run this script to add organization support to existing database
 """
 
 from app import create_app, db
+from sqlalchemy import text
 import os
 
 def run_migration():
@@ -15,11 +16,11 @@ def run_migration():
 
         try:
             # Check if organizations table already exists
-            result = db.session.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='organizations';").fetchone()
+            result = db.session.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='organizations';")).fetchone()
 
             if not result:
                 print("1. Creating organizations table...")
-                db.session.execute("""
+                db.session.execute(text("""
                     CREATE TABLE organizations (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         name VARCHAR(100) NOT NULL,
@@ -39,14 +40,14 @@ def run_migration():
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         trial_expires TIMESTAMP
                     );
-                """)
+                """))
 
             # Check if epic_credentials table already exists
-            result = db.session.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='epic_credentials';").fetchone()
+            result = db.session.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='epic_credentials';")).fetchone()
 
             if not result:
                 print("2. Creating epic_credentials table...")
-                db.session.execute("""
+                db.session.execute(text("""
                     CREATE TABLE epic_credentials (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         org_id INTEGER NOT NULL,
@@ -62,58 +63,58 @@ def run_migration():
                         FOREIGN KEY (org_id) REFERENCES organizations(id),
                         FOREIGN KEY (user_id) REFERENCES users(id)
                     );
-                """)
+                """))
 
             # Check if org_id column exists in users table
-            result = db.session.execute("PRAGMA table_info(users);").fetchall()
+            result = db.session.execute(text("PRAGMA table_info(users);")).fetchall()
             columns = [row[1] for row in result]
 
             if 'org_id' not in columns:
                 print("3. Adding org_id columns to existing tables...")
 
                 # Add columns to users table
-                db.session.execute("ALTER TABLE users ADD COLUMN org_id INTEGER;")
-                db.session.execute("ALTER TABLE users ADD COLUMN epic_user_id VARCHAR(100);")
-                db.session.execute("ALTER TABLE users ADD COLUMN two_factor_enabled BOOLEAN DEFAULT 0;")
-                db.session.execute("ALTER TABLE users ADD COLUMN session_timeout_minutes INTEGER DEFAULT 30;")
-                db.session.execute("ALTER TABLE users ADD COLUMN last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP;")
-                db.session.execute("ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER DEFAULT 0;")
-                db.session.execute("ALTER TABLE users ADD COLUMN locked_until TIMESTAMP;")
+                db.session.execute(text("ALTER TABLE users ADD COLUMN org_id INTEGER;"))
+                db.session.execute(text("ALTER TABLE users ADD COLUMN epic_user_id VARCHAR(100);"))
+                db.session.execute(text("ALTER TABLE users ADD COLUMN two_factor_enabled BOOLEAN DEFAULT 0;"))
+                db.session.execute(text("ALTER TABLE users ADD COLUMN session_timeout_minutes INTEGER DEFAULT 30;"))
+                db.session.execute(text("ALTER TABLE users ADD COLUMN last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"))
+                db.session.execute(text("ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER DEFAULT 0;"))
+                db.session.execute(text("ALTER TABLE users ADD COLUMN locked_until TIMESTAMP;"))
 
                 # Add org_id to other tables
-                db.session.execute("ALTER TABLE patient ADD COLUMN org_id INTEGER;")
-                db.session.execute("ALTER TABLE patient ADD COLUMN epic_patient_id VARCHAR(100);")
-                db.session.execute("ALTER TABLE screening ADD COLUMN org_id INTEGER;")
-                db.session.execute("ALTER TABLE document ADD COLUMN org_id INTEGER;")
-                db.session.execute("ALTER TABLE screening_type ADD COLUMN org_id INTEGER;")
-                db.session.execute("ALTER TABLE screening_preset ADD COLUMN org_id INTEGER;")
-                db.session.execute("ALTER TABLE screening_preset ADD COLUMN preset_scope VARCHAR(20) DEFAULT 'organization';")
-                db.session.execute("ALTER TABLE admin_logs ADD COLUMN org_id INTEGER;")
-                db.session.execute("ALTER TABLE admin_logs ADD COLUMN patient_id INTEGER;")
-                db.session.execute("ALTER TABLE admin_logs ADD COLUMN resource_type VARCHAR(50);")
-                db.session.execute("ALTER TABLE admin_logs ADD COLUMN resource_id INTEGER;")
-                db.session.execute("ALTER TABLE admin_logs ADD COLUMN action_details TEXT;")
-                db.session.execute("ALTER TABLE admin_logs ADD COLUMN session_id VARCHAR(100);")
-                db.session.execute("ALTER TABLE admin_logs ADD COLUMN user_agent TEXT;")
+                db.session.execute(text("ALTER TABLE patient ADD COLUMN org_id INTEGER;"))
+                db.session.execute(text("ALTER TABLE patient ADD COLUMN epic_patient_id VARCHAR(100);"))
+                db.session.execute(text("ALTER TABLE screening ADD COLUMN org_id INTEGER;"))
+                db.session.execute(text("ALTER TABLE document ADD COLUMN org_id INTEGER;"))
+                db.session.execute(text("ALTER TABLE screening_type ADD COLUMN org_id INTEGER;"))
+                db.session.execute(text("ALTER TABLE screening_preset ADD COLUMN org_id INTEGER;"))
+                db.session.execute(text("ALTER TABLE screening_preset ADD COLUMN preset_scope VARCHAR(20) DEFAULT 'organization';"))
+                db.session.execute(text("ALTER TABLE admin_logs ADD COLUMN org_id INTEGER;"))
+                db.session.execute(text("ALTER TABLE admin_logs ADD COLUMN patient_id INTEGER;"))
+                db.session.execute(text("ALTER TABLE admin_logs ADD COLUMN resource_type VARCHAR(50);"))
+                db.session.execute(text("ALTER TABLE admin_logs ADD COLUMN resource_id INTEGER;"))
+                db.session.execute(text("ALTER TABLE admin_logs ADD COLUMN action_details TEXT;"))
+                db.session.execute(text("ALTER TABLE admin_logs ADD COLUMN session_id VARCHAR(100);"))
+                db.session.execute(text("ALTER TABLE admin_logs ADD COLUMN user_agent TEXT;"))
 
             # Create default organization if it doesn't exist
-            result = db.session.execute("SELECT COUNT(*) FROM organizations;").fetchone()
+            result = db.session.execute(text("SELECT COUNT(*) FROM organizations;")).fetchone()
             if result[0] == 0:
                 print("4. Creating default organization...")
-                db.session.execute("""
+                db.session.execute(text("""
                     INSERT INTO organizations (name, contact_email, setup_status, custom_presets_enabled, auto_sync_enabled)
                     VALUES ('Default Organization', 'admin@healthprep.com', 'live', 1, 0);
-                """)
+                """))
 
             # Update existing data to use default organization (org_id = 1)
             print("5. Migrating existing data to default organization...")
-            db.session.execute("UPDATE users SET org_id = 1 WHERE org_id IS NULL;")
-            db.session.execute("UPDATE patient SET org_id = 1 WHERE org_id IS NULL;")
-            db.session.execute("UPDATE screening SET org_id = 1 WHERE org_id IS NULL;")
-            db.session.execute("UPDATE document SET org_id = 1 WHERE org_id IS NULL;")
-            db.session.execute("UPDATE screening_type SET org_id = 1 WHERE org_id IS NULL;")
-            db.session.execute("UPDATE screening_preset SET org_id = 1 WHERE org_id IS NULL;")
-            db.session.execute("UPDATE admin_logs SET org_id = 1 WHERE org_id IS NULL;")
+            db.session.execute(text("UPDATE users SET org_id = 1 WHERE org_id IS NULL;"))
+            db.session.execute(text("UPDATE patient SET org_id = 1 WHERE org_id IS NULL;"))
+            db.session.execute(text("UPDATE screening SET org_id = 1 WHERE org_id IS NULL;"))
+            db.session.execute(text("UPDATE document SET org_id = 1 WHERE org_id IS NULL;"))
+            db.session.execute(text("UPDATE screening_type SET org_id = 1 WHERE org_id IS NULL;"))
+            db.session.execute(text("UPDATE screening_preset SET org_id = 1 WHERE org_id IS NULL;"))
+            db.session.execute(text("UPDATE admin_logs SET org_id = 1 WHERE org_id IS NULL;"))
 
             db.session.commit()
             print("✅ Multi-tenancy migration completed successfully!")
