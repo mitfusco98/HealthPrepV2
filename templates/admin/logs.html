@@ -1,6 +1,12 @@
-{% extends 'admin/base.html' %}
+{% extends 'base_admin.html' %}
 
-{% block title %}HealthPrep Admin - Activity Logs{% endblock %}
+{% block title %}Admin Logs - HealthPrep{% endblock %}
+
+{% block extra_css %}
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.bootstrap5.min.css">
+{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -24,39 +30,38 @@
         </h5>
     </div>
     <div class="card-body">
-        <form method="GET" action="{{ url_for('admin_logs') }}" class="row g-3">
-            <div class="col-md-4">
-                <label for="action" class="form-label">Action Type</label>
-                <select class="form-select" id="action" name="action">
-                    <option value="">All Actions</option>
-                    <option value="create" {{ 'selected' if current_filters.action == 'create' }}>Create</option>
-                    <option value="update" {{ 'selected' if current_filters.action == 'update' }}>Update</option>
-                    <option value="delete" {{ 'selected' if current_filters.action == 'delete' }}>Delete</option>
-                    <option value="login" {{ 'selected' if current_filters.action == 'login' }}>Login</option>
-                    <option value="logout" {{ 'selected' if current_filters.action == 'logout' }}>Logout</option>
-                    <option value="refresh" {{ 'selected' if current_filters.action == 'refresh' }}>Refresh</option>
-                    <option value="load_preset" {{ 'selected' if current_filters.action == 'load_preset' }}>Load Preset</option>
+        <form method="GET" action="{{ url_for('admin.logs') }}" class="row g-3">
+            <div class="col-md-3">
+                <label for="event_type" class="form-label">Event Type</label>
+                <select class="form-select" id="event_type" name="event_type">
+                    <option value="">All Events</option>
+                    {% for event_type in event_types %}
+                    <option value="{{ event_type }}" {{ 'selected' if filters.event_type == event_type }}>{{ event_type.replace('_', ' ').title() }}</option>
+                    {% endfor %}
                 </select>
             </div>
-            <div class="col-md-4">
-                <label for="user" class="form-label">User</label>
-                <input type="text" class="form-control" id="user" name="user" 
-                       value="{{ current_filters.user or '' }}" placeholder="Username">
-            </div>
-            <div class="col-md-4">
-                <label for="date_range" class="form-label">Date Range</label>
-                <select class="form-select" id="date_range" name="date_range">
-                    <option value="today">Today</option>
-                    <option value="week" selected>Last 7 Days</option>
-                    <option value="month">Last 30 Days</option>
-                    <option value="all">All Time</option>
+            <div class="col-md-3">
+                <label for="user_id" class="form-label">User</label>
+                <select class="form-select" id="user_id" name="user_id">
+                    <option value="">All Users</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}" {{ 'selected' if filters.user_id == user.id }}>{{ user.username }}</option>
+                    {% endfor %}
                 </select>
+            </div>
+            <div class="col-md-3">
+                <label for="start_date" class="form-label">Start Date</label>
+                <input type="date" class="form-control" id="start_date" name="start_date" value="{{ filters.start_date or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label for="end_date" class="form-label">End Date</label>
+                <input type="date" class="form-control" id="end_date" name="end_date" value="{{ filters.end_date or '' }}">
             </div>
             <div class="col-12">
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-search me-1"></i>Apply Filters
                 </button>
-                <a href="{{ url_for('admin_logs') }}" class="btn btn-outline-secondary ms-2">
+                <a href="{{ url_for('admin.logs') }}" class="btn btn-outline-secondary ms-2">
                     <i class="fas fa-times me-1"></i>Clear Filters
                 </a>
             </div>
@@ -69,82 +74,74 @@
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Activity History</h5>
         <small class="text-muted">
-            Page {{ logs.page }} of {{ logs.pages }} 
-            ({{ logs.total }} total entries)
+            {% if pagination %}
+            Page {{ pagination.page }} of {{ pagination.pages }} 
+            ({{ pagination.total }} total entries)
+            {% else %}
+            {{ logs|length }} entries
+            {% endif %}
         </small>
     </div>
     <div class="card-body p-0">
-        {% if logs.items %}
+        {% if logs %}
             <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead class="table-dark">
+                <table id="logsTable" class="table table-hover table-sm">
+                    <thead>
                         <tr>
                             <th>Timestamp</th>
+                            <th>Event Type</th>
                             <th>User</th>
-                            <th>Action</th>
-                            <th>Resource</th>
                             <th>IP Address</th>
                             <th>Details</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for log in logs.items %}
+                        {% for log in logs %}
                         <tr>
                             <td>
-                                <div class="fw-bold">{{ log.timestamp.strftime('%m/%d/%Y') }}</div>
-                                <small class="text-muted">{{ log.timestamp.strftime('%H:%M:%S') }}</small>
+                                <div class="text-nowrap">
+                                    <small class="text-muted">{{ log.timestamp.strftime('%Y-%m-%d') }}</small><br>
+                                    <strong>{{ log.timestamp.strftime('%H:%M:%S') }}</strong>
+                                </div>
                             </td>
                             <td>
-                                {% if log.user %}
-                                    <span class="badge bg-secondary">{{ log.user.username }}</span>
-                                    {% if log.user.role == 'admin' %}
-                                        <i class="fas fa-crown text-warning ms-1" title="Admin"></i>
-                                    {% endif %}
-                                {% else %}
-                                    <span class="badge bg-dark">System</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <span class="badge bg-{{ 
-                                    'success' if log.action in ['create', 'login'] else
-                                    'warning' if log.action in ['update', 'refresh'] else
-                                    'danger' if log.action in ['delete', 'logout'] else
-                                    'info'
-                                }}">
-                                    {{ log.action }}
+                                <span class="badge bg-primary">
+                                    {{ log.event_type.replace('_', ' ').title() if log.event_type else 'Unknown' }}
                                 </span>
                             </td>
                             <td>
-                                {% if log.resource_type %}
-                                    <div class="fw-bold">{{ log.resource_type }}</div>
-                                    {% if log.resource_id %}
-                                        <small class="text-muted">ID: {{ log.resource_id }}</small>
-                                    {% endif %}
-                                {% else %}
-                                    <span class="text-muted">-</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if log.ip_address %}
-                                    <code class="small">{{ log.ip_address }}</code>
-                                {% else %}
-                                    <span class="text-muted">-</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if log.details %}
-                                    <button class="btn btn-sm btn-outline-info" type="button" 
-                                            data-bs-toggle="collapse" data-bs-target="#details-{{ log.id }}">
-                                        <i class="fas fa-info-circle"></i>
-                                    </button>
-                                    <div class="collapse mt-2" id="details-{{ log.id }}">
-                                        <div class="card card-body">
-                                            <pre class="mb-0"><code>{{ log.details|tojson(indent=2) }}</code></pre>
-                                        </div>
+                                {% if log.user %}
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-user me-1 text-muted"></i>
+                                        {{ log.user.username }}
+                                        {% if log.user.is_admin %}
+                                            <i class="fas fa-crown text-warning ms-1" title="Admin"></i>
+                                        {% endif %}
                                     </div>
                                 {% else %}
-                                    <span class="text-muted">-</span>
+                                    <span class="text-muted">System</span>
                                 {% endif %}
+                            </td>
+                            <td>
+                                <small class="text-muted font-monospace">{{ log.ip_address or 'N/A' }}</small>
+                            </td>
+                            <td>
+                                {% if log.data %}
+                                    <div class="text-truncate" style="max-width: 300px;" 
+                                         title="{{ log.data.get('description', '') or log.data | tojsonpretty }}">
+                                        {{ log.data.get('description', '') or 'View details' }}
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">No details</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-outline-info btn-sm" 
+                                        onclick="viewLogDetails({{ log.id }})"
+                                        data-log="{{ log.data | tojsonpretty if log.data else '{}' }}">
+                                    <i class="fas fa-eye"></i>
+                                </button>
                             </td>
                         </tr>
                         {% endfor %}
@@ -153,11 +150,11 @@
             </div>
         {% else %}
             <div class="text-center text-muted py-5">
-                <i class="fas fa-search fa-2x mb-3"></i>
-                <h5>No logs found</h5>
-                <p>No activity logs match your current filters.</p>
-                <a href="{{ url_for('admin_logs') }}" class="btn btn-outline-primary">
-                    <i class="fas fa-refresh me-1"></i>Clear Filters
+                <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No Log Entries Found</h5>
+                <p class="text-muted">No administrative actions match the current filters</p>
+                <a href="{{ url_for('admin.logs') }}" class="btn btn-outline-primary">
+                    <i class="fas fa-times me-1"></i>Clear Filters
                 </a>
             </div>
         {% endif %}
@@ -207,46 +204,101 @@
 </nav>
 {% endif %}
 
-<!-- Security Events Alert -->
-{% if logs.items %}
-    {% set security_events = logs.items|selectattr('action', 'in', ['login', 'logout', 'password_change', 'role_change'])|list %}
-    {% if security_events|length > 0 %}
-        <div class="alert alert-info mt-4">
-            <i class="fas fa-shield-alt me-2"></i>
-            <strong>Security Events:</strong> {{ security_events|length }} security-related events found in current view.
-            <a href="{{ url_for('admin_logs', action='login') }}" class="alert-link">View security logs</a>
+<!-- Log Details Modal -->
+<div class="modal fade" id="logDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Log Entry Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="logDetailsContent">
+                    <!-- Details will be loaded here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
         </div>
-    {% endif %}
-{% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- DataTables JavaScript -->
+<script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.3.6/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.bootstrap5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.html5.min.js"></script>
 
 <script>
+$(document).ready(function() {
+    // Initialize DataTables
+    var table = $('#logsTable').DataTable({
+        pageLength: 25,
+        lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
+        order: [[0, 'desc']], // Sort by timestamp descending
+        columnDefs: [
+            { orderable: false, targets: [5] }, // Actions column
+            { width: "15%", targets: [0] }, // Timestamp
+            { width: "12%", targets: [1] }, // Event Type
+            { width: "12%", targets: [2] }, // User
+            { width: "12%", targets: [3] }, // IP
+            { width: "40%", targets: [4] }, // Details
+            { width: "9%", targets: [5] }   // Actions
+        ],
+        dom: 'Blfrtip',
+        buttons: [
+            {
+                extend: 'excel',
+                text: 'Export to Excel',
+                className: 'btn btn-success btn-sm'
+            },
+            {
+                extend: 'csv',
+                text: 'Export to CSV',
+                className: 'btn btn-info btn-sm'
+            }
+        ],
+        responsive: true
+    });
+});
+
 function exportLogs() {
-    if (confirm('Export activity logs to JSON file? This may take a few moments for large datasets.')) {
-        showLoading('Preparing log export...');
-        
-        // Build export URL with current filters
-        const params = new URLSearchParams(window.location.search);
-        params.set('export', 'json');
-        
-        const exportUrl = `{{ url_for('admin_logs') }}?${params.toString()}`;
-        
-        // Create download link
-        const link = document.createElement('a');
-        link.href = exportUrl;
-        link.download = `healthprep_logs_${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        hideLoading();
+    if (confirm('Export activity logs to JSON file?')) {
+        window.location.href = "{{ url_for('admin.export_logs') }}";
     }
 }
 
-// Auto-refresh logs every 30 seconds
-setInterval(() => {
-    if (document.visibilityState === 'visible') {
-        location.reload();
+// Function to view log details
+function viewLogDetails(logId) {
+    var logData = event.target.closest('button').getAttribute('data-log');
+    try {
+        var details = JSON.parse(logData);
+        var html = '<div class="table-responsive"><table class="table table-sm">';
+        
+        for (var key in details) {
+            if (details.hasOwnProperty(key)) {
+                html += '<tr><td><strong>' + key + ':</strong></td><td>' + details[key] + '</td></tr>';
+            }
+        }
+        
+        html += '</table></div>';
+        
+        if (Object.keys(details).length === 0) {
+            html = '<p class="text-muted">No additional details available for this log entry.</p>';
+        }
+        
+        $('#logDetailsContent').html(html);
+        $('#logDetailsModal').modal('show');
+    } catch (e) {
+        $('#logDetailsContent').html('<p class="text-danger">Error parsing log details.</p>');
+        $('#logDetailsModal').modal('show');
     }
-}, 30000);
+}
 </script>
 {% endblock %}

@@ -2,6 +2,11 @@
 
 {% block title %}Admin Dashboard - HealthPrep{% endblock %}
 
+{% block extra_css %}
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css">
+{% endblock %}
+
 {% block content %}
 <!-- Dashboard Header -->
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -71,19 +76,31 @@
                             </a>
                         </div>
                         {% if recent_logs %}
-                        <div class="list-group">
-                            {% for log in recent_logs %}
-                            <div class="list-group-item">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h6 class="mb-1">{{ log.action.replace('_', ' ').title() }}</h6>
-                                    <small>{{ log.timestamp.strftime('%m/%d %H:%M') }}</small>
-                                </div>
-                                {% if log.description %}
-                                <p class="mb-1">{{ log.description }}</p>
-                                {% endif %}
-                                <small>User: {{ log.user.username if log.user else 'System' }}</small>
-                            </div>
-                            {% endfor %}
+                        <div class="table-responsive">
+                            <table id="activityTable" class="table table-hover table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Event</th>
+                                        <th>User</th>
+                                        <th>Time</th>
+                                        <th>Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log in recent_logs %}
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-primary">{{ log.event_type.replace('_', ' ').title() if log.event_type else 'Unknown' }}</span>
+                                        </td>
+                                        <td>{{ log.user.username if log.user else 'System' }}</td>
+                                        <td>{{ log.timestamp.strftime('%m/%d %H:%M') }}</td>
+                                        <td>
+                                            <small class="text-muted">{{ log.data.get('description', '') if log.data else '' }}</small>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
                         </div>
                         {% else %}
                         <div class="text-center py-5">
@@ -103,26 +120,24 @@
                             </div>
                             <div class="card-body">
                                 <div class="mb-3">
-                                    <label class="form-label small">Time Range</label>
-                                    <select class="form-select form-select-sm">
-                                        <option>Last 24 hours</option>
-                                        <option>Last 7 days</option>
-                                        <option>Last 30 days</option>
-                                    </select>
+                                    <label class="form-label small">Quick Filter</label>
+                                    <input type="text" id="activitySearch" class="form-control form-control-sm" placeholder="Search activity...">
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label small">Action Type</label>
-                                    <select class="form-select form-select-sm">
-                                        <option>All Actions</option>
-                                        <option>User Management</option>
-                                        <option>Settings Changes</option>
-                                        <option>System Events</option>
+                                    <label class="form-label small">Event Type</label>
+                                    <select id="eventTypeFilter" class="form-select form-select-sm">
+                                        <option value="">All Events</option>
+                                        <option value="user_management">User Management</option>
+                                        <option value="settings_change">Settings Changes</option>
+                                        <option value="system_event">System Events</option>
                                     </select>
                                 </div>
-                                <button class="btn btn-sm btn-outline-primary w-100">
-                                    <i class="fas fa-search me-1"></i>
-                                    Apply Filters
-                                </button>
+                                <div class="d-grid gap-2">
+                                    <button id="clearFilters" class="btn btn-sm btn-outline-secondary">
+                                        <i class="fas fa-times me-1"></i>
+                                        Clear Filters
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -630,5 +645,54 @@ function loadPHIStatistics() {
 function loadCustomerAnalytics() {
     console.log('Loading customer analytics...');
 }
+</script>
+
+<!-- DataTables JavaScript -->
+<script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+
+<script>
+// Initialize DataTables for activity logs
+$(document).ready(function() {
+    if ($('#activityTable').length) {
+        var table = $('#activityTable').DataTable({
+            pageLength: 10,
+            lengthChange: false,
+            info: false,
+            searching: true,
+            paging: false,
+            order: [[2, 'desc']], // Sort by time column descending
+            columnDefs: [
+                { orderable: false, targets: [3] } // Disable sorting on details column
+            ],
+            language: {
+                search: "",
+                searchPlaceholder: "Search activity..."
+            }
+        });
+
+        // Custom search functionality
+        $('#activitySearch').on('keyup', function() {
+            table.search(this.value).draw();
+        });
+
+        // Event type filter
+        $('#eventTypeFilter').on('change', function() {
+            var filterValue = this.value;
+            if (filterValue) {
+                table.column(0).search(filterValue, true, false).draw();
+            } else {
+                table.column(0).search('').draw();
+            }
+        });
+
+        // Clear filters
+        $('#clearFilters').on('click', function() {
+            $('#activitySearch').val('');
+            $('#eventTypeFilter').val('');
+            table.search('').columns().search('').draw();
+        });
+    }
+});
 </script>
 {% endblock %}

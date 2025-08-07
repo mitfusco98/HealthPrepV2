@@ -329,16 +329,27 @@ class AdminLog(db.Model):
     __tablename__ = 'admin_logs'
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    action = db.Column(db.String(100), nullable=False)
-    details = db.Column(db.Text)
-    ip_address = db.Column(db.String(45))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    event_type = db.Column(db.String(50))
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    ip_address = db.Column(db.String(45))
+    data = db.Column(db.JSON)
 
     user = db.relationship('User', backref=db.backref('admin_logs', lazy=True))
 
     def __repr__(self):
-        return f'<AdminLog {self.action} by {self.user_id}>'
+        return f'<AdminLog {self.event_type} by {self.user_id}>'
+
+def log_admin_event(event_type, user_id, ip, data=None):
+    """Utility function to log admin events"""
+    log = AdminLog(
+        event_type=event_type,
+        user_id=user_id,
+        ip_address=ip,
+        data=data or {}
+    )
+    db.session.add(log)
+    db.session.commit()
 
 class ScreeningSettings(db.Model):
     """Settings for screening data cutoffs and configuration"""

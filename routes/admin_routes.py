@@ -8,9 +8,9 @@ from datetime import datetime, timedelta
 import logging
 import functools
 
-from models import User, AdminLog, PHIFilterSettings
+from models import User, AdminLog, PHIFilterSettings, log_admin_event
 from app import db
-from admin.logs import AdminLogger
+from flask import request as flask_request
 from admin.analytics import HealthPrepAnalytics
 from admin.config import AdminConfig
 from ocr.monitor import OCRMonitor
@@ -42,7 +42,7 @@ def dashboard():
         dashboard_stats = analytics.get_roi_metrics()
 
         # Get recent activity
-        recent_logs = AdminLogger.get_recent_activity(hours=24, limit=10)
+        recent_logs = AdminLog.query.order_by(AdminLog.timestamp.desc()).limit(10).all()
 
         # Get system health indicators
         system_health = analytics.get_usage_statistics()
@@ -71,26 +71,25 @@ def logs():
         end_date = request.args.get('end_date', '')
 
         # Build filters
-        filters = {}
-        if event_type:
-            filters['action'] = event_type
-        if user_id:
-            filters['user_id'] = user_id
-        if start_date:
-            filters['start_date'] = datetime.strptime(start_date, '%Y-%m-%d')
-        if end_date:
-            filters['end_date'] = datetime.strptime(end_date, '%Y-%m-%d')
-
-        # Get filtered logs - using basic query since AdminLogger doesn't have get_filtered_logs
+        filters = {
+            'event_type': event_type,
+            'user_id': user_id,
+            'start_date': start_date,
+            'end_date': end_date
+        }
+        
+        # Get filtered logs
         query = AdminLog.query
-        if filters.get('action'):
-            query = query.filter(AdminLog.action == filters['action'])
-        if filters.get('user_id'):
-            query = query.filter(AdminLog.user_id == filters['user_id'])
-        if filters.get('start_date'):
-            query = query.filter(AdminLog.timestamp >= filters['start_date'])
-        if filters.get('end_date'):
-            query = query.filter(AdminLog.timestamp <= filters['end_date'])
+        if event_type:
+            query = query.filter(AdminLog.event_type == event_type)
+        if user_id:
+            query = query.filter(AdminLog.user_id == user_id)
+        if start_date:
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d')
+            query = query.filter(AdminLog.timestamp >= start_dt)
+        if end_date:
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+            query = query.filter(AdminLog.timestamp <= end_dt)
 
         logs_pagination = query.order_by(AdminLog.timestamp.desc()).paginate(
             page=page, per_page=50, error_out=False
@@ -102,20 +101,15 @@ def logs():
 
         # Get filter options
         users = User.query.all()
-        event_types = db.session.query(AdminLog.action).distinct().all()
-        event_types = [event.action for event in event_types]
+        event_types = db.session.query(AdminLog.event_type).distinct().all()
+        event_types = [event.event_type for event in event_types if event.event_type]
 
         return render_template('admin/logs.html',
                              logs=logs_result['logs'],
                              pagination=logs_result['pagination'],
                              users=users,
                              event_types=event_types,
-                             filters={
-                                 'event_type': event_type,
-                                 'user_id': user_id,
-                                 'start_date': start_date,
-                                 'end_date': end_date
-                             })
+                             filters=filters)
 
     except Exception as e:
         logger.error(f"Error in admin logs: {str(e)}")
@@ -227,10 +221,11 @@ def phi_settings():
             flash('PHI filter settings updated successfully', 'success')
             
             # Log the change
-            AdminLogger.log(
+            log_admin_event(
+                event_type='update_phi_settings',
                 user_id=current_user.id,
-                action='update_phi_settings',
-                details=str(new_settings)
+                ip=flask_request.remote_addr,
+                data={'settings': new_settings, 'description': 'PHI filter settings updated'}
             )
 
             return redirect(url_for('admin.phi_settings'))
@@ -313,10 +308,11 @@ def toggle_user_status(user_id):
         db.session.commit()
 
         # Log the action
-        AdminLogger.log(
+        log_admin_event(
+            event_type='toggle_user_status',
             user_id=current_user.id,
-            action='toggle_user_status',
-            details=f"User {user_id} status changed to {user.is_active}"
+            ip=flask_request.remote_addr,
+            data={'target_user_id': user_id, 'new_status': user.is_active, 'description': f'User {user.username} status changed to {"active" if user.is_active else "inactive"}'}
         )
 
         status = 'activated' if user.is_active else 'deactivated'
@@ -346,10 +342,11 @@ def toggle_admin_status(user_id):
         db.session.commit()
 
         # Log the action
-        AdminLogger.log(
+        log_admin_event(
+            event_type='toggle_admin_status',
             user_id=current_user.id,
-            action='toggle_admin_status',
-            details=f"User {user_id} admin status changed to {user.is_admin}"
+            ip=flask_request.remote_addr,
+            data={'target_user_id': user_id, 'new_admin_status': user.is_admin, 'description': f'Admin privileges {"granted" if user.is_admin else "revoked"} for {user.username}'}
         )
 
         status = 'granted' if user.is_admin else 'revoked'
@@ -399,10 +396,11 @@ def add_user():
             db.session.commit()
 
             # Log the action
-            AdminLogger.log(
+            log_admin_event(
+                event_type='create_user',
                 user_id=current_user.id,
-                action='create_user',
-                details=f"Created user: {username} (Admin: {is_admin})"
+                ip=flask_request.remote_addr,
+                data={'created_user': username, 'is_admin': is_admin, 'description': f'Created user: {username} with admin: {is_admin}'}
             )
 
             flash(f'User {username} created successfully', 'success')
@@ -445,10 +443,11 @@ def import_screening_presets():
                      f'{result["updated_count"]} updated, {result["skipped_count"]} skipped', 'success')
                 
                 # Log the action
-                AdminLogger.log(
+                log_admin_event(
+                    event_type='import_screening_preset',
                     user_id=current_user.id,
-                    action='import_screening_preset',
-                    details=f'Imported preset {preset_filename}: {result["imported_count"]} new, {result["updated_count"]} updated'
+                    ip=flask_request.remote_addr,
+                    data={'preset_filename': preset_filename, 'imported_count': result['imported_count'], 'updated_count': result['updated_count'], 'description': f'Imported preset {preset_filename}'}
                 )
             else:
                 error_msg = '; '.join(result.get('errors', ['Unknown error']))
@@ -483,10 +482,11 @@ def settings():
             }
 
             # Log the change
-            AdminLogger.log(
+            log_admin_event(
+                event_type='update_admin_settings',
                 user_id=current_user.id,
-                action='update_admin_settings',
-                details=str(admin_settings)
+                ip=flask_request.remote_addr,
+                data={'settings': admin_settings, 'description': 'System administration settings updated'}
             )
 
             flash('System settings updated successfully', 'success')
@@ -551,10 +551,11 @@ def log_error():
             return jsonify({'success': False, 'error': 'No error data provided'}), 400
         
         # Log the error
-        AdminLogger.log(
+        log_admin_event(
+            event_type='system_error',
             user_id=current_user.id,
-            action='system_error',
-            details=f"Error: {error_data.get('message', 'Unknown error')} | Source: {error_data.get('source', 'Unknown')}"
+            ip=flask_request.remote_addr,
+            data={'error_message': error_data.get('message', 'Unknown error'), 'error_source': error_data.get('source', 'Unknown'), 'description': f'System error logged: {error_data.get("message", "Unknown error")}'}
         )
         
         return jsonify({'success': True, 'message': 'Error logged successfully'})
