@@ -34,67 +34,136 @@ def admin_required(f):
 @login_required
 @admin_required
 def dashboard():
-    """Main admin dashboard"""
+    """Main admin dashboard - redirect to logs by default"""
+    return redirect(url_for('admin.dashboard_logs'))
+
+def get_dashboard_data():
+    """Helper function to get common dashboard data"""
+    analytics = HealthPrepAnalytics()
+    
+    # Get dashboard statistics
+    dashboard_stats = analytics.get_roi_metrics()
+    
+    # Get recent activity
+    recent_logs = AdminLog.query.order_by(AdminLog.timestamp.desc()).limit(10).all()
+    
+    # Get system health indicators
+    system_health = analytics.get_usage_statistics()
+    
+    # Get PHI settings and statistics
+    phi_filter = PHIFilter()
+    phi_settings = PHIFilterSettings.query.first()
+    
+    # Calculate PHI statistics (placeholder data for now)
     try:
-        analytics = HealthPrepAnalytics()
-
-        # Get dashboard statistics
-        dashboard_stats = analytics.get_roi_metrics()
-
-        # Get recent activity
-        recent_logs = AdminLog.query.order_by(AdminLog.timestamp.desc()).limit(10).all()
-
-        # Get system health indicators
-        system_health = analytics.get_usage_statistics()
+        documents_processed = Document.query.filter(
+            Document.ocr_confidence.isnot(None)
+        ).count()
+    except:
+        documents_processed = 0
         
-        # Get PHI settings and statistics
-        phi_filter = PHIFilter()
-        phi_settings = PHIFilterSettings.query.first()
-        
-        # Calculate PHI statistics (placeholder data for now)
-        try:
-            documents_processed = Document.query.filter(
-                Document.ocr_confidence.isnot(None)
-            ).count()
-        except:
-            documents_processed = 0
-            
-        phi_stats = {
-            'documents_processed': documents_processed,
-            'phi_items_redacted': 892,  # placeholder
-            'detection_accuracy': 97.3,  # placeholder
-            'avg_processing_time': 1.2   # placeholder
-        }
-        
-        phi_breakdown = {
-            'ssn_count': 234,
-            'phone_count': 187, 
-            'email_count': 156,
-            'mrn_count': 145,
-            'name_count': 123
-        }
-        
-        # Get user statistics
-        total_users = User.query.count()
-        active_users = User.query.filter_by(is_active=True).count() if hasattr(User, 'is_active') else total_users
-        admin_users = User.query.filter_by(is_admin=True).count()
-        inactive_users = total_users - active_users
+    phi_stats = {
+        'documents_processed': documents_processed,
+        'phi_items_redacted': 892,  # placeholder
+        'detection_accuracy': 97.3,  # placeholder
+        'avg_processing_time': 1.2   # placeholder
+    }
+    
+    phi_breakdown = {
+        'ssn_count': 234,
+        'phone_count': 187, 
+        'email_count': 156,
+        'mrn_count': 145,
+        'name_count': 123
+    }
+    
+    # Get user statistics
+    total_users = User.query.count()
+    active_users = User.query.filter_by(is_active=True).count() if hasattr(User, 'is_active') else total_users
+    admin_users = User.query.filter_by(is_admin=True).count()
+    inactive_users = total_users - active_users
+    
+    return {
+        'stats': dashboard_stats,
+        'recent_logs': recent_logs,
+        'system_health': system_health,
+        'phi_settings': phi_settings,
+        'phi_stats': phi_stats,
+        'phi_breakdown': phi_breakdown,
+        'total_users': total_users,
+        'active_users': active_users,
+        'admin_users': admin_users,
+        'inactive_users': inactive_users
+    }
 
-        return render_template('admin/dashboard.html',
-                             stats=dashboard_stats,
-                             recent_logs=recent_logs,
-                             system_health=system_health,
-                             phi_settings=phi_settings,
-                             phi_stats=phi_stats,
-                             phi_breakdown=phi_breakdown,
-                             total_users=total_users,
-                             active_users=active_users,
-                             admin_users=admin_users,
-                             inactive_users=inactive_users)
-
+@admin_bp.route('/dashboard/logs')
+@login_required
+@admin_required
+def dashboard_logs():
+    """Admin dashboard - Activity Logs tab"""
+    try:
+        data = get_dashboard_data()
+        data['active_tab'] = 'activity'
+        return render_template('admin/dashboard.html', **data)
     except Exception as e:
-        logger.error(f"Error in admin dashboard: {str(e)}")
-        flash('Error loading admin dashboard', 'error')
+        logger.error(f"Error in dashboard logs: {str(e)}")
+        flash('Error loading dashboard', 'error')
+        return render_template('error/500.html'), 500
+
+@admin_bp.route('/dashboard/users')
+@login_required
+@admin_required
+def dashboard_users():
+    """Admin dashboard - User Management tab"""
+    try:
+        data = get_dashboard_data()
+        data['active_tab'] = 'users'
+        return render_template('admin/dashboard.html', **data)
+    except Exception as e:
+        logger.error(f"Error in dashboard users: {str(e)}")
+        flash('Error loading dashboard', 'error')
+        return render_template('error/500.html'), 500
+
+@admin_bp.route('/dashboard/presets')
+@login_required
+@admin_required
+def dashboard_presets():
+    """Admin dashboard - Preset Management tab"""
+    try:
+        data = get_dashboard_data()
+        data['active_tab'] = 'presets'
+        return render_template('admin/dashboard.html', **data)
+    except Exception as e:
+        logger.error(f"Error in dashboard presets: {str(e)}")
+        flash('Error loading dashboard', 'error')
+        return render_template('error/500.html'), 500
+
+@admin_bp.route('/dashboard/phi')
+@login_required
+@admin_required
+def dashboard_phi():
+    """Admin dashboard - PHI Statistics tab"""
+    try:
+        data = get_dashboard_data()
+        data['active_tab'] = 'phi'
+        return render_template('admin/dashboard.html', **data)
+    except Exception as e:
+        logger.error(f"Error in dashboard PHI: {str(e)}")
+        flash('Error loading dashboard', 'error')
+        return render_template('error/500.html'), 500
+
+@admin_bp.route('/dashboard/analytics')
+@login_required
+@admin_required
+def dashboard_analytics():
+    """Admin dashboard - Customer Analytics tab"""
+    try:
+        data = get_dashboard_data()
+        data['active_tab'] = 'analytics'
+        return render_template('admin/dashboard.html', **data)
+    except Exception as e:
+        logger.error(f"Error in dashboard analytics: {str(e)}")
+        flash('Error loading dashboard', 'error')
         return render_template('error/500.html'), 500
 
 @admin_bp.route('/logs')

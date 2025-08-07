@@ -38,27 +38,27 @@
             <div class="collapse navbar-collapse" id="adminNavbar">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('admin.dashboard') }}#nav-activity" onclick="setActiveTab('nav-activity-tab')">
+                        <a class="nav-link" href="{{ url_for('admin.dashboard_logs') }}">
                             <i class="fas fa-history me-1"></i> Activity Logs
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('admin.dashboard') }}#nav-users" onclick="setActiveTab('nav-users-tab')">
+                        <a class="nav-link" href="{{ url_for('admin.dashboard_users') }}">
                             <i class="fas fa-users me-1"></i> User Management
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('admin.dashboard') }}#nav-presets" onclick="setActiveTab('nav-presets-tab')">
+                        <a class="nav-link" href="{{ url_for('admin.dashboard_presets') }}">
                             <i class="fas fa-cogs me-1"></i> Preset Management
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('admin.dashboard') }}#nav-phi" onclick="setActiveTab('nav-phi-tab')">
+                        <a class="nav-link" href="{{ url_for('admin.dashboard_phi') }}">
                             <i class="fas fa-user-shield me-1"></i> PHI Statistics
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('admin.dashboard') }}#nav-analytics" onclick="setActiveTab('nav-analytics-tab')">
+                        <a class="nav-link" href="{{ url_for('admin.dashboard_analytics') }}">
                             <i class="fas fa-chart-bar me-1"></i> Customer Analytics
                         </a>
                     </li>
@@ -150,17 +150,7 @@
         // Update every minute
         setInterval(updateTimestamp, 60000);
         
-        // Tab navigation function
-        function setActiveTab(tabId) {
-            // Use setTimeout to ensure page loads first
-            setTimeout(() => {
-                const tab = document.getElementById(tabId);
-                if (tab) {
-                    const tabTrigger = new bootstrap.Tab(tab);
-                    tabTrigger.show();
-                }
-            }, 100);
-        }
+        // Remove old tab navigation function since we're using proper routes now
 
         // Confirm dangerous actions
         document.addEventListener('DOMContentLoaded', function() {

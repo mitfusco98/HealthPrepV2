@@ -30,31 +30,26 @@
     <div class="card-header p-0">
         <nav>
             <div class="nav nav-tabs" id="nav-tab" role="tablist">
-                <button class="nav-link active" id="nav-activity-tab" data-bs-toggle="tab" data-bs-target="#nav-activity" 
-                        type="button" role="tab" aria-controls="nav-activity" aria-selected="true">
+                <a class="nav-link {{ 'active' if active_tab == 'activity' else '' }}" href="{{ url_for('admin.dashboard_logs') }}">
                     <i class="fas fa-history me-2"></i>
                     Activity Logs
-                </button>
-                <button class="nav-link" id="nav-users-tab" data-bs-toggle="tab" data-bs-target="#nav-users" 
-                        type="button" role="tab" aria-controls="nav-users" aria-selected="false">
+                </a>
+                <a class="nav-link {{ 'active' if active_tab == 'users' else '' }}" href="{{ url_for('admin.dashboard_users') }}">
                     <i class="fas fa-users me-2"></i>
                     User Management
-                </button>
-                <button class="nav-link" id="nav-presets-tab" data-bs-toggle="tab" data-bs-target="#nav-presets" 
-                        type="button" role="tab" aria-controls="nav-presets" aria-selected="false">
+                </a>
+                <a class="nav-link {{ 'active' if active_tab == 'presets' else '' }}" href="{{ url_for('admin.dashboard_presets') }}">
                     <i class="fas fa-cogs me-2"></i>
                     Preset Management
-                </button>
-                <button class="nav-link" id="nav-phi-tab" data-bs-toggle="tab" data-bs-target="#nav-phi" 
-                        type="button" role="tab" aria-controls="nav-phi" aria-selected="false">
+                </a>
+                <a class="nav-link {{ 'active' if active_tab == 'phi' else '' }}" href="{{ url_for('admin.dashboard_phi') }}">
                     <i class="fas fa-user-shield me-2"></i>
                     PHI Statistics
-                </button>
-                <button class="nav-link" id="nav-analytics-tab" data-bs-toggle="tab" data-bs-target="#nav-analytics" 
-                        type="button" role="tab" aria-controls="nav-analytics" aria-selected="false">
+                </a>
+                <a class="nav-link {{ 'active' if active_tab == 'analytics' else '' }}" href="{{ url_for('admin.dashboard_analytics') }}">
                     <i class="fas fa-chart-bar me-2"></i>
                     Customer Analytics
-                </button>
+                </a>
             </div>
         </nav>
     </div>
@@ -62,7 +57,7 @@
         <div class="tab-content" id="nav-tabContent">
 
             <!-- Activity Logs Tab -->
-            <div class="tab-pane fade show active" id="nav-activity" role="tabpanel" aria-labelledby="nav-activity-tab">
+            <div class="tab-pane fade {{ 'show active' if active_tab == 'activity' else '' }}" id="nav-activity" role="tabpanel" aria-labelledby="nav-activity-tab">
                 <div class="row">
                     <div class="col-lg-8 mb-4">
                         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -145,7 +140,7 @@
             </div>
 
             <!-- User Management Tab -->
-            <div class="tab-pane fade" id="nav-users" role="tabpanel" aria-labelledby="nav-users-tab">
+            <div class="tab-pane fade {{ 'show active' if active_tab == 'users' else '' }}" id="nav-users" role="tabpanel" aria-labelledby="nav-users-tab">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h5 class="mb-0">
                         <i class="fas fa-users me-2"></i>
@@ -227,7 +222,7 @@
             </div>
 
             <!-- Preset Management Tab -->
-            <div class="tab-pane fade" id="nav-presets" role="tabpanel" aria-labelledby="nav-presets-tab">
+            <div class="tab-pane fade {{ 'show active' if active_tab == 'presets' else '' }}" id="nav-presets" role="tabpanel" aria-labelledby="nav-presets-tab">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h5 class="mb-0">
                         <i class="fas fa-cogs me-2"></i>
@@ -326,7 +321,7 @@
             </div>
             
             <!-- PHI Statistics Tab -->
-            <div class="tab-pane fade" id="nav-phi" role="tabpanel" aria-labelledby="nav-phi-tab">
+            <div class="tab-pane fade {{ 'show active' if active_tab == 'phi' else '' }}" id="nav-phi" role="tabpanel" aria-labelledby="nav-phi-tab">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h5 class="mb-0">
                         <i class="fas fa-user-shield me-2"></i>
@@ -524,7 +519,7 @@
             </div>
             
             <!-- Customer Analytics Tab -->
-            <div class="tab-pane fade" id="nav-analytics" role="tabpanel" aria-labelledby="nav-analytics-tab">
+            <div class="tab-pane fade {{ 'show active' if active_tab == 'analytics' else '' }}" id="nav-analytics" role="tabpanel" aria-labelledby="nav-analytics-tab">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h5 class="mb-0">
                         <i class="fas fa-chart-bar me-2"></i>
@@ -642,24 +637,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Tab switching with URL hash support
 document.addEventListener('DOMContentLoaded', function() {
-    const tabTriggerList = document.querySelectorAll('#nav-tab button');
-    tabTriggerList.forEach(tabTrigger => {
-        tabTrigger.addEventListener('click', function() {
-            const target = this.getAttribute('data-bs-target');
-            history.replaceState(null, null, '#' + target.replace('#nav-', ''));
-        });
-    });
-    
-    // Activate tab based on URL hash
-    const hash = window.location.hash;
-    if (hash) {
-        const tabId = 'nav' + hash;
-        const tabTrigger = document.querySelector(`[data-bs-target="#${tabId}"]`);
-        if (tabTrigger) {
-            const tab = new bootstrap.Tab(tabTrigger);
-            tab.show();
-        }
-    }
+    // Remove old tab-based navigation since we're using proper routes
+    console.log('Dashboard loaded with route-based navigation');
 });
 
 // Filter functionality for activity logs
