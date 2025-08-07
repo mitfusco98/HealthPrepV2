@@ -4,6 +4,7 @@ Admin dashboard routes and functionality
 """
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
+from flask_wtf.csrf import exempt
 from datetime import datetime, timedelta
 import logging
 import functools
@@ -548,6 +549,7 @@ def system_health():
         return jsonify({'error': str(e)}), 500
 
 @admin_bp.route('/log-error', methods=['POST'])
+@exempt
 @login_required
 @admin_required
 def log_error():
