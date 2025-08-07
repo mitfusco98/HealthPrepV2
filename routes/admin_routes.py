@@ -94,10 +94,6 @@ def logs():
         logs_pagination = query.order_by(AdminLog.timestamp.desc()).paginate(
             page=page, per_page=50, error_out=False
         )
-        logs_result = {
-            'logs': logs_pagination.items,
-            'pagination': logs_pagination
-        }
 
         # Get filter options
         users = User.query.all()
@@ -105,8 +101,8 @@ def logs():
         event_types = [event.event_type for event in event_types if event.event_type]
 
         return render_template('admin/logs.html',
-                             logs=logs_result['logs'],
-                             pagination=logs_result['pagination'],
+                             logs=logs_pagination.items,
+                             pagination=logs_pagination,
                              users=users,
                              event_types=event_types,
                              filters=filters)
