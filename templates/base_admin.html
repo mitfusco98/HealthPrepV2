@@ -131,7 +131,7 @@
                 <div class="col-md-6 text-end">
                     <small>
                         <i class="fas fa-clock me-1"></i>
-                        Last updated: <span id="lastUpdated">{{ moment().format('MMM DD, YYYY HH:mm') }}</span>
+                        Last updated: <span id="lastUpdated"></span>
                     </small>
                 </div>
             </div>
@@ -143,8 +143,8 @@
 
     <!-- Admin-specific JS -->
     <script>
-        // Auto-refresh timestamp
-        setInterval(function() {
+        // Initialize and auto-refresh timestamp
+        function updateTimestamp() {
             document.getElementById('lastUpdated').textContent = new Date().toLocaleDateString('en-US', {
                 month: 'short',
                 day: '2-digit',
@@ -152,7 +152,13 @@
                 hour: '2-digit',
                 minute: '2-digit'
             });
-        }, 60000); // Update every minute
+        }
+        
+        // Set initial timestamp
+        updateTimestamp();
+        
+        // Update every minute
+        setInterval(updateTimestamp, 60000);
 
         // Confirm dangerous actions
         document.addEventListener('DOMContentLoaded', function() {
