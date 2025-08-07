@@ -1,30 +1,160 @@
 """
 Database models for HealthPrep Medical Screening System
 """
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 import json
+from sqlalchemy import event
+from sqlalchemy.ext.hybrid import hybrid_property
 
 # Import db from app module
 from app import db
+
+
+class Organization(db.Model):
+    """Organization model for multi-tenancy"""
+    __tablename__ = 'organizations'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    display_name = db.Column(db.String(150))  # Friendly display name
+    address = db.Column(db.Text)
+    contact_email = db.Column(db.String(120))
+    phone = db.Column(db.String(20))
+    
+    # Epic FHIR Configuration
+    epic_client_id = db.Column(db.String(100))  # Epic client ID
+    epic_client_secret = db.Column(db.String(255))  # Encrypted Epic client secret
+    epic_fhir_url = db.Column(db.String(255))  # Epic FHIR base URL
+    epic_environment = db.Column(db.String(20), default='sandbox')  # sandbox, production
+    
+    # Organizational Settings
+    setup_status = db.Column(db.String(20), default='incomplete')  # incomplete, live, trial, suspended
+    custom_presets_enabled = db.Column(db.Boolean, default=True)
+    auto_sync_enabled = db.Column(db.Boolean, default=False)
+    max_users = db.Column(db.Integer, default=10)  # User limit for this org
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    trial_expires = db.Column(db.DateTime)  # For trial accounts
+    
+    # Relationships
+    users = db.relationship('User', backref='organization', lazy=True)
+    epic_credentials = db.relationship('EpicCredentials', backref='organization', lazy=True, cascade='all, delete-orphan')
+    
+    @property
+    def is_active(self):
+        """Check if organization is active"""
+        if self.setup_status == 'suspended':
+            return False
+        if self.setup_status == 'trial' and self.trial_expires and self.trial_expires < datetime.utcnow():
+            return False
+        return True
+    
+    @property
+    def user_count(self):
+        """Get current user count"""
+        from sqlalchemy import func
+        return db.session.query(func.count(User.id)).filter(User.org_id == self.id).scalar() or 0
+    
+    @property
+    def can_add_users(self):
+        """Check if organization can add more users"""
+        return self.user_count < self.max_users
+    
+    def get_epic_config(self):
+        """Get Epic configuration for this organization"""
+        return {
+            'client_id': self.epic_client_id,
+            'fhir_url': self.epic_fhir_url,
+            'environment': self.epic_environment,
+            'has_credentials': bool(self.epic_client_id and self.epic_client_secret)
+        }
+    
+    def __repr__(self):
+        return f'<Organization {self.name}>'
+
+
+class EpicCredentials(db.Model):
+    """Encrypted storage for Epic FHIR credentials per organization"""
+    __tablename__ = 'epic_credentials'
+
+    id = db.Column(db.Integer, primary_key=True)
+    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
+    
+    # Token storage (encrypted at rest)
+    access_token = db.Column(db.Text)  # Encrypted access token
+    refresh_token = db.Column(db.Text)  # Encrypted refresh token
+    token_expires_at = db.Column(db.DateTime)
+    token_scope = db.Column(db.String(255))  # FHIR scopes granted
+    
+    # Epic user context (if user-specific tokens)
+    epic_user_id = db.Column(db.String(100))  # Epic user ID if token is user-specific
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))  # Internal user if mapped
+    
+    # Metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_used = db.Column(db.DateTime)
+    
+    # Relationships
+    user = db.relationship('User', backref='epic_credentials')
+    
+    @property
+    def is_expired(self):
+        """Check if token is expired"""
+        if not self.token_expires_at:
+            return True
+        return datetime.utcnow() >= self.token_expires_at
+    
+    @property
+    def expires_soon(self):
+        """Check if token expires within 30 minutes"""
+        if not self.token_expires_at:
+            return True
+        return datetime.utcnow() >= (self.token_expires_at - timedelta(minutes=30))
+    
+    def __repr__(self):
+        return f'<EpicCredentials for org {self.org_id}>'
+
 
 class User(UserMixin, db.Model):
     """User model for authentication"""
     __tablename__ = 'users'
 
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
+    username = db.Column(db.String(80), nullable=False)  # Unique within organization
+    email = db.Column(db.String(120), nullable=False)  # Unique within organization  
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), default='nurse', nullable=False)  # 'admin', 'MA', 'nurse'
     is_admin = db.Column(db.Boolean, default=False, nullable=False)  # Kept for backward compatibility
     is_active_user = db.Column(db.Boolean, default=True, nullable=False)
+    
+    # Multi-tenancy fields
+    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
+    epic_user_id = db.Column(db.String(100))  # Epic user ID for mapping
+    
+    # Security and session management
+    two_factor_enabled = db.Column(db.Boolean, default=False)
+    session_timeout_minutes = db.Column(db.Integer, default=30)
+    last_activity = db.Column(db.DateTime, default=datetime.utcnow)
+    failed_login_attempts = db.Column(db.Integer, default=0)
+    locked_until = db.Column(db.DateTime)
+    
+    # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime, default=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Create unique constraints within organization
+    __table_args__ = (
+        db.UniqueConstraint('username', 'org_id', name='unique_username_per_org'),
+        db.UniqueConstraint('email', 'org_id', name='unique_email_per_org'),
+    )
 
     def set_password(self, password):
         """Set password hash"""
@@ -45,6 +175,40 @@ class User(UserMixin, db.Model):
     def can_manage_users(self):
         """Check if user can manage other users"""
         return self.role == 'admin'
+    
+    def can_access_data(self, org_id):
+        """Check if user can access data for a specific organization"""
+        return self.org_id == org_id
+    
+    def is_session_expired(self):
+        """Check if user session is expired based on activity"""
+        if not self.last_activity:
+            return True
+        timeout_delta = timedelta(minutes=self.session_timeout_minutes)
+        return datetime.utcnow() > (self.last_activity + timeout_delta)
+    
+    def is_account_locked(self):
+        """Check if account is temporarily locked"""
+        if not self.locked_until:
+            return False
+        return datetime.utcnow() < self.locked_until
+    
+    def record_login_attempt(self, success=True):
+        """Record login attempt and handle account locking"""
+        if success:
+            self.failed_login_attempts = 0
+            self.locked_until = None
+            self.last_login = datetime.utcnow()
+            self.last_activity = datetime.utcnow()
+        else:
+            self.failed_login_attempts += 1
+            # Lock account after 5 failed attempts for 30 minutes
+            if self.failed_login_attempts >= 5:
+                self.locked_until = datetime.utcnow() + timedelta(minutes=30)
+    
+    def update_activity(self):
+        """Update last activity timestamp"""
+        self.last_activity = datetime.utcnow()
 
     @property
     def is_active(self):
@@ -65,21 +229,34 @@ class User(UserMixin, db.Model):
         return f'<User {self.username}>'
 
 class Patient(db.Model):
-    """Patient model"""
+    """Patient model with organization scope"""
     __tablename__ = 'patient'
 
     id = db.Column(db.Integer, primary_key=True)
-    mrn = db.Column(db.String(50), unique=True, nullable=False)
+    mrn = db.Column(db.String(50), nullable=False)  # Unique within organization
     name = db.Column(db.String(100), nullable=False)
     date_of_birth = db.Column(db.Date, nullable=False)
     gender = db.Column(db.String(10), nullable=False)
     phone = db.Column(db.String(20))
     email = db.Column(db.String(120))
     address = db.Column(db.Text)
+    
+    # Multi-tenancy
+    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
+    
+    # Epic integration
+    epic_patient_id = db.Column(db.String(100))  # Epic patient ID for FHIR sync
+    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Unique MRN within organization
+    __table_args__ = (
+        db.UniqueConstraint('mrn', 'org_id', name='unique_mrn_per_org'),
+    )
 
     # Relationships
+    organization = db.relationship('Organization', backref='patients')
     screenings = db.relationship('Screening', backref='patient', lazy=True, cascade='all, delete-orphan')
     documents = db.relationship('Document', backref='patient', lazy=True, cascade='all, delete-orphan')
     conditions = db.relationship('PatientCondition', backref='patient', lazy=True, cascade='all, delete-orphan')
@@ -100,11 +277,12 @@ class Patient(db.Model):
         return f'<Patient {self.name} ({self.mrn})>'
 
 class ScreeningType(db.Model):
-    """Screening type configuration"""
+    """Screening type configuration with organization scope"""
     __tablename__ = 'screening_type'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
+    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)  # Organization scope
     keywords = db.Column(db.Text)  # JSON string of keywords for fuzzy detection
     eligible_genders = db.Column(db.String(10), default='both')  # 'M', 'F', or 'both'
     min_age = db.Column(db.Integer)
@@ -116,6 +294,7 @@ class ScreeningType(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
+    organization = db.relationship('Organization', backref='screening_types')
     screenings = db.relationship('Screening', backref='screening_type', lazy=True)
 
     @property
@@ -271,12 +450,13 @@ class ScreeningType(db.Model):
         return f'<ScreeningType {self.name}>'
 
 class Screening(db.Model):
-    """Patient screening record"""
+    """Patient screening record with organization scope"""
     __tablename__ = 'screening'
 
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
     screening_type_id = db.Column(db.Integer, db.ForeignKey('screening_type.id'), nullable=False)
+    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)  # Data isolation
     status = db.Column(db.String(20), nullable=False)  # 'due', 'due_soon', 'complete'
     last_completed = db.Column(db.Date)
     next_due = db.Column(db.Date)
@@ -284,6 +464,9 @@ class Screening(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Relationships
+    organization = db.relationship('Organization', backref='screenings')
+    
     @property
     def matched_documents_list(self):
         """Return matched documents as a list"""
@@ -298,11 +481,12 @@ class Screening(db.Model):
         return f'<Screening {self.screening_type_id} for patient {self.patient_id}>'
 
 class Document(db.Model):
-    """Document model"""
+    """Document model with organization scope"""
     __tablename__ = 'document'
 
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
+    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)  # Data isolation
     filename = db.Column(db.String(255), nullable=False)
     file_path = db.Column(db.String(500))
     document_type = db.Column(db.String(50))  # 'lab', 'imaging', 'consult', 'hospital'
@@ -312,6 +496,9 @@ class Document(db.Model):
     phi_filtered = db.Column(db.Boolean, default=False)
     processed_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    organization = db.relationship('Organization', backref='documents')
 
     def __repr__(self):
         return f'<Document {self.filename}>'
@@ -347,26 +534,48 @@ class Appointment(db.Model):
         return f'<Appointment {self.appointment_date} for patient {self.patient_id}>'
 
 class AdminLog(db.Model):
-    """Admin action logging"""
+    """Admin action logging with organization scope"""
     __tablename__ = 'admin_logs'
 
     id = db.Column(db.Integer, primary_key=True)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     event_type = db.Column(db.String(50))
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)  # Organization scope
     ip_address = db.Column(db.String(45))
-    data = db.Column(db.JSON)
-
+    
+    # Enhanced logging fields for HIPAA compliance
+    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'))  # Patient accessed (if applicable)
+    resource_type = db.Column(db.String(50))  # Type of resource accessed (patient, document, screening)
+    resource_id = db.Column(db.Integer)  # ID of specific resource
+    action_details = db.Column(db.Text)  # Human-readable action description
+    
+    data = db.Column(db.JSON)  # Additional structured data
+    
+    # Security tracking
+    session_id = db.Column(db.String(100))  # Session identifier
+    user_agent = db.Column(db.Text)  # Browser/client information
+    
+    # Relationships
     user = db.relationship('User', backref=db.backref('admin_logs', lazy=True))
+    organization = db.relationship('Organization', backref=db.backref('admin_logs', lazy=True))
+    patient = db.relationship('Patient', backref=db.backref('access_logs', lazy=True))
 
     def __repr__(self):
         return f'<AdminLog {self.event_type} by {self.user_id}>'
 
-def log_admin_event(event_type, user_id, ip, data=None):
-    """Utility function to log admin events"""
+def log_admin_event(event_type, user_id, org_id, ip, data=None, patient_id=None, resource_type=None, resource_id=None, action_details=None, session_id=None, user_agent=None):
+    """Enhanced utility function to log admin events with organization scope"""
     log = AdminLog()
     log.event_type = event_type
     log.user_id = user_id
+    log.org_id = org_id
+    log.patient_id = patient_id
+    log.resource_type = resource_type
+    log.resource_id = resource_id
+    log.action_details = action_details
+    log.session_id = session_id
+    log.user_agent = user_agent
     log.ip_address = ip
     log.data = data or {}
     db.session.add(log)
@@ -501,21 +710,29 @@ class ScreeningDocumentMatch(db.Model):
     document = db.relationship('Document', backref='screening_matches')
 
 class ScreeningPreset(db.Model):
-    """Screening preset templates for importing screening types"""
+    """Screening preset templates with multi-tenant support"""
     __tablename__ = 'screening_preset'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
     specialty = db.Column(db.String(50))  # e.g., 'cardiology', 'primary_care', 'oncology'
+    
+    # Multi-tenancy support
+    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'))  # NULL = global/shared preset
     shared = db.Column(db.Boolean, default=False, nullable=False)  # Shared across tenants/organizations
+    preset_scope = db.Column(db.String(20), default='organization')  # 'global', 'organization', 'user'
+    
     screening_data = db.Column(db.JSON, nullable=False)  # Complete screening type data
     preset_metadata = db.Column(db.JSON)  # Additional metadata (version, tags, etc.)
+    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     
+    # Relationships
     creator = db.relationship('User', backref='created_presets')
+    organization = db.relationship('Organization', backref='screening_presets')
 
     @property
     def screening_count(self):
@@ -695,6 +912,38 @@ class ScreeningPreset(db.Model):
             preset_metadata=data.get('metadata', {}),
             created_by=created_by
         )
+
+    def is_accessible_by_user(self, user):
+        """Check if preset is accessible by a specific user"""
+        # Global/shared presets are accessible to all users
+        if self.shared or self.preset_scope == 'global':
+            return True
+        
+        # Organization-specific presets are accessible to users in the same org
+        if self.org_id and user.org_id == self.org_id:
+            return True
+        
+        # User can access their own presets
+        if self.created_by == user.id:
+            return True
+        
+        return False
+    
+    def can_be_edited_by_user(self, user):
+        """Check if preset can be edited by a specific user"""
+        # Global presets can only be edited by super admins (future feature)
+        if self.preset_scope == 'global':
+            return False  # Reserved for future super admin role
+        
+        # User can edit their own presets
+        if self.created_by == user.id:
+            return True
+        
+        # Admin users can edit organization presets
+        if user.is_admin_user() and self.org_id == user.org_id:
+            return True
+        
+        return False
 
     def __repr__(self):
         return f'<ScreeningPreset {self.name} ({self.screening_count} types)>'
