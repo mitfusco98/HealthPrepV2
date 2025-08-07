@@ -285,6 +285,7 @@ class Document(db.Model):
     file_path = db.Column(db.String(500))
     document_type = db.Column(db.String(50))  # 'lab', 'imaging', 'consult', 'hospital'
     content = db.Column(db.Text)  # OCR extracted text
+    ocr_text = db.Column(db.Text)  # OCR extracted text (primary field)
     ocr_confidence = db.Column(db.Float)
     phi_filtered = db.Column(db.Boolean, default=False)
     processed_at = db.Column(db.DateTime)
