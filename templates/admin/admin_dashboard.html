@@ -117,8 +117,8 @@
                                     </td>
                                     <td>{{ log.user.username if log.user else 'System' }}</td>
                                     <td>
-                                        <span class="badge bg-{% if 'ERROR' in log.action %}danger{% elif 'CREATE' in log.action %}success{% elif 'UPDATE' in log.action %}warning{% else %}info{% endif %}">
-                                            {{ log.action.replace('_', ' ').title() }}
+                                        <span class="badge bg-{% if 'ERROR' in log.event_type %}danger{% elif 'CREATE' in log.event_type %}success{% elif 'UPDATE' in log.event_type %}warning{% else %}info{% endif %}">
+                                            {{ log.event_type.replace('_', ' ').title() }}
                                         </span>
                                     </td>
                                     <td>
