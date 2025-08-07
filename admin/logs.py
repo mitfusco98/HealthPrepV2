@@ -12,37 +12,26 @@ class AdminLogger:
     """Handles admin activity logging for HIPAA compliance"""
 
     @staticmethod
-    def log(user_id, action, details=None, ip_address=None, user_agent=None):
-        """Log an admin action"""
+    def log(user_id, event_type, details=None, ip_address=None, user_agent=None):
+        """Log an admin event"""
         try:
-            # Get request context if available
-            if not ip_address and request:
-                ip_address = request.environ.get('HTTP_X_FORWARDED_FOR', request.remote_addr)
-
-            if not user_agent and request:
-                user_agent = request.headers.get('User-Agent', '')
-
-            # Create log entry
-            log_entry = AdminLog(
+            # Use the new log_admin_event function instead
+            from models import log_admin_event
+            log_admin_event(
+                event_type=event_type,
                 user_id=user_id,
-                action=action,
-                details=details,
-                ip_address=ip_address,
-                user_agent=user_agent,
-                timestamp=datetime.utcnow()
+                ip=ip_address or (request.environ.get('HTTP_X_FORWARDED_FOR', request.remote_addr) if request else None),
+                data={'description': details, 'user_agent': user_agent or (request.headers.get('User-Agent', '') if request else '')}
             )
-
-            db.session.add(log_entry)
-            db.session.commit()
 
             # Also log to application logger
             logger = logging.getLogger(__name__)
-            logger.info(f"Admin action: {action} by user {user_id} - {details}")
+            logger.info(f"Admin event: {event_type} by user {user_id} - {details}")
 
         except Exception as e:
             # Don't let logging errors break the application
             logger = logging.getLogger(__name__)
-            logger.error(f"Failed to log admin action: {str(e)}")
+            logger.error(f"Failed to log admin event: {str(e)}")
 
     @staticmethod
     def log_data_access(user_id, data_type, record_id, action='view'):
@@ -96,9 +85,9 @@ class AdminLogger:
         ).order_by(AdminLog.timestamp.desc()).limit(limit).all()
 
     @staticmethod
-    def get_activity_by_action(action, limit=50):
-        """Get logs filtered by action type"""
-        return AdminLog.query.filter_by(action=action).order_by(
+    def get_activity_by_event_type(event_type, limit=50):
+        """Get logs filtered by event type"""
+        return AdminLog.query.filter_by(event_type=event_type).order_by(
             AdminLog.timestamp.desc()
         ).limit(limit).all()
 
@@ -111,11 +100,11 @@ class AdminLogger:
 
         # Count activities by type
         activities = db.session.query(
-            AdminLog.action,
+            AdminLog.event_type,
             db.func.count(AdminLog.id).label('count')
         ).filter(
             AdminLog.timestamp >= cutoff_date
-        ).group_by(AdminLog.action).all()
+        ).group_by(AdminLog.event_type).all()
 
         # Get unique users active in period
         active_users = db.session.query(
@@ -131,12 +120,12 @@ class AdminLogger:
             'period_days': days,
             'total_activities': total_activities,
             'active_users': active_users,
-            'activities_by_type': {activity.action: activity.count for activity in activities},
-            'most_common_action': max(activities, key=lambda x: x.count).action if activities else None
+            'activities_by_type': {activity.event_type: activity.count for activity in activities},
+            'most_common_event': max(activities, key=lambda x: x.count).event_type if activities else None
         }
 
     @staticmethod
-    def export_logs(start_date=None, end_date=None, user_id=None, action=None):
+    def export_logs(start_date=None, end_date=None, user_id=None, event_type=None):
         """Export logs for compliance/auditing"""
         query = AdminLog.query
 
@@ -149,8 +138,8 @@ class AdminLogger:
         if user_id:
             query = query.filter(AdminLog.user_id == user_id)
 
-        if action:
-            query = query.filter(AdminLog.action == action)
+        if event_type:
+            query = query.filter(AdminLog.event_type == event_type)
 
         logs = query.order_by(AdminLog.timestamp.desc()).all()
 
@@ -161,8 +150,8 @@ class AdminLogger:
                 'timestamp': log.timestamp.isoformat(),
                 'user_id': log.user_id,
                 'username': log.user.username if log.user else 'Unknown',
-                'action': log.action,
-                'details': log.details,
+                'event_type': log.event_type,
+                'data': log.data,
                 'ip_address': log.ip_address,
                 'user_agent': log.user_agent
             })
@@ -182,10 +171,10 @@ class AdminLogger:
 
         db.session.commit()
 
-        # Log the cleanup action
+        # Log the cleanup event
         AdminLogger.log(
             user_id=None,
-            action='log_cleanup',
+            event_type='log_cleanup',
             details=f"Cleaned up {deleted_count} log entries older than {days_to_keep} days"
         )
 
@@ -199,7 +188,7 @@ class AdminLogger:
         cutoff_date = datetime.utcnow() - timedelta(days=days)
 
         security_logs = AdminLog.query.filter(
-            AdminLog.action == 'security_event',
+            AdminLog.event_type == 'security_event',
             AdminLog.timestamp >= cutoff_date
         ).order_by(AdminLog.timestamp.desc()).all()
 
@@ -236,7 +225,7 @@ class AdminLogger:
         cutoff_date = datetime.utcnow() - timedelta(days=days)
 
         access_logs = AdminLog.query.filter(
-            AdminLog.action == 'data_access',
+            AdminLog.event_type == 'data_access',
             AdminLog.timestamp >= cutoff_date
         ).order_by(AdminLog.timestamp.desc()).all()
 

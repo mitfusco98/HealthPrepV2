@@ -27,7 +27,7 @@ class HealthPrepAnalytics:
         
         # Count automated activities
         prep_sheets = AdminLog.query.filter(
-            AdminLog.action == 'prep_sheet_generated',
+            AdminLog.event_type == 'generate_prep_sheet',
             AdminLog.timestamp >= cutoff_date
         ).count()
         
@@ -37,7 +37,7 @@ class HealthPrepAnalytics:
         ).count()
         
         screenings_updated = AdminLog.query.filter(
-            AdminLog.action == 'screenings_refreshed',
+            AdminLog.event_type == 'refresh_all_screenings',
             AdminLog.timestamp >= cutoff_date
         ).count()
         
@@ -65,7 +65,7 @@ class HealthPrepAnalytics:
         
         # Count screenings moved from 'due' to 'complete'
         compliance_improvements = AdminLog.query.filter(
-            AdminLog.action.like('%screening%'),
+            AdminLog.event_type.like('%screening%'),
             AdminLog.timestamp >= cutoff_date
         ).count()
         
@@ -170,7 +170,7 @@ class HealthPrepAnalytics:
         
         # Screening activity
         screening_updates = AdminLog.query.filter(
-            AdminLog.action.like('%screening%'),
+            AdminLog.event_type.like('%screening%'),
             AdminLog.timestamp >= cutoff_date
         ).count()
         

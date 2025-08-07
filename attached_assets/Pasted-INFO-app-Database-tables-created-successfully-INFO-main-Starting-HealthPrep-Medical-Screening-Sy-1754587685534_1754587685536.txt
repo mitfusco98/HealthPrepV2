@@ -1,0 +1,31 @@
+INFO:app:Database tables created successfully
+INFO:__main__:Starting HealthPrep Medical Screening System
+ * Serving Flask app 'app'
+ * Debug mode: on
+INFO:werkzeug:WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://172.31.105.34:5000
+INFO:werkzeug:Press CTRL+C to quit
+INFO:werkzeug: * Restarting with stat
+INFO:app:Database tables created successfully
+INFO:__main__:Starting HealthPrep Medical Screening System
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 139-475-884
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:27:15] "GET / HTTP/1.1" 302 -
+ERROR:routes.admin_routes:Error in admin dashboard: type object 'AdminLog' has no attribute 'action'
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:27:15] "GET /admin/dashboard HTTP/1.1" 500 -
+INFO:flask_wtf.csrf:The CSRF token is missing.
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:27:15] "POST /admin/log-error HTTP/1.1" 400 -
+ERROR:routes.admin_routes:Error in admin dashboard: type object 'AdminLog' has no attribute 'action'
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:27:25] "GET /admin/dashboard?retry=1 HTTP/1.1" 500 -
+INFO:flask_wtf.csrf:The CSRF token is missing.
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:27:25] "POST /admin/log-error HTTP/1.1" 400 -
+ERROR:routes.admin_routes:Error in admin dashboard: type object 'AdminLog' has no attribute 'action'
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:27:35] "GET /admin/dashboard?retry=2 HTTP/1.1" 500 -
+INFO:flask_wtf.csrf:The CSRF token is missing.
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:27:35] "POST /admin/log-error HTTP/1.1" 400 -
+ERROR:routes.admin_routes:Error in admin dashboard: type object 'AdminLog' has no attribute 'action'
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:27:45] "GET /admin/dashboard?retry=3 HTTP/1.1" 500 -
+INFO:flask_wtf.csrf:The CSRF token is missing.
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:27:45] "POST /admin/log-error HTTP/1.1" 400 -
