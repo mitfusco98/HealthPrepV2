@@ -1,0 +1,143 @@
+
+{% extends 'base_admin.html' %}
+
+{% block title %}Import Screening Presets - HealthPrep{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-download me-2"></i>
+            Import Screening Type Presets
+        </h1>
+        <p class="text-muted">Import standardized screening type configurations for different medical specialties.</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-file-import me-2"></i>
+                    Available Presets
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if presets %}
+                    <form method="POST">
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <label for="preset_filename" class="form-label">Select Preset to Import</label>
+                                <select name="preset_filename" id="preset_filename" class="form-select" required>
+                                    <option value="">Choose a preset...</option>
+                                    {% for preset in presets %}
+                                    <option value="{{ preset.filename }}">
+                                        {{ preset.name }} ({{ preset.specialty }}) - {{ preset.screening_count }} screenings
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="overwrite_existing" id="overwrite_existing">
+                                    <label class="form-check-label" for="overwrite_existing">
+                                        Overwrite existing
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-download me-1"></i> Import Preset
+                            </button>
+                        </div>
+                    </form>
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No preset files found. Add preset JSON files to the presets/examples directory.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    About Presets
+                </h6>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted">
+                    Screening presets contain pre-configured screening types for different medical specialties. 
+                    These are standardized configurations that can be imported to quickly set up common screening protocols.
+                </p>
+                
+                <h6 class="mt-3">Available Preset Categories:</h6>
+                <ul class="small text-muted">
+                    <li>Primary Care</li>
+                    <li>Cardiology</li>
+                    <li>Women's Health</li>
+                    <li>Oncology</li>
+                    <li>Endocrinology</li>
+                </ul>
+                
+                <div class="alert alert-warning alert-sm mt-3">
+                    <small>
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        Importing presets will create new screening types in the system. 
+                        Check "Overwrite existing" to update screening types with the same name.
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        {% if presets %}
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    Preset Details
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="preset-details" class="small text-muted">
+                    Select a preset to view details...
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.getElementById('preset_filename').addEventListener('change', function() {
+    const selectedPreset = this.value;
+    const presets = {{ presets | tojson }};
+    const detailsDiv = document.getElementById('preset-details');
+    
+    if (selectedPreset) {
+        const preset = presets.find(p => p.filename === selectedPreset);
+        if (preset) {
+            detailsDiv.innerHTML = `
+                <h6>${preset.name}</h6>
+                <p><strong>Specialty:</strong> ${preset.specialty}</p>
+                <p><strong>Description:</strong> ${preset.description}</p>
+                <p><strong>Screening Types:</strong> ${preset.screening_count}</p>
+                <p><strong>Version:</strong> ${preset.version}</p>
+            `;
+        }
+    } else {
+        detailsDiv.innerHTML = 'Select a preset to view details...';
+    }
+});
+</script>
+{% endblock %}

@@ -30,7 +30,7 @@
             </div>
         </div>
     </div>
-    
+
     <div class="col-md-3">
         <div class="card bg-success text-white">
             <div class="card-body">
@@ -47,7 +47,7 @@
             </div>
         </div>
     </div>
-    
+
     <div class="col-md-3">
         <div class="card bg-info text-white">
             <div class="card-body">
@@ -64,7 +64,7 @@
             </div>
         </div>
     </div>
-    
+
     <div class="col-md-3">
         <div class="card bg-warning text-dark">
             <div class="card-body">
@@ -135,7 +135,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- System Health -->
     <div class="col-lg-4">
         <div class="card">
@@ -172,7 +172,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- Quick Actions -->
         <div class="card mt-3">
             <div class="card-header">
@@ -186,11 +186,11 @@
                     <a href="{{ url_for('admin.add_user') }}" class="btn btn-outline-primary btn-sm">
                         <i class="fas fa-user-plus me-1"></i> Add User
                     </a>
-                    <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-outline-success btn-sm">
-                        <i class="fas fa-plus me-1"></i> Add Screening Type
+                    <a href="{{ url_for('admin.import_screening_presets') }}" class="btn btn-outline-success btn-sm">
+                        <i class="fas fa-download me-1"></i> Import Presets
                     </a>
-                    <a href="{{ url_for('admin.prep_sheet_settings') }}" class="btn btn-outline-info btn-sm">
-                        <i class="fas fa-cog me-1"></i> Configure Settings
+                    <a href="{{ url_for('admin.phi_settings') }}" class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-shield-alt me-1"></i> PHI Settings
                     </a>
                     <a href="{{ url_for('admin.export_logs') }}" class="btn btn-outline-warning btn-sm">
                         <i class="fas fa-download me-1"></i> Export Logs
@@ -245,7 +245,7 @@
             </div>
         </div>
     </div>
-    
+
     <div class="col-lg-6">
         <div class="card">
             <div class="card-header">

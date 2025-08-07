@@ -8,14 +8,13 @@ from datetime import datetime, timedelta
 import logging
 import functools
 
-from models import User, AdminLog, PHIFilterSettings, PrepSheetSettings
+from models import User, AdminLog, PHIFilterSettings
 from app import db
 from admin.logs import AdminLogger
 from admin.analytics import HealthPrepAnalytics
 from admin.config import AdminConfig
 from ocr.monitor import OCRMonitor
 from ocr.phi_filter import PHIFilter
-from forms import PrepSheetSettingsForm
 
 logger = logging.getLogger(__name__)
 
@@ -395,90 +394,85 @@ def add_user():
         flash('Error creating user', 'error')
         return render_template('admin/add_user.html')
 
-@admin_bp.route('/settings/prep-sheet', methods=['GET', 'POST'])
+@admin_bp.route('/presets/import', methods=['GET', 'POST'])
 @login_required
 @admin_required
-def prep_sheet_settings():
-    """Configure prep sheet generation settings"""
+def import_screening_presets():
+    """Import screening type presets - Admin function for system setup"""
     try:
+        from presets.loader import PresetLoader
+        
+        loader = PresetLoader()
+        
         if request.method == 'POST':
-            settings = PrepSheetSettings.query.first()
-            if not settings:
-                settings = PrepSheetSettings()
-                db.session.add(settings)
+            preset_filename = request.form.get('preset_filename')
+            overwrite_existing = request.form.get('overwrite_existing') == 'on'
             
-            form = PrepSheetSettingsForm(request.form)
-            if form.validate():
-                form.populate_obj(settings)
-                settings.updated_at = datetime.utcnow()
-                db.session.commit()
+            if not preset_filename:
+                flash('Please select a preset to import', 'error')
+                return redirect(url_for('admin.import_screening_presets'))
+            
+            # Import the preset
+            result = loader.import_preset(
+                filename=preset_filename,
+                user_id=current_user.id,
+                overwrite_existing=overwrite_existing
+            )
+            
+            if result['success']:
+                flash(f'Preset imported successfully: {result["imported_count"]} imported, '
+                     f'{result["updated_count"]} updated, {result["skipped_count"]} skipped', 'success')
                 
-                # Log the change
+                # Log the action
                 AdminLogger.log(
                     user_id=current_user.id,
-                    action='update_prep_sheet_settings',
-                    details=f'Updated prep sheet settings - Labs: {settings.labs_cutoff_months}, Imaging: {settings.imaging_cutoff_months}, Consults: {settings.consults_cutoff_months}, Hospital: {settings.hospital_cutoff_months}'
+                    action='import_screening_preset',
+                    details=f'Imported preset {preset_filename}: {result["imported_count"]} new, {result["updated_count"]} updated'
                 )
-                
-                flash('Prep sheet settings updated successfully', 'success')
-                return redirect(url_for('admin.prep_sheet_settings'))
             else:
-                flash('Please correct the errors below', 'error')
+                error_msg = '; '.join(result.get('errors', ['Unknown error']))
+                flash(f'Error importing preset: {error_msg}', 'error')
+            
+            return redirect(url_for('admin.import_screening_presets'))
         
-        # GET request - show current settings
-        settings = PrepSheetSettings.query.first()
-        if not settings:
-            settings = PrepSheetSettings()
+        # GET request - show available presets
+        available_presets = loader.get_available_presets()
         
-        form = PrepSheetSettingsForm(obj=settings)
-        
-        return render_template('admin/prep_sheet_settings.html', 
-                             form=form, 
-                             settings=settings)
+        return render_template('admin/import_presets.html',
+                             presets=available_presets)
         
     except Exception as e:
-        logger.error(f"Error in prep sheet settings: {str(e)}")
-        flash('Error loading prep sheet settings', 'error')
+        logger.error(f"Error in preset import: {str(e)}")
+        flash('Error loading preset import page', 'error')
         return render_template('error/500.html'), 500
 
 @admin_bp.route('/settings', methods=['GET', 'POST'])
 @login_required
 @admin_required
 def settings():
-    """System settings management"""
+    """System administration settings - security, monitoring, etc."""
     try:
-        config_manager = AdminConfig()
-
         if request.method == 'POST':
-            # Update system settings
-            settings_data = {
-                'lab_cutoff_months': request.form.get('lab_cutoff_months', type=int),
-                'imaging_cutoff_months': request.form.get('imaging_cutoff_months', type=int),
-                'consult_cutoff_months': request.form.get('consult_cutoff_months', type=int),
-                'hospital_cutoff_months': request.form.get('hospital_cutoff_months', type=int)
+            # Update system administration settings
+            admin_settings = {
+                'session_timeout': request.form.get('session_timeout', type=int),
+                'max_login_attempts': request.form.get('max_login_attempts', type=int),
+                'audit_retention_days': request.form.get('audit_retention_days', type=int),
+                'require_password_change': request.form.get('require_password_change') == 'on'
             }
 
-            result = config_manager.update_checklist_settings(settings_data)
+            # Log the change
+            AdminLogger.log(
+                user_id=current_user.id,
+                action='update_admin_settings',
+                details=str(admin_settings)
+            )
 
-            if result['success']:
-                flash('Settings updated successfully', 'success')
-
-                # Log the change
-                AdminLogger.log(
-                    user_id=current_user.id,
-                    action='update_system_settings',
-                    details=str(settings_data)
-                )
-            else:
-                flash(f'Error updating settings: {result["error"]}', 'error')
-
+            flash('System settings updated successfully', 'success')
             return redirect(url_for('admin.settings'))
 
-        # GET request - show current settings
-        current_settings = PrepSheetSettings.query.first() or PrepSheetSettings()
-
-        return render_template('admin/settings.html',
-                             settings=current_settings)
+        # GET request - show current admin settings
+        return render_template('admin/system_settings.html')
 
     except Exception as e:
         logger.error(f"Error in admin settings: {str(e)}")
