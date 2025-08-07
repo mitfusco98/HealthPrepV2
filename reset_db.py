@@ -16,19 +16,29 @@ logger = logging.getLogger(__name__)
 
 def reset_database():
     """Reset the database by removing the file and recreating it"""
-    app = create_app()
+    # First, remove the database files if they exist
+    db_paths = ['healthprep.db', 'instance/healthprep.db']
     
-    # First, remove the database file if it exists
-    db_path = 'healthprep.db'
-    instance_db_path = 'instance/healthprep.db'
-    
-    for path in [db_path, instance_db_path]:
+    for path in db_paths:
         if os.path.exists(path):
             try:
+                # Change permissions to ensure we can delete
+                os.chmod(path, 0o666)
                 os.remove(path)
                 logger.info(f"Removed existing database file: {path}")
             except Exception as e:
                 logger.warning(f"Could not remove {path}: {e}")
+    
+    # Ensure instance directory exists with proper permissions
+    instance_dir = 'instance'
+    if not os.path.exists(instance_dir):
+        os.makedirs(instance_dir, mode=0o755)
+        logger.info(f"Created directory: {instance_dir}")
+    else:
+        # Ensure directory is writable
+        os.chmod(instance_dir, 0o755)
+    
+    app = create_app()
     
     with app.app_context():
         try:
@@ -37,6 +47,11 @@ def reset_database():
             
             logger.info("Creating database with correct schema...")
             db.create_all()
+            
+            # Ensure database file has proper permissions
+            db_file = 'instance/healthprep.db'
+            if os.path.exists(db_file):
+                os.chmod(db_file, 0o666)
             
             logger.info("Database reset completed successfully!")
             
