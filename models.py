@@ -18,9 +18,13 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    is_admin = db.Column(db.Boolean, default=False, nullable=False)
+    role = db.Column(db.String(20), default='nurse', nullable=False)  # 'admin', 'MA', 'nurse'
+    is_admin = db.Column(db.Boolean, default=False, nullable=False)  # Kept for backward compatibility
+    is_active_user = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    last_login = db.Column(db.DateTime)
+    last_login = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def set_password(self, password):
         """Set password hash"""
@@ -32,12 +36,30 @@ class User(UserMixin, db.Model):
 
     def is_admin_user(self):
         """Check if user has admin privileges"""
-        return self.is_admin
+        return self.role == 'admin' or self.is_admin
+
+    def has_role(self, role):
+        """Check if user has specific role"""
+        return self.role == role
+
+    def can_manage_users(self):
+        """Check if user can manage other users"""
+        return self.role == 'admin'
 
     @property
     def is_active(self):
         """Check if user is active (Flask-Login requirement)"""
-        return True  # All users are active by default
+        return self.is_active_user
+
+    @property
+    def role_display(self):
+        """Get display name for role"""
+        role_names = {
+            'admin': 'Administrator',
+            'MA': 'Medical Assistant',
+            'nurse': 'Nurse'
+        }
+        return role_names.get(self.role, self.role.title())
 
     def __repr__(self):
         return f'<User {self.username}>'
@@ -203,7 +225,7 @@ class ScreeningType(db.Model):
     @classmethod
     def get_variants(cls, base_name):
         """Get all variants for a given base screening name"""
-        return cls.query.filter_by(name=base_name).order_by(cls.variant_name.asc()).all()
+        return cls.query.filter_by(name=base_name).order_by(cls.name.asc()).all()
 
     @classmethod
     def get_variant_count(cls, base_name):
@@ -273,7 +295,7 @@ class Screening(db.Model):
             return []
 
     def __repr__(self):
-        return f'<Screening {self.screening_type.name} for {self.patient.name}>'
+        return f'<Screening {self.screening_type_id} for patient {self.patient_id}>'
 
 class Document(db.Model):
     """Document model"""
@@ -306,7 +328,7 @@ class PatientCondition(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def __repr__(self):
-        return f'<Condition {self.condition_name} for {self.patient.name}>'
+        return f'<Condition {self.condition_name} for patient {self.patient_id}>'
 
 class Appointment(db.Model):
     """Patient appointments"""
@@ -322,7 +344,7 @@ class Appointment(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def __repr__(self):
-        return f'<Appointment {self.appointment_date} for {self.patient.name}>'
+        return f'<Appointment {self.appointment_date} for patient {self.patient_id}>'
 
 class AdminLog(db.Model):
     """Admin action logging"""
@@ -342,12 +364,11 @@ class AdminLog(db.Model):
 
 def log_admin_event(event_type, user_id, ip, data=None):
     """Utility function to log admin events"""
-    log = AdminLog(
-        event_type=event_type,
-        user_id=user_id,
-        ip_address=ip,
-        data=data or {}
-    )
+    log = AdminLog()
+    log.event_type = event_type
+    log.user_id = user_id
+    log.ip_address = ip
+    log.data = data or {}
     db.session.add(log)
     db.session.commit()
 

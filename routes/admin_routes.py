@@ -403,43 +403,8 @@ def users():
         flash('Error loading users', 'error')
         return render_template('error/500.html'), 500
 
-@admin_bp.route('/user/<int:user_id>/toggle-status', methods=['POST'])
-@login_required
-@admin_required
-def toggle_user_status(user_id):
-    """Toggle user active status"""
-    try:
-        user = User.query.get_or_404(user_id)
 
-        # Don't allow disabling own account
-        if user.id == current_user.id:
-            flash('Cannot disable your own account', 'error')
-            return redirect(url_for('admin.users'))
-
-        # Add is_active field if it doesn't exist
-        if not hasattr(user, 'is_active'):
-            user.is_active = True
-        
-        user.is_active = not getattr(user, 'is_active', True)
-        db.session.commit()
-
-        # Log the action
-        log_admin_event(
-            event_type='toggle_user_status',
-            user_id=current_user.id,
-            ip=flask_request.remote_addr,
-            data={'target_user_id': user_id, 'new_status': user.is_active, 'description': f'User {user.username} status changed to {"active" if user.is_active else "inactive"}'}
-        )
-
-        status = 'activated' if user.is_active else 'deactivated'
-        flash(f'User {user.username} {status} successfully', 'success')
-
-        return redirect(url_for('admin.users'))
-
-    except Exception as e:
-        logger.error(f"Error toggling user status: {str(e)}")
-        flash('Error updating user status', 'error')
-        return redirect(url_for('admin.users'))
+# Removed duplicate toggle_user_status function
 
 @admin_bp.route('/user/<int:user_id>/toggle-admin', methods=['POST'])
 @login_required
@@ -748,3 +713,310 @@ def update_phi_settings_api():
             'success': False,
             'error': str(e)
         }), 500
+
+# User Management Routes
+@admin_bp.route('/users')
+@login_required
+@admin_required
+def users_list():
+    """List all users"""
+    try:
+        users = User.query.order_by(User.created_at.desc()).all()
+        
+        # Log user list access
+        log_admin_event(
+            event_type='user_list_access',
+            user_id=current_user.id,
+            ip=request.remote_addr,
+            data={'description': 'Accessed user management list'}
+        )
+        
+        return render_template('admin/users.html', users=users)
+        
+    except Exception as e:
+        logger.error(f"Error loading users list: {str(e)}")
+        flash('Error loading users list', 'error')
+        return redirect(url_for('admin.dashboard'))
+
+@admin_bp.route('/users/create', methods=['POST'])
+@login_required
+@admin_required
+def create_user():
+    """Create new user"""
+    try:
+        # Get form data
+        username = request.form.get('username', '').strip()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '').strip()
+        role = request.form.get('role', 'nurse').strip()
+        is_active = request.form.get('is_active') == 'on'
+        
+        # Validation
+        if not username or not email or not password:
+            flash('Username, email, and password are required', 'error')
+            return redirect(url_for('admin.users_list'))
+        
+        if role not in ['admin', 'MA', 'nurse']:
+            flash('Invalid role selected', 'error')
+            return redirect(url_for('admin.users_list'))
+        
+        # Check if username or email already exists
+        existing_user = User.query.filter(
+            (User.username == username) | (User.email == email)
+        ).first()
+        
+        if existing_user:
+            flash('Username or email already exists', 'error')
+            return redirect(url_for('admin.users_list'))
+        
+        # Create new user
+        new_user = User()
+        new_user.username = username
+        new_user.email = email
+        new_user.role = role
+        new_user.is_admin = (role == 'admin')
+        new_user.is_active_user = is_active
+        new_user.created_by = current_user.id
+        new_user.set_password(password)
+        
+        db.session.add(new_user)
+        db.session.commit()
+        
+        # Log user creation
+        log_admin_event(
+            event_type='user_created',
+            user_id=current_user.id,
+            ip=request.remote_addr,
+            data={
+                'description': f'Created new user: {username}',
+                'new_user_id': new_user.id,
+                'username': username,
+                'email': email,
+                'role': role,
+                'is_active': is_active
+            }
+        )
+        
+        flash(f'User {username} created successfully', 'success')
+        return redirect(url_for('admin.users_list'))
+        
+    except Exception as e:
+        logger.error(f"Error creating user: {str(e)}")
+        db.session.rollback()
+        flash('Error creating user', 'error')
+        return redirect(url_for('admin.users_list'))
+
+@admin_bp.route('/users/<int:user_id>/edit', methods=['PUT', 'POST'])
+@login_required
+@admin_required
+def edit_user(user_id):
+    """Edit existing user"""
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        # Prevent editing self in certain ways
+        if user.id == current_user.id:
+            if request.form.get('role') != current_user.role:
+                flash('Cannot change your own role', 'error')
+                return redirect(url_for('admin.users_list'))
+            if request.form.get('is_active') != 'on' and current_user.is_active_user:
+                flash('Cannot deactivate your own account', 'error')
+                return redirect(url_for('admin.users_list'))
+        
+        # Store old values for logging
+        old_values = {
+            'username': user.username,
+            'email': user.email,
+            'role': user.role,
+            'is_active': user.is_active_user
+        }
+        
+        # Get form data
+        username = request.form.get('username', '').strip()
+        email = request.form.get('email', '').strip()
+        role = request.form.get('role', 'nurse').strip()
+        is_active = request.form.get('is_active') == 'on'
+        new_password = request.form.get('password', '').strip()
+        
+        # Validation
+        if not username or not email:
+            flash('Username and email are required', 'error')
+            return redirect(url_for('admin.users_list'))
+        
+        if role not in ['admin', 'MA', 'nurse']:
+            flash('Invalid role selected', 'error')
+            return redirect(url_for('admin.users_list'))
+        
+        # Check if username or email conflicts with other users
+        existing_user = User.query.filter(
+            ((User.username == username) | (User.email == email)) & (User.id != user_id)
+        ).first()
+        
+        if existing_user:
+            flash('Username or email already exists', 'error')
+            return redirect(url_for('admin.users_list'))
+        
+        # Update user
+        user.username = username
+        user.email = email
+        user.role = role
+        user.is_admin = (role == 'admin')
+        user.is_active_user = is_active
+        user.updated_at = datetime.utcnow()
+        
+        # Update password if provided
+        if new_password:
+            user.set_password(new_password)
+        
+        db.session.commit()
+        
+        # Log user update
+        changes = []
+        new_values = {
+            'username': user.username,
+            'email': user.email,
+            'role': user.role,
+            'is_active': user.is_active_user
+        }
+        
+        for field, old_value in old_values.items():
+            if old_value != new_values[field]:
+                changes.append(f'{field}: {old_value} → {new_values[field]}')
+        
+        if new_password:
+            changes.append('password: updated')
+        
+        log_admin_event(
+            event_type='user_updated',
+            user_id=current_user.id,
+            ip=request.remote_addr,
+            data={
+                'description': f'Updated user: {username}',
+                'updated_user_id': user.id,
+                'changes': changes,
+                'old_values': old_values,
+                'new_values': new_values
+            }
+        )
+        
+        flash(f'User {username} updated successfully', 'success')
+        return redirect(url_for('admin.users_list'))
+        
+    except Exception as e:
+        logger.error(f"Error updating user: {str(e)}")
+        db.session.rollback()
+        flash('Error updating user', 'error')
+        return redirect(url_for('admin.users_list'))
+
+@admin_bp.route('/users/<int:user_id>/delete', methods=['DELETE', 'POST'])
+@login_required
+@admin_required
+def delete_user(user_id):
+    """Delete user"""
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        # Prevent deleting self
+        if user.id == current_user.id:
+            flash('Cannot delete your own account', 'error')
+            return redirect(url_for('admin.users_list'))
+        
+        # Store user info for logging
+        deleted_user_info = {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'role': user.role,
+            'created_at': user.created_at.isoformat() if user.created_at else None
+        }
+        
+        # Delete user
+        db.session.delete(user)
+        db.session.commit()
+        
+        # Log user deletion
+        log_admin_event(
+            event_type='user_deleted',
+            user_id=current_user.id,
+            ip=request.remote_addr,
+            data={
+                'description': f'Deleted user: {deleted_user_info["username"]}',
+                'deleted_user': deleted_user_info
+            }
+        )
+        
+        flash(f'User {deleted_user_info["username"]} deleted successfully', 'success')
+        
+        # Return JSON for AJAX requests
+        if request.is_json:
+            return jsonify({'success': True, 'message': 'User deleted successfully'})
+        
+        return redirect(url_for('admin.users_list'))
+        
+    except Exception as e:
+        logger.error(f"Error deleting user: {str(e)}")
+        db.session.rollback()
+        flash('Error deleting user', 'error')
+        
+        if request.is_json:
+            return jsonify({'success': False, 'error': str(e)}), 500
+        
+        return redirect(url_for('admin.users_list'))
+
+@admin_bp.route('/users/<int:user_id>/toggle-status', methods=['POST'])
+@login_required
+@admin_required
+def toggle_user_status(user_id):
+    """Toggle user active status"""
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        # Prevent deactivating self
+        if user.id == current_user.id and user.is_active_user:
+            flash('Cannot deactivate your own account', 'error')
+            if request.is_json:
+                return jsonify({'success': False, 'error': 'Cannot deactivate your own account'}), 400
+            return redirect(url_for('admin.users_list'))
+        
+        # Toggle status
+        old_status = user.is_active_user
+        user.is_active_user = not user.is_active_user
+        user.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        # Log status change
+        log_admin_event(
+            event_type='user_status_changed',
+            user_id=current_user.id,
+            ip=request.remote_addr,
+            data={
+                'description': f'{"Activated" if user.is_active_user else "Deactivated"} user: {user.username}',
+                'affected_user_id': user.id,
+                'username': user.username,
+                'old_status': old_status,
+                'new_status': user.is_active_user
+            }
+        )
+        
+        status_text = 'activated' if user.is_active_user else 'deactivated'
+        flash(f'User {user.username} {status_text} successfully', 'success')
+        
+        if request.is_json:
+            return jsonify({
+                'success': True,
+                'is_active': user.is_active_user,
+                'message': f'User {status_text} successfully'
+            })
+        
+        return redirect(url_for('admin.users_list'))
+        
+    except Exception as e:
+        logger.error(f"Error toggling user status: {str(e)}")
+        db.session.rollback()
+        flash('Error updating user status', 'error')
+        
+        if request.is_json:
+            return jsonify({'success': False, 'error': str(e)}), 500
+        
+        return redirect(url_for('admin.users_list'))

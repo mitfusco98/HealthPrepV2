@@ -1,105 +1,120 @@
 {% extends 'base_admin.html' %}
 
-{% block title %}User Management - HealthPrep{% endblock %}
+{% block title %}User Management - HealthPrep Admin{% endblock %}
 
 {% block content %}
+<!-- Header -->
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>
-        <i class="fas fa-users me-2"></i>
-        User Management
-    </h1>
-    <a href="{{ url_for('admin.add_user') }}" class="btn btn-primary">
-        <i class="fas fa-user-plus me-1"></i>
-        Add User
-    </a>
+    <div>
+        <h2>
+            <i class="fas fa-users me-2"></i>
+            User Management
+        </h2>
+        <p class="text-muted mb-0">Manage system users and their roles</p>
+    </div>
+    <div>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+            <i class="fas fa-plus me-1"></i>
+            Add New User
+        </button>
+    </div>
 </div>
 
+<!-- Users Table -->
 <div class="card">
     <div class="card-header">
-        <h5 class="mb-0">System Users</h5>
+        <h5 class="mb-0">
+            <i class="fas fa-list me-2"></i>
+            System Users
+        </h5>
     </div>
     <div class="card-body">
         {% if users %}
-            <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Username</th>
-                            <th>Email</th>
-                            <th>Role</th>
-                            <th>Status</th>
-                            <th>Created</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for user in users %}
-                        <tr>
-                            <td>
-                                <strong>{{ user.username }}</strong>
-                                {% if user.id == current_user.id %}
-                                    <span class="badge bg-info ms-1">You</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ user.email }}</td>
-                            <td>
-                                {% if user.is_admin %}
-                                    <span class="badge bg-success">
-                                        <i class="fas fa-shield-alt me-1"></i>Admin
-                                    </span>
-                                {% else %}
-                                    <span class="badge bg-secondary">
-                                        <i class="fas fa-user me-1"></i>User
-                                    </span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% set is_active = user.is_active if hasattr(user, 'is_active') else True %}
-                                {% if is_active %}
-                                    <span class="badge bg-success">Active</span>
-                                {% else %}
-                                    <span class="badge bg-danger">Inactive</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ user.created_at.strftime('%m/%d/%Y') if user.created_at else 'N/A' }}</td>
-                            <td>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Last Login</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr data-user-id="{{ user.id }}">
+                        <td>
+                            <strong>{{ user.username }}</strong>
+                            {% if user.id == current_user.id %}
+                                <span class="badge bg-info ms-1">You</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ user.email }}</td>
+                        <td>
+                            <span class="badge bg-{{ 'danger' if user.role == 'admin' else 'primary' if user.role == 'MA' else 'secondary' }}">
+                                {{ user.role_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ 'success' if user.is_active_user else 'danger' }}">
+                                {{ 'Active' if user.is_active_user else 'Inactive' }}
+                            </span>
+                        </td>
+                        <td>
+                            <small class="text-muted">
+                                {{ user.created_at.strftime('%m/%d/%Y') if user.created_at else 'N/A' }}
+                            </small>
+                        </td>
+                        <td>
+                            <small class="text-muted">
+                                {{ user.last_login.strftime('%m/%d/%Y %H:%M') if user.last_login else 'Never' }}
+                            </small>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <!-- Edit Button -->
+                                <button type="button" class="btn btn-outline-primary btn-sm" 
+                                        onclick="editUser({{ user.id }}, '{{ user.username }}', '{{ user.email }}', '{{ user.role }}', {{ user.is_active_user|lower }})"
+                                        data-bs-toggle="modal" data-bs-target="#editUserModal">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                
+                                <!-- Toggle Status Button -->
                                 {% if user.id != current_user.id %}
-                                    <div class="btn-group" role="group">
-                                        <form method="POST" action="{{ url_for('admin.toggle_user_status', user_id=user.id) }}" class="d-inline">
-                                            <button type="submit" class="btn btn-sm btn-outline-warning" 
-                                                    title="Toggle Active Status">
-                                                <i class="fas fa-power-off"></i>
-                                            </button>
-                                        </form>
-                                        <form method="POST" action="{{ url_for('admin.toggle_admin_status', user_id=user.id) }}" class="d-inline">
-                                            <button type="submit" class="btn btn-sm btn-outline-info"
-                                                    title="Toggle Admin Privileges">
-                                                <i class="fas fa-shield-alt"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                {% else %}
-                                    <span class="text-muted">Current User</span>
+                                <button type="button" class="btn btn-outline-{{ 'warning' if user.is_active_user else 'success' }} btn-sm"
+                                        onclick="toggleUserStatus({{ user.id }}, '{{ user.username }}', {{ user.is_active_user|lower }})">
+                                    <i class="fas fa-{{ 'ban' if user.is_active_user else 'check' }}"></i>
+                                </button>
                                 {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                                
+                                <!-- Delete Button -->
+                                {% if user.id != current_user.id %}
+                                <button type="button" class="btn btn-outline-danger btn-sm"
+                                        onclick="deleteUser({{ user.id }}, '{{ user.username }}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
         {% else %}
-            <div class="text-center py-4">
-                <i class="fas fa-users fa-3x text-muted mb-3"></i>
-                <p class="text-muted">No users found.</p>
-                <a href="{{ url_for('admin.add_user') }}" class="btn btn-primary">
-                    <i class="fas fa-user-plus me-1"></i>
-                    Add First User
-                </a>
-            </div>
+        <div class="text-center py-4">
+            <i class="fas fa-users fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">No users found</h5>
+            <p class="text-muted">Add your first user to get started.</p>
+        </div>
         {% endif %}
     </div>
 </div>
 
+<!-- User Roles Info -->
 <div class="row mt-4">
     <div class="col-md-6">
         <div class="card">
@@ -112,12 +127,16 @@
             <div class="card-body">
                 <ul class="list-unstyled">
                     <li class="mb-2">
-                        <span class="badge bg-success me-2">Admin</span>
+                        <span class="badge bg-danger me-2">Administrator</span>
                         Full system access, user management, settings
                     </li>
                     <li class="mb-2">
-                        <span class="badge bg-secondary me-2">User</span>
-                        Screening management, prep sheet generation
+                        <span class="badge bg-primary me-2">Medical Assistant</span>
+                        Screening management, prep sheet generation, patient data
+                    </li>
+                    <li class="mb-2">
+                        <span class="badge bg-secondary me-2">Nurse</span>
+                        Basic screening management and patient care
                     </li>
                 </ul>
             </div>
@@ -133,11 +152,11 @@
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
-                    <a href="{{ url_for('admin.add_user') }}" class="btn btn-outline-primary btn-sm">
+                    <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addUserModal">
                         <i class="fas fa-user-plus me-1"></i>
                         Add New User
-                    </a>
-                    <a href="{{ url_for('admin.logs') }}" class="btn btn-outline-info btn-sm">
+                    </button>
+                    <a href="{{ url_for('admin.dashboard_logs') }}" class="btn btn-outline-info btn-sm">
                         <i class="fas fa-history me-1"></i>
                         View User Activity
                     </a>
@@ -146,4 +165,303 @@
         </div>
     </div>
 </div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus me-2"></i>
+                    Add New User
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.create_user') }}" id="addUserForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="addUsername" class="form-label">Username <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="addUsername" name="username" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="addEmail" class="form-label">Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="addEmail" name="email" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="addPassword" class="form-label">Password <span class="text-danger">*</span></label>
+                        <input type="password" class="form-control" id="addPassword" name="password" required minlength="6">
+                        <div class="form-text">Minimum 6 characters</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="addRole" class="form-label">Role <span class="text-danger">*</span></label>
+                        <select class="form-control" id="addRole" name="role" required>
+                            <option value="nurse">Nurse</option>
+                            <option value="MA">Medical Assistant</option>
+                            <option value="admin">Administrator</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="addIsActive" name="is_active" checked>
+                        <label class="form-check-label" for="addIsActive">
+                            Active User
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>
+                        Create User
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit me-2"></i>
+                    Edit User
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" id="editUserForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editUsername" class="form-label">Username <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="editUsername" name="username" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editEmail" class="form-label">Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="editEmail" name="email" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editPassword" class="form-label">New Password</label>
+                        <input type="password" class="form-control" id="editPassword" name="password" minlength="6">
+                        <div class="form-text">Leave blank to keep current password</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editRole" class="form-label">Role <span class="text-danger">*</span></label>
+                        <select class="form-control" id="editRole" name="role" required>
+                            <option value="nurse">Nurse</option>
+                            <option value="MA">Medical Assistant</option>
+                            <option value="admin">Administrator</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="editIsActive" name="is_active">
+                        <label class="form-check-label" for="editIsActive">
+                            Active User
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>
+                        Update User
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Confirm User Deletion
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Warning:</strong> This action cannot be undone.</p>
+                <p>Are you sure you want to delete user <strong id="deleteUserName"></strong>?</p>
+                <div class="alert alert-warning">
+                    <small>
+                        <i class="fas fa-info-circle me-1"></i>
+                        All associated data and logs will be preserved for compliance.
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDeleteUser()">
+                    <i class="fas fa-trash me-1"></i>
+                    Delete User
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let editingUserId = null;
+let deletingUserId = null;
+
+function editUser(userId, username, email, role, isActive) {
+    editingUserId = userId;
+    
+    // Populate form fields
+    document.getElementById('editUsername').value = username;
+    document.getElementById('editEmail').value = email;
+    document.getElementById('editRole').value = role;
+    document.getElementById('editIsActive').checked = isActive;
+    document.getElementById('editPassword').value = '';
+    
+    // Set form action
+    document.getElementById('editUserForm').action = `/admin/users/${userId}/edit`;
+}
+
+function deleteUser(userId, username) {
+    deletingUserId = userId;
+    document.getElementById('deleteUserName').textContent = username;
+    
+    const modal = new bootstrap.Modal(document.getElementById('deleteUserModal'));
+    modal.show();
+}
+
+function confirmDeleteUser() {
+    if (!deletingUserId) return;
+    
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Deleting...';
+    button.disabled = true;
+    
+    fetch(`/admin/users/${deletingUserId}/delete`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('User deleted successfully', 'success');
+            
+            // Remove row from table
+            const row = document.querySelector(`tr[data-user-id="${deletingUserId}"]`);
+            if (row) {
+                row.remove();
+            }
+            
+            // Close modal
+            bootstrap.Modal.getInstance(document.getElementById('deleteUserModal')).hide();
+        } else {
+            showToast(data.error || 'Error deleting user', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Error deleting user', 'error');
+    })
+    .finally(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+        deletingUserId = null;
+    });
+}
+
+function toggleUserStatus(userId, username, currentStatus) {
+    const action = currentStatus ? 'deactivate' : 'activate';
+    
+    if (!confirm(`Are you sure you want to ${action} user "${username}"?`)) {
+        return;
+    }
+    
+    fetch(`/admin/users/${userId}/toggle-status`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            
+            // Update the table row
+            const row = document.querySelector(`tr[data-user-id="${userId}"]`);
+            if (row) {
+                const statusBadge = row.querySelector('td:nth-child(4) .badge');
+                const toggleBtn = row.querySelector('button[onclick*="toggleUserStatus"]');
+                
+                if (data.is_active) {
+                    statusBadge.className = 'badge bg-success';
+                    statusBadge.textContent = 'Active';
+                    toggleBtn.className = 'btn btn-outline-warning btn-sm';
+                    toggleBtn.innerHTML = '<i class="fas fa-ban"></i>';
+                } else {
+                    statusBadge.className = 'badge bg-danger';
+                    statusBadge.textContent = 'Inactive';
+                    toggleBtn.className = 'btn btn-outline-success btn-sm';
+                    toggleBtn.innerHTML = '<i class="fas fa-check"></i>';
+                }
+                
+                // Update the onclick attribute
+                toggleBtn.setAttribute('onclick', `toggleUserStatus(${userId}, '${username}', ${data.is_active})`);
+            }
+        } else {
+            showToast(data.error || 'Error updating user status', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Error updating user status', 'error');
+    });
+}
+
+// Form validation
+document.getElementById('addUserForm').addEventListener('submit', function(e) {
+    const password = document.getElementById('addPassword').value;
+    if (password.length < 6) {
+        e.preventDefault();
+        showToast('Password must be at least 6 characters long', 'error');
+        return false;
+    }
+});
+
+document.getElementById('editUserForm').addEventListener('submit', function(e) {
+    const password = document.getElementById('editPassword').value;
+    if (password && password.length < 6) {
+        e.preventDefault();
+        showToast('Password must be at least 6 characters long', 'error');
+        return false;
+    }
+});
+
+// Clear forms when modals are hidden
+document.getElementById('addUserModal').addEventListener('hidden.bs.modal', function() {
+    document.getElementById('addUserForm').reset();
+});
+
+document.getElementById('editUserModal').addEventListener('hidden.bs.modal', function() {
+    editingUserId = null;
+});
+
+// Auto-focus on username when adding user
+document.getElementById('addUserModal').addEventListener('shown.bs.modal', function() {
+    document.getElementById('addUsername').focus();
+});
+</script>
 {% endblock %}
