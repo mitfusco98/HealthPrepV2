@@ -113,22 +113,22 @@
                                 {% for log in recent_logs %}
                                 <tr>
                                     <td>
-                                        <small>{{ log.timestamp.strftime('%m/%d %H:%M') }}</small>
+                                        <small class="text-muted">{{ log.timestamp.strftime('%m/%d %H:%M') }}</small>
                                     </td>
                                     <td>{{ log.user.username if log.user else 'System' }}</td>
                                     <td>
-                                        <span class="badge bg-{% if 'ERROR' in log.event_type %}danger{% elif 'CREATE' in log.event_type %}success{% elif 'UPDATE' in log.event_type %}warning{% else %}info{% endif %}">
-                                            {{ log.event_type.replace('_', ' ').title() }}
+                                        <span class="badge bg-{% if 'error' in (log.event_type or '').lower() %}danger{% elif 'create' in (log.event_type or '').lower() %}success{% elif 'update' in (log.event_type or '').lower() %}warning{% else %}info{% endif %}">
+                                            {{ (log.event_type or 'Unknown').replace('_', ' ').title() }}
                                         </span>
                                     </td>
                                     <td>
                                         <small>
-                                            {% if log.data and log.data.description %}
+                                            {% if log.data and log.data is mapping and log.data.description %}
                                                 {{ log.data.description[:50] }}{% if log.data.description|length > 50 %}...{% endif %}
                                             {% elif log.data %}
                                                 {{ (log.data | string)[:50] }}{% if (log.data | string)|length > 50 %}...{% endif %}
                                             {% else %}
-                                                No details
+                                                No details available
                                             {% endif %}
                                         </small>
                                     </td>
