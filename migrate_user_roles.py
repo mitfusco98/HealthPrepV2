@@ -47,7 +47,12 @@ def migrate_user_roles():
                     cursor.execute(f"ALTER TABLE users ADD COLUMN {col} INTEGER")
                 elif col == 'updated_at':
                     print(f"Adding {col} column...")
-                    cursor.execute(f"ALTER TABLE users ADD COLUMN {col} DATETIME DEFAULT CURRENT_TIMESTAMP")
+                    # Add column without default first, then update with current timestamp
+                    cursor.execute(f"ALTER TABLE users ADD COLUMN {col} DATETIME")
+                    cursor.execute(f"UPDATE users SET {col} = CURRENT_TIMESTAMP WHERE {col} IS NULL")
+                elif col == 'is_active_user':
+                    print(f"Adding {col} column...")
+                    cursor.execute(f"ALTER TABLE users ADD COLUMN {col} BOOLEAN DEFAULT 1 NOT NULL")
                     
         conn.commit()
         conn.close()
