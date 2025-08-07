@@ -22,16 +22,26 @@ def login():
 
     if form.validate_on_submit():
         from models import User
+        from datetime import datetime
+        from app import db
+        
+        # Find user by username - note: usernames are unique within organizations
         user = User.query.filter_by(username=form.username.data).first()
 
-        if user and form.password.data and check_password_hash(user.password_hash, form.password.data):
+        if user and form.password.data and user.check_password(form.password.data):
+            # Check if account is locked
+            if user.is_account_locked():
+                flash('Account is temporarily locked due to multiple failed login attempts. Please try again later.', 'error')
+                return render_template('auth/login.html', form=form)
+            
+            # Check if user is active
+            if not user.is_active_user:
+                flash('Your account has been deactivated. Please contact your administrator.', 'error')
+                return render_template('auth/login.html', form=form)
+            
+            # Record successful login
+            user.record_login_attempt(success=True)
             login_user(user)
-
-            # Update last login
-            from datetime import datetime
-            user.last_login = datetime.utcnow()
-            from app import db
-            db.session.commit()
 
             flash('Login successful!', 'success')
 
@@ -41,11 +51,15 @@ def login():
                 return redirect(next_page)
             else:
                 # Redirect based on user role
-                if user.is_admin:
+                if user.is_admin_user():
                     return redirect(url_for('admin.dashboard'))
                 else:
                     return redirect(url_for('ui.dashboard'))
         else:
+            # Record failed login attempt if user exists
+            if user:
+                user.record_login_attempt(success=False)
+                db.session.commit()
             flash('Invalid username or password.', 'error')
 
     return render_template('auth/login.html', form=form)

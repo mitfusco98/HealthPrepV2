@@ -51,7 +51,17 @@ def create_app():
     @login_manager.user_loader
     def load_user(user_id):
         from models import User
-        return User.query.get(int(user_id))
+        try:
+            user = User.query.get(int(user_id))
+            if user and user.is_active_user:
+                # Update last activity
+                user.update_activity()
+                db.session.commit()
+                return user
+            return None
+        except Exception as e:
+            logger.error(f"Error loading user {user_id}: {e}")
+            return None
 
     # Register blueprints
     register_blueprints(app)

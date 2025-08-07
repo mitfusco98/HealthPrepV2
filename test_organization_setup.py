@@ -1,4 +1,3 @@
-
 """
 Test script to create a default organization and admin user for testing
 """
@@ -28,7 +27,7 @@ def setup_test_organization():
                 print(f"   ✓ Created organization with ID: {org.id}")
             else:
                 print(f"   ✓ Default organization already exists (ID: {org.id})")
-            
+
             # Check if admin user exists
             admin_user = User.query.filter_by(username='admin', org_id=org.id).first()
             if not admin_user:
@@ -49,12 +48,12 @@ def setup_test_organization():
                 print("   ⚠️  Default password is 'admin123' - change this immediately!")
             else:
                 print(f"   ✓ Admin user already exists (ID: {admin_user.id})")
-            
+
             print("\n✅ Test organization setup completed!")
             print("You can now log in with:")
             print("  Username: admin")
             print("  Password: admin123")
-            
+
         except Exception as e:
             db.session.rollback()
             print(f"❌ Setup failed: {e}")
