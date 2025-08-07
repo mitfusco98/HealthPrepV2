@@ -376,10 +376,11 @@ def import_preset():
 
         # Read and parse file
         content = file.read().decode('utf-8')
+        filename = file.filename or ''
         
-        if file.filename.endswith('.json'):
+        if filename.endswith('.json'):
             data = json.loads(content)
-        elif file.filename.endswith('.yaml') or file.filename.endswith('.yml'):
+        elif filename.endswith('.yaml') or filename.endswith('.yml'):
             data = yaml.safe_load(content)
         else:
             flash('Only JSON and YAML files are supported', 'error')
@@ -420,7 +421,7 @@ def phi_monitoring():
         phi_stats = phi_filter.get_processing_statistics(30)
         
         # Get current settings
-        phi_settings = phi_filter.get_settings()
+        phi_settings = phi_filter._get_filter_settings()
         
         return render_template('admin/phi_monitoring.html',
                              phi_stats=phi_stats,
