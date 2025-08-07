@@ -38,33 +38,28 @@
             <div class="collapse navbar-collapse" id="adminNavbar">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('admin.dashboard') }}">
-                            <i class="fas fa-tachometer-alt me-1"></i> Dashboard
+                        <a class="nav-link" href="{{ url_for('admin.dashboard') }}#nav-activity" onclick="setActiveTab('nav-activity-tab')">
+                            <i class="fas fa-history me-1"></i> Activity Logs
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('admin.users') }}">
-                            <i class="fas fa-users-cog me-1"></i> Users
-                        </a>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="settingsDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-cog me-1"></i> Settings
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="{{ url_for('admin.phi_settings') }}">
-                                <i class="fas fa-shield-alt me-1"></i> PHI Filtering
-                            </a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('admin.logs') }}">
-                            <i class="fas fa-history me-1"></i> Audit Logs
+                        <a class="nav-link" href="{{ url_for('admin.dashboard') }}#nav-users" onclick="setActiveTab('nav-users-tab')">
+                            <i class="fas fa-users me-1"></i> User Management
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('admin.analytics') }}">
-                            <i class="fas fa-chart-line me-1"></i> Analytics
+                        <a class="nav-link" href="{{ url_for('admin.dashboard') }}#nav-presets" onclick="setActiveTab('nav-presets-tab')">
+                            <i class="fas fa-cogs me-1"></i> Preset Management
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.dashboard') }}#nav-phi" onclick="setActiveTab('nav-phi-tab')">
+                            <i class="fas fa-user-shield me-1"></i> PHI Statistics
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.dashboard') }}#nav-analytics" onclick="setActiveTab('nav-analytics-tab')">
+                            <i class="fas fa-chart-bar me-1"></i> Customer Analytics
                         </a>
                     </li>
                 </ul>
@@ -154,6 +149,18 @@
         
         // Update every minute
         setInterval(updateTimestamp, 60000);
+        
+        // Tab navigation function
+        function setActiveTab(tabId) {
+            // Use setTimeout to ensure page loads first
+            setTimeout(() => {
+                const tab = document.getElementById(tabId);
+                if (tab) {
+                    const tabTrigger = new bootstrap.Tab(tab);
+                    tabTrigger.show();
+                }
+            }, 100);
+        }
 
         // Confirm dangerous actions
         document.addEventListener('DOMContentLoaded', function() {
