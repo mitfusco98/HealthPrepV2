@@ -10,7 +10,7 @@
             <i class="fas fa-chart-line me-2"></i>
             Admin Dashboard
         </h2>
-        <p class="text-muted mb-0">System overview and analytics</p>
+        <p class="text-muted mb-0">Centralized admin control panel</p>
     </div>
     <div>
         <span class="badge bg-success fs-6">
@@ -20,277 +20,508 @@
     </div>
 </div>
 
-<!-- Key Metrics Row -->
-<div class="row mb-4">
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="metric-card card">
-            <div class="card-body text-center">
-                <i class="fas fa-users fa-2x text-primary mb-2"></i>
-                <h4 class="mb-1">{{ total_patients }}</h4>
-                <p class="text-muted mb-0">Total Patients</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="metric-card card">
-            <div class="card-body text-center">
-                <i class="fas fa-file-medical fa-2x text-success mb-2"></i>
-                <h4 class="mb-1">{{ total_documents }}</h4>
-                <p class="text-muted mb-0">Documents Processed</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="metric-card card">
-            <div class="card-body text-center">
-                <i class="fas fa-eye fa-2x text-info mb-2"></i>
-                <h4 class="mb-1">{{ ocr_processed }}</h4>
-                <p class="text-muted mb-0">OCR Completed</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="metric-card card">
-            <div class="card-body text-center">
-                <i class="fas fa-user-shield fa-2x text-warning mb-2"></i>
-                <h4 class="mb-1">{{ total_users }}</h4>
-                <p class="text-muted mb-0">Active Users</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Charts and Analytics Row -->
-<div class="row mb-4">
-    <!-- System Performance -->
-    <div class="col-lg-8 mb-4">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="fas fa-chart-area me-2"></i>
-                    System Performance
-                </h5>
-                <div class="btn-group btn-group-sm" role="group">
-                    <input type="radio" class="btn-check" name="timeRange" id="day" checked>
-                    <label class="btn btn-outline-primary" for="day">24h</label>
-                    
-                    <input type="radio" class="btn-check" name="timeRange" id="week">
-                    <label class="btn btn-outline-primary" for="week">7d</label>
-                    
-                    <input type="radio" class="btn-check" name="timeRange" id="month">
-                    <label class="btn btn-outline-primary" for="month">30d</label>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="chart-container">
-                    <canvas id="performanceChart"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Quick Stats -->
-    <div class="col-lg-4 mb-4">
-        <div class="card h-100">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-tachometer-alt me-2"></i>
-                    Quick Statistics
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span>OCR Processing Rate</span>
-                        <span class="badge bg-success">
-                            {{ ((ocr_processed / total_documents * 100) if total_documents > 0 else 0)|round(1) }}%
-                        </span>
-                    </div>
-                    <div class="progress mt-1" style="height: 6px;">
-                        <div class="progress-bar bg-success" 
-                             style="width: {{ ((ocr_processed / total_documents * 100) if total_documents > 0 else 0) }}%"></div>
-                    </div>
-                </div>
-                
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span>Storage Usage</span>
-                        <span class="badge bg-info">42.3%</span>
-                    </div>
-                    <div class="progress mt-1" style="height: 6px;">
-                        <div class="progress-bar bg-info" style="width: 42.3%"></div>
-                    </div>
-                </div>
-                
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span>System Health</span>
-                        <span class="badge bg-success">Excellent</span>
-                    </div>
-                    <div class="progress mt-1" style="height: 6px;">
-                        <div class="progress-bar bg-success" style="width: 95%"></div>
-                    </div>
-                </div>
-                
-                <hr>
-                
-                <div class="small text-muted">
-                    <div class="d-flex justify-content-between mb-1">
-                        <span>Uptime:</span>
-                        <span>99.8%</span>
-                    </div>
-                    <div class="d-flex justify-content-between mb-1">
-                        <span>Avg Response:</span>
-                        <span>142ms</span>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                        <span>Last Backup:</span>
-                        <span>2 hours ago</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Activity and Logs Row -->
-<div class="row mb-4">
-    <!-- Recent Activity -->
-    <div class="col-lg-6 mb-4">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
+<!-- Navigation Tabs -->
+<div class="card">
+    <div class="card-header p-0">
+        <nav>
+            <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                <button class="nav-link active" id="nav-activity-tab" data-bs-toggle="tab" data-bs-target="#nav-activity" 
+                        type="button" role="tab" aria-controls="nav-activity" aria-selected="true">
                     <i class="fas fa-history me-2"></i>
-                    Recent Admin Activity
-                </h5>
-                <a href="{{ url_for('admin.logs') }}" class="btn btn-sm btn-outline-primary">View All</a>
+                    Activity Logs
+                </button>
+                <button class="nav-link" id="nav-users-tab" data-bs-toggle="tab" data-bs-target="#nav-users" 
+                        type="button" role="tab" aria-controls="nav-users" aria-selected="false">
+                    <i class="fas fa-users me-2"></i>
+                    User Management
+                </button>
+                <button class="nav-link" id="nav-presets-tab" data-bs-toggle="tab" data-bs-target="#nav-presets" 
+                        type="button" role="tab" aria-controls="nav-presets" aria-selected="false">
+                    <i class="fas fa-cogs me-2"></i>
+                    Preset Management
+                </button>
+                <button class="nav-link" id="nav-phi-tab" data-bs-toggle="tab" data-bs-target="#nav-phi" 
+                        type="button" role="tab" aria-controls="nav-phi" aria-selected="false">
+                    <i class="fas fa-user-shield me-2"></i>
+                    PHI Statistics
+                </button>
+                <button class="nav-link" id="nav-analytics-tab" data-bs-toggle="tab" data-bs-target="#nav-analytics" 
+                        type="button" role="tab" aria-controls="nav-analytics" aria-selected="false">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    Customer Analytics
+                </button>
             </div>
-            <div class="card-body">
-                {% if recent_logs %}
-                <div class="list-group list-group-flush">
-                    {% for log in recent_logs %}
-                    <div class="list-group-item px-0 py-2">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <span class="fw-medium">{{ log.action.replace('_', ' ').title() }}</span>
-                                {% if log.description %}
-                                <p class="text-muted small mb-0">{{ log.description }}</p>
-                                {% endif %}
-                                <small class="text-muted">
-                                    {{ log.user.username if log.user else 'System' }} • 
-                                    {{ log.timestamp.strftime('%m/%d %H:%M') }}
-                                </small>
-                            </div>
-                            <span class="badge bg-secondary small">{{ log.resource_type or 'system' }}</span>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <div class="text-center py-3">
-                    <i class="fas fa-clipboard-list fa-2x text-muted mb-2"></i>
-                    <p class="text-muted">No recent activity</p>
-                </div>
-                {% endif %}
-            </div>
-        </div>
+        </nav>
     </div>
-    
-    <!-- System Status -->
-    <div class="col-lg-6 mb-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-server me-2"></i>
-                    System Status
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-6 mb-3">
-                        <div class="text-center">
-                            <div class="system-health">
-                                <i class="fas fa-database fa-2x mb-2"></i>
-                                <h6>Database</h6>
-                                <span class="badge bg-success">Online</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-6 mb-3">
-                        <div class="text-center">
-                            <div class="system-health">
-                                <i class="fas fa-eye fa-2x mb-2"></i>
-                                <h6>OCR Service</h6>
-                                <span class="badge bg-success">Active</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-6 mb-3">
-                        <div class="text-center">
-                            <div class="system-health">
-                                <i class="fas fa-shield-alt fa-2x mb-2"></i>
-                                <h6>Security</h6>
-                                <span class="badge bg-success">Compliant</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-6 mb-3">
-                        <div class="text-center">
-                            <div class="system-health">
-                                <i class="fas fa-sync fa-2x mb-2"></i>
-                                <h6>Backups</h6>
-                                <span class="badge bg-success">Current</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <hr>
-                
-                <div class="alert alert-success small mb-0">
-                    <i class="fas fa-check-circle me-2"></i>
-                    All systems operational. Last health check: {{ moment().format('HH:mm') }}
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+    <div class="card-body">
+        <div class="tab-content" id="nav-tabContent">
 
-<!-- Quick Actions -->
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-bolt me-2"></i>
-                    Quick Actions
-                </h5>
-            </div>
-            <div class="card-body">
+            <!-- Activity Logs Tab -->
+            <div class="tab-pane fade show active" id="nav-activity" role="tabpanel" aria-labelledby="nav-activity-tab">
                 <div class="row">
-                    <div class="col-md-3 mb-2">
-                        <button class="quick-action-btn btn w-100" onclick="refreshAllData()">
-                            <i class="fas fa-sync-alt me-2"></i>
-                            Refresh All Data
+                    <div class="col-lg-8 mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0">
+                                <i class="fas fa-history me-2"></i>
+                                Recent Admin Activity
+                            </h5>
+                            <a href="{{ url_for('admin.logs') }}" class="btn btn-sm btn-primary">
+                                <i class="fas fa-external-link-alt me-1"></i>
+                                View All Logs
+                            </a>
+                        </div>
+                        {% if recent_logs %}
+                        <div class="list-group">
+                            {% for log in recent_logs %}
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">{{ log.action.replace('_', ' ').title() }}</h6>
+                                    <small>{{ log.timestamp.strftime('%m/%d %H:%M') }}</small>
+                                </div>
+                                {% if log.description %}
+                                <p class="mb-1">{{ log.description }}</p>
+                                {% endif %}
+                                <small>User: {{ log.user.username if log.user else 'System' }}</small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">No Recent Activity</h5>
+                            <p class="text-muted">Admin actions will appear here</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card bg-light">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-filter me-2"></i>
+                                    Activity Filters
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label small">Time Range</label>
+                                    <select class="form-select form-select-sm">
+                                        <option>Last 24 hours</option>
+                                        <option>Last 7 days</option>
+                                        <option>Last 30 days</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small">Action Type</label>
+                                    <select class="form-select form-select-sm">
+                                        <option>All Actions</option>
+                                        <option>User Management</option>
+                                        <option>Settings Changes</option>
+                                        <option>System Events</option>
+                                    </select>
+                                </div>
+                                <button class="btn btn-sm btn-outline-primary w-100">
+                                    <i class="fas fa-search me-1"></i>
+                                    Apply Filters
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Management Tab -->
+            <div class="tab-pane fade" id="nav-users" role="tabpanel" aria-labelledby="nav-users-tab">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="mb-0">
+                        <i class="fas fa-users me-2"></i>
+                        User Management
+                    </h5>
+                    <div>
+                        <a href="{{ url_for('admin.users') }}" class="btn btn-sm btn-outline-primary me-2">
+                            <i class="fas fa-external-link-alt me-1"></i>
+                            Manage All Users
+                        </a>
+                        <button class="btn btn-sm btn-primary">
+                            <i class="fas fa-plus me-1"></i>
+                            Add User
                         </button>
                     </div>
-                    <div class="col-md-3 mb-2">
-                        <a href="{{ url_for('admin.ocr_dashboard') }}" class="quick-action-btn btn w-100">
-                            <i class="fas fa-eye me-2"></i>
-                            OCR Dashboard
-                        </a>
+                </div>
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Email</th>
+                                        <th>Role</th>
+                                        <th>Status</th>
+                                        <th>Last Login</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="6" class="text-center py-4">
+                                            <i class="fas fa-users fa-2x text-muted mb-2"></i>
+                                            <p class="text-muted mb-0">User data will be loaded here</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    <div class="col-md-3 mb-2">
-                        <button class="quick-action-btn btn w-100" onclick="exportLogs()">
-                            <i class="fas fa-download me-2"></i>
-                            Export Logs
-                        </button>
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-chart-pie me-2"></i>
+                                    User Statistics
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Total Users</span>
+                                        <span class="badge bg-primary">{{ total_users or 0 }}</span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Active Users</span>
+                                        <span class="badge bg-success">{{ active_users or 0 }}</span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Admin Users</span>
+                                        <span class="badge bg-warning">{{ admin_users or 0 }}</span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Inactive Users</span>
+                                        <span class="badge bg-secondary">{{ inactive_users or 0 }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-3 mb-2">
-                        <a href="{{ url_for('admin.phi_settings') }}" class="quick-action-btn btn w-100">
-                            <i class="fas fa-user-shield me-2"></i>
-                            PHI Settings
-                        </a>
+                </div>
+            </div>
+
+            <!-- Preset Management Tab -->
+            <div class="tab-pane fade" id="nav-presets" role="tabpanel" aria-labelledby="nav-presets-tab">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cogs me-2"></i>
+                        System Presets & Settings
+                    </h5>
+                    <button class="btn btn-sm btn-primary">
+                        <i class="fas fa-plus me-1"></i>
+                        Create Preset
+                    </button>
+                </div>
+                <div class="row">
+                    <div class="col-lg-6 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-list me-2"></i>
+                                    Screening Presets
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-grid gap-2">
+                                    <div class="d-flex justify-content-between align-items-center p-2 border rounded">
+                                        <div>
+                                            <strong>Standard Physical</strong>
+                                            <small class="text-muted d-block">Basic health screening preset</small>
+                                        </div>
+                                        <div>
+                                            <button class="btn btn-sm btn-outline-primary me-1">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center p-2 border rounded">
+                                        <div>
+                                            <strong>Cardiac Screening</strong>
+                                            <small class="text-muted d-block">Heart health focused preset</small>
+                                        </div>
+                                        <div>
+                                            <button class="btn btn-sm btn-outline-primary me-1">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6 mb-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-sliders-h me-2"></i>
+                                    System Settings
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="list-group list-group-flush">
+                                    <a href="{{ url_for('admin.phi_settings') }}" class="list-group-item list-group-item-action">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <i class="fas fa-user-shield me-2"></i>
+                                                PHI Filter Settings
+                                            </div>
+                                            <i class="fas fa-chevron-right"></i>
+                                        </div>
+                                    </a>
+                                    <div class="list-group-item list-group-item-action">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <i class="fas fa-file-alt me-2"></i>
+                                                Prep Sheet Settings
+                                            </div>
+                                            <i class="fas fa-chevron-right"></i>
+                                        </div>
+                                    </div>
+                                    <div class="list-group-item list-group-item-action">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <i class="fas fa-eye me-2"></i>
+                                                OCR Configuration
+                                            </div>
+                                            <i class="fas fa-chevron-right"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- PHI Statistics Tab -->
+            <div class="tab-pane fade" id="nav-phi" role="tabpanel" aria-labelledby="nav-phi-tab">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-shield me-2"></i>
+                        PHI Redaction Statistics
+                    </h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary active">Today</button>
+                        <button class="btn btn-outline-secondary">Week</button>
+                        <button class="btn btn-outline-secondary">Month</button>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-3 col-md-6 mb-4">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <i class="fas fa-file-medical fa-2x text-info mb-3"></i>
+                                <h4 class="mb-1">1,247</h4>
+                                <p class="text-muted mb-0">Documents Processed</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-4">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <i class="fas fa-shield-alt fa-2x text-success mb-3"></i>
+                                <h4 class="mb-1">892</h4>
+                                <p class="text-muted mb-0">PHI Items Redacted</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-4">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <i class="fas fa-percentage fa-2x text-warning mb-3"></i>
+                                <h4 class="mb-1">97.3%</h4>
+                                <p class="text-muted mb-0">Detection Accuracy</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-4">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <i class="fas fa-clock fa-2x text-danger mb-3"></i>
+                                <h4 class="mb-1">1.2s</h4>
+                                <p class="text-muted mb-0">Avg Processing Time</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-chart-line me-2"></i>
+                                    PHI Detection Trends
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="text-center py-5">
+                                    <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+                                    <h5 class="text-muted">PHI Statistics Chart</h5>
+                                    <p class="text-muted">Interactive chart showing PHI detection patterns over time</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-list me-2"></i>
+                                    Detection Breakdown
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Social Security Numbers</span>
+                                        <span class="badge bg-primary">234</span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Phone Numbers</span>
+                                        <span class="badge bg-success">187</span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Email Addresses</span>
+                                        <span class="badge bg-info">156</span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Medical Record Numbers</span>
+                                        <span class="badge bg-warning">145</span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Names</span>
+                                        <span class="badge bg-secondary">123</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Customer Analytics Tab -->
+            <div class="tab-pane fade" id="nav-analytics" role="tabpanel" aria-labelledby="nav-analytics-tab">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Customer Value Analytics
+                    </h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary active">Monthly</button>
+                        <button class="btn btn-outline-secondary">Quarterly</button>
+                        <button class="btn btn-outline-secondary">Yearly</button>
+                    </div>
+                </div>
+                <div class="row mb-4">
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <i class="fas fa-dollar-sign fa-2x text-success mb-3"></i>
+                                <h4 class="mb-1">$24,890</h4>
+                                <p class="text-muted mb-0">Monthly Revenue</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <i class="fas fa-users fa-2x text-primary mb-3"></i>
+                                <h4 class="mb-1">127</h4>
+                                <p class="text-muted mb-0">Active Customers</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <i class="fas fa-chart-line fa-2x text-info mb-3"></i>
+                                <h4 class="mb-1">18%</h4>
+                                <p class="text-muted mb-0">Growth Rate</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="card text-center">
+                            <div class="card-body">
+                                <i class="fas fa-star fa-2x text-warning mb-3"></i>
+                                <h4 class="mb-1">4.8</h4>
+                                <p class="text-muted mb-0">Customer Satisfaction</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-chart-area me-2"></i>
+                                    Revenue & Usage Trends
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="text-center py-5">
+                                    <i class="fas fa-chart-area fa-3x text-muted mb-3"></i>
+                                    <h5 class="text-muted">Customer Analytics Dashboard</h5>
+                                    <p class="text-muted">Interactive charts showing customer value metrics and trends</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-trophy me-2"></i>
+                                    Top Customers
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="text-center py-4">
+                                    <i class="fas fa-crown fa-2x text-warning mb-2"></i>
+                                    <p class="text-muted mb-0">Top customer rankings will appear here</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-bell me-2"></i>
+                                    Value Alerts
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="text-center py-4">
+                                    <i class="fas fa-bell fa-2x text-info mb-2"></i>
+                                    <p class="text-muted mb-0">Customer value alerts and notifications</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -301,92 +532,103 @@
 
 {% block extra_js %}
 <script>
-// Performance Chart
-const ctx = document.getElementById('performanceChart').getContext('2d');
-const performanceChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-        labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
-        datasets: [{
-            label: 'Documents Processed',
-            data: [12, 19, 23, 45, 52, 48],
-            borderColor: '#0d6efd',
-            backgroundColor: 'rgba(13, 110, 253, 0.1)',
-            tension: 0.4
-        }, {
-            label: 'OCR Jobs',
-            data: [8, 15, 18, 32, 41, 38],
-            borderColor: '#198754',
-            backgroundColor: 'rgba(25, 135, 84, 0.1)',
-            tension: 0.4
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                labels: {
-                    color: '#fff'
-                }
-            }
-        },
-        scales: {
-            x: {
-                ticks: {
-                    color: '#fff'
-                },
-                grid: {
-                    color: 'rgba(255, 255, 255, 0.1)'
-                }
-            },
-            y: {
-                ticks: {
-                    color: '#fff'
-                },
-                grid: {
-                    color: 'rgba(255, 255, 255, 0.1)'
-                }
-            }
+// Initialize Bootstrap tabs
+document.addEventListener('DOMContentLoaded', function() {
+    // Enable Bootstrap tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+
+// Tab switching with URL hash support
+document.addEventListener('DOMContentLoaded', function() {
+    const tabTriggerList = document.querySelectorAll('#nav-tab button');
+    tabTriggerList.forEach(tabTrigger => {
+        tabTrigger.addEventListener('click', function() {
+            const target = this.getAttribute('data-bs-target');
+            history.replaceState(null, null, '#' + target.replace('#nav-', ''));
+        });
+    });
+    
+    // Activate tab based on URL hash
+    const hash = window.location.hash;
+    if (hash) {
+        const tabId = 'nav' + hash;
+        const tabTrigger = document.querySelector(`[data-bs-target="#${tabId}"]`);
+        if (tabTrigger) {
+            const tab = new bootstrap.Tab(tabTrigger);
+            tab.show();
         }
     }
 });
 
-// Auto-refresh dashboard data every 5 minutes
-setInterval(function() {
-    // Fetch updated metrics
-    fetch('/admin/api/dashboard-metrics')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Update metrics without full page reload
-                updateDashboardMetrics(data.metrics);
-            }
-        })
-        .catch(error => console.log('Dashboard refresh failed:', error));
-}, 5 * 60 * 1000);
+// Filter functionality for activity logs
+function applyActivityFilters() {
+    // Placeholder for filter logic
+    console.log('Applying activity filters...');
+}
 
-function updateDashboardMetrics(metrics) {
-    // Update metric cards
-    const metricCards = document.querySelectorAll('.metric-card h4');
-    if (metricCards.length >= 4) {
-        metricCards[0].textContent = metrics.total_patients || '0';
-        metricCards[1].textContent = metrics.total_documents || '0';
-        metricCards[2].textContent = metrics.ocr_processed || '0';
-        metricCards[3].textContent = metrics.total_users || '0';
-    }
+// Quick actions
+function refreshAllData() {
+    showRealTimeIndicator('Refreshing dashboard data...');
+    // Implement refresh logic
+    setTimeout(() => {
+        location.reload();
+    }, 1000);
+}
+
+function exportLogs() {
+    showRealTimeIndicator('Preparing log export...');
+    // Implement export logic
+    window.location.href = '/admin/logs/export';
 }
 
 // Real-time updates indicator
-function showRealTimeIndicator() {
+function showRealTimeIndicator(message) {
     const indicator = document.createElement('div');
-    indicator.className = 'position-fixed top-50 end-0 translate-middle-y bg-success text-white p-2 rounded-start';
-    indicator.innerHTML = '<i class="fas fa-sync fa-spin me-1"></i>Updating...';
+    indicator.className = 'position-fixed top-50 end-0 translate-middle-y bg-info text-white p-3 rounded-start shadow';
+    indicator.innerHTML = `<i class="fas fa-sync fa-spin me-2"></i>${message}`;
     document.body.appendChild(indicator);
     
     setTimeout(() => {
         indicator.remove();
-    }, 2000);
+    }, 3000);
+}
+
+// Tab content loading (for dynamic content)
+function loadTabContent(tabName) {
+    switch(tabName) {
+        case 'users':
+            loadUserManagementData();
+            break;
+        case 'presets':
+            loadPresetManagementData();
+            break;
+        case 'phi':
+            loadPHIStatistics();
+            break;
+        case 'analytics':
+            loadCustomerAnalytics();
+            break;
+    }
+}
+
+// Placeholder functions for dynamic loading
+function loadUserManagementData() {
+    console.log('Loading user management data...');
+}
+
+function loadPresetManagementData() {
+    console.log('Loading preset management data...');
+}
+
+function loadPHIStatistics() {
+    console.log('Loading PHI statistics...');
+}
+
+function loadCustomerAnalytics() {
+    console.log('Loading customer analytics...');
 }
 </script>
 {% endblock %}
