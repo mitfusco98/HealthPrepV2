@@ -642,63 +642,112 @@
                         Customer Value Analytics
                     </h5>
                     <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-secondary active">Monthly</button>
-                        <button class="btn btn-outline-secondary">Quarterly</button>
-                        <button class="btn btn-outline-secondary">Yearly</button>
+                        <button class="btn btn-outline-secondary active" data-period="monthly">Monthly</button>
+                        <button class="btn btn-outline-secondary" data-period="quarterly">Quarterly</button>
+                        <button class="btn btn-outline-secondary" data-period="yearly">Yearly</button>
                     </div>
                 </div>
+                <!-- Key Value Metrics -->
                 <div class="row mb-4">
                     <div class="col-lg-3 col-md-6 mb-3">
-                        <div class="card text-center">
+                        <div class="card text-center border-success">
                             <div class="card-body">
-                                <i class="fas fa-dollar-sign fa-2x text-success mb-3"></i>
-                                <h4 class="mb-1">$24,890</h4>
-                                <p class="text-muted mb-0">Monthly Revenue</p>
+                                <i class="fas fa-clock fa-2x text-success mb-3"></i>
+                                <h4 class="mb-1">41.67</h4>
+                                <p class="text-muted mb-0">Hours Saved</p>
+                                <small class="text-success">≈ 1 Full Work Week</small>
                             </div>
                         </div>
                     </div>
                     <div class="col-lg-3 col-md-6 mb-3">
-                        <div class="card text-center">
+                        <div class="card text-center border-primary">
                             <div class="card-body">
-                                <i class="fas fa-users fa-2x text-primary mb-3"></i>
-                                <h4 class="mb-1">127</h4>
-                                <p class="text-muted mb-0">Active Customers</p>
+                                <i class="fas fa-dollar-sign fa-2x text-primary mb-3"></i>
+                                <h4 class="mb-1">$1,042.50</h4>
+                                <p class="text-muted mb-0">Labor Cost Avoided</p>
+                                <small class="text-primary">Per 500 Patients</small>
                             </div>
                         </div>
                     </div>
                     <div class="col-lg-3 col-md-6 mb-3">
-                        <div class="card text-center">
+                        <div class="card text-center border-info">
                             <div class="card-body">
-                                <i class="fas fa-chart-line fa-2x text-info mb-3"></i>
-                                <h4 class="mb-1">18%</h4>
-                                <p class="text-muted mb-0">Growth Rate</p>
+                                <i class="fas fa-robot fa-2x text-info mb-3"></i>
+                                <h4 class="mb-1">500</h4>
+                                <p class="text-muted mb-0">Tasks Automated</p>
+                                <small class="text-info">Prep Sheets Generated</small>
                             </div>
                         </div>
                     </div>
                     <div class="col-lg-3 col-md-6 mb-3">
-                        <div class="card text-center">
+                        <div class="card text-center border-warning">
                             <div class="card-body">
-                                <i class="fas fa-star fa-2x text-warning mb-3"></i>
-                                <h4 class="mb-1">4.8</h4>
-                                <p class="text-muted mb-0">Customer Satisfaction</p>
+                                <i class="fas fa-shield-alt fa-2x text-warning mb-3"></i>
+                                <h4 class="mb-1">87</h4>
+                                <p class="text-muted mb-0">Gaps Closed</p>
+                                <small class="text-warning">Compliance Issues</small>
                             </div>
                         </div>
                     </div>
                 </div>
+                <!-- Labor Savings Breakdown -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-calculator me-2"></i>
+                                    Labor Savings Calculation Breakdown
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row text-center">
+                                    <div class="col-md-3">
+                                        <div class="border-end">
+                                            <h5 class="text-primary">500</h5>
+                                            <p class="small text-muted mb-0">Patients Prepped</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="border-end">
+                                            <h5 class="text-success">5 min</h5>
+                                            <p class="small text-muted mb-0">Time per Patient</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="border-end">
+                                            <h5 class="text-info">2,500 min</h5>
+                                            <p class="small text-muted mb-0">Total Time Saved</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <h5 class="text-warning">$25/hr</h5>
+                                        <p class="small text-muted mb-0">Average MA Wage</p>
+                                    </div>
+                                </div>
+                                <hr>
+                                <div class="text-center">
+                                    <h4 class="text-success mb-1">500 patients × 5 minutes = 2,500 minutes saved</h4>
+                                    <h4 class="text-primary mb-1">41.67 hours × $25/hr = $1,042.50 labor cost avoided</h4>
+                                    <small class="text-muted">This represents what clinics currently spend on manual prep sheet labor per batch of 500 patients</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="row">
                     <div class="col-lg-8">
                         <div class="card">
                             <div class="card-header">
                                 <h6 class="mb-0">
                                     <i class="fas fa-chart-area me-2"></i>
-                                    Revenue & Usage Trends
+                                    Time & Cost Savings Trends
                                 </h6>
                             </div>
                             <div class="card-body">
-                                <div class="text-center py-5">
-                                    <i class="fas fa-chart-area fa-3x text-muted mb-3"></i>
-                                    <h5 class="text-muted">Customer Analytics Dashboard</h5>
-                                    <p class="text-muted">Interactive charts showing customer value metrics and trends</p>
+                                <div class="chart-container">
+                                    <canvas id="savingsTrendsChart"></canvas>
                                 </div>
                             </div>
                         </div>
@@ -707,28 +756,88 @@
                         <div class="card mb-4">
                             <div class="card-header">
                                 <h6 class="mb-0">
-                                    <i class="fas fa-trophy me-2"></i>
-                                    Top Customers
+                                    <i class="fas fa-chart-pie me-2"></i>
+                                    Efficiency Breakdown
                                 </h6>
                             </div>
                             <div class="card-body">
-                                <div class="text-center py-4">
-                                    <i class="fas fa-crown fa-2x text-warning mb-2"></i>
-                                    <p class="text-muted mb-0">Top customer rankings will appear here</p>
+                                <div class="chart-container chart-small">
+                                    <canvas id="efficiencyBreakdownChart"></canvas>
                                 </div>
                             </div>
                         </div>
                         <div class="card">
                             <div class="card-header">
                                 <h6 class="mb-0">
-                                    <i class="fas fa-bell me-2"></i>
-                                    Value Alerts
+                                    <i class="fas fa-bullseye me-2"></i>
+                                    ROI Metrics
                                 </h6>
                             </div>
                             <div class="card-body">
-                                <div class="text-center py-4">
-                                    <i class="fas fa-bell fa-2x text-info mb-2"></i>
-                                    <p class="text-muted mb-0">Customer value alerts and notifications</p>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="small">Cost per Patient</span>
+                                        <span class="badge bg-success">$2.09</span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="small">Minutes Saved/Patient</span>
+                                        <span class="badge bg-primary">5.0</span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="small">Automation Rate</span>
+                                        <span class="badge bg-info">100%</span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="small">Compliance Rate</span>
+                                        <span class="badge bg-warning">97.4%</span>
+                                    </div>
+                                </div>
+                                <hr>
+                                <div class="text-center">
+                                    <small class="text-muted">
+                                        <strong>Break-even Point:</strong><br>
+                                        50 patients per month
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Additional Analytics Charts -->
+                <div class="row mt-4">
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-chart-bar me-2"></i>
+                                    Monthly Labor Savings
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container chart-small">
+                                    <canvas id="monthlySavingsChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-chart-line me-2"></i>
+                                    Cumulative Value Impact
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container chart-small">
+                                    <canvas id="cumulativeValueChart"></canvas>
                                 </div>
                             </div>
                         </div>
@@ -1408,5 +1517,324 @@ function getCsrfToken() {
     const meta = document.querySelector('meta[name="csrf-token"]');
     return meta ? meta.getAttribute('content') : '';
 }
+
+// Customer Value Analytics Charts Implementation
+function initializeAnalyticsCharts() {
+    // Only initialize if we're on the analytics tab
+    const analyticsTab = document.getElementById('nav-analytics');
+    if (!analyticsTab) return;
+    
+    // Time & Cost Savings Trends Chart (Main Chart)
+    const savingsTrendsCtx = document.getElementById('savingsTrendsChart');
+    if (savingsTrendsCtx) {
+        new Chart(savingsTrendsCtx, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Hours Saved',
+                    data: [35.2, 38.7, 41.67, 39.1, 42.3, 45.8],
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                    yAxisID: 'y',
+                    tension: 0.4,
+                    fill: true
+                }, {
+                    label: 'Cost Avoided ($)',
+                    data: [880, 967.50, 1042.50, 977.50, 1057.50, 1145],
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                    yAxisID: 'y1',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Labor Savings Trends (Per 500 Patient Batches)'
+                    },
+                    legend: {
+                        position: 'top'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            afterLabel: function(context) {
+                                if (context.datasetIndex === 0) {
+                                    return '≈ ' + (context.parsed.y / 40).toFixed(1) + ' work weeks';
+                                } else {
+                                    return 'Based on $25/hr wage';
+                                }
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Month'
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Hours Saved'
+                        },
+                        beginAtZero: true
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Cost Avoided ($)'
+                        },
+                        grid: {
+                            drawOnChartArea: false
+                        },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+    
+    // Efficiency Breakdown Chart (Pie Chart)
+    const efficiencyCtx = document.getElementById('efficiencyBreakdownChart');
+    if (efficiencyCtx) {
+        new Chart(efficiencyCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Prep Sheet Generation', 'Document Processing', 'Quality Review', 'Manual Tasks'],
+                datasets: [{
+                    data: [65, 20, 10, 5],
+                    backgroundColor: [
+                        '#36A2EB',
+                        '#FF6384', 
+                        '#FFCE56',
+                        '#FF9F40'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Time Allocation Breakdown'
+                    },
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 10,
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed;
+                                return `${label}: ${value}%`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Monthly Labor Savings Chart (Bar Chart)
+    const monthlySavingsCtx = document.getElementById('monthlySavingsChart');
+    if (monthlySavingsCtx) {
+        new Chart(monthlySavingsCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Q1', 'Q2', 'Q3', 'Q4 (Proj)'],
+                datasets: [{
+                    label: 'Patients Processed',
+                    data: [1450, 1623, 1789, 1950],
+                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                    borderColor: 'rgb(54, 162, 235)',
+                    borderWidth: 1,
+                    yAxisID: 'y'
+                }, {
+                    label: 'Cost Savings ($)',
+                    data: [3023, 3388, 3733, 4068],
+                    backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                    borderColor: 'rgb(255, 99, 132)',
+                    borderWidth: 1,
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Quarterly Performance Summary'
+                    },
+                    legend: {
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Patients'
+                        },
+                        beginAtZero: true
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Cost Savings ($)'
+                        },
+                        grid: {
+                            drawOnChartArea: false
+                        },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+    
+    // Cumulative Value Impact Chart (Area Chart)
+    const cumulativeCtx = document.getElementById('cumulativeValueChart');
+    if (cumulativeCtx) {
+        new Chart(cumulativeCtx, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Cumulative Hours Saved',
+                    data: [35.2, 73.9, 115.57, 154.67, 196.97, 242.77],
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    fill: 'origin',
+                    tension: 0.4
+                }, {
+                    label: 'Cumulative Cost Avoided ($)',
+                    data: [880, 1847.50, 2890, 3867.50, 4925, 6070],
+                    borderColor: 'rgb(255, 159, 64)',
+                    backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                    fill: 'origin',
+                    tension: 0.4,
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Cumulative Impact Over Time'
+                    },
+                    legend: {
+                        position: 'top'
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Hours'
+                        },
+                        beginAtZero: true
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Cost ($)'
+                        },
+                        grid: {
+                            drawOnChartArea: false
+                        },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+}
+
+// Initialize analytics charts when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Add delay to ensure tab content is rendered
+    setTimeout(initializeAnalyticsCharts, 500);
+});
+
+// Analytics period filter functionality
+document.querySelectorAll('[data-period]').forEach(btn => {
+    btn.addEventListener('click', function() {
+        // Remove active class from all buttons
+        document.querySelectorAll('[data-period]').forEach(b => {
+            b.classList.remove('active');
+        });
+        
+        // Add active class to clicked button
+        this.classList.add('active');
+        
+        const period = this.getAttribute('data-period');
+        
+        // Show different data based on period
+        let message = '';
+        switch(period) {
+            case 'monthly':
+                message = 'Showing monthly analytics: 500 patients, $1,042.50 saved';
+                break;
+            case 'quarterly':
+                message = 'Showing quarterly analytics: 1,500 patients, $3,127.50 saved';
+                break;
+            case 'yearly':
+                message = 'Showing yearly analytics: 6,000 patients, $12,510 saved';
+                break;
+        }
+        
+        showToast(message, 'info');
+        
+        // Here you would typically update chart data
+        // For now, we'll just reinitialize with the same data
+        setTimeout(initializeAnalyticsCharts, 100);
+    });
+});
 </script>
 {% endblock %}
