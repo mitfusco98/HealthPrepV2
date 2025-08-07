@@ -107,6 +107,9 @@ def register_blueprints(app):
     csrf.exempt(api_bp)
     csrf.exempt(emr_sync_bp)  # Exempt EMR webhooks from CSRF
     csrf.exempt(fuzzy_bp)  # Exempt fuzzy detection API from CSRF
+    
+    # Configure additional CSRF exemptions
+    configure_csrf_exemptions(app)
 
 def register_error_handlers(app):
     """Register error handlers"""
@@ -157,5 +160,8 @@ def register_template_utilities(app):
 # Configure CSRF protection to exempt API routes
 def configure_csrf_exemptions(app):
     """Configure CSRF exemptions for API routes"""
-    # This will be called after blueprints are registered
-    pass
+    from flask_wtf.csrf import CSRFProtect
+    # Exempt the admin log-error route from CSRF protection
+    csrf = app.extensions.get('csrf')
+    if csrf:
+        csrf.exempt('admin.log_error')
