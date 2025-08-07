@@ -122,7 +122,15 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <small>{{ log.details[:50] }}{% if log.details and log.details|length > 50 %}...{% endif %}</small>
+                                        <small>
+                                            {% if log.data and log.data.description %}
+                                                {{ log.data.description[:50] }}{% if log.data.description|length > 50 %}...{% endif %}
+                                            {% elif log.data %}
+                                                {{ (log.data | string)[:50] }}{% if (log.data | string)|length > 50 %}...{% endif %}
+                                            {% else %}
+                                                No details
+                                            {% endif %}
+                                        </small>
                                     </td>
                                 </tr>
                                 {% endfor %}
