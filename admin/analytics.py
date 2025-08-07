@@ -33,7 +33,7 @@ class HealthPrepAnalytics:
         
         documents_processed = Document.query.filter(
             Document.processed_at >= cutoff_date,
-            Document.content.isnot(None)
+            Document.ocr_text.isnot(None)
         ).count()
         
         screenings_updated = AdminLog.query.filter(
@@ -134,7 +134,7 @@ class HealthPrepAnalytics:
         
         docs_processed = Document.query.filter(
             Document.processed_at >= yesterday,
-            Document.content.isnot(None)
+            Document.ocr_text.isnot(None)
         ).count()
         
         # Assume 24 hours of potential processing time

@@ -19,12 +19,8 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
-    role = db.Column(db.String(20), default='nurse', nullable=False)  # admin, nurse, ma
-    is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login = db.Column(db.DateTime)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
     def set_password(self, password):
         """Set password hash"""
@@ -36,29 +32,12 @@ class User(UserMixin, db.Model):
 
     def is_admin_user(self):
         """Check if user has admin privileges"""
-        return self.is_admin or self.role == 'admin'
-    
-    def get_role_display(self):
-        """Get user-friendly role display"""
-        role_map = {
-            'admin': 'Administrator',
-            'nurse': 'Nurse',
-            'ma': 'Medical Assistant'
-        }
-        return role_map.get(self.role, 'User')
-    
-    def can_manage_users(self):
-        """Check if user can manage other users"""
-        return self.is_admin_user()
-    
-    def can_access_admin_dashboard(self):
-        """Check if user can access admin dashboard"""
-        return self.is_admin_user()
+        return self.is_admin
 
     @property
-    def is_active_property(self):
+    def is_active(self):
         """Check if user is active (Flask-Login requirement)"""
-        return self.is_active
+        return True  # All users are active by default
 
     def __repr__(self):
         return f'<User {self.username}>'
@@ -224,7 +203,7 @@ class ScreeningType(db.Model):
     @classmethod
     def get_variants(cls, base_name):
         """Get all variants for a given base screening name"""
-        return cls.query.filter_by(name=base_name).order_by(cls.id.asc()).all()
+        return cls.query.filter_by(name=base_name).order_by(cls.variant_name.asc()).all()
 
     @classmethod
     def get_variant_count(cls, base_name):
@@ -306,11 +285,8 @@ class Document(db.Model):
     file_path = db.Column(db.String(500))
     document_type = db.Column(db.String(50))  # 'lab', 'imaging', 'consult', 'hospital'
     content = db.Column(db.Text)  # OCR extracted text
-    ocr_text = db.Column(db.Text)  # Alias for content for compatibility
     ocr_confidence = db.Column(db.Float)
     phi_filtered = db.Column(db.Boolean, default=False)
-    phi_redaction_count = db.Column(db.Integer, default=0)
-    phi_types_detected = db.Column(db.Text)  # JSON array of PHI types found
     processed_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -355,12 +331,7 @@ class AdminLog(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     action = db.Column(db.String(100), nullable=False)
     details = db.Column(db.Text)
-    previous_value = db.Column(db.Text)  # Store old value for change tracking
-    new_value = db.Column(db.Text)  # Store new value for change tracking
-    resource_type = db.Column(db.String(50))  # Type of resource being modified
-    resource_id = db.Column(db.String(50))  # ID of resource being modified
     ip_address = db.Column(db.String(45))
-    user_agent = db.Column(db.Text)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
     user = db.relationship('User', backref=db.backref('admin_logs', lazy=True))
@@ -453,6 +424,8 @@ class PrepSheetSettings(db.Model):
             }
         return None
 
+
+
 class PHIFilterSettings(db.Model):
     """PHI filter configuration"""
     __tablename__ = 'phi_filter_settings'
@@ -493,85 +466,3 @@ class ScreeningDocumentMatch(db.Model):
 
     screening = db.relationship('Screening', backref='document_matches')
     document = db.relationship('Document', backref='screening_matches')
-
-# New models for enhanced admin dashboard
-
-class ScreeningPreset(db.Model):
-    """Preset configurations for screening types"""
-    __tablename__ = 'screening_presets'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text)
-    specialty = db.Column(db.String(50))  # primary_care, cardiology, etc.
-    organization = db.Column(db.String(100))
-    preset_data = db.Column(db.Text, nullable=False)  # JSON of screening types
-    version = db.Column(db.String(20), default='1.0')
-    is_active = db.Column(db.Boolean, default=True)
-    is_public = db.Column(db.Boolean, default=False)  # Can be shared/exported
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    creator = db.relationship('User', backref='created_presets')
-
-    def get_screening_types(self):
-        """Parse and return screening types from preset data"""
-        try:
-            return json.loads(self.preset_data)
-        except:
-            return []
-
-    def set_screening_types(self, screening_types):
-        """Store screening types as JSON"""
-        self.preset_data = json.dumps(screening_types)
-
-    def __repr__(self):
-        return f'<ScreeningPreset {self.name}>'
-
-class PHIStatistics(db.Model):
-    """PHI redaction statistics tracking"""
-    __tablename__ = 'phi_statistics'
-
-    id = db.Column(db.Integer, primary_key=True)
-    document_id = db.Column(db.Integer, db.ForeignKey('document.id'), nullable=False)
-    phi_type = db.Column(db.String(50), nullable=False)  # ssn, mrn, phone, name, etc.
-    instances_found = db.Column(db.Integer, default=0)
-    instances_redacted = db.Column(db.Integer, default=0)
-    confidence_score = db.Column(db.Float, default=0.0)
-    processed_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    document = db.relationship('Document', backref='phi_statistics')
-
-    def __repr__(self):
-        return f'<PHIStatistics {self.phi_type}: {self.instances_redacted}/{self.instances_found}>'
-
-class ValueMetrics(db.Model):
-    """Track value metrics for analytics"""
-    __tablename__ = 'value_metrics'
-
-    id = db.Column(db.Integer, primary_key=True)
-    metric_date = db.Column(db.Date, nullable=False, default=date.today)
-    patients_processed = db.Column(db.Integer, default=0)
-    prep_sheets_generated = db.Column(db.Integer, default=0)
-    documents_processed = db.Column(db.Integer, default=0)
-    screening_gaps_identified = db.Column(db.Integer, default=0)
-    screening_gaps_closed = db.Column(db.Integer, default=0)
-    manual_time_saved_minutes = db.Column(db.Integer, default=0)
-    estimated_cost_savings = db.Column(db.Float, default=0.0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    @classmethod
-    def calculate_time_savings(cls, patients_count, base_time_per_patient=5):
-        """Calculate time savings based on patient count and base time"""
-        # Base model: 5 minutes per patient manual prep time
-        return patients_count * base_time_per_patient
-
-    @classmethod
-    def calculate_cost_savings(cls, time_saved_minutes, hourly_rate=25):
-        """Calculate cost savings based on time saved and hourly rate"""
-        hours_saved = time_saved_minutes / 60
-        return hours_saved * hourly_rate
-
-    def __repr__(self):
-        return f'<ValueMetrics {self.metric_date}: {self.patients_processed} patients>'
