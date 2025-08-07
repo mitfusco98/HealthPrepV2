@@ -231,15 +231,22 @@
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h5 class="mb-0">
                         <i class="fas fa-cogs me-2"></i>
-                        System Presets & Settings
+                        Screening Preset Management
                     </h5>
-                    <button class="btn btn-sm btn-primary">
-                        <i class="fas fa-plus me-1"></i>
-                        Create Preset
-                    </button>
+                    <div>
+                        <button class="btn btn-sm btn-outline-secondary me-2" data-bs-toggle="modal" data-bs-target="#importPresetModal">
+                            <i class="fas fa-upload me-1"></i>
+                            Import
+                        </button>
+                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#createPresetModal">
+                            <i class="fas fa-plus me-1"></i>
+                            Create Preset
+                        </button>
+                    </div>
                 </div>
+                
                 <div class="row">
-                    <div class="col-lg-6 mb-4">
+                    <div class="col-lg-8 mb-4">
                         <div class="card">
                             <div class="card-header">
                                 <h6 class="mb-0">
@@ -248,40 +255,141 @@
                                 </h6>
                             </div>
                             <div class="card-body">
-                                <div class="d-grid gap-2">
-                                    <div class="d-flex justify-content-between align-items-center p-2 border rounded">
-                                        <div>
-                                            <strong>Standard Physical</strong>
-                                            <small class="text-muted d-block">Basic health screening preset</small>
-                                        </div>
-                                        <div>
-                                            <button class="btn btn-sm btn-outline-primary me-1">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-danger">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </div>
+                                <div id="presetsContainer">
+                                    {% if recent_presets %}
+                                    <div class="table-responsive">
+                                        <table class="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Name</th>
+                                                    <th>Specialty</th>
+                                                    <th>Screenings</th>
+                                                    <th>Shared</th>
+                                                    <th>Created</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for preset in recent_presets %}
+                                                <tr data-preset-id="{{ preset.id }}">
+                                                    <td>
+                                                        <strong>{{ preset.name }}</strong>
+                                                        {% if preset.description %}
+                                                        <small class="text-muted d-block">{{ preset.description[:50] }}{{ '...' if preset.description|length > 50 else '' }}</small>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge bg-info">{{ preset.specialty_display }}</span>
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge bg-primary">{{ preset.screening_count }}</span>
+                                                    </td>
+                                                    <td>
+                                                        {% if preset.shared %}
+                                                        <span class="badge bg-success">Shared</span>
+                                                        {% else %}
+                                                        <span class="badge bg-secondary">Private</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <small class="text-muted">
+                                                            {{ preset.created_at.strftime('%m/%d/%Y') if preset.created_at else 'N/A' }}
+                                                        </small>
+                                                    </td>
+                                                    <td>
+                                                        <div class="btn-group btn-group-sm">
+                                                            <button class="btn btn-outline-primary" onclick="exportPreset({{ preset.id }}, '{{ preset.name }}')">
+                                                                <i class="fas fa-download"></i>
+                                                            </button>
+                                                            <button class="btn btn-outline-success" onclick="importToTypes({{ preset.id }}, '{{ preset.name }}')">
+                                                                <i class="fas fa-arrow-right"></i>
+                                                            </button>
+                                                            <button class="btn btn-outline-danger" onclick="deletePreset({{ preset.id }}, '{{ preset.name }}')">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
                                     </div>
-                                    <div class="d-flex justify-content-between align-items-center p-2 border rounded">
-                                        <div>
-                                            <strong>Cardiac Screening</strong>
-                                            <small class="text-muted d-block">Heart health focused preset</small>
-                                        </div>
-                                        <div>
-                                            <button class="btn btn-sm btn-outline-primary me-1">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-danger">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </div>
+                                    {% else %}
+                                    <div class="text-center py-5">
+                                        <i class="fas fa-cogs fa-3x text-muted mb-3"></i>
+                                        <h5 class="text-muted">No Presets Created</h5>
+                                        <p class="text-muted">Create your first screening preset to get started.</p>
+                                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createPresetModal">
+                                            <i class="fas fa-plus me-1"></i>
+                                            Create First Preset
+                                        </button>
                                     </div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
                     </div>
                     
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-chart-pie me-2"></i>
+                                    Preset Statistics
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Total Presets</span>
+                                        <span class="badge bg-primary">{{ total_presets or 0 }}</span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Shared Presets</span>
+                                        <span class="badge bg-success">{{ shared_presets or 0 }}</span>
+                                    </div>
+                                </div>
+                                <hr>
+                                <div class="mb-3">
+                                    <small class="text-muted">
+                                        <strong>Quick Actions:</strong>
+                                    </small>
+                                </div>
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-sm btn-outline-info" onclick="loadAllPresets()">
+                                        <i class="fas fa-refresh me-1"></i>
+                                        Refresh List
+                                    </button>
+                                    <a href="{{ url_for('admin.list_presets') }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-external-link-alt me-1"></i>
+                                        View All Presets
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card mt-3">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    About Presets
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <small class="text-muted">
+                                    <p>Screening presets allow you to:</p>
+                                    <ul class="mb-0">
+                                        <li>Store reusable screening configurations</li>
+                                        <li>Import/export screening templates</li>
+                                        <li>Share configurations across systems</li>
+                                        <li>Quickly deploy standard screening sets</li>
+                                    </ul>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -583,6 +691,165 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Create Preset Modal -->
+<div class="modal fade" id="createPresetModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus me-2"></i>
+                    Create New Preset
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="createPresetForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="presetName" class="form-label">Preset Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="presetName" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="presetDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="presetDescription" rows="3" placeholder="Optional description of this preset..."></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="presetSpecialty" class="form-label">Specialty</label>
+                        <select class="form-control" id="presetSpecialty">
+                            <option value="">General</option>
+                            <option value="cardiology">Cardiology</option>
+                            <option value="primary_care">Primary Care</option>
+                            <option value="oncology">Oncology</option>
+                            <option value="women_health">Women's Health</option>
+                            <option value="preventive">Preventive Care</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="presetShared">
+                        <label class="form-check-label" for="presetShared">
+                            Shared Preset
+                        </label>
+                        <div class="form-text">Allow other organizations to use this preset</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>
+                        Create Preset
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Import Preset Modal -->
+<div class="modal fade" id="importPresetModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-upload me-2"></i>
+                    Import Preset
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="importPresetForm" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="presetFile" class="form-label">Preset File <span class="text-danger">*</span></label>
+                        <input type="file" class="form-control" id="presetFile" accept=".json,.yaml,.yml" required>
+                        <div class="form-text">Upload a JSON or YAML preset file</div>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="overwriteExisting">
+                        <label class="form-check-label" for="overwriteExisting">
+                            Overwrite existing presets
+                        </label>
+                        <div class="form-text">Replace presets with the same name</div>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="importToTypes">
+                        <label class="form-check-label" for="importToTypes">
+                            Import directly to screening types
+                        </label>
+                        <div class="form-text">Add screening types to the system immediately</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-upload me-1"></i>
+                        Import Preset
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deletePresetModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Confirm Deletion
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Warning:</strong> This action cannot be undone.</p>
+                <p>Are you sure you want to delete preset <strong id="deletePresetName"></strong>?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDeletePreset()">
+                    <i class="fas fa-trash me-1"></i>
+                    Delete Preset
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import to Types Modal -->
+<div class="modal fade" id="importToTypesModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-arrow-right me-2"></i>
+                    Import to Screening Types
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Import screening types from preset <strong id="importToTypesPresetName"></strong> to the main screening types database?</p>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="overwriteExistingTypes">
+                    <label class="form-check-label" for="overwriteExistingTypes">
+                        Overwrite existing screening types
+                    </label>
+                    <div class="form-text">Replace screening types with the same name</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="confirmImportToTypes()">
+                    <i class="fas fa-arrow-right me-1"></i>
+                    Import to Types
+                </button>
             </div>
         </div>
     </div>

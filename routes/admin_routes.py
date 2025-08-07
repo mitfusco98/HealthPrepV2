@@ -2,13 +2,18 @@
 """
 Admin dashboard routes and functionality
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file, make_response
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 import logging
 import functools
+import json
+import yaml
+import tempfile
+import os
+from werkzeug.utils import secure_filename
 
-from models import User, AdminLog, PHIFilterSettings, log_admin_event, Document
+from models import User, AdminLog, PHIFilterSettings, log_admin_event, Document, ScreeningPreset, ScreeningType
 from app import db
 from flask import request as flask_request
 from admin.analytics import HealthPrepAnalytics
@@ -85,6 +90,11 @@ def get_dashboard_data():
     admin_users = User.query.filter_by(is_admin=True).count()
     inactive_users = total_users - active_users
     
+    # Get preset statistics
+    total_presets = ScreeningPreset.query.count()
+    shared_presets = ScreeningPreset.query.filter_by(shared=True).count()
+    recent_presets = ScreeningPreset.query.order_by(ScreeningPreset.updated_at.desc()).limit(5).all()
+    
     return {
         'stats': dashboard_stats,
         'recent_logs': recent_logs,
@@ -95,7 +105,10 @@ def get_dashboard_data():
         'total_users': total_users,
         'active_users': active_users,
         'admin_users': admin_users,
-        'inactive_users': inactive_users
+        'inactive_users': inactive_users,
+        'total_presets': total_presets,
+        'shared_presets': shared_presets,
+        'recent_presets': recent_presets
     }
 
 @admin_bp.route('/dashboard/logs')
@@ -955,3 +968,207 @@ def toggle_user_status(user_id):
             return jsonify({'success': False, 'error': str(e)}), 500
         
         return redirect(url_for('admin.users_list'))
+
+# Preset Management Routes
+
+@admin_bp.route('/presets')
+@login_required
+@admin_required
+def list_presets():
+    """List all screening presets - API endpoint"""
+    try:
+        presets = ScreeningPreset.query.order_by(ScreeningPreset.updated_at.desc()).all()
+        
+        preset_data = []
+        for preset in presets:
+            preset_data.append({
+                'id': preset.id,
+                'name': preset.name,
+                'description': preset.description,
+                'specialty': preset.specialty,
+                'specialty_display': preset.specialty_display,
+                'shared': preset.shared,
+                'screening_count': preset.screening_count,
+                'created_at': preset.created_at.isoformat() if preset.created_at else None,
+                'updated_at': preset.updated_at.isoformat() if preset.updated_at else None,
+                'creator': preset.creator.username if preset.creator else 'Unknown'
+            })
+        
+        return jsonify({
+            'success': True,
+            'presets': preset_data,
+            'total_count': len(preset_data)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error listing presets: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@admin_bp.route('/presets', methods=['POST'])
+@login_required
+@admin_required
+def create_preset():
+    """Create a new screening preset"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
+        
+        name = data.get('name', '').strip()
+        if not name:
+            return jsonify({'success': False, 'error': 'Preset name is required'}), 400
+        
+        existing = ScreeningPreset.query.filter_by(name=name).first()
+        if existing:
+            return jsonify({'success': False, 'error': 'Preset name already exists'}), 400
+        
+        preset = ScreeningPreset()
+        preset.name = name
+        preset.description = data.get('description', '')
+        preset.specialty = data.get('specialty', '')
+        preset.shared = data.get('shared', False)
+        preset.screening_data = data.get('screening_data', [])
+        preset.metadata = data.get('metadata', {})
+        preset.created_by = current_user.id
+        
+        db.session.add(preset)
+        db.session.commit()
+        
+        log_admin_event(
+            event_type='create_preset',
+            user_id=current_user.id,
+            ip=request.remote_addr,
+            data={
+                'preset_id': preset.id,
+                'preset_name': preset.name,
+                'description': f'Created screening preset: {preset.name}'
+            }
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': 'Preset created successfully',
+            'preset_id': preset.id
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error creating preset: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@admin_bp.route('/presets/<int:preset_id>', methods=['DELETE'])
+@login_required
+@admin_required
+def delete_preset(preset_id):
+    """Delete a screening preset"""
+    try:
+        preset = ScreeningPreset.query.get_or_404(preset_id)
+        preset_name = preset.name
+        
+        db.session.delete(preset)
+        db.session.commit()
+        
+        log_admin_event(
+            event_type='delete_preset',
+            user_id=current_user.id,
+            ip=request.remote_addr,
+            data={
+                'preset_id': preset_id,
+                'preset_name': preset_name,
+                'description': f'Deleted screening preset: {preset_name}'
+            }
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': 'Preset deleted successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting preset: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@admin_bp.route('/presets/import', methods=['POST'])
+@login_required
+@admin_required
+def import_preset():
+    """Import screening preset from uploaded file"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        filename = secure_filename(file.filename)
+        if not filename.lower().endswith(('.json', '.yaml', '.yml')):
+            return jsonify({'success': False, 'error': 'File must be JSON or YAML format'}), 400
+        
+        file_content = file.read().decode('utf-8')
+        
+        try:
+            if filename.lower().endswith('.json'):
+                data = json.loads(file_content)
+            else:
+                data = yaml.safe_load(file_content)
+        except Exception as e:
+            return jsonify({'success': False, 'error': f'Invalid file format: {str(e)}'}), 400
+        
+        preset = ScreeningPreset.from_import_dict(data, current_user.id)
+        db.session.add(preset)
+        db.session.commit()
+        
+        log_admin_event(
+            event_type='import_preset',
+            user_id=current_user.id,
+            ip=request.remote_addr,
+            data={
+                'preset_id': preset.id,
+                'preset_name': preset.name,
+                'description': f'Imported screening preset from {filename}'
+            }
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': 'Preset imported successfully',
+            'preset_id': preset.id,
+            'preset_name': preset.name
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error importing preset: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@admin_bp.route('/presets/export/<int:preset_id>')
+@login_required
+@admin_required
+def export_preset(preset_id):
+    """Export screening preset to downloadable file"""
+    try:
+        preset = ScreeningPreset.query.get_or_404(preset_id)
+        export_data = preset.to_export_dict()
+        
+        response = make_response(json.dumps(export_data, indent=2))
+        response.headers['Content-Type'] = 'application/json'
+        response.headers['Content-Disposition'] = f'attachment; filename={preset.name.replace(" ", "_")}_preset.json'
+        
+        log_admin_event(
+            event_type='export_preset',
+            user_id=current_user.id,
+            ip=request.remote_addr,
+            data={
+                'preset_id': preset.id,
+                'preset_name': preset.name,
+                'description': f'Exported screening preset: {preset.name}'
+            }
+        )
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error exporting preset: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500

@@ -499,3 +499,202 @@ class ScreeningDocumentMatch(db.Model):
 
     screening = db.relationship('Screening', backref='document_matches')
     document = db.relationship('Document', backref='screening_matches')
+
+class ScreeningPreset(db.Model):
+    """Screening preset templates for importing screening types"""
+    __tablename__ = 'screening_preset'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    specialty = db.Column(db.String(50))  # e.g., 'cardiology', 'primary_care', 'oncology'
+    shared = db.Column(db.Boolean, default=False, nullable=False)  # Shared across tenants/organizations
+    screening_data = db.Column(db.JSON, nullable=False)  # Complete screening type data
+    metadata = db.Column(db.JSON)  # Additional metadata (version, tags, etc.)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    
+    creator = db.relationship('User', backref='created_presets')
+
+    @property
+    def screening_count(self):
+        """Get number of screening types in this preset"""
+        if not self.screening_data:
+            return 0
+        if isinstance(self.screening_data, list):
+            return len(self.screening_data)
+        return 1 if self.screening_data else 0
+
+    @property
+    def specialty_display(self):
+        """Get formatted specialty name"""
+        if not self.specialty:
+            return 'General'
+        return self.specialty.replace('_', ' ').title()
+
+    def get_screening_types(self):
+        """Get all screening types in this preset"""
+        if not self.screening_data:
+            return []
+        
+        # Handle both single screening type and array of screening types
+        if isinstance(self.screening_data, list):
+            return self.screening_data
+        else:
+            return [self.screening_data]
+
+    def add_screening_type(self, screening_type_data):
+        """Add a screening type to this preset"""
+        current_data = self.get_screening_types()
+        current_data.append(screening_type_data)
+        self.screening_data = current_data
+        self.updated_at = datetime.utcnow()
+
+    def remove_screening_type(self, index):
+        """Remove a screening type by index"""
+        current_data = self.get_screening_types()
+        if 0 <= index < len(current_data):
+            current_data.pop(index)
+            self.screening_data = current_data if current_data else []
+            self.updated_at = datetime.utcnow()
+            return True
+        return False
+
+    def update_screening_type(self, index, screening_type_data):
+        """Update a screening type by index"""
+        current_data = self.get_screening_types()
+        if 0 <= index < len(current_data):
+            current_data[index] = screening_type_data
+            self.screening_data = current_data
+            self.updated_at = datetime.utcnow()
+            return True
+        return False
+
+    @classmethod
+    def from_screening_types(cls, screening_types, name, description='', specialty='', shared=False, created_by=None):
+        """Create a preset from existing ScreeningType objects"""
+        screening_data = []
+        
+        for st in screening_types:
+            screening_data.append({
+                'name': st.name,
+                'keywords': st.keywords_list,
+                'eligible_genders': st.eligible_genders,
+                'min_age': st.min_age,
+                'max_age': st.max_age,
+                'frequency_years': st.frequency_years,
+                'trigger_conditions': st.trigger_conditions_list,
+                'is_active': st.is_active
+            })
+        
+        preset = cls(
+            name=name,
+            description=description,
+            specialty=specialty,
+            shared=shared,
+            screening_data=screening_data,
+            created_by=created_by
+        )
+        
+        return preset
+
+    def import_to_screening_types(self, overwrite_existing=False, created_by=None):
+        """Import this preset's screening types to the database"""
+        imported_count = 0
+        updated_count = 0
+        skipped_count = 0
+        errors = []
+        
+        try:
+            for st_data in self.get_screening_types():
+                try:
+                    # Check if screening type already exists
+                    existing = ScreeningType.query.filter_by(name=st_data['name']).first()
+                    
+                    if existing and not overwrite_existing:
+                        skipped_count += 1
+                        continue
+                    
+                    if existing and overwrite_existing:
+                        # Update existing screening type
+                        existing.keywords = json.dumps(st_data.get('keywords', []))
+                        existing.eligible_genders = st_data.get('eligible_genders', 'both')
+                        existing.min_age = st_data.get('min_age')
+                        existing.max_age = st_data.get('max_age')
+                        existing.frequency_years = st_data.get('frequency_years', 1.0)
+                        existing.trigger_conditions = json.dumps(st_data.get('trigger_conditions', []))
+                        existing.is_active = st_data.get('is_active', True)
+                        existing.updated_at = datetime.utcnow()
+                        updated_count += 1
+                    else:
+                        # Create new screening type
+                        new_st = ScreeningType()
+                        new_st.name = st_data['name']
+                        new_st.keywords = json.dumps(st_data.get('keywords', []))
+                        new_st.eligible_genders = st_data.get('eligible_genders', 'both')
+                        new_st.min_age = st_data.get('min_age')
+                        new_st.max_age = st_data.get('max_age')
+                        new_st.frequency_years = st_data.get('frequency_years', 1.0)
+                        new_st.trigger_conditions = json.dumps(st_data.get('trigger_conditions', []))
+                        new_st.is_active = st_data.get('is_active', True)
+                        db.session.add(new_st)
+                        imported_count += 1
+                        
+                except Exception as e:
+                    errors.append(f"Error processing '{st_data.get('name', 'Unknown')}': {str(e)}")
+                    continue
+            
+            db.session.commit()
+            
+            return {
+                'success': True,
+                'imported_count': imported_count,
+                'updated_count': updated_count,
+                'skipped_count': skipped_count,
+                'errors': errors
+            }
+            
+        except Exception as e:
+            db.session.rollback()
+            return {
+                'success': False,
+                'error': str(e),
+                'imported_count': 0,
+                'updated_count': 0,
+                'skipped_count': 0,
+                'errors': errors + [str(e)]
+            }
+
+    def to_export_dict(self):
+        """Export preset data for file download"""
+        return {
+            'preset_info': {
+                'name': self.name,
+                'description': self.description,
+                'specialty': self.specialty,
+                'created_at': self.created_at.isoformat() if self.created_at else None,
+                'creator': self.creator.username if self.creator else None,
+                'version': self.metadata.get('version', '1.0') if self.metadata and isinstance(self.metadata, dict) else '1.0'
+            },
+            'screening_types': self.get_screening_types(),
+            'metadata': self.metadata or {}
+        }
+
+    @classmethod
+    def from_import_dict(cls, data, created_by):
+        """Create preset from imported data"""
+        preset_info = data.get('preset_info', {})
+        
+        return cls(
+            name=preset_info.get('name', 'Imported Preset'),
+            description=preset_info.get('description', ''),
+            specialty=preset_info.get('specialty', ''),
+            shared=False,  # Imported presets are not shared by default
+            screening_data=data.get('screening_types', []),
+            metadata=data.get('metadata', {}),
+            created_by=created_by
+        )
+
+    def __repr__(self):
+        return f'<ScreeningPreset {self.name} ({self.screening_count} types)>'
