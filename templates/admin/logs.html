@@ -172,7 +172,7 @@
                 </a>
             </li>
         {% endif %}
-        
+
         {% for page_num in pagination.iter_pages() %}
             {% if page_num %}
                 {% if page_num != pagination.page %}
@@ -192,7 +192,7 @@
                 </li>
             {% endif %}
         {% endfor %}
-        
+
         {% if pagination.has_next %}
             <li class="page-item">
                 <a class="page-link" href="{{ url_for('admin.logs', page=pagination.next_num, **filters) }}">
@@ -280,19 +280,19 @@ function viewLogDetails(logId) {
     try {
         var details = JSON.parse(logData);
         var html = '<div class="table-responsive"><table class="table table-sm">';
-        
+
         for (var key in details) {
             if (details.hasOwnProperty(key)) {
                 html += '<tr><td><strong>' + key + ':</strong></td><td>' + details[key] + '</td></tr>';
             }
         }
-        
+
         html += '</table></div>';
-        
+
         if (Object.keys(details).length === 0) {
             html = '<p class="text-muted">No additional details available for this log entry.</p>';
         }
-        
+
         $('#logDetailsContent').html(html);
         $('#logDetailsModal').modal('show');
     } catch (e) {
