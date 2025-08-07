@@ -510,7 +510,7 @@ class ScreeningPreset(db.Model):
     specialty = db.Column(db.String(50))  # e.g., 'cardiology', 'primary_care', 'oncology'
     shared = db.Column(db.Boolean, default=False, nullable=False)  # Shared across tenants/organizations
     screening_data = db.Column(db.JSON, nullable=False)  # Complete screening type data
-    metadata = db.Column(db.JSON)  # Additional metadata (version, tags, etc.)
+    preset_metadata = db.Column(db.JSON)  # Additional metadata (version, tags, etc.)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -675,10 +675,10 @@ class ScreeningPreset(db.Model):
                 'specialty': self.specialty,
                 'created_at': self.created_at.isoformat() if self.created_at else None,
                 'creator': self.creator.username if self.creator else None,
-                'version': self.metadata.get('version', '1.0') if self.metadata and isinstance(self.metadata, dict) else '1.0'
+                'version': self.preset_metadata.get('version', '1.0') if self.preset_metadata and isinstance(self.preset_metadata, dict) else '1.0'
             },
             'screening_types': self.get_screening_types(),
-            'metadata': self.metadata or {}
+            'metadata': self.preset_metadata or {}
         }
 
     @classmethod
@@ -692,7 +692,7 @@ class ScreeningPreset(db.Model):
             specialty=preset_info.get('specialty', ''),
             shared=False,  # Imported presets are not shared by default
             screening_data=data.get('screening_types', []),
-            metadata=data.get('metadata', {}),
+            preset_metadata=data.get('metadata', {}),
             created_by=created_by
         )
 
