@@ -5,6 +5,7 @@ Provides API endpoints for EMR sync operations and webhooks
 import logging
 from flask import Blueprint, request, jsonify, render_template, flash, redirect, url_for
 from flask_login import login_required, current_user
+from routes.auth_routes import non_admin_required
 from datetime import datetime
 from emr.sync_manager import EMRSyncManager, EMRChangeListener
 from models import db
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 @emr_sync_bp.route('/dashboard')
 @login_required
+@non_admin_required
 def emr_dashboard():
     """EMR synchronization dashboard"""
     try:

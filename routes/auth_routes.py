@@ -221,6 +221,23 @@ def user_required(f):
 
     return decorated_function
 
+def non_admin_required(f):
+    """Decorator to prevent admin users from accessing regular user routes"""
+    from functools import wraps
+
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            return redirect(url_for('auth.login'))
+
+        if current_user.is_admin:
+            flash('Admin users should use the admin dashboard.', 'info')
+            return redirect(url_for('admin.dashboard'))
+
+        return f(*args, **kwargs)
+
+    return decorated_function
+
 # Security utilities
 def check_session_validity():
     """Check if current session is valid"""

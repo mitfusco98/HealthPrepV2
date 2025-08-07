@@ -3,6 +3,7 @@ Prep sheet generation and management routes
 """
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, make_response
 from flask_login import login_required, current_user
+from routes.auth_routes import non_admin_required
 from datetime import datetime
 import logging
 
@@ -18,6 +19,7 @@ prep_sheet_bp = Blueprint('prep_sheet', __name__)
 
 @prep_sheet_bp.route('/patient/<int:patient_id>')
 @login_required
+@non_admin_required
 def generate_for_patient(patient_id):
     """Generate prep sheet for a specific patient"""
     try:
@@ -79,6 +81,7 @@ def generate_for_appointment(appointment_id):
 
 @prep_sheet_bp.route('/batch-generate', methods=['GET', 'POST'])
 @login_required
+@non_admin_required
 def batch_generate():
     """Batch generate prep sheets for multiple patients"""
     try:
@@ -345,6 +348,7 @@ def manage_templates():
 
 @prep_sheet_bp.route('/settings', methods=['GET', 'POST'])
 @login_required
+@non_admin_required
 def prep_sheet_settings():
     """Prep sheet generation settings"""
     try:

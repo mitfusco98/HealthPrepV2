@@ -6,6 +6,7 @@ Defines URL patterns and connects them to view functions.
 from flask import Blueprint, render_template
 from flask_login import login_required
 from ui.views import UserViews
+from routes.auth_routes import non_admin_required
 
 # Create blueprint for UI routes
 ui_bp = Blueprint('ui', __name__)
@@ -16,6 +17,7 @@ views = UserViews()
 @ui_bp.route('/')
 @ui_bp.route('/dashboard')
 @login_required
+@non_admin_required
 def dashboard():
     """Main dashboard"""
     return views.dashboard()
@@ -23,12 +25,14 @@ def dashboard():
 @ui_bp.route('/screening')
 @ui_bp.route('/screening/list')
 @login_required
+@non_admin_required
 def screening_list():
     """Screening list view"""
     return views.screening_list()
 
 @ui_bp.route('/screening/types')
 @login_required
+@non_admin_required
 def screening_types():
     """Screening types management"""
     return views.screening_types()

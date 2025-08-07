@@ -3,6 +3,7 @@ Fixing the URL reference for 'dashboard' to 'ui.dashboard' in screening routes.
 """
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
+from routes.auth_routes import non_admin_required
 
 from datetime import datetime
 import logging
@@ -20,6 +21,7 @@ screening_bp = Blueprint('screening', __name__)
 
 @screening_bp.route('/list')
 @login_required
+@non_admin_required
 def screening_list():
     """Main screening list view"""
     try:
@@ -103,6 +105,7 @@ def screening_list():
 
 @screening_bp.route('/types')
 @login_required
+@non_admin_required
 def screening_types():
     """Screening types management"""
     try:
@@ -118,6 +121,7 @@ def screening_types():
 
 @screening_bp.route('/settings', methods=['GET', 'POST'])
 @login_required
+@non_admin_required
 def screening_settings():
     """Screening settings management"""
     try:
@@ -155,6 +159,7 @@ def screening_settings():
 
 @screening_bp.route('/type/add', methods=['GET', 'POST'])
 @login_required
+@non_admin_required
 def add_screening_type():
     """Add new screening type"""
     try:
@@ -210,6 +215,7 @@ def add_screening_type():
 
 @screening_bp.route('/type/<int:type_id>/edit', methods=['GET', 'POST'])
 @login_required
+@non_admin_required
 def edit_screening_type(type_id):
     """Edit existing screening type"""
     try:
@@ -291,6 +297,7 @@ def edit_screening_type(type_id):
 
 @screening_bp.route('/type/<int:type_id>/toggle-status', methods=['POST'])
 @login_required
+@non_admin_required
 def toggle_screening_type_status(type_id):
     """Toggle screening type active status and sync to all variants"""
     try:
@@ -321,6 +328,7 @@ def toggle_screening_type_status(type_id):
 
 @screening_bp.route('/type/<int:type_id>/delete', methods=['POST'])
 @login_required
+@non_admin_required
 def delete_screening_type(type_id):
     """Delete screening type"""
     try:
