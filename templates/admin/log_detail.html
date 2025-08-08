@@ -1,0 +1,235 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Log Entry Details - HealthPrep{% endblock %}
+
+{% block extra_css %}
+<style>
+.change-badge {
+    font-size: 0.75rem;
+}
+.change-creation {
+    background-color: #198754 !important;
+}
+.change-modification {
+    background-color: #0d6efd !important;
+}
+.change-deletion {
+    background-color: #dc3545 !important;
+}
+.change-status_change {
+    background-color: #6f42c1 !important;
+}
+.change-setting_change {
+    background-color: #fd7e14 !important;
+}
+.change-reference {
+    background-color: #6c757d !important;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-info-circle me-2"></i>Log Entry Details</h1>
+    <div>
+        <a href="{{ url_for('admin.logs') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Back to Logs
+        </a>
+    </div>
+</div>
+
+<!-- Basic Information Card -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-info me-2"></i>
+            Basic Information
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <table class="table table-sm table-borderless">
+                    <tr>
+                        <td class="fw-bold">Timestamp:</td>
+                        <td>{{ details.basic_info.timestamp }}</td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold">Event Type:</td>
+                        <td>
+                            <span class="badge bg-primary">{{ details.basic_info.event_type }}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold">User:</td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-user me-1 text-muted"></i>
+                                {{ details.basic_info.user }}
+                                {% if log.user and log.user.is_admin %}
+                                    <i class="fas fa-crown text-warning ms-1" title="Admin"></i>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <table class="table table-sm table-borderless">
+                    <tr>
+                        <td class="fw-bold">User Role:</td>
+                        <td>{{ details.basic_info.user_role }}</td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold">IP Address:</td>
+                        <td>
+                            <code class="text-muted">{{ details.basic_info.ip_address }}</code>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold">Organization:</td>
+                        <td>{{ details.basic_info.organization }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Action Summary Card -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-clipboard-list me-2"></i>
+            Action Summary
+        </h5>
+    </div>
+    <div class="card-body">
+        <p class="mb-0">{{ details.action_summary }}</p>
+    </div>
+</div>
+
+<!-- Changes Card -->
+{% if details.changes %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-edit me-2"></i>
+            Changes Made ({{ details.changes|length }})
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Field</th>
+                        <th>Previous Value</th>
+                        <th>New Value</th>
+                        <th>Change Type</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for change in details.changes %}
+                    <tr>
+                        <td class="fw-bold">{{ change.field }}</td>
+                        <td>
+                            {% if change.old_value == 'N/A' %}
+                                <span class="text-muted">{{ change.old_value }}</span>
+                            {% else %}
+                                <code>{{ change.old_value }}</code>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <code class="text-success">{{ change.new_value }}</code>
+                        </td>
+                        <td>
+                            <span class="badge change-badge change-{{ change.change_type }}">
+                                {{ change.change_type.replace('_', ' ').title() }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Additional Data Card -->
+{% if details.additional_data %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-database me-2"></i>
+            Additional Information
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if details.additional_data %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>Property</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for key, value in details.additional_data.items() %}
+                        <tr>
+                            <td class="fw-bold">{{ key.replace('_', ' ').title() }}</td>
+                            <td>
+                                {% if value is mapping %}
+                                    <details>
+                                        <summary>Object (click to expand)</summary>
+                                        <pre class="mt-2"><code>{{ value | tojsonpretty }}</code></pre>
+                                    </details>
+                                {% elif value is iterable and value is not string %}
+                                    <details>
+                                        <summary>List ({{ value|length }} items)</summary>
+                                        <pre class="mt-2"><code>{{ value | tojsonpretty }}</code></pre>
+                                    </details>
+                                {% else %}
+                                    <code>{{ value }}</code>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-muted mb-0">No additional data available for this log entry.</p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Raw Data Card (Collapsible) -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <button class="btn btn-link p-0 text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#rawDataCollapse" aria-expanded="false">
+                <i class="fas fa-code me-2"></i>
+                Raw Log Data (Advanced)
+                <i class="fas fa-chevron-down ms-1"></i>
+            </button>
+        </h5>
+    </div>
+    <div class="collapse" id="rawDataCollapse">
+        <div class="card-body">
+            <pre><code class="language-json">{{ log.data | tojsonpretty if log.data else 'No raw data available' }}</code></pre>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Syntax highlighting for JSON -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/plugins/autoloader/prism-autoloader.min.js"></script>
+{% endblock %}

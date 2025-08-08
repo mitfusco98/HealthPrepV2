@@ -368,6 +368,20 @@ def prep_sheet_settings():
             if not settings:
                 settings = PrepSheetSettings()
                 db.session.add(settings)
+                before_values = {
+                    'labs_cutoff_months': None,
+                    'imaging_cutoff_months': None,
+                    'consults_cutoff_months': None,
+                    'hospital_cutoff_months': None
+                }
+            else:
+                # Capture before values for logging
+                before_values = {
+                    'labs_cutoff_months': settings.labs_cutoff_months,
+                    'imaging_cutoff_months': settings.imaging_cutoff_months,
+                    'consults_cutoff_months': settings.consults_cutoff_months,
+                    'hospital_cutoff_months': settings.hospital_cutoff_months
+                }
             
             # Update cutoff settings
             settings.labs_cutoff_months = request.form.get('labs_cutoff_months', type=int) or 12
@@ -375,15 +389,31 @@ def prep_sheet_settings():
             settings.consults_cutoff_months = request.form.get('consults_cutoff_months', type=int) or 12
             settings.hospital_cutoff_months = request.form.get('hospital_cutoff_months', type=int) or 24
             
+            # Capture after values for logging
+            after_values = {
+                'labs_cutoff_months': settings.labs_cutoff_months,
+                'imaging_cutoff_months': settings.imaging_cutoff_months,
+                'consults_cutoff_months': settings.consults_cutoff_months,
+                'hospital_cutoff_months': settings.hospital_cutoff_months
+            }
+            
             db.session.commit()
             
-            # Log the change
+            # Log the change with before/after values
             log_admin_event(
                 event_type='update_prep_sheet_settings',
                 user_id=current_user.id,
                 org_id=current_user.org_id,
                 ip=request.remote_addr,
-                data={'labs_cutoff': settings.labs_cutoff_months, 'imaging_cutoff': settings.imaging_cutoff_months, 'consults_cutoff': settings.consults_cutoff_months, 'hospital_cutoff': settings.hospital_cutoff_months, 'description': f'Updated prep sheet settings - Labs: {settings.labs_cutoff_months}, Imaging: {settings.imaging_cutoff_months}, Consults: {settings.consults_cutoff_months}, Hospital: {settings.hospital_cutoff_months}'}
+                data={
+                    'before': before_values,
+                    'after': after_values,
+                    'labs_cutoff': settings.labs_cutoff_months,
+                    'imaging_cutoff': settings.imaging_cutoff_months,
+                    'consults_cutoff': settings.consults_cutoff_months,
+                    'hospital_cutoff': settings.hospital_cutoff_months,
+                    'description': f'Updated prep sheet settings - Labs: {settings.labs_cutoff_months}, Imaging: {settings.imaging_cutoff_months}, Consults: {settings.consults_cutoff_months}, Hospital: {settings.hospital_cutoff_months}'
+                }
             )
             
             flash('Prep sheet settings updated successfully', 'success')

@@ -26,6 +26,261 @@ logger = logging.getLogger(__name__)
 
 admin_bp = Blueprint('admin', __name__)
 
+def parse_log_details(log):
+    """Parse log data to provide enhanced details for viewing"""
+    try:
+        details = {
+            'basic_info': {
+                'timestamp': log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                'event_type': log.event_type.replace('_', ' ').title() if log.event_type else 'Unknown',
+                'user': log.user.username if log.user else 'System',
+                'user_role': log.user.role if log.user else 'N/A',
+                'ip_address': log.ip_address or 'Unknown',
+                'organization': log.organization.name if hasattr(log, 'organization') and log.organization else 'N/A'
+            },
+            'action_summary': '',
+            'changes': [],
+            'additional_data': {}
+        }
+        
+        if log.data:
+            data = log.data if isinstance(log.data, dict) else {}
+            
+            # Extract description
+            details['action_summary'] = data.get('description', 'No description available')
+            
+            # Parse changes based on event type
+            if log.event_type == 'edit_screening_type':
+                details['changes'] = parse_screening_type_changes(data)
+            elif log.event_type == 'create_user':
+                details['changes'] = parse_user_creation_changes(data)
+            elif log.event_type == 'edit_user':
+                details['changes'] = parse_user_edit_changes(data)
+            elif log.event_type == 'toggle_user_status':
+                details['changes'] = parse_user_status_changes(data)
+            elif log.event_type == 'update_prep_sheet_settings':
+                details['changes'] = parse_prep_sheet_settings_changes(data)
+            elif log.event_type == 'update_phi_settings':
+                details['changes'] = parse_phi_settings_changes(data)
+            else:
+                # Generic change parsing
+                details['changes'] = parse_generic_changes(data)
+            
+            # Additional data (excluding already processed fields)
+            excluded_keys = ['description', 'before', 'after', 'changes']
+            details['additional_data'] = {k: v for k, v in data.items() if k not in excluded_keys}
+        
+        return details
+        
+    except Exception as e:
+        logger.error(f"Error parsing log details: {str(e)}")
+        return {
+            'basic_info': {'error': 'Failed to parse log details'},
+            'action_summary': 'Error parsing action details',
+            'changes': [],
+            'additional_data': {'error': str(e)}
+        }
+
+def parse_screening_type_changes(data):
+    """Parse screening type specific changes"""
+    changes = []
+    
+    if 'before' in data and 'after' in data:
+        before = data['before']
+        after = data['after']
+        
+        for field, old_value in before.items():
+            new_value = after.get(field)
+            if old_value != new_value:
+                changes.append({
+                    'field': field.replace('_', ' ').title(),
+                    'old_value': format_value(old_value),
+                    'new_value': format_value(new_value),
+                    'change_type': determine_change_type(old_value, new_value)
+                })
+    else:
+        # Legacy format - extract what we can
+        if 'screening_type_name' in data:
+            changes.append({
+                'field': 'Screening Type',
+                'old_value': 'N/A',
+                'new_value': data['screening_type_name'],
+                'change_type': 'modification'
+            })
+    
+    return changes
+
+def parse_user_creation_changes(data):
+    """Parse user creation details"""
+    changes = []
+    
+    if 'created_user' in data:
+        changes.append({
+            'field': 'New User Created',
+            'old_value': 'N/A',
+            'new_value': data['created_user'],
+            'change_type': 'creation'
+        })
+    
+    if 'role' in data:
+        changes.append({
+            'field': 'User Role',
+            'old_value': 'N/A',
+            'new_value': data['role'].title(),
+            'change_type': 'creation'
+        })
+    
+    return changes
+
+def parse_user_edit_changes(data):
+    """Parse user edit changes"""
+    changes = []
+    
+    if 'before' in data and 'after' in data:
+        before = data['before']
+        after = data['after']
+        
+        for field, old_value in before.items():
+            new_value = after.get(field)
+            if old_value != new_value:
+                changes.append({
+                    'field': field.replace('_', ' ').title(),
+                    'old_value': format_value(old_value),
+                    'new_value': format_value(new_value),
+                    'change_type': determine_change_type(old_value, new_value)
+                })
+    else:
+        # Legacy format
+        if 'edited_user' in data:
+            changes.append({
+                'field': 'User Modified',
+                'old_value': 'Previous values',
+                'new_value': data['edited_user'],
+                'change_type': 'modification'
+            })
+    
+    return changes
+
+def parse_user_status_changes(data):
+    """Parse user status toggle changes"""
+    changes = []
+    
+    if 'new_status' in data:
+        status_text = 'Active' if data['new_status'] else 'Inactive'
+        old_status_text = 'Inactive' if data['new_status'] else 'Active'
+        
+        changes.append({
+            'field': 'User Status',
+            'old_value': old_status_text,
+            'new_value': status_text,
+            'change_type': 'status_change'
+        })
+    
+    if 'target_user' in data:
+        changes.append({
+            'field': 'Affected User',
+            'old_value': 'N/A',
+            'new_value': data['target_user'],
+            'change_type': 'reference'
+        })
+    
+    return changes
+
+def parse_prep_sheet_settings_changes(data):
+    """Parse prep sheet settings changes"""
+    changes = []
+    
+    # Look for specific cutoff changes
+    cutoff_fields = ['labs_cutoff', 'imaging_cutoff', 'consults_cutoff', 'hospital_cutoff']
+    
+    if 'before' in data and 'after' in data:
+        before = data['before']
+        after = data['after']
+        
+        for field in cutoff_fields:
+            if field in before and field in after and before[field] != after[field]:
+                changes.append({
+                    'field': field.replace('_', ' ').title(),
+                    'old_value': f"{before[field]} months",
+                    'new_value': f"{after[field]} months",
+                    'change_type': 'setting_change'
+                })
+    else:
+        # Legacy format - extract individual cutoff values
+        for field in cutoff_fields:
+            if field in data:
+                changes.append({
+                    'field': field.replace('_', ' ').title(),
+                    'old_value': 'Previous value',
+                    'new_value': f"{data[field]} months",
+                    'change_type': 'setting_change'
+                })
+    
+    return changes
+
+def parse_phi_settings_changes(data):
+    """Parse PHI settings changes"""
+    changes = []
+    
+    if 'before' in data and 'after' in data:
+        before = data['before']
+        after = data['after']
+        
+        for field, old_value in before.items():
+            new_value = after.get(field)
+            if old_value != new_value:
+                changes.append({
+                    'field': field.replace('_', ' ').title(),
+                    'old_value': format_value(old_value),
+                    'new_value': format_value(new_value),
+                    'change_type': determine_change_type(old_value, new_value)
+                })
+    
+    return changes
+
+def parse_generic_changes(data):
+    """Parse generic changes from data"""
+    changes = []
+    
+    # Look for common change indicators
+    if 'before' in data and 'after' in data:
+        before = data['before']
+        after = data['after']
+        
+        for field, old_value in before.items():
+            new_value = after.get(field)
+            if old_value != new_value:
+                changes.append({
+                    'field': field.replace('_', ' ').title(),
+                    'old_value': format_value(old_value),
+                    'new_value': format_value(new_value),
+                    'change_type': determine_change_type(old_value, new_value)
+                })
+    
+    return changes
+
+def format_value(value):
+    """Format a value for display"""
+    if value is None:
+        return 'Not set'
+    elif isinstance(value, bool):
+        return 'Yes' if value else 'No'
+    elif isinstance(value, (list, dict)):
+        return json.dumps(value, indent=2)
+    else:
+        return str(value)
+
+def determine_change_type(old_value, new_value):
+    """Determine the type of change"""
+    if old_value is None and new_value is not None:
+        return 'creation'
+    elif old_value is not None and new_value is None:
+        return 'deletion'
+    elif isinstance(old_value, bool) and isinstance(new_value, bool):
+        return 'status_change'
+    else:
+        return 'modification'
+
 def admin_required(f):
     """Decorator to require admin role"""
     @functools.wraps(f)
@@ -102,7 +357,8 @@ def get_dashboard_data():
     total_presets = ScreeningPreset.query.count()
     shared_presets = ScreeningPreset.query.filter_by(shared=True).count()
     try:
-        recent_presets = ScreeningPreset.query.order_by(desc(ScreeningPreset.updated_at)).limit(5).all()
+        from sqlalchemy import desc as sql_desc
+        recent_presets = ScreeningPreset.query.order_by(sql_desc(ScreeningPreset.updated_at)).limit(5).all()
     except Exception:
         recent_presets = []
     
@@ -251,6 +507,31 @@ def logs():
         logger.error(f"Error in admin logs: {str(e)}")
         flash('Error loading admin logs', 'error')
         return render_template('error/500.html'), 500
+
+@admin_bp.route('/logs/<int:log_id>/view')
+@login_required
+@admin_required
+def view_log_details(log_id):
+    """View detailed information about a specific log entry"""
+    try:
+        log = AdminLog.query.get_or_404(log_id)
+        
+        # Check organization access
+        if hasattr(current_user, 'org_id') and log.org_id != current_user.org_id:
+            flash('Access denied', 'error')
+            return redirect(url_for('admin.logs'))
+        
+        # Parse the log data for enhanced display
+        enhanced_details = parse_log_details(log)
+        
+        return render_template('admin/log_detail.html', 
+                             log=log, 
+                             details=enhanced_details)
+        
+    except Exception as e:
+        logger.error(f"Error viewing log details: {str(e)}")
+        flash('Error loading log details', 'error')
+        return redirect(url_for('admin.logs'))
 
 @admin_bp.route('/logs/export')
 @login_required
@@ -453,13 +734,28 @@ def create_user():
         db.session.add(new_user)
         db.session.commit()
 
-        # Log the action with org_id
+        # Capture created values for logging
+        created_values = {
+            'username': new_user.username,
+            'email': new_user.email,
+            'role': new_user.role,
+            'is_admin': new_user.is_admin,
+            'is_active_user': new_user.is_active_user,
+            'org_id': new_user.org_id
+        }
+
+        # Log the action with created values
         log_admin_event(
             event_type='create_user',
             user_id=current_user.id,
             org_id=org_id,
             ip=flask_request.remote_addr,
-            data={'created_user': username, 'role': role, 'description': f'Created user: {username} with role: {role}'}
+            data={
+                'created_user': username,
+                'role': role,
+                'after': created_values,
+                'description': f'Created user: {username} with role: {role}'
+            }
         )
 
         flash(f'User {username} created successfully', 'success')
@@ -507,6 +803,15 @@ def edit_user(user_id):
             flash('Email already exists in this organization', 'error')
             return redirect(url_for('admin.users'))
 
+        # Capture before values for logging
+        before_values = {
+            'username': user.username,
+            'email': user.email,
+            'role': user.role,
+            'is_admin': user.is_admin,
+            'is_active_user': user.is_active_user
+        }
+
         # Update user
         user.username = username
         user.email = email
@@ -515,18 +820,36 @@ def edit_user(user_id):
         user.is_active_user = is_active
         
         # Update password if provided
+        password_changed = False
         if password:
             user.set_password(password)
+            password_changed = True
+        
+        # Capture after values for logging
+        after_values = {
+            'username': user.username,
+            'email': user.email,
+            'role': user.role,
+            'is_admin': user.is_admin,
+            'is_active_user': user.is_active_user,
+            'password_changed': password_changed
+        }
         
         db.session.commit()
 
-        # Log the action
+        # Log the action with before/after values
         log_admin_event(
             event_type='edit_user',
             user_id=current_user.id,
             org_id=org_id,
             ip=flask_request.remote_addr,
-            data={'edited_user': username, 'user_id': user_id, 'description': f'Edited user: {username}'}
+            data={
+                'edited_user': username,
+                'user_id': user_id,
+                'before': before_values,
+                'after': after_values,
+                'description': f'Edited user: {username}'
+            }
         )
 
         flash(f'User {username} updated successfully', 'success')
@@ -880,7 +1203,8 @@ def users_list():
 def list_presets():
     """List all screening presets - API endpoint"""
     try:
-        presets = ScreeningPreset.query.order_by(ScreeningPreset.updated_at.desc()).all()
+        from sqlalchemy import desc as sql_desc
+        presets = ScreeningPreset.query.order_by(sql_desc(ScreeningPreset.updated_at)).all()
         
         preset_data = []
         for preset in presets:

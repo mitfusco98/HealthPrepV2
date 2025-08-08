@@ -198,13 +198,28 @@ def add_screening_type():
             db.session.add(screening_type)
             db.session.commit()
 
-            # Log the action
+            # Capture created values for logging
+            created_values = {
+                'name': screening_type.name,
+                'eligible_genders': screening_type.eligible_genders,
+                'min_age': screening_type.min_age,
+                'max_age': screening_type.max_age,
+                'frequency_years': screening_type.frequency_years,
+                'trigger_conditions': trigger_conditions_list,
+                'org_id': screening_type.org_id
+            }
+
+            # Log the action with created values
             log_admin_event(
                 event_type='add_screening_type',
                 user_id=current_user.id,
                 org_id=current_user.org_id,
                 ip=request.remote_addr,
-                data={'screening_type_name': screening_type.name, 'description': f'Added screening type: {screening_type.name}'}
+                data={
+                    'screening_type_name': screening_type.name,
+                    'after': created_values,
+                    'description': f'Added screening type: {screening_type.name}'
+                }
             )
 
             flash(f'Screening type "{screening_type.name}" added successfully', 'success')
@@ -227,6 +242,16 @@ def edit_screening_type(type_id):
         form = ScreeningTypeForm(obj=screening_type)
 
         if form.validate_on_submit():
+            # Capture before values for logging
+            before_values = {
+                'name': screening_type.name,
+                'eligible_genders': screening_type.eligible_genders,
+                'min_age': screening_type.min_age,
+                'max_age': screening_type.max_age,
+                'frequency_years': screening_type.frequency_years,
+                'trigger_conditions': json.loads(screening_type.trigger_conditions) if screening_type.trigger_conditions else []
+            }
+            
             # Handle trigger conditions - could be JSON from inline management or comma-separated from textarea
             trigger_conditions_list = []
             if form.trigger_conditions.data:
@@ -252,15 +277,30 @@ def edit_screening_type(type_id):
             screening_type.frequency_years = frequency_years
             screening_type.trigger_conditions = json.dumps(trigger_conditions_list) if trigger_conditions_list else None
 
+            # Capture after values for logging
+            after_values = {
+                'name': screening_type.name,
+                'eligible_genders': screening_type.eligible_genders,
+                'min_age': screening_type.min_age,
+                'max_age': screening_type.max_age,
+                'frequency_years': screening_type.frequency_years,
+                'trigger_conditions': trigger_conditions_list
+            }
+
             db.session.commit()
 
-            # Log the action
+            # Log the action with before/after values
             log_admin_event(
                 event_type='edit_screening_type',
                 user_id=current_user.id,
                 org_id=current_user.org_id,
                 ip=request.remote_addr,
-                data={'screening_type_name': screening_type.name, 'description': f'Edited screening type: {screening_type.name}'}
+                data={
+                    'screening_type_name': screening_type.name,
+                    'before': before_values,
+                    'after': after_values,
+                    'description': f'Edited screening type: {screening_type.name}'
+                }
             )
 
             flash(f'Screening type "{screening_type.name}" updated successfully', 'success')

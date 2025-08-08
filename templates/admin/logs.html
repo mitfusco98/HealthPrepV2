@@ -137,11 +137,11 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <button class="btn btn-outline-info btn-sm" 
-                                        onclick="viewLogDetails({{ log.id }})"
-                                        data-log="{{ log.data | tojsonpretty if log.data else '{}' }}"
+                                <a href="{{ url_for('admin.view_log_details', log_id=log.id) }}" 
+                                   class="btn btn-outline-info btn-sm"
+                                   title="View detailed information about this log entry">
                                     <i class="fas fa-eye"></i>
-                                </button>
+                                </a>
                             </td>
                         </tr>
                         {% endfor %}
