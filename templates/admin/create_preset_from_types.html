@@ -1,0 +1,374 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Create Preset from Screening Types - HealthPrep{% endblock %}
+
+{% block extra_css %}
+<style>
+.screening-type-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    transition: all 0.2s ease;
+}
+
+.screening-type-card:hover {
+    border-color: #007bff;
+    box-shadow: 0 2px 8px rgba(0,123,255,0.15);
+}
+
+.screening-type-card.selected {
+    border-color: #007bff;
+    background-color: #f8f9ff;
+}
+
+.screening-type-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.frequency-badge {
+    font-size: 0.75rem;
+}
+
+.keyword-count {
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+.selection-summary {
+    position: sticky;
+    top: 20px;
+}
+
+.preset-preview {
+    max-height: 300px;
+    overflow-y: auto;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-plus-circle me-2"></i>Create Preset from Screening Types</h1>
+    <div>
+        <a href="{{ url_for('admin.dashboard_presets') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Back to Presets
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <form method="POST" id="presetForm">
+            <!-- Preset Information -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Preset Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="preset_name" class="form-label">Preset Name *</label>
+                                <input type="text" class="form-control" id="preset_name" name="preset_name" required>
+                                <div class="form-text">Choose a descriptive name for your preset</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="preset_specialty" class="form-label">Specialty</label>
+                                <select class="form-select" id="preset_specialty" name="preset_specialty">
+                                    <option value="Custom">Custom</option>
+                                    <option value="Primary Care">Primary Care</option>
+                                    <option value="Cardiology">Cardiology</option>
+                                    <option value="Women's Health">Women's Health</option>
+                                    <option value="Oncology">Oncology</option>
+                                    <option value="Endocrinology">Endocrinology</option>
+                                    <option value="Pulmonology">Pulmonology</option>
+                                    <option value="Gastroenterology">Gastroenterology</option>
+                                    <option value="Neurology">Neurology</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="preset_description" class="form-label">Description</label>
+                        <textarea class="form-control" id="preset_description" name="preset_description" rows="3" 
+                                  placeholder="Describe what this preset is for and when to use it"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Screening Types Selection -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list-check me-2"></i>
+                        Select Screening Types
+                    </h5>
+                    <div>
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectAll()">
+                            <i class="fas fa-check-square me-1"></i>Select All
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm ms-2" onclick="clearAll()">
+                            <i class="fas fa-square me-1"></i>Clear All
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if screening_types %}
+                        <div class="row">
+                            {% for st in screening_types %}
+                            <div class="col-md-6 mb-3">
+                                <div class="screening-type-card" data-screening-id="{{ st.id }}">
+                                    <div class="form-check">
+                                        <input class="form-check-input screening-checkbox" type="checkbox" 
+                                               name="screening_type_ids" value="{{ st.id }}" id="screening_{{ st.id }}">
+                                        <label class="form-check-label w-100" for="screening_{{ st.id }}">
+                                            <div class="screening-type-info">
+                                                <div>
+                                                    <h6 class="mb-1">{{ st.name }}</h6>
+                                                    <div class="d-flex align-items-center mb-1">
+                                                        <span class="badge bg-primary frequency-badge me-2">{{ st.frequency_display }}</span>
+                                                        {% if st.eligible_genders and st.eligible_genders != 'both' %}
+                                                            <span class="badge bg-info frequency-badge me-2">{{ st.eligible_genders }}</span>
+                                                        {% endif %}
+                                                        {% if st.min_age or st.max_age %}
+                                                            <span class="badge bg-secondary frequency-badge">
+                                                                {% if st.min_age and st.max_age %}
+                                                                    {{ st.min_age }}-{{ st.max_age }} years
+                                                                {% elif st.min_age %}
+                                                                    {{ st.min_age }}+ years
+                                                                {% else %}
+                                                                    Up to {{ st.max_age }} years
+                                                                {% endif %}
+                                                            </span>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="keyword-count">
+                                                        {{ st.keywords_list|length }} keywords
+                                                        {% if st.trigger_conditions_list %}
+                                                            • {{ st.trigger_conditions_list|length }} conditions
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            No active screening types found. You need to create screening types first before you can create presets from them.
+                            <div class="mt-2">
+                                <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-plus me-1"></i>Create Screening Type
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if screening_types %}
+            <div class="d-flex justify-content-between mt-4">
+                <a href="{{ url_for('admin.dashboard_presets') }}" class="btn btn-secondary">
+                    <i class="fas fa-times me-1"></i>Cancel
+                </a>
+                <button type="submit" class="btn btn-primary" id="createButton" disabled>
+                    <i class="fas fa-save me-1"></i>Create Preset
+                </button>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+
+    {% if screening_types %}
+    <div class="col-lg-4">
+        <div class="selection-summary">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-eye me-2"></i>
+                        Selection Summary
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span>Selected Types:</span>
+                        <span class="badge bg-primary" id="selectedCount">0</span>
+                    </div>
+                    
+                    <div class="preset-preview">
+                        <div id="selectedList" class="text-muted">
+                            No screening types selected
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        Tips
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <ul class="small text-muted mb-0">
+                        <li>Select screening types that work well together for a specific medical specialty</li>
+                        <li>Consider grouping by patient population (age, gender) or clinical focus</li>
+                        <li>You can request global approval to share your preset with other organizations</li>
+                        <li>Good presets help standardize care across your organization</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('.screening-checkbox');
+    const selectedCountEl = document.getElementById('selectedCount');
+    const selectedListEl = document.getElementById('selectedList');
+    const createButton = document.getElementById('createButton');
+    
+    function updateSelection() {
+        const selected = Array.from(checkboxes).filter(cb => cb.checked);
+        const count = selected.length;
+        
+        // Update count
+        selectedCountEl.textContent = count;
+        
+        // Update button state
+        createButton.disabled = count === 0;
+        
+        // Update selection list
+        if (count === 0) {
+            selectedListEl.innerHTML = '<em class="text-muted">No screening types selected</em>';
+        } else {
+            const names = selected.map(cb => {
+                const card = cb.closest('.screening-type-card');
+                const nameEl = card.querySelector('h6');
+                return nameEl.textContent.trim();
+            });
+            
+            selectedListEl.innerHTML = names.map(name => 
+                `<div class="small mb-1"><i class="fas fa-check text-success me-1"></i>${name}</div>`
+            ).join('');
+        }
+        
+        // Update card styles
+        checkboxes.forEach(cb => {
+            const card = cb.closest('.screening-type-card');
+            if (cb.checked) {
+                card.classList.add('selected');
+            } else {
+                card.classList.remove('selected');
+            }
+        });
+    }
+    
+    // Listen for checkbox changes
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', updateSelection);
+    });
+    
+    // Initial update
+    updateSelection();
+});
+
+function selectAll() {
+    const checkboxes = document.querySelectorAll('.screening-checkbox');
+    checkboxes.forEach(cb => cb.checked = true);
+    document.dispatchEvent(new Event('change'));
+    updateSelection();
+}
+
+function clearAll() {
+    const checkboxes = document.querySelectorAll('.screening-checkbox');
+    checkboxes.forEach(cb => cb.checked = false);
+    updateSelection();
+}
+
+// Update selection when called
+function updateSelection() {
+    const checkboxes = document.querySelectorAll('.screening-checkbox');
+    const selectedCountEl = document.getElementById('selectedCount');
+    const selectedListEl = document.getElementById('selectedList');
+    const createButton = document.getElementById('createButton');
+    
+    const selected = Array.from(checkboxes).filter(cb => cb.checked);
+    const count = selected.length;
+    
+    // Update count
+    selectedCountEl.textContent = count;
+    
+    // Update button state
+    if (createButton) {
+        createButton.disabled = count === 0;
+    }
+    
+    // Update selection list
+    if (count === 0) {
+        selectedListEl.innerHTML = '<em class="text-muted">No screening types selected</em>';
+    } else {
+        const names = selected.map(cb => {
+            const card = cb.closest('.screening-type-card');
+            const nameEl = card.querySelector('h6');
+            return nameEl.textContent.trim();
+        });
+        
+        selectedListEl.innerHTML = names.map(name => 
+            `<div class="small mb-1"><i class="fas fa-check text-success me-1"></i>${name}</div>`
+        ).join('');
+    }
+    
+    // Update card styles
+    checkboxes.forEach(cb => {
+        const card = cb.closest('.screening-type-card');
+        if (cb.checked) {
+            card.classList.add('selected');
+        } else {
+            card.classList.remove('selected');
+        }
+    });
+}
+
+// Form validation
+document.getElementById('presetForm').addEventListener('submit', function(e) {
+    const selectedTypes = document.querySelectorAll('.screening-checkbox:checked');
+    const presetName = document.getElementById('preset_name').value.trim();
+    
+    if (selectedTypes.length === 0) {
+        e.preventDefault();
+        alert('Please select at least one screening type.');
+        return false;
+    }
+    
+    if (!presetName) {
+        e.preventDefault();
+        alert('Please enter a preset name.');
+        document.getElementById('preset_name').focus();
+        return false;
+    }
+    
+    // Show loading state
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Creating Preset...';
+    }
+});
+</script>
+{% endblock %}

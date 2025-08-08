@@ -9,7 +9,7 @@ import functools
 import uuid
 from werkzeug.security import generate_password_hash
 
-from models import User, Organization, AdminLog, log_admin_event, EpicCredentials
+from models import User, Organization, AdminLog, log_admin_event, EpicCredentials, ScreeningPreset
 from app import db
 from flask import request as flask_request
 
@@ -65,6 +65,142 @@ def dashboard():
         logger.error(f"Error in root admin dashboard: {str(e)}")
         flash('Error loading dashboard', 'error')
         return render_template('error/500.html'), 500
+
+@root_admin_bp.route('/presets')
+@login_required
+@root_admin_required
+def manage_presets():
+    """Root admin preset management"""
+    try:
+        # Get all presets for global management
+        pending_presets = ScreeningPreset.query.filter(
+            ScreeningPreset.preset_metadata.op('->>')('approval_status') == 'pending'
+        ).order_by(ScreeningPreset.updated_at.desc()).all()
+        
+        global_presets = ScreeningPreset.query.filter_by(shared=True).order_by(
+            ScreeningPreset.updated_at.desc()
+        ).all()
+        
+        organization_presets = ScreeningPreset.query.filter(
+            ScreeningPreset.shared == False,
+            ScreeningPreset.org_id.isnot(None)
+        ).order_by(ScreeningPreset.updated_at.desc()).limit(20).all()
+        
+        return render_template('root_admin/presets.html',
+                             pending_presets=pending_presets,
+                             global_presets=global_presets,
+                             organization_presets=organization_presets)
+        
+    except Exception as e:
+        logger.error(f"Error in root admin preset management: {str(e)}")
+        flash('Error loading preset management', 'error')
+        return render_template('error/500.html'), 500
+
+@root_admin_bp.route('/presets/<int:preset_id>/approve', methods=['POST'])
+@login_required
+@root_admin_required
+def approve_preset(preset_id):
+    """Approve preset for global sharing"""
+    try:
+        preset = ScreeningPreset.query.get_or_404(preset_id)
+        
+        if not preset.is_pending_approval():
+            flash('This preset is not pending approval', 'error')
+            return redirect(url_for('root_admin.manage_presets'))
+        
+        # Approve the preset
+        preset.approve_for_global_sharing(current_user.id)
+        db.session.commit()
+        
+        # Log the action
+        log_admin_event(
+            event_type='approve_preset_global',
+            user_id=current_user.id,
+            org_id=None,  # Root admin action
+            ip=flask_request.remote_addr,
+            data={
+                'preset_name': preset.name,
+                'preset_id': preset_id,
+                'source_org_id': preset.preset_metadata.get('source_org_id') if preset.preset_metadata else None,
+                'description': f'Approved preset "{preset.name}" for global sharing'
+            }
+        )
+        
+        flash(f'Preset "{preset.name}" approved for global sharing', 'success')
+        return redirect(url_for('root_admin.manage_presets'))
+        
+    except Exception as e:
+        logger.error(f"Error approving preset: {str(e)}")
+        flash('Error approving preset', 'error')
+        return redirect(url_for('root_admin.manage_presets'))
+
+@root_admin_bp.route('/presets/<int:preset_id>/reject', methods=['POST'])
+@login_required
+@root_admin_required
+def reject_preset(preset_id):
+    """Reject preset for global sharing"""
+    try:
+        preset = ScreeningPreset.query.get_or_404(preset_id)
+        reason = request.form.get('rejection_reason', '').strip()
+        
+        if not preset.is_pending_approval():
+            flash('This preset is not pending approval', 'error')
+            return redirect(url_for('root_admin.manage_presets'))
+        
+        # Reject the preset
+        preset.reject_global_approval(current_user.id, reason)
+        db.session.commit()
+        
+        # Log the action
+        log_admin_event(
+            event_type='reject_preset_global',
+            user_id=current_user.id,
+            org_id=None,  # Root admin action
+            ip=flask_request.remote_addr,
+            data={
+                'preset_name': preset.name,
+                'preset_id': preset_id,
+                'rejection_reason': reason,
+                'source_org_id': preset.preset_metadata.get('source_org_id') if preset.preset_metadata else None,
+                'description': f'Rejected preset "{preset.name}" for global sharing: {reason}'
+            }
+        )
+        
+        flash(f'Preset "{preset.name}" rejected for global sharing', 'success')
+        return redirect(url_for('root_admin.manage_presets'))
+        
+    except Exception as e:
+        logger.error(f"Error rejecting preset: {str(e)}")
+        flash('Error rejecting preset', 'error')
+        return redirect(url_for('root_admin.manage_presets'))
+
+@root_admin_bp.route('/presets/<int:preset_id>/view')
+@login_required
+@root_admin_required
+def view_preset_details(preset_id):
+    """View detailed preset information for approval"""
+    try:
+        preset = ScreeningPreset.query.get_or_404(preset_id)
+        
+        # Get organization context
+        organization = None
+        if preset.org_id:
+            organization = Organization.query.get(preset.org_id)
+        
+        # Get creator information
+        creator = None
+        if preset.created_by:
+            creator = User.query.get(preset.created_by)
+        
+        return render_template('root_admin/preset_details.html',
+                             preset=preset,
+                             organization=organization,
+                             creator=creator)
+        
+    except Exception as e:
+        logger.error(f"Error viewing preset details: {str(e)}")
+        flash('Error loading preset details', 'error')
+        return redirect(url_for('root_admin.manage_presets'))
 
 @root_admin_bp.route('/organizations')
 @login_required

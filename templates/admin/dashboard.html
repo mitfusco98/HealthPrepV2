@@ -248,6 +248,10 @@
                         Screening Preset Management
                     </h5>
                     <div>
+                        <a href="{{ url_for('admin.create_preset_from_types') }}" class="btn btn-sm btn-success me-2">
+                            <i class="fas fa-magic me-1"></i>
+                            Create from Types
+                        </a>
                         <button class="btn btn-sm btn-outline-secondary me-2" data-bs-toggle="modal" data-bs-target="#importPresetModal">
                             <i class="fas fa-upload me-1"></i>
                             Import
@@ -300,9 +304,11 @@
                                                     </td>
                                                     <td>
                                                         {% if preset.shared %}
-                                                        <span class="badge bg-success">Shared</span>
+                                                            <span class="badge bg-success">Global</span>
+                                                        {% elif preset.is_pending_approval() %}
+                                                            <span class="badge bg-warning">Pending Approval</span>
                                                         {% else %}
-                                                        <span class="badge bg-secondary">Private</span>
+                                                            <span class="badge bg-secondary">Organization</span>
                                                         {% endif %}
                                                     </td>
                                                     <td>
@@ -311,16 +317,39 @@
                                                         </small>
                                                     </td>
                                                     <td>
-                                                        <div class="btn-group btn-group-sm">
-                                                            <button class="btn btn-outline-primary" onclick="exportPreset({{ preset.id }}, '{{ preset.name }}')">
+                                                        <div class="btn-group btn-group-sm" role="group">
+                                                            <button class="btn btn-outline-primary" onclick="exportPreset({{ preset.id }}, '{{ preset.name }})" title="Download Preset">
                                                                 <i class="fas fa-download"></i>
                                                             </button>
-                                                            <button class="btn btn-outline-success" onclick="importToTypes({{ preset.id }}, '{{ preset.name }}')">
+                                                            <button class="btn btn-outline-success" onclick="importToTypes({{ preset.id }}, '{{ preset.name }})" title="Import to Types">
                                                                 <i class="fas fa-arrow-right"></i>
                                                             </button>
-                                                            <button class="btn btn-outline-danger" onclick="deletePreset({{ preset.id }}, '{{ preset.name }}')">
-                                                                <i class="fas fa-trash"></i>
-                                                            </button>
+                                                            
+                                                            <!-- More actions dropdown -->
+                                                            <div class="btn-group" role="group">
+                                                                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                                                    <i class="fas fa-ellipsis-v"></i>
+                                                                </button>
+                                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                                    {% if preset.can_request_approval() %}
+                                                                    <li><h6 class="dropdown-header">Global Sharing</h6></li>
+                                                                    <li>
+                                                                        <form method="POST" action="{{ url_for('admin.request_preset_approval', preset_id=preset.id) }}" class="d-inline">
+                                                                            <button type="submit" class="dropdown-item text-warning">
+                                                                                <i class="fas fa-star me-2"></i>Request Approval
+                                                                            </button>
+                                                                        </form>
+                                                                    </li>
+                                                                    <li><a class="dropdown-item" href="{{ url_for('admin.export_preset_for_approval', preset_id=preset.id) }}">
+                                                                        <i class="fas fa-upload me-2"></i>Export for Approval
+                                                                    </a></li>
+                                                                    <li><hr class="dropdown-divider"></li>
+                                                                    {% endif %}
+                                                                    <li><button type="button" class="dropdown-item text-danger" onclick="deletePreset({{ preset.id }}, '{{ preset.name }}')">
+                                                                        <i class="fas fa-trash me-2"></i>Delete
+                                                                    </button></li>
+                                                                </ul>
+                                                            </div>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -333,10 +362,16 @@
                                         <i class="fas fa-cogs fa-3x text-muted mb-3"></i>
                                         <h5 class="text-muted">No Presets Created</h5>
                                         <p class="text-muted">Create your first screening preset to get started.</p>
-                                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createPresetModal">
-                                            <i class="fas fa-plus me-1"></i>
-                                            Create First Preset
-                                        </button>
+                                        <div class="mt-3">
+                                            <a href="{{ url_for('admin.create_preset_from_types') }}" class="btn btn-success me-2">
+                                                <i class="fas fa-magic me-1"></i>
+                                                Create from Existing Types
+                                            </a>
+                                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createPresetModal">
+                                                <i class="fas fa-plus me-1"></i>
+                                                Create First Preset
+                                            </button>
+                                        </div>
                                     </div>
                                     {% endif %}
                                 </div>

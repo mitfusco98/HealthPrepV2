@@ -453,6 +453,96 @@ class ScreeningType(db.Model):
                 variant.is_active = self.is_active
         
         db.session.commit()
+    
+    def to_preset_format(self):
+        """Convert screening type to preset format for export"""
+        # Convert frequency_years to number and unit that PresetLoader expects
+        frequency_years = self.frequency_years or 1.0
+        
+        if frequency_years >= 1.0 and frequency_years == int(frequency_years):
+            # Whole years
+            frequency_number = int(frequency_years)
+            frequency_unit = 'years'
+        elif frequency_years < 1.0:
+            # Convert to months
+            frequency_months = frequency_years * 12
+            if frequency_months == int(frequency_months):
+                frequency_number = int(frequency_months)
+                frequency_unit = 'months'
+            else:
+                # Use fractional years
+                frequency_number = frequency_years
+                frequency_unit = 'years'
+        else:
+            # Fractional years
+            frequency_number = frequency_years
+            frequency_unit = 'years'
+        
+        return {
+            'name': self.name,
+            'description': '',  # ScreeningType doesn't have description field yet
+            'keywords': self.keywords_list,
+            'gender_criteria': self.eligible_genders or 'both',  # Map to expected field name
+            'age_min': self.min_age,  # Map to expected field name
+            'age_max': self.max_age,  # Map to expected field name
+            'frequency_number': frequency_number,
+            'frequency_unit': frequency_unit,
+            'trigger_conditions': self.trigger_conditions_list,
+            'is_active': self.is_active,
+            'org_id': self.org_id
+        }
+    
+    @classmethod
+    def create_preset_from_types(cls, screening_type_ids, preset_name, description='', specialty='Custom', created_by=None, org_id=None):
+        """Create a ScreeningPreset from selected screening types"""
+        from datetime import datetime
+        
+        # Get the screening types with organization scope
+        if org_id:
+            screening_types = cls.query.filter(
+                cls.id.in_(screening_type_ids),
+                cls.org_id == org_id
+            ).all()
+        else:
+            screening_types = cls.query.filter(cls.id.in_(screening_type_ids)).all()
+        
+        if not screening_types:
+            return None
+        
+        # Convert to preset format
+        screening_data = []
+        for st in screening_types:
+            screening_data.append(st.to_preset_format())
+        
+        # Create preset data structure for the screening_data field
+        preset_data = {
+            'name': preset_name,
+            'description': description,
+            'specialty': specialty,
+            'version': '2.0',
+            'created_date': datetime.utcnow().isoformat(),
+            'screening_types': screening_data
+        }
+        
+        # Create ScreeningPreset record
+        preset = ScreeningPreset(
+            name=preset_name,
+            description=description,
+            specialty=specialty,
+            org_id=org_id,
+            shared=False,  # Start as organization-specific
+            preset_scope='organization',
+            screening_data=preset_data,
+            preset_metadata={
+                'source_org_id': org_id,
+                'source_screening_type_ids': screening_type_ids,
+                'extracted_at': datetime.utcnow().isoformat(),
+                'extraction_method': 'from_existing_types'
+            },
+            created_by=created_by
+        )
+        
+        return preset
 
     def __repr__(self):
         if self.variant_name:
@@ -955,5 +1045,91 @@ class ScreeningPreset(db.Model):
         
         return False
 
+    def request_global_approval(self, requested_by):
+        """Request approval for global sharing by root admin"""
+        if not self.preset_metadata:
+            self.preset_metadata = {}
+        
+        self.preset_metadata.update({
+            'approval_requested': True,
+            'approval_requested_by': requested_by,
+            'approval_requested_at': datetime.utcnow().isoformat(),
+            'approval_status': 'pending'
+        })
+        self.updated_at = datetime.utcnow()
+    
+    def approve_for_global_sharing(self, approved_by):
+        """Approve preset for global sharing (root admin function)"""
+        self.shared = True
+        self.preset_scope = 'global'
+        self.org_id = None  # Make it available to all organizations
+        
+        if not self.preset_metadata:
+            self.preset_metadata = {}
+        
+        self.preset_metadata.update({
+            'approval_status': 'approved',
+            'approved_by': approved_by,
+            'approved_at': datetime.utcnow().isoformat()
+        })
+        self.updated_at = datetime.utcnow()
+    
+    def reject_global_approval(self, rejected_by, reason=''):
+        """Reject preset for global sharing (root admin function)"""
+        if not self.preset_metadata:
+            self.preset_metadata = {}
+        
+        self.preset_metadata.update({
+            'approval_status': 'rejected',
+            'rejected_by': rejected_by,
+            'rejected_at': datetime.utcnow().isoformat(),
+            'rejection_reason': reason
+        })
+        self.updated_at = datetime.utcnow()
+    
+    def is_pending_approval(self):
+        """Check if preset is pending global approval"""
+        if not self.preset_metadata:
+            return False
+        return self.preset_metadata.get('approval_status') == 'pending'
+    
+    def get_approval_status(self):
+        """Get current approval status"""
+        if not self.preset_metadata:
+            return 'none'
+        return self.preset_metadata.get('approval_status', 'none')
+    
+    def can_request_approval(self):
+        """Check if preset can request global approval"""
+        # Must be organization-scoped and not already shared
+        if self.shared or self.preset_scope == 'global':
+            return False
+        
+        # Must not already be pending or approved
+        status = self.get_approval_status()
+        return status not in ['pending', 'approved']
+    
+    def get_screening_type_count(self):
+        """Get number of screening types in preset (compatible with existing code)"""
+        if not self.screening_data:
+            return 0
+        if isinstance(self.screening_data, dict) and 'screening_types' in self.screening_data:
+            return len(self.screening_data['screening_types'])
+        elif isinstance(self.screening_data, list):
+            return len(self.screening_data)
+        return 0
+    
+    def get_screening_type_names(self):
+        """Get list of screening type names in this preset"""
+        names = []
+        if self.screening_data:
+            if isinstance(self.screening_data, dict) and 'screening_types' in self.screening_data:
+                for st in self.screening_data['screening_types']:
+                    names.append(st.get('name', 'Unknown'))
+            elif isinstance(self.screening_data, list):
+                for st in self.screening_data:
+                    names.append(st.get('name', 'Unknown'))
+        return names
+    
     def __repr__(self):
         return f'<ScreeningPreset {self.name} ({self.screening_count} types)>'

@@ -1403,3 +1403,174 @@ def export_preset(preset_id):
     except Exception as e:
         logger.error(f"Error exporting preset: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@admin_bp.route('/presets/create-from-types', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def create_preset_from_types():
+    """Create preset from existing screening types"""
+    try:
+        if request.method == 'GET':
+            # Show interface to select screening types
+            org_id = current_user.org_id
+            screening_types = ScreeningType.query.filter_by(
+                org_id=org_id, is_active=True
+            ).order_by(ScreeningType.name).all()
+            
+            return render_template('admin/create_preset_from_types.html',
+                                 screening_types=screening_types)
+        
+        # Handle POST - create preset from selected types
+        selected_ids = request.form.getlist('screening_type_ids')
+        preset_name = request.form.get('preset_name', '').strip()
+        preset_description = request.form.get('preset_description', '').strip()
+        preset_specialty = request.form.get('preset_specialty', 'Custom').strip()
+        
+        if not selected_ids:
+            flash('Please select at least one screening type', 'error')
+            return redirect(url_for('admin.create_preset_from_types'))
+        
+        if not preset_name:
+            flash('Preset name is required', 'error')
+            return redirect(url_for('admin.create_preset_from_types'))
+        
+        # Convert selected IDs to integers
+        try:
+            screening_type_ids = [int(id_str) for id_str in selected_ids]
+        except ValueError:
+            flash('Invalid screening type selection', 'error')
+            return redirect(url_for('admin.create_preset_from_types'))
+        
+        # Create preset from selected screening types
+        preset = ScreeningType.create_preset_from_types(
+            screening_type_ids=screening_type_ids,
+            preset_name=preset_name,
+            description=preset_description,
+            specialty=preset_specialty,
+            created_by=current_user.id,
+            org_id=current_user.org_id
+        )
+        
+        if not preset:
+            flash('Failed to create preset from selected screening types', 'error')
+            return redirect(url_for('admin.create_preset_from_types'))
+        
+        # Save to database
+        db.session.add(preset)
+        db.session.commit()
+        
+        # Log the action
+        log_admin_event(
+            event_type='create_preset_from_types',
+            user_id=current_user.id,
+            org_id=current_user.org_id,
+            ip=request.remote_addr,
+            data={
+                'preset_name': preset_name,
+                'screening_type_ids': screening_type_ids,
+                'screening_count': len(screening_type_ids),
+                'description': f'Created preset "{preset_name}" from {len(screening_type_ids)} screening types'
+            }
+        )
+        
+        flash(f'Successfully created preset "{preset_name}" from {len(screening_type_ids)} screening types', 'success')
+        return redirect(url_for('admin.dashboard_presets'))
+        
+    except Exception as e:
+        logger.error(f"Error creating preset from types: {str(e)}")
+        flash('Error creating preset from screening types', 'error')
+        return redirect(url_for('admin.create_preset_from_types'))
+
+@admin_bp.route('/presets/<int:preset_id>/request-approval', methods=['POST'])
+@login_required
+@admin_required
+def request_preset_approval(preset_id):
+    """Request global approval for a preset"""
+    try:
+        preset = ScreeningPreset.query.filter_by(
+            id=preset_id, org_id=current_user.org_id
+        ).first_or_404()
+        
+        if not preset.can_request_approval():
+            flash('This preset cannot request approval', 'error')
+            return redirect(url_for('admin.dashboard_presets'))
+        
+        # Request approval
+        preset.request_global_approval(current_user.id)
+        db.session.commit()
+        
+        # Log the action
+        log_admin_event(
+            event_type='request_preset_approval',
+            user_id=current_user.id,
+            org_id=current_user.org_id,
+            ip=request.remote_addr,
+            data={
+                'preset_name': preset.name,
+                'preset_id': preset_id,
+                'description': f'Requested global approval for preset: {preset.name}'
+            }
+        )
+        
+        flash(f'Global approval requested for preset "{preset.name}"', 'success')
+        return redirect(url_for('admin.dashboard_presets'))
+        
+    except Exception as e:
+        logger.error(f"Error requesting preset approval: {str(e)}")
+        flash('Error requesting preset approval', 'error')
+        return redirect(url_for('admin.dashboard_presets'))
+
+@admin_bp.route('/presets/<int:preset_id>/export-for-approval')
+@login_required
+@admin_required
+def export_preset_for_approval(preset_id):
+    """Export preset with approval metadata for root admin review"""
+    try:
+        preset = ScreeningPreset.query.filter_by(
+            id=preset_id, org_id=current_user.org_id
+        ).first_or_404()
+        
+        # Create enhanced export data for approval process
+        export_data = preset.to_export_dict()
+        
+        # Add approval metadata
+        export_data['approval_request'] = {
+            'requested_by': current_user.username,
+            'requesting_organization': current_user.organization.name if current_user.organization else 'Unknown',
+            'organization_id': current_user.org_id,
+            'request_date': datetime.utcnow().isoformat(),
+            'preset_id': preset_id,
+            'approval_notes': f'Preset created from {preset.get_screening_type_count()} screening types for {preset.specialty} specialty'
+        }
+        
+        # Add organization context
+        if current_user.organization:
+            export_data['organization_context'] = {
+                'name': current_user.organization.name,
+                'setup_status': current_user.organization.setup_status,
+                'user_count': current_user.organization.user_count
+            }
+        
+        response = make_response(json.dumps(export_data, indent=2))
+        response.headers['Content-Type'] = 'application/json'
+        response.headers['Content-Disposition'] = f'attachment; filename={preset.name.replace(" ", "_")}_approval_request.json'
+        
+        # Log the export for approval
+        log_admin_event(
+            event_type='export_preset_for_approval',
+            user_id=current_user.id,
+            org_id=current_user.org_id,
+            ip=request.remote_addr,
+            data={
+                'preset_name': preset.name,
+                'preset_id': preset_id,
+                'description': f'Exported preset "{preset.name}" for root admin approval'
+            }
+        )
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error exporting preset for approval: {str(e)}")
+        flash('Error exporting preset for approval', 'error')
+        return redirect(url_for('admin.dashboard_presets'))
