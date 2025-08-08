@@ -31,7 +31,7 @@
     <div class="card-body">
         {% if users %}
         <div class="table-responsive">
-            <table class="table table-striped table-hover">
+            <table class="table table-striped table-hover" id="usersTable">
                 <thead>
                     <tr>
                         <th>Username</th>
@@ -93,7 +93,9 @@
                                 <!-- Delete Button -->
                                 {% if user.id != current_user.id %}
                                 <button type="button" class="btn btn-outline-danger btn-sm"
-                                        onclick="deleteUser({{ user.id }}, '{{ user.username }}')">
+                                        onclick="deleteUser({{ user.id }}, '{{ user.username }}')"
+                                        title="Delete User"
+                                        data-user-id="{{ user.id }}">
                                     <i class="fas fa-trash"></i>
                                 </button>
                                 {% endif %}
@@ -344,49 +346,41 @@ function confirmDeleteUser() {
 
     const button = document.querySelector('#deleteUserModal .btn-danger');
     const originalText = button.innerHTML;
-    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Deleting...';
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Deleting...';
     button.disabled = true;
-
-    // Get CSRF token
-    const csrfToken = document.querySelector('meta[name=csrf-token]')?.getAttribute('content');
 
     fetch(`/admin/users/${deletingUserId}/delete`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken
-        },
-        body: JSON.stringify({})
+            'X-CSRFToken': document.querySelector('meta[name=csrf-token]').getAttribute('content')
+        }
     })
     .then(response => {
-        console.log('Delete response status:', response.status);
-        console.log('Delete response headers:', response.headers.get('content-type'));
-
         if (!response.ok) {
-            return response.json().then(err => Promise.reject(err));
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
         return response.json();
     })
     .then(data => {
-        console.log('Delete response data:', data);
-
         if (data.success) {
-            showToast(data.message || 'User deleted successfully', 'success');
+            showToast(data.message, 'success');
 
-            // Remove row from table with animation
-            const row = document.querySelector(`tr[data-user-id="${deletingUserId}"]`);
-            if (row) {
-                row.style.transition = 'opacity 0.3s';
-                row.style.opacity = '0.5';
+            // Remove the user row from the table
+            const userRow = document.querySelector(`tr[data-user-id="${deletingUserId}"]`);
+            if (userRow) {
+                // Add fade out animation
+                userRow.style.opacity = '0.5';
+                userRow.style.transition = 'opacity 0.3s ease';
+
                 setTimeout(() => {
-                    row.remove();
+                    userRow.remove();
 
-                    // Check if table is now empty
-                    const remainingRows = document.querySelectorAll('tbody tr[data-user-id]');
+                    // Check if table is empty and show message
+                    const tbody = document.querySelector('#usersTable tbody');
+                    const remainingRows = tbody.querySelectorAll('tr');
                     if (remainingRows.length === 0) {
-                        // Show empty state or reload
-                        const tableBody = document.querySelector('tbody');
-                        tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No users found</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No users found</td></tr>';
                     }
                 }, 300);
             }
@@ -402,7 +396,7 @@ function confirmDeleteUser() {
     })
     .catch(error => {
         console.error('Delete user error:', error);
-        showToast(error.error || error.message || 'Error deleting user', 'error');
+        showToast('Error deleting user: ' + (error.message || 'Unknown error'), 'error');
     })
     .finally(() => {
         button.innerHTML = originalText;
