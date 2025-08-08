@@ -3,8 +3,8 @@ Flask routing for user interface.
 Defines URL patterns and connects them to view functions.
 """
 
-from flask import Blueprint, render_template
-from flask_login import login_required
+from flask import Blueprint, render_template, redirect, url_for, flash
+from flask_login import login_required, current_user
 from ui.views import UserViews
 from routes.auth_routes import non_admin_required
 
@@ -19,7 +19,15 @@ views = UserViews()
 @login_required
 @non_admin_required
 def dashboard():
-    """Main dashboard"""
+    """Main user dashboard"""
+    try:
+        # Redirect admin users to admin dashboard
+        if current_user.is_admin_user():
+            return redirect(url_for('admin.dashboard'))
+    except AttributeError:
+        # Handle cases where current_user might not have is_admin_user defined (e.g., during initial setup or if user object is incomplete)
+        pass # Or log an error, or render a default view
+
     return views.dashboard()
 
 @ui_bp.route('/screening')
@@ -66,7 +74,6 @@ def refresh_screenings():
 @login_required
 def patient_list():
     """Redirect patient list to screening list per design intent"""
-    from flask import redirect, url_for
     return redirect(url_for('screening.screening_list'))
 
 @ui_bp.route('/patients/<int:patient_id>')
@@ -98,19 +105,16 @@ def api_screening_keywords(screening_type_id):
 @ui_bp.route('/login', methods=['GET', 'POST'])
 def login():
     """Redirect to auth login"""
-    from flask import redirect, url_for
     return redirect(url_for('auth.login'))
 
 @ui_bp.route('/logout')
 def logout():
     """Redirect to auth logout"""
-    from flask import redirect, url_for
     return redirect(url_for('auth.logout'))
 
 @ui_bp.route('/register', methods=['GET', 'POST'])
 def register():
     """Redirect to auth register"""
-    from flask import redirect, url_for
     return redirect(url_for('auth.register'))
 
 @ui_bp.route('/home')
