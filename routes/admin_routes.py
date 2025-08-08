@@ -557,22 +557,27 @@ def delete_user(user_id):
         username = user.username
         
         # Log the action before deletion
-        log_admin_event(
-            event_type='delete_user',
-            user_id=current_user.id,
-            org_id=org_id,
-            ip=flask_request.remote_addr,
-            data={'deleted_user': username, 'user_id': user_id, 'description': f'Deleted user: {username}'}
-        )
+        try:
+            log_admin_event(
+                event_type='delete_user',
+                user_id=current_user.id,
+                org_id=org_id,
+                ip=flask_request.remote_addr,
+                data={'deleted_user': username, 'user_id': user_id, 'description': f'Deleted user: {username}'}
+            )
+        except Exception as log_error:
+            logger.warning(f"Could not log user deletion: {str(log_error)}")
 
+        # Delete user
         db.session.delete(user)
         db.session.commit()
 
         return jsonify({'success': True, 'message': f'User {username} deleted successfully'})
 
     except Exception as e:
-        logger.error(f"Error deleting user: {str(e)}")
-        return jsonify({'success': False, 'error': 'Error deleting user'})
+        db.session.rollback()
+        logger.error(f"Error deleting user {user_id}: {str(e)}")
+        return jsonify({'success': False, 'error': f'Error deleting user: {str(e)}'})
 
 
 @admin_bp.route('/users/<int:user_id>/toggle-status', methods=['POST'])

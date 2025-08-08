@@ -347,14 +347,27 @@ function confirmDeleteUser() {
     button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Deleting...';
     button.disabled = true;
 
+    // Get CSRF token from form or meta tag
+    let csrfToken = document.querySelector('input[name="csrf_token"]')?.value;
+    if (!csrfToken) {
+        const metaToken = document.querySelector('meta[name=csrf-token]');
+        csrfToken = metaToken ? metaToken.getAttribute('content') : '';
+    }
+
     fetch(`/admin/users/${deletingUserId}/delete`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('meta[name=csrf-token]').getAttribute('content')
-        }
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({})
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             showToast('User deleted successfully', 'success');
@@ -366,14 +379,23 @@ function confirmDeleteUser() {
             }
 
             // Close modal
-            bootstrap.Modal.getInstance(document.getElementById('deleteUserModal')).hide();
+            const modal = bootstrap.Modal.getInstance(document.getElementById('deleteUserModal'));
+            if (modal) {
+                modal.hide();
+            }
+            
+            // Reload page if no rows left or if there were errors
+            const remainingRows = document.querySelectorAll('tbody tr[data-user-id]');
+            if (remainingRows.length === 0) {
+                window.location.reload();
+            }
         } else {
             showToast(data.error || 'Error deleting user', 'error');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        showToast('Error deleting user', 'error');
+        showToast(`Error deleting user: ${error.message}`, 'error');
     })
     .finally(() => {
         button.innerHTML = originalText;
@@ -451,6 +473,40 @@ document.getElementById('editUserForm').addEventListener('submit', function(e) {
     }
 });
 
+// Fallback showToast function if not defined globally
+function showToast(message, type = 'info') {
+    // Try to use global showToast if available
+    if (window.showToast && typeof window.showToast === 'function') {
+        return window.showToast(message, type);
+    }
+    
+    // Fallback to alert for now
+    if (type === 'error') {
+        alert('Error: ' + message);
+    } else {
+        alert(message);
+    }
+    
+    // Try to create a simple toast notification
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} alert-dismissible fade show position-fixed`;
+    toast.style.top = '20px';
+    toast.style.right = '20px';
+    toast.style.zIndex = '9999';
+    toast.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(toast);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+        }
+    }, 5000);
+}
+
 // Clear forms when modals are hidden
 document.getElementById('addUserModal').addEventListener('hidden.bs.modal', function() {
     document.getElementById('addUserForm').reset();
@@ -458,6 +514,10 @@ document.getElementById('addUserModal').addEventListener('hidden.bs.modal', func
 
 document.getElementById('editUserModal').addEventListener('hidden.bs.modal', function() {
     editingUserId = null;
+});
+
+document.getElementById('deleteUserModal').addEventListener('hidden.bs.modal', function() {
+    deletingUserId = null;
 });
 
 // Auto-focus on username when adding user
