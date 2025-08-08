@@ -181,7 +181,10 @@ def configure_csrf_exemptions(app):
 
 def configure_jinja_filters(app):
     """Configure custom Jinja2 filters"""
-    from jinja2 import Markup
+    try:
+        from markupsafe import Markup
+    except ImportError:
+        from jinja2 import Markup
     import json
 
     @app.template_filter('tojsonpretty')
