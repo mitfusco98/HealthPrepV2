@@ -129,12 +129,13 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), nullable=False)  # Unique within organization
     email = db.Column(db.String(120), nullable=False)  # Unique within organization  
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), default='nurse', nullable=False)  # 'admin', 'MA', 'nurse'
+    role = db.Column(db.String(20), default='nurse', nullable=False)  # 'root_admin', 'admin', 'MA', 'nurse'
     is_admin = db.Column(db.Boolean, default=False, nullable=False)  # Kept for backward compatibility
     is_active_user = db.Column(db.Boolean, default=True, nullable=False)
+    is_root_admin = db.Column(db.Boolean, default=False, nullable=False)  # Super admin for managing all organizations
     
     # Multi-tenancy fields
-    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
+    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=True)  # Nullable for root admins
     epic_user_id = db.Column(db.String(100))  # Epic user ID for mapping
     
     # Security and session management
@@ -166,7 +167,11 @@ class User(UserMixin, db.Model):
 
     def is_admin_user(self):
         """Check if user has admin privileges"""
-        return self.role == 'admin' or self.is_admin
+        return self.role == 'admin' or self.is_admin or self.is_root_admin
+    
+    def is_root_admin_user(self):
+        """Check if user has root admin privileges"""
+        return self.is_root_admin or self.role == 'root_admin'
 
     def has_role(self, role):
         """Check if user has specific role"""
@@ -174,11 +179,15 @@ class User(UserMixin, db.Model):
 
     def can_manage_users(self):
         """Check if user can manage other users"""
-        return self.role == 'admin'
+        return self.role == 'admin' or self.is_root_admin
+    
+    def can_manage_organizations(self):
+        """Check if user can manage organizations"""
+        return self.is_root_admin
     
     def can_access_data(self, org_id):
         """Check if user can access data for a specific organization"""
-        return self.org_id == org_id
+        return self.org_id == org_id or self.is_root_admin
     
     def is_session_expired(self):
         """Check if user session is expired based on activity"""
@@ -219,6 +228,7 @@ class User(UserMixin, db.Model):
     def role_display(self):
         """Get display name for role"""
         role_names = {
+            'root_admin': 'Root Administrator',
             'admin': 'Administrator',
             'MA': 'Medical Assistant',
             'nurse': 'Nurse'

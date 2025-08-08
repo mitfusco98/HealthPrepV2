@@ -84,7 +84,9 @@ def create_app():
         from flask_login import current_user
         if current_user.is_authenticated:
             # Redirect based on user role
-            if current_user.is_admin:
+            if current_user.is_root_admin_user():
+                return redirect(url_for('root_admin.dashboard'))
+            elif current_user.is_admin_user():
                 return redirect(url_for('admin.dashboard'))
             else:
                 return redirect(url_for('ui.dashboard'))
@@ -97,6 +99,7 @@ def register_blueprints(app):
     """Register all blueprints"""
     from routes.auth_routes import auth_bp
     from routes.admin_routes import admin_bp
+    from routes.root_admin_routes import root_admin_bp
     from routes.screening_routes import screening_bp
     from routes.prep_sheet_routes import prep_sheet_bp
     from routes.api_routes import api_bp
@@ -106,6 +109,7 @@ def register_blueprints(app):
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(admin_bp, url_prefix='/admin')
+    app.register_blueprint(root_admin_bp, url_prefix='/root-admin')
     app.register_blueprint(screening_bp, url_prefix='/screening')
     app.register_blueprint(prep_sheet_bp, url_prefix='/prep-sheet')
     app.register_blueprint(api_bp, url_prefix='/api')

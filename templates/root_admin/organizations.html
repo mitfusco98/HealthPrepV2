@@ -1,0 +1,147 @@
+{% extends "root_admin/base_root_admin.html" %}
+
+{% block title %}Organizations - Root Admin{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-building text-danger me-2"></i>Organizations
+            </h1>
+            <a href="{{ url_for('root_admin.create_organization') }}" class="btn btn-danger">
+                <i class="fas fa-plus me-1"></i>Create Organization
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card root-admin-card">
+            <div class="card-body">
+                {% if organizations %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Organization</th>
+                                    <th>Contact</th>
+                                    <th>Status</th>
+                                    <th>Users</th>
+                                    <th>Epic Config</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for org in organizations %}
+                                <tr>
+                                    <td>
+                                        <div>
+                                            <strong>{{ org.display_name or org.name }}</strong>
+                                            {% if org.display_name and org.display_name != org.name %}
+                                                <br><small class="text-muted">{{ org.name }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if org.contact_email %}
+                                            <div>{{ org.contact_email }}</div>
+                                        {% endif %}
+                                        {% if org.phone %}
+                                            <small class="text-muted">{{ org.phone }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if org.setup_status == 'live' %}
+                                            <span class="badge bg-success">Live</span>
+                                        {% elif org.setup_status == 'trial' %}
+                                            <span class="badge bg-warning">Trial</span>
+                                        {% elif org.setup_status == 'incomplete' %}
+                                            <span class="badge bg-secondary">Setup</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Suspended</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ org.user_count }}</span>
+                                        <small class="text-muted">/ {{ org.max_users }}</small>
+                                    </td>
+                                    <td>
+                                        {% if org.epic_client_id %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check"></i> Configured
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">
+                                                <i class="fas fa-times"></i> Not Set
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ org.created_at.strftime('%Y-%m-%d') }}</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('root_admin.view_organization', org_id=org.id) }}" 
+                                               class="btn btn-outline-primary" title="View">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{{ url_for('root_admin.edit_organization', org_id=org.id) }}" 
+                                               class="btn btn-outline-secondary" title="Edit">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <button type="button" class="btn btn-outline-danger" 
+                                                    onclick="deleteOrganization({{ org.id }}, '{{ org.name }}')" 
+                                                    title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-building fa-4x text-muted mb-3"></i>
+                        <h4 class="text-muted">No Organizations</h4>
+                        <p class="text-muted">Get started by creating your first organization</p>
+                        <a href="{{ url_for('root_admin.create_organization') }}" class="btn btn-danger">
+                            <i class="fas fa-plus me-1"></i>Create First Organization
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function deleteOrganization(orgId, orgName) {
+    if (confirm(`Are you sure you want to delete organization "${orgName}"?\n\nThis action cannot be undone.`)) {
+        fetch(`/root-admin/organizations/${orgId}/delete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error deleting organization');
+        });
+    }
+}
+</script>
+{% endblock %}

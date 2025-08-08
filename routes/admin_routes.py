@@ -5,6 +5,7 @@ Admin dashboard routes and functionality
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file, make_response
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
+from sqlalchemy import desc
 import logging
 import functools
 import json
@@ -101,7 +102,7 @@ def get_dashboard_data():
     total_presets = ScreeningPreset.query.count()
     shared_presets = ScreeningPreset.query.filter_by(shared=True).count()
     try:
-        recent_presets = ScreeningPreset.query.order_by(ScreeningPreset.updated_at.desc()).limit(5).all()
+        recent_presets = ScreeningPreset.query.order_by(desc(ScreeningPreset.updated_at)).limit(5).all()
     except Exception:
         recent_presets = []
     
@@ -828,6 +829,7 @@ def update_phi_settings_api():
         log_admin_event(
             event_type='phi_settings_update',
             user_id=current_user.id,
+            org_id=getattr(current_user, 'org_id', 1),
             ip=request.remote_addr,
             data={'enabled': enabled, 'description': f'PHI filtering {"enabled" if enabled else "disabled"} by admin'}
         )
@@ -1002,7 +1004,7 @@ def import_preset():
         if file.filename == '':
             return jsonify({'success': False, 'error': 'No file selected'}), 400
         
-        filename = secure_filename(file.filename)
+        filename = secure_filename(file.filename or '')
         if not filename.lower().endswith(('.json', '.yaml', '.yml')):
             return jsonify({'success': False, 'error': 'File must be JSON or YAML format'}), 400
         

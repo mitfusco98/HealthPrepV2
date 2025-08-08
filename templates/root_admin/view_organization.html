@@ -1,0 +1,278 @@
+{% extends "root_admin/base_root_admin.html" %}
+
+{% block title %}{{ organization.display_name or organization.name }} - Root Admin{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('root_admin.dashboard') }}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('root_admin.organizations') }}">Organizations</a></li>
+                <li class="breadcrumb-item active">{{ organization.display_name or organization.name }}</li>
+            </ol>
+        </nav>
+        
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-building text-danger me-2"></i>{{ organization.display_name or organization.name }}
+            </h1>
+            <div>
+                <a href="{{ url_for('root_admin.edit_organization', org_id=organization.id) }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-edit me-1"></i>Edit
+                </a>
+                <a href="{{ url_for('root_admin.organization_users', org_id=organization.id) }}" class="btn btn-danger">
+                    <i class="fas fa-users me-1"></i>Manage Users
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Organization Info -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card root-admin-card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>Organization Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-4">Name:</dt>
+                            <dd class="col-sm-8">{{ organization.name }}</dd>
+                            
+                            <dt class="col-sm-4">Display Name:</dt>
+                            <dd class="col-sm-8">{{ organization.display_name or organization.name }}</dd>
+                            
+                            <dt class="col-sm-4">Status:</dt>
+                            <dd class="col-sm-8">
+                                {% if organization.setup_status == 'live' %}
+                                    <span class="badge bg-success">Live</span>
+                                {% elif organization.setup_status == 'trial' %}
+                                    <span class="badge bg-warning">Trial</span>
+                                {% elif organization.setup_status == 'incomplete' %}
+                                    <span class="badge bg-secondary">Setup Incomplete</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Suspended</span>
+                                {% endif %}
+                            </dd>
+                            
+                            <dt class="col-sm-4">Created:</dt>
+                            <dd class="col-sm-8">{{ organization.created_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-4">Contact:</dt>
+                            <dd class="col-sm-8">{{ organization.contact_email or 'Not set' }}</dd>
+                            
+                            <dt class="col-sm-4">Phone:</dt>
+                            <dd class="col-sm-8">{{ organization.phone or 'Not set' }}</dd>
+                            
+                            <dt class="col-sm-4">Max Users:</dt>
+                            <dd class="col-sm-8">{{ organization.max_users }}</dd>
+                            
+                            <dt class="col-sm-4">Auto Sync:</dt>
+                            <dd class="col-sm-8">
+                                {% if organization.auto_sync_enabled %}
+                                    <span class="badge bg-success">Enabled</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Disabled</span>
+                                {% endif %}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+                
+                {% if organization.address %}
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <dt>Address:</dt>
+                        <dd>{{ organization.address }}</dd>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Statistics -->
+    <div class="col-lg-4">
+        <div class="card root-admin-card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>Statistics
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6 mb-3">
+                        <div class="border-end">
+                            <h3 class="text-primary mb-0">{{ stats.total_users }}</h3>
+                            <small class="text-muted">Total Users</small>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <h3 class="text-success mb-0">{{ stats.admin_users }}</h3>
+                        <small class="text-muted">Admins</small>
+                    </div>
+                    <div class="col-6">
+                        <div class="border-end">
+                            <h3 class="text-info mb-0">{{ stats.active_users }}</h3>
+                            <small class="text-muted">Active</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        {% if stats.epic_configured %}
+                            <h3 class="text-success mb-0"><i class="fas fa-check"></i></h3>
+                            <small class="text-muted">Epic Setup</small>
+                        {% else %}
+                            <h3 class="text-warning mb-0"><i class="fas fa-times"></i></h3>
+                            <small class="text-muted">Epic Setup</small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Epic Configuration -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card root-admin-card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-hospital me-2"></i>Epic FHIR Configuration
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if organization.epic_client_id %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-4">Client ID:</dt>
+                                <dd class="col-sm-8"><code>{{ organization.epic_client_id }}</code></dd>
+                                
+                                <dt class="col-sm-4">FHIR URL:</dt>
+                                <dd class="col-sm-8">
+                                    {% if organization.epic_fhir_url %}
+                                        <code>{{ organization.epic_fhir_url }}</code>
+                                    {% else %}
+                                        <span class="text-muted">Not set</span>
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-4">Environment:</dt>
+                                <dd class="col-sm-8">
+                                    {% if organization.epic_environment == 'production' %}
+                                        <span class="badge bg-danger">Production</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">Sandbox</span>
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-sm-4">Secret:</dt>
+                                <dd class="col-sm-8">
+                                    {% if organization.epic_client_secret %}
+                                        <span class="badge bg-success">Configured</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">Not Set</span>
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-exclamation-triangle fa-2x text-warning mb-2"></i>
+                        <p class="text-muted">Epic FHIR configuration not set up</p>
+                        <a href="{{ url_for('root_admin.edit_organization', org_id=organization.id) }}" class="btn btn-warning">
+                            Configure Epic Settings
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Users -->
+<div class="row">
+    <div class="col-12">
+        <div class="card root-admin-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-users me-2"></i>Users ({{ users|length }})
+                </h5>
+                <a href="{{ url_for('root_admin.organization_users', org_id=organization.id) }}" class="btn btn-danger btn-sm">
+                    <i class="fas fa-cog me-1"></i>Manage Users
+                </a>
+            </div>
+            <div class="card-body">
+                {% if users %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Status</th>
+                                    <th>Last Login</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users[:10] %}
+                                <tr>
+                                    <td><strong>{{ user.username }}</strong></td>
+                                    <td>{{ user.email }}</td>
+                                    <td>
+                                        <span class="badge {% if user.is_admin_user() %}bg-danger{% else %}bg-info{% endif %}">
+                                            {{ user.role_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if user.is_active_user %}
+                                            <span class="badge bg-success">Active</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if user.last_login %}
+                                            {{ user.last_login.strftime('%Y-%m-%d %H:%M') }}
+                                        {% else %}
+                                            <span class="text-muted">Never</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if users|length > 10 %}
+                        <div class="text-center mt-3">
+                            <a href="{{ url_for('root_admin.organization_users', org_id=organization.id) }}" class="btn btn-outline-danger">
+                                View All Users ({{ users|length }})
+                            </a>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No users found in this organization</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

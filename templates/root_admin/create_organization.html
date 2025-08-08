@@ -1,0 +1,155 @@
+{% extends "root_admin/base_root_admin.html" %}
+
+{% block title %}Create Organization - Root Admin{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('root_admin.dashboard') }}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('root_admin.organizations') }}">Organizations</a></li>
+                <li class="breadcrumb-item active">Create Organization</li>
+            </ol>
+        </nav>
+        
+        <h1 class="mb-4">
+            <i class="fas fa-plus-circle text-danger me-2"></i>Create New Organization
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            
+            <!-- Organization Details -->
+            <div class="card root-admin-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-building me-2"></i>Organization Details
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="name" class="form-label">Organization Name *</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                            <div class="form-text">Internal system name (no spaces)</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="display_name" class="form-label">Display Name</label>
+                            <input type="text" class="form-control" id="display_name" name="display_name">
+                            <div class="form-text">Friendly display name</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="contact_email" class="form-label">Contact Email</label>
+                            <input type="email" class="form-control" id="contact_email" name="contact_email">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="phone" class="form-label">Phone</label>
+                            <input type="tel" class="form-control" id="phone" name="phone">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="address" class="form-label">Address</label>
+                        <textarea class="form-control" id="address" name="address" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="max_users" class="form-label">Max Users</label>
+                            <input type="number" class="form-control" id="max_users" name="max_users" value="10" min="1">
+                            <div class="form-text">Maximum number of users allowed</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Admin User -->
+            <div class="card root-admin-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-shield me-2"></i>Initial Admin User
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        This will create the first admin user for this organization.
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="admin_username" class="form-label">Admin Username *</label>
+                            <input type="text" class="form-control" id="admin_username" name="admin_username" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="admin_email" class="form-label">Admin Email *</label>
+                            <input type="email" class="form-control" id="admin_email" name="admin_email" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="admin_password" class="form-label">Admin Password *</label>
+                            <input type="password" class="form-control" id="admin_password" name="admin_password" required>
+                            <div class="form-text">Minimum 8 characters recommended</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Submit -->
+            <div class="d-flex justify-content-between">
+                <a href="{{ url_for('root_admin.organizations') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Cancel
+                </a>
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-plus me-1"></i>Create Organization
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Help Sidebar -->
+    <div class="col-lg-4">
+        <div class="card root-admin-card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-question-circle me-2"></i>Organization Setup Guide
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <h6><i class="fas fa-building text-danger me-1"></i> Organization Details</h6>
+                    <ul class="small">
+                        <li><strong>Name:</strong> Unique identifier (e.g., "johns-clinic")</li>
+                        <li><strong>Display Name:</strong> User-friendly name (e.g., "John's Medical Clinic")</li>
+                        <li><strong>Max Users:</strong> Limits user accounts for this org</li>
+                    </ul>
+                </div>
+                
+                <div class="mb-3">
+                    <h6><i class="fas fa-user-shield text-danger me-1"></i> Admin User</h6>
+                    <ul class="small">
+                        <li>First admin user for the organization</li>
+                        <li>Can create additional users and manage settings</li>
+                        <li>Receives admin privileges automatically</li>
+                    </ul>
+                </div>
+                
+                <div class="alert alert-warning small">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    <strong>Next Steps:</strong> After creation, the admin can configure Epic FHIR settings and import screening presets.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

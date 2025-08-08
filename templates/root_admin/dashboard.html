@@ -1,0 +1,214 @@
+{% extends "root_admin/base_root_admin.html" %}
+
+{% block title %}Root Admin Dashboard - HealthPrep{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">
+            <i class="fas fa-crown text-danger me-2"></i>Root Admin Dashboard
+        </h1>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card root-admin-card stat-card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="card-title text-muted mb-1">Total Organizations</h6>
+                        <h3 class="mb-0">{{ stats.total_organizations }}</h3>
+                    </div>
+                    <div class="text-danger">
+                        <i class="fas fa-building fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card root-admin-card stat-card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="card-title text-muted mb-1">Active Organizations</h6>
+                        <h3 class="mb-0 text-success">{{ stats.active_organizations }}</h3>
+                    </div>
+                    <div class="text-success">
+                        <i class="fas fa-check-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card root-admin-card stat-card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="card-title text-muted mb-1">Total Users</h6>
+                        <h3 class="mb-0">{{ stats.total_users }}</h3>
+                    </div>
+                    <div class="text-primary">
+                        <i class="fas fa-users fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card root-admin-card stat-card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="card-title text-muted mb-1">Trial Organizations</h6>
+                        <h3 class="mb-0 text-warning">{{ stats.trial_organizations }}</h3>
+                    </div>
+                    <div class="text-warning">
+                        <i class="fas fa-clock fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Organizations and Activity -->
+<div class="row">
+    <!-- Organizations -->
+    <div class="col-lg-8">
+        <div class="card root-admin-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-building me-2"></i>Organizations
+                </h5>
+                <a href="{{ url_for('root_admin.create_organization') }}" class="btn btn-danger btn-sm">
+                    <i class="fas fa-plus me-1"></i>Create Organization
+                </a>
+            </div>
+            <div class="card-body">
+                {% if organizations %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                    <th>Users</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for org in organizations[:10] %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ org.display_name or org.name }}</strong>
+                                        {% if org.contact_email %}
+                                            <br><small class="text-muted">{{ org.contact_email }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if org.setup_status == 'live' %}
+                                            <span class="badge bg-success">Live</span>
+                                        {% elif org.setup_status == 'trial' %}
+                                            <span class="badge bg-warning">Trial</span>
+                                        {% elif org.setup_status == 'incomplete' %}
+                                            <span class="badge bg-secondary">Setup</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Suspended</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ org.user_count }}</td>
+                                    <td>{{ org.created_at.strftime('%Y-%m-%d') }}</td>
+                                    <td>
+                                        <a href="{{ url_for('root_admin.view_organization', org_id=org.id) }}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if organizations|length > 10 %}
+                        <div class="text-center mt-3">
+                            <a href="{{ url_for('root_admin.organizations') }}" class="btn btn-outline-danger">
+                                View All Organizations ({{ organizations|length }})
+                            </a>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-building fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No organizations found</p>
+                        <a href="{{ url_for('root_admin.create_organization') }}" class="btn btn-danger">
+                            Create First Organization
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Activity -->
+    <div class="col-lg-4">
+        <div class="card root-admin-card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-clock me-2"></i>Recent Activity
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if recent_logs %}
+                    <div class="timeline">
+                        {% for log in recent_logs[:8] %}
+                        <div class="timeline-item mb-3">
+                            <div class="d-flex">
+                                <div class="flex-shrink-0 me-2">
+                                    {% if log.event_type == 'create_organization' %}
+                                        <i class="fas fa-plus-circle text-success"></i>
+                                    {% elif log.event_type == 'create_user' %}
+                                        <i class="fas fa-user-plus text-info"></i>
+                                    {% elif log.event_type == 'login' %}
+                                        <i class="fas fa-sign-in-alt text-primary"></i>
+                                    {% else %}
+                                        <i class="fas fa-info-circle text-muted"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="small">
+                                        <strong>{{ log.user.username if log.user else 'System' }}</strong>
+                                        {% if log.data and log.data.get('description') %}
+                                            {{ log.data.description }}
+                                        {% else %}
+                                            {{ log.event_type|replace('_', ' ')|title }}
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-muted small">
+                                        {{ log.timestamp.strftime('%m/%d %H:%M') }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="text-center mt-3">
+                        <a href="{{ url_for('root_admin.system_logs') }}" class="btn btn-outline-danger btn-sm">
+                            View All Logs
+                        </a>
+                    </div>
+                {% else %}
+                    <p class="text-muted text-center">No recent activity</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
