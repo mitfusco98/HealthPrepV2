@@ -62,6 +62,7 @@ def upload_document():
             log_admin_event(
                 event_type='upload_document',
                 user_id=current_user.id,
+                org_id=current_user.org_id,
                 ip=request.remote_addr,
                 data={'filename': file.filename, 'patient_mrn': patient.mrn, 'confidence': result['confidence'], 'description': f"Uploaded document {file.filename} for patient {patient.mrn} with OCR confidence {result['confidence']:.1f}%"}
             )
@@ -285,6 +286,7 @@ def batch_process():
         log_admin_event(
             event_type='batch_process_documents',
             user_id=current_user.id,
+            org_id=current_user.org_id,
             ip=request.remote_addr,
             data={'processed_count': processed_count, 'error_count': error_count, 'total_requested': len(document_ids), 'description': f"Batch processed {processed_count} documents successfully, {error_count} failed out of {len(document_ids)} requested"}
         )

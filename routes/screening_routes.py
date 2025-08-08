@@ -144,6 +144,7 @@ def screening_settings():
             log_admin_event(
                 event_type='update_screening_settings',
                 user_id=current_user.id,
+                org_id=current_user.org_id,
                 ip=request.remote_addr,
                 data={'description': 'Updated screening settings'}
             )
@@ -180,19 +181,19 @@ def add_screening_type():
                     trigger_conditions_list = [tc.strip() for tc in form.trigger_conditions.data.split(',') if tc.strip()]
             
             # Convert frequency to years for storage
-            frequency_years = form.frequency_value.data
-            if form.frequency_unit.data == 'months':
+            frequency_years = form.frequency_value.data or 1.0
+            if form.frequency_unit.data == 'months' and form.frequency_value.data:
                 frequency_years = form.frequency_value.data / 12.0
             
-            screening_type = ScreeningType(
-                name=form.name.data,
-                keywords=json.dumps([]),  # Start with empty keywords - will be set via modal
-                eligible_genders=form.eligible_genders.data,
-                min_age=form.min_age.data,
-                max_age=form.max_age.data,
-                frequency_years=frequency_years,
-                trigger_conditions=json.dumps(trigger_conditions_list) if trigger_conditions_list else None
-            )
+            screening_type = ScreeningType()
+            screening_type.name = form.name.data
+            screening_type.org_id = current_user.org_id
+            screening_type.keywords = json.dumps([])  # Start with empty keywords - will be set via modal
+            screening_type.eligible_genders = form.eligible_genders.data
+            screening_type.min_age = form.min_age.data
+            screening_type.max_age = form.max_age.data
+            screening_type.frequency_years = frequency_years
+            screening_type.trigger_conditions = json.dumps(trigger_conditions_list) if trigger_conditions_list else None
 
             db.session.add(screening_type)
             db.session.commit()
@@ -201,6 +202,7 @@ def add_screening_type():
             log_admin_event(
                 event_type='add_screening_type',
                 user_id=current_user.id,
+                org_id=current_user.org_id,
                 ip=request.remote_addr,
                 data={'screening_type_name': screening_type.name, 'description': f'Added screening type: {screening_type.name}'}
             )
@@ -238,8 +240,8 @@ def edit_screening_type(type_id):
                     trigger_conditions_list = [tc.strip() for tc in form.trigger_conditions.data.split(',') if tc.strip()]
             
             # Convert frequency to years for storage
-            frequency_years = form.frequency_value.data
-            if form.frequency_unit.data == 'months':
+            frequency_years = form.frequency_value.data or 1.0
+            if form.frequency_unit.data == 'months' and form.frequency_value.data:
                 frequency_years = form.frequency_value.data / 12.0
             
             screening_type.name = form.name.data
@@ -256,6 +258,7 @@ def edit_screening_type(type_id):
             log_admin_event(
                 event_type='edit_screening_type',
                 user_id=current_user.id,
+                org_id=current_user.org_id,
                 ip=request.remote_addr,
                 data={'screening_type_name': screening_type.name, 'description': f'Edited screening type: {screening_type.name}'}
             )
@@ -315,6 +318,7 @@ def toggle_screening_type_status(type_id):
         log_admin_event(
             event_type='toggle_screening_type_status',
             user_id=current_user.id,
+            org_id=current_user.org_id,
             ip=request.remote_addr,
             data={'screening_type_name': screening_type.name, 'new_status': screening_type.is_active, 'synced_to_variants': True, 'description': f'Toggled screening type status: {screening_type.name} -> {screening_type.is_active} (synced to variants)'}
         )
@@ -352,6 +356,7 @@ def delete_screening_type(type_id):
         log_admin_event(
             event_type='delete_screening_type',
             user_id=current_user.id,
+            org_id=current_user.org_id,
             ip=request.remote_addr,
             data={'screening_type_name': screening_name, 'description': f'Deleted screening type: {screening_name}'}
         )
@@ -386,21 +391,23 @@ def refresh_screenings():
             log_admin_event(
                 event_type='refresh_patient_screenings',
                 user_id=current_user.id,
+                org_id=current_user.org_id,
                 ip=request.remote_addr,
-                data={'patient_id': patient_id, 'processed_screenings': result.get('processed_screenings', 0), 'description': f'Refreshed screenings for patient {patient_id} - processed: {result.get("processed_screenings", 0)}'}
+                data={'patient_id': patient_id, 'processed_screenings': result.get('processed_screenings', 0) if isinstance(result, dict) else 0, 'description': f'Refreshed screenings for patient {patient_id}'}
             )
 
         else:
             # Refresh all screenings
             result = engine.refresh_all_screenings()
-            flash(f'Refreshed all screenings. Processed {result["total_screenings"]} screenings for {result["processed_patients"]} patients', 'success')
+            flash(f'Refreshed all screenings. Processed {result.get("total_screenings", 0) if isinstance(result, dict) else 0} screenings for {result.get("processed_patients", 0) if isinstance(result, dict) else 0} patients', 'success')
 
             # Log the action
             log_admin_event(
                 event_type='refresh_all_screenings',
                 user_id=current_user.id,
+                org_id=current_user.org_id,
                 ip=request.remote_addr,
-                data={'total_screenings': result.get('total_screenings', 0), 'processed_patients': result.get('processed_patients', 0), 'description': f'Refreshed all screenings - processed {result.get("total_screenings", 0)} screenings for {result.get("processed_patients", 0)} patients'}
+                data={'total_screenings': result.get('total_screenings', 0) if isinstance(result, dict) else 0, 'processed_patients': result.get('processed_patients', 0) if isinstance(result, dict) else 0, 'description': f'Refreshed all screenings'}
             )
 
         return redirect(url_for('screening.screening_list'))
@@ -583,6 +590,7 @@ def manage_screening_keywords(screening_type_id):
             log_admin_event(
                 event_type='update_screening_type_keywords',
                 user_id=current_user.id,
+                org_id=current_user.org_id,
                 ip=request.remote_addr,
                 data={'screening_type_name': screening_type.name, 'keywords_count': len(clean_keywords), 'description': f'Updated keywords for screening type: {screening_type.name}'}
             )
@@ -671,6 +679,7 @@ def import_medical_keywords(screening_type_id):
         log_admin_event(
             event_type='import_medical_keywords',
             user_id=current_user.id,
+            org_id=current_user.org_id,
             ip=request.remote_addr,
             data={'screening_type_name': screening_type.name, 'imported_count': len(new_keywords), 'description': f'Imported {len(new_keywords)} new medical keywords for screening type: {screening_type.name}'}
         )

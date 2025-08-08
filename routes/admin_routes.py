@@ -860,6 +860,7 @@ def users_list():
         log_admin_event(
             event_type='user_list_access',
             user_id=current_user.id,
+            org_id=getattr(current_user, 'org_id', 1),
             ip=request.remote_addr,
             data={'description': 'Accessed user management list'}
         )
@@ -939,6 +940,7 @@ def create_preset():
         log_admin_event(
             event_type='create_preset',
             user_id=current_user.id,
+            org_id=getattr(current_user, 'org_id', 1),
             ip=request.remote_addr,
             data={
                 'preset_id': preset.id,
@@ -973,6 +975,7 @@ def delete_preset(preset_id):
         log_admin_event(
             event_type='delete_preset',
             user_id=current_user.id,
+            org_id=getattr(current_user, 'org_id', 1),
             ip=request.remote_addr,
             data={
                 'preset_id': preset_id,
@@ -1025,6 +1028,7 @@ def import_preset():
         log_admin_event(
             event_type='import_preset',
             user_id=current_user.id,
+            org_id=getattr(current_user, 'org_id', 1),
             ip=request.remote_addr,
             data={
                 'preset_id': preset.id,
@@ -1061,6 +1065,7 @@ def export_preset(preset_id):
         log_admin_event(
             event_type='export_preset',
             user_id=current_user.id,
+            org_id=getattr(current_user, 'org_id', 1),
             ip=request.remote_addr,
             data={
                 'preset_id': preset.id,

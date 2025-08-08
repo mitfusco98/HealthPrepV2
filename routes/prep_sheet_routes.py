@@ -35,6 +35,7 @@ def generate_for_patient(patient_id):
             log_admin_event(
                 event_type='generate_prep_sheet',
                 user_id=current_user.id,
+                org_id=current_user.org_id,
                 ip=request.remote_addr,
                 data={'patient_mrn': patient.mrn, 'appointment_id': appointment_id, 'description': f'Generated prep sheet for patient {patient.mrn}, appointment {appointment_id}'}
             )
@@ -66,6 +67,7 @@ def generate_for_appointment(appointment_id):
             log_admin_event(
                 event_type='generate_prep_sheet',
                 user_id=current_user.id,
+                org_id=current_user.org_id,
                 ip=request.remote_addr,
                 data={'appointment_id': appointment_id, 'patient_mrn': appointment.patient.mrn, 'description': f'Generated prep sheet for appointment {appointment_id}, patient {appointment.patient.mrn}'}
             )
@@ -142,6 +144,7 @@ def batch_generate():
         log_admin_event(
             event_type='batch_generate_prep_sheets',
             user_id=current_user.id,
+            org_id=current_user.org_id,
             ip=request.remote_addr,
             data={'generated_count': generated_count, 'error_count': error_count, 'total_requested': len(appointment_ids), 'description': f'Batch generated {generated_count} prep sheets, {error_count} errors, {len(appointment_ids)} total requested'}
         )
@@ -178,6 +181,7 @@ def regenerate(patient_id):
             log_admin_event(
                 event_type='regenerate_prep_sheet',
                 user_id=current_user.id,
+                org_id=current_user.org_id,
                 ip=request.remote_addr,
                 data={'patient_mrn': patient.mrn, 'description': f'Regenerated prep sheet for patient {patient.mrn}'}
             )
@@ -224,6 +228,7 @@ def export_prep_sheet(patient_id):
                 log_admin_event(
                     event_type='export_prep_sheet',
                     user_id=current_user.id,
+                    org_id=current_user.org_id,
                     ip=request.remote_addr,
                     data={'patient_mrn': patient.mrn, 'format_type': format_type, 'description': f'Exported prep sheet for patient {patient.mrn} in {format_type} format'}
                 )
@@ -376,6 +381,7 @@ def prep_sheet_settings():
             log_admin_event(
                 event_type='update_prep_sheet_settings',
                 user_id=current_user.id,
+                org_id=current_user.org_id,
                 ip=request.remote_addr,
                 data={'labs_cutoff': settings.labs_cutoff_months, 'imaging_cutoff': settings.imaging_cutoff_months, 'consults_cutoff': settings.consults_cutoff_months, 'hospital_cutoff': settings.hospital_cutoff_months, 'description': f'Updated prep sheet settings - Labs: {settings.labs_cutoff_months}, Imaging: {settings.imaging_cutoff_months}, Consults: {settings.consults_cutoff_months}, Hospital: {settings.hospital_cutoff_months}'}
             )
