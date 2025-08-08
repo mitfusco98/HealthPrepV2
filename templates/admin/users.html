@@ -180,7 +180,6 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST" action="{{ url_for('admin.create_user') }}" id="addUserForm">
-                    {{ csrf_token() }}
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <div class="mb-3">
                         <label for="addUsername" class="form-label">Username <span class="text-danger">*</span></label>
