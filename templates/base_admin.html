@@ -112,17 +112,18 @@
     </main>
 
     <!-- Admin Footer -->
-    <footer class="bg-danger text-white py-3 mt-5">
-        <div class="container">
+    <footer class="py-3 mt-5" style="background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);">
+        <div class="container-fluid">
             <div class="row">
                 <div class="col-md-6">
-                    <h6><i class="fas fa-shield-alt me-1"></i> Administrator Panel</h6>
-                    <small>HIPAA-compliant system management</small>
+                    <small class="text-white">
+                        <i class="fas fa-shield-alt me-1"></i>HealthPrep Admin Panel - 
+                        Logged in as {{ current_user.username }}
+                    </small>
                 </div>
-                <div class="col-md-6 text-end">
-                    <small>
-                        <i class="fas fa-clock me-1"></i>
-                        Last updated: <span id="lastUpdated"></span>
+                <div class="col-md-6 text-md-end">
+                    <small class="text-white">
+                        <i class="fas fa-clock me-1"></i>{{ moment().format('YYYY-MM-DD HH:mm:ss') }} UTC
                     </small>
                 </div>
             </div>
