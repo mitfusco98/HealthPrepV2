@@ -194,26 +194,20 @@
                         </div>
                         
                         <div class="btn-group btn-group-sm">
-                            <!-- Export for Root Admin Approval -->
-                            {% if not preset.shared and not preset.is_pending_approval() %}
-                            <a href="{{ url_for('admin.export_preset_for_approval', preset_id=preset.id) }}" 
-                               class="btn btn-outline-warning" title="Send to Root Admin for Global Approval">
-                                <i class="fas fa-paper-plane"></i> Request Global Approval
-                            </a>
-                            {% endif %}
-                            
-                            <!-- Apply to Organization Users -->
+                            <!-- Import to Types / Apply to Organization -->
                             <button class="btn btn-outline-success" 
                                     onclick="applyToOrganization({{ preset.id }}, '{{ preset.name }}')"
-                                    title="Apply this preset to all users in your organization">
-                                <i class="fas fa-users"></i> Apply to Organization
+                                    title="Import to Types / Apply to Organization">
+                                <i class="fas fa-arrow-right"></i> Apply
                             </button>
                             
-                            <!-- Download Preset -->
-                            <a href="{{ url_for('admin.export_preset', preset_id=preset.id) }}" 
-                               class="btn btn-outline-primary" title="Download Preset">
-                                <i class="fas fa-download"></i> Export
+                            <!-- Request Global Approval (consolidated action) -->
+                            {% if not preset.shared and not preset.is_pending_approval() %}
+                            <a href="{{ url_for('admin.export_preset_for_approval', preset_id=preset.id) }}" 
+                               class="btn btn-outline-warning" title="Request Global Approval">
+                                <i class="fas fa-star"></i> Request Approval
                             </a>
+                            {% endif %}
                             
                             <!-- Delete Preset -->
                             <button class="btn btn-outline-danger" 

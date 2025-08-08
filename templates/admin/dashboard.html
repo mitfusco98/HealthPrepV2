@@ -318,38 +318,18 @@
                                                     </td>
                                                     <td>
                                                         <div class="btn-group btn-group-sm" role="group">
-                                                            <button class="btn btn-outline-primary" onclick="exportPreset({{ preset.id }}, '{{ preset.name }})" title="Download Preset">
-                                                                <i class="fas fa-download"></i>
-                                                            </button>
-                                                            <button class="btn btn-outline-success" onclick="importToTypes({{ preset.id }}, '{{ preset.name }})" title="Import to Types">
-                                                                <i class="fas fa-arrow-right"></i>
+                                                            <!-- Import to Types / Apply to Organization -->
+                                                            <button class="btn btn-outline-success" onclick="importToTypes({{ preset.id }}, '{{ preset.name }})" title="Import to Types / Apply to Organization">
+                                                                <i class="fas fa-arrow-right"></i> Apply
                                                             </button>
 
-                                                            <!-- More actions dropdown -->
-                                                            <div class="btn-group" role="group">
-                                                                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                                                    <i class="fas fa-ellipsis-v"></i>
-                                                                </button>
-                                                                <ul class="dropdown-menu dropdown-menu-end">
-                                                                    {% if preset.can_request_approval() %}
-                                                                    <li><h6 class="dropdown-header">Global Sharing</h6></li>
-                                                                    <li>
-                                                                        <form method="POST" action="{{ url_for('admin.request_preset_approval', preset_id=preset.id) }}" class="d-inline">
-                                                                            <button type="submit" class="dropdown-item text-warning">
-                                                                                <i class="fas fa-star me-2"></i>Request Approval
-                                                                            </button>
-                                                                        </form>
-                                                                    </li>
-                                                                    <li><a class="dropdown-item" href="{{ url_for('admin.export_preset_for_approval', preset_id=preset.id) }}">
-                                                                        <i class="fas fa-upload me-2"></i>Export for Approval
-                                                                    </a></li>
-                                                                    <li><hr class="dropdown-divider"></li>
-                                                                    {% endif %}
-                                                                    <li><button type="button" class="dropdown-item text-danger" onclick="deletePreset({{ preset.id }}, '{{ preset.name }}')">
-                                                                        <i class="fas fa-trash me-2"></i>Delete
-                                                                    </button></li>
-                                                                </ul>
-                                                            </div>
+                                                            <!-- Request Global Approval (consolidated action) -->
+                                                            {% if preset.can_request_approval() %}
+                                                            <a href="{{ url_for('admin.export_preset_for_approval', preset_id=preset.id) }}" 
+                                                               class="btn btn-outline-warning" title="Request Global Approval">
+                                                                <i class="fas fa-star"></i> Request Approval
+                                                            </a>
+                                                            {% endif %}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -363,14 +343,10 @@
                                         <h5 class="text-muted">No Presets Created</h5>
                                         <p class="text-muted">Create your first screening preset to get started.</p>
                                         <div class="mt-3">
-                                            <a href="{{ url_for('admin.create_preset_from_types') }}" class="btn btn-success me-2">
+                                            <a href="{{ url_for('admin.create_preset_from_types') }}" class="btn btn-success">
                                                 <i class="fas fa-magic me-1"></i>
                                                 Create from Existing Types
                                             </a>
-                                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createPresetModal">
-                                                <i class="fas fa-plus me-1"></i>
-                                                Create First Preset
-                                            </button>
                                         </div>
                                     </div>
                                     {% endif %}
@@ -885,107 +861,7 @@
         </div>
     </div>
 </div>
-<!-- Create Preset Modal -->
-<div class="modal fade" id="createPresetModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-plus me-2"></i>
-                    Create New Preset
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="createPresetForm">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="presetName" class="form-label">Preset Name <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="presetName" required>
-                    </div>
 
-                    <div class="mb-3">
-                        <label for="presetDescription" class="form-label">Description</label>
-                        <textarea class="form-control" id="presetDescription" rows="3" placeholder="Optional description of this preset..."></textarea>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="presetSpecialty" class="form-label">Specialty</label>
-                        <select class="form-control" id="presetSpecialty">
-                            <option value="">General</option>
-                            <option value="cardiology">Cardiology</option>
-                            <option value="primary_care">Primary Care</option>
-                            <option value="oncology">Oncology</option>
-                            <option value="women_health">Women's Health</option>
-                            <option value="preventive">Preventive Care</option>
-                        </select>
-                    </div>
-
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="presetShared">
-                        <label class="form-check-label" for="presetShared">
-                            Shared Preset
-                        </label>
-                        <div class="form-text">Allow other organizations to use this preset</div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-plus me-1"></i>
-                        Create Preset
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Import Preset Modal -->
-<div class="modal fade" id="importPresetModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-upload me-2"></i>
-                    Import Preset
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="importPresetForm" enctype="multipart/form-data">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="presetFile" class="form-label">Preset File <span class="text-danger">*</span></label>
-                        <input type="file" class="form-control" id="presetFile" accept=".json,.yaml,.yml" required>
-                        <div class="form-text">Upload a JSON or YAML preset file</div>
-                    </div>
-
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="overwriteExisting">
-                        <label class="form-check-label" for="overwriteExisting">
-                            Overwrite existing presets
-                        </label>
-                        <div class="form-text">Replace presets with the same name</div>
-                    </div>
-
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="importToTypes">
-                        <label class="form-check-label" for="importToTypes">
-                            Import directly to screening types
-                        </label>
-                        <div class="form-text">Add screening types to the system immediately</div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-upload me-1"></i>
-                        Import Preset
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 
 <!-- Delete Confirmation Modal -->
 <div class="modal fade" id="deletePresetModal" tabindex="-1">
