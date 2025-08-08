@@ -188,12 +188,62 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr>
-                                        <td colspan="6" class="text-center py-4">
-                                            <i class="fas fa-users fa-2x text-muted mb-2"></i>
-                                            <p class="text-muted mb-0">User data will be loaded here</p>
-                                        </td>
-                                    </tr>
+                                    {% if users %}
+                                        {% for user in users[:10] %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ user.username }}</strong>
+                                                {% if user.id == current_user.id %}
+                                                    <span class="badge bg-info ms-1">You</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ user.email }}</td>
+                                            <td>
+                                                <span class="badge bg-{{ 'danger' if user.role == 'admin' else 'primary' if user.role == 'MA' else 'secondary' }}">
+                                                    {{ user.role_display }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-{{ 'success' if user.is_active_user else 'danger' }}">
+                                                    {{ 'Active' if user.is_active_user else 'Inactive' }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <small class="text-muted">
+                                                    {{ user.last_login.strftime('%m/%d/%Y') if user.last_login else 'Never' }}
+                                                </small>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    <a href="{{ url_for('admin.users') }}" class="btn btn-outline-primary btn-sm">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                        {% if users|length > 10 %}
+                                        <tr>
+                                            <td colspan="6" class="text-center py-2">
+                                                <a href="{{ url_for('admin.users') }}" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-users me-1"></i>
+                                                    View All {{ users|length }} Users
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% endif %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="6" class="text-center py-4">
+                                                <i class="fas fa-users fa-2x text-muted mb-2"></i>
+                                                <p class="text-muted mb-0">No users found</p>
+                                                <a href="{{ url_for('admin.users') }}" class="btn btn-sm btn-primary mt-2">
+                                                    <i class="fas fa-plus me-1"></i>
+                                                    Add First User
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    {% endif %}
                                 </tbody>
                             </table>
                         </div>

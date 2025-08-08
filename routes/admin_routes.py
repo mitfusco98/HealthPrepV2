@@ -84,10 +84,17 @@ def get_dashboard_data():
         'name_count': 123
     }
     
-    # Get user statistics
-    total_users = User.query.count()
-    active_users = User.query.filter_by(is_active=True).count() if hasattr(User, 'is_active') else total_users
-    admin_users = User.query.filter_by(is_admin=True).count()
+    # Get user statistics and list
+    # Apply organization filtering for multi-tenancy
+    if hasattr(current_user, 'org_id'):
+        users_query = User.query.filter_by(org_id=current_user.org_id)
+    else:
+        users_query = User.query
+        
+    users = users_query.order_by(User.username).all()
+    total_users = len(users)
+    active_users = sum(1 for user in users if user.is_active_user)
+    admin_users = sum(1 for user in users if user.is_admin_user())
     inactive_users = total_users - active_users
     
     # Get preset statistics
@@ -105,6 +112,7 @@ def get_dashboard_data():
         'phi_settings': phi_settings,
         'phi_stats': phi_stats,
         'phi_breakdown': phi_breakdown,
+        'users': users,
         'total_users': total_users,
         'active_users': active_users,
         'admin_users': admin_users,
