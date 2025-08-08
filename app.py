@@ -116,40 +116,39 @@ def register_blueprints(app):
     app.register_blueprint(emr_sync_bp, url_prefix='/emr')
     app.register_blueprint(fuzzy_bp, url_prefix='/fuzzy')
     app.register_blueprint(ui_bp)
-    
+
     # Exempt all API routes from CSRF
     csrf.exempt(api_bp)
     csrf.exempt(emr_sync_bp)  # Exempt EMR webhooks from CSRF
     csrf.exempt(fuzzy_bp)  # Exempt fuzzy detection API from CSRF
-    
+
     # Configure additional CSRF exemptions
     configure_csrf_exemptions(app)
 
+    # Configure custom Jinja2 filters
+    configure_jinja_filters(app)
+
 def register_error_handlers(app):
     """Register error handlers"""
+    from flask import render_template
     @app.errorhandler(400)
     def bad_request(error):
-        from flask import render_template
         return render_template('error/400.html'), 400
 
     @app.errorhandler(401)
     def unauthorized(error):
-        from flask import render_template
         return render_template('error/401.html'), 401
 
     @app.errorhandler(403)
     def forbidden(error):
-        from flask import render_template
         return render_template('error/403.html'), 403
 
     @app.errorhandler(404)
     def not_found(error):
-        from flask import render_template
         return render_template('error/404.html'), 404
 
     @app.errorhandler(500)
     def internal_error(error):
-        from flask import render_template
         db.session.rollback()
         return render_template('error/500.html'), 500
 
@@ -179,3 +178,21 @@ def configure_csrf_exemptions(app):
     csrf = app.extensions.get('csrf')
     if csrf:
         csrf.exempt('admin.log_error')
+
+def configure_jinja_filters(app):
+    """Configure custom Jinja2 filters"""
+    from jinja2 import Markup
+    import json
+
+    @app.template_filter('tojsonpretty')
+    def tojsonpretty_filter(value):
+        """Converts a Python object to a pretty-printed JSON string"""
+        if not value:
+            return ""
+        try:
+            # Use json.dumps for pretty printing and escape HTML characters
+            pretty_json = json.dumps(value, indent=2, sort_keys=True)
+            return Markup(f'<pre>{pretty_json}</pre>')
+        except Exception as e:
+            logger.error(f"Error formatting JSON for log data: {e}")
+            return Markup(f'<pre>Error formatting data: {e}</pre>')
