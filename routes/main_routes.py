@@ -27,6 +27,9 @@ def index():
 @login_required
 def dashboard():
     """Main dashboard view - redirect to ui dashboard"""
+    # Check if user is admin and redirect to admin dashboard
+    if current_user.is_admin_user():
+        return redirect(url_for('admin.dashboard'))
     return redirect(url_for('ui.dashboard'))
 
 @main_bp.route('/screening-list')
