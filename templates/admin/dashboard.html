@@ -157,130 +157,83 @@
 
             <!-- User Management Tab -->
             <div class="tab-pane fade {{ 'show active' if active_tab == 'users' else '' }}" id="nav-users" role="tabpanel" aria-labelledby="nav-users-tab">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h5 class="mb-0">
-                        <i class="fas fa-users me-2"></i>
-                        User Management
-                    </h5>
-                    <div>
-                        <a href="{{ url_for('admin.users') }}" class="btn btn-sm btn-outline-primary me-2">
-                            <i class="fas fa-external-link-alt me-1"></i>
-                            Manage All Users
-                        </a>
-                        <button class="btn btn-sm btn-primary">
-                            <i class="fas fa-plus me-1"></i>
-                            Add User
-                        </button>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-8">
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Username</th>
-                                        <th>Email</th>
-                                        <th>Role</th>
-                                        <th>Status</th>
-                                        <th>Last Login</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% if users %}
-                                        {% for user in users[:10] %}
-                                        <tr>
-                                            <td>
-                                                <strong>{{ user.username }}</strong>
-                                                {% if user.id == current_user.id %}
-                                                    <span class="badge bg-info ms-1">You</span>
-                                                {% endif %}
-                                            </td>
-                                            <td>{{ user.email }}</td>
-                                            <td>
-                                                <span class="badge bg-{{ 'danger' if user.role == 'admin' else 'primary' if user.role == 'MA' else 'secondary' }}">
-                                                    {{ user.role_display }}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span class="badge bg-{{ 'success' if user.is_active_user else 'danger' }}">
-                                                    {{ 'Active' if user.is_active_user else 'Inactive' }}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <small class="text-muted">
-                                                    {{ user.last_login.strftime('%m/%d/%Y') if user.last_login else 'Never' }}
-                                                </small>
-                                            </td>
-                                            <td>
-                                                <div class="btn-group btn-group-sm">
-                                                    <a href="{{ url_for('admin.users') }}" class="btn btn-outline-primary btn-sm">
-                                                        <i class="fas fa-edit"></i>
-                                                    </a>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                        {% if users|length > 10 %}
-                                        <tr>
-                                            <td colspan="6" class="text-center py-2">
-                                                <a href="{{ url_for('admin.users') }}" class="btn btn-sm btn-outline-primary">
-                                                    <i class="fas fa-users me-1"></i>
-                                                    View All {{ users|length }} Users
-                                                </a>
-                                            </td>
-                                        </tr>
-                                        {% endif %}
-                                    {% else %}
-                                        <tr>
-                                            <td colspan="6" class="text-center py-4">
-                                                <i class="fas fa-users fa-2x text-muted mb-2"></i>
-                                                <p class="text-muted mb-0">No users found</p>
-                                                <a href="{{ url_for('admin.users') }}" class="btn btn-sm btn-primary mt-2">
-                                                    <i class="fas fa-plus me-1"></i>
-                                                    Add First User
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    {% endif %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
+                <div class="row g-4">
+                    <div class="col-12">
                         <div class="card">
-                            <div class="card-header">
-                                <h6 class="mb-0">
-                                    <i class="fas fa-chart-pie me-2"></i>
-                                    User Statistics
-                                </h6>
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-users me-2"></i>
+                                    User Management
+                                </h5>
+                                <a href="{{ url_for('admin.users') }}" class="btn btn-outline-primary">
+                                    <i class="fas fa-cog me-1"></i>
+                                    Manage Users
+                                </a>
                             </div>
                             <div class="card-body">
-                                <div class="mb-3">
-                                    <div class="d-flex justify-content-between">
-                                        <span>Total Users</span>
-                                        <span class="badge bg-primary">{{ total_users or 0 }}</span>
+                                {% if users %}
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Username</th>
+                                                    <th>Email</th>
+                                                    <th>Role</th>
+                                                    <th>Status</th>
+                                                    <th>Last Login</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for user in users[:10] %}
+                                                <tr>
+                                                    <td>
+                                                        <strong>{{ user.username }}</strong>
+                                                        {% if user.id == current_user.id %}
+                                                            <span class="badge bg-info ms-1">You</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>{{ user.email }}</td>
+                                                    <td>
+                                                        <span class="badge bg-{{ 'danger' if user.role == 'admin' else 'primary' if user.role == 'MA' else 'secondary' }}">
+                                                            {{ user.role_display }}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge bg-{{ 'success' if user.is_active_user else 'danger' }}">
+                                                            {{ 'Active' if user.is_active_user else 'Inactive' }}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <small class="text-muted">
+                                                            {{ user.last_login.strftime('%m/%d/%Y') if user.last_login else 'Never' }}
+                                                        </small>
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                                {% if users|length > 10 %}
+                                                <tr>
+                                                    <td colspan="5" class="text-center py-2">
+                                                        <a href="{{ url_for('admin.users') }}" class="btn btn-sm btn-outline-primary">
+                                                            <i class="fas fa-users me-1"></i>
+                                                            View All {{ users|length }} Users
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                                {% endif %}
+                                            </tbody>
+                                        </table>
                                     </div>
-                                </div>
-                                <div class="mb-3">
-                                    <div class="d-flex justify-content-between">
-                                        <span>Active Users</span>
-                                        <span class="badge bg-success">{{ active_users or 0 }}</span>
+                                {% else %}
+                                    <div class="text-center py-4">
+                                        <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                                        <h5 class="text-muted">No users found</h5>
+                                        <p class="text-muted mb-0">No users found</p>
+                                        <a href="{{ url_for('admin.users') }}" class="btn btn-sm btn-outline-primary mt-2">
+                                            <i class="fas fa-cog me-1"></i>
+                                            Manage Users
+                                        </a>
                                     </div>
-                                </div>
-                                <div class="mb-3">
-                                    <div class="d-flex justify-content-between">
-                                        <span>Admin Users</span>
-                                        <span class="badge bg-warning">{{ admin_users or 0 }}</span>
-                                    </div>
-                                </div>
-                                <div class="mb-3">
-                                    <div class="d-flex justify-content-between">
-                                        <span>Inactive Users</span>
-                                        <span class="badge bg-secondary">{{ inactive_users or 0 }}</span>
-                                    </div>
-                                </div>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -305,7 +258,7 @@
                         </button>
                     </div>
                 </div>
-                
+
                 <div class="row">
                     <div class="col-lg-8 mb-4">
                         <div class="card">
@@ -390,7 +343,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="col-lg-4">
                         <div class="card">
                             <div class="card-header">
@@ -430,7 +383,7 @@
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="card mt-3">
                             <div class="card-header">
                                 <h6 class="mb-0">
@@ -453,7 +406,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- PHI Statistics Tab -->
             <div class="tab-pane fade {{ 'show active' if active_tab == 'phi' else '' }}" id="nav-phi" role="tabpanel" aria-labelledby="nav-phi-tab">
                 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -467,7 +420,7 @@
                         <button class="btn btn-outline-secondary">Month</button>
                     </div>
                 </div>
-                
+
                 <!-- PHI Control Switch -->
                 <div class="alert alert-info mb-4">
                     <div class="row align-items-center">
@@ -490,7 +443,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="row">
                     <div class="col-lg-3 col-md-6 mb-4">
                         <div class="card text-center">
@@ -588,7 +541,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Additional Charts Row -->
                 <div class="row mt-4">
                     <div class="col-lg-6">
@@ -622,7 +575,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- HIPAA Compliance Card -->
                 <div class="row mt-4">
                     <div class="col-lg-6">
@@ -647,7 +600,7 @@
                                     PHI redaction is disabled. This may compromise HIPAA compliance.
                                 </div>
                                 {% endif %}
-                                
+
                                 <div class="small">
                                     <strong>Last Updated:</strong><br>
                                     {{ phi_settings.updated_at.strftime('%m/%d/%Y %H:%M') if phi_settings and phi_settings.updated_at else 'Never' }}
@@ -683,7 +636,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Customer Analytics Tab -->
             <div class="tab-pane fade {{ 'show active' if active_tab == 'analytics' else '' }}" id="nav-analytics" role="tabpanel" aria-labelledby="nav-analytics-tab">
                 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -785,7 +738,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="row">
                     <div class="col-lg-8">
                         <div class="card">
@@ -859,7 +812,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Additional Analytics Charts -->
                 <div class="row mt-4">
                     <div class="col-lg-6">
@@ -914,12 +867,12 @@
                         <label for="presetName" class="form-label">Preset Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="presetName" required>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label for="presetDescription" class="form-label">Description</label>
                         <textarea class="form-control" id="presetDescription" rows="3" placeholder="Optional description of this preset..."></textarea>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label for="presetSpecialty" class="form-label">Specialty</label>
                         <select class="form-control" id="presetSpecialty">
@@ -931,7 +884,7 @@
                             <option value="preventive">Preventive Care</option>
                         </select>
                     </div>
-                    
+
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="presetShared">
                         <label class="form-check-label" for="presetShared">
@@ -970,7 +923,7 @@
                         <input type="file" class="form-control" id="presetFile" accept=".json,.yaml,.yml" required>
                         <div class="form-text">Upload a JSON or YAML preset file</div>
                     </div>
-                    
+
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" id="overwriteExisting">
                         <label class="form-check-label" for="overwriteExisting">
@@ -978,7 +931,7 @@
                         </label>
                         <div class="form-text">Replace presets with the same name</div>
                     </div>
-                    
+
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="importToTypes">
                         <label class="form-check-label" for="importToTypes">
@@ -1102,7 +1055,7 @@ function showRealTimeIndicator(message) {
     indicator.className = 'position-fixed top-50 end-0 translate-middle-y bg-info text-white p-3 rounded-start shadow';
     indicator.innerHTML = `<i class="fas fa-sync fa-spin me-2"></i>${message}`;
     document.body.appendChild(indicator);
-    
+
     setTimeout(() => {
         indicator.remove();
     }, 3000);
@@ -1146,7 +1099,7 @@ function loadCustomerAnalytics() {
 // PHI Settings Toggle
 document.getElementById('phiEnabled').addEventListener('change', function() {
     const enabled = this.checked;
-    
+
     // Show confirmation for disabling PHI
     if (!enabled) {
         if (!confirm('Warning: Disabling PHI redaction may compromise HIPAA compliance. Are you sure?')) {
@@ -1154,12 +1107,12 @@ document.getElementById('phiEnabled').addEventListener('change', function() {
             return;
         }
     }
-    
+
     // Update button state
     const statusBadge = document.querySelector('.badge');
     const originalHtml = statusBadge.innerHTML;
     statusBadge.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>UPDATING...';
-    
+
     // Send API request
     fetch('/admin/api/update-phi-settings', {
         method: 'POST',
@@ -1176,10 +1129,10 @@ document.getElementById('phiEnabled').addEventListener('change', function() {
             statusBadge.className = enabled ? 'badge bg-success fs-6' : 'badge bg-danger fs-6';
             statusBadge.innerHTML = '<i class="fas fa-shield-alt me-1"></i>' + 
                                   (enabled ? 'PROTECTED' : 'UNPROTECTED');
-            
+
             // Show success message
             showToast(data.message, 'success');
-            
+
             // Refresh PHI statistics
             setTimeout(() => {
                 location.reload();
@@ -1221,7 +1174,7 @@ function showToast(message, type = 'info') {
             </div>
         </div>
     `;
-    
+
     // Create toast container if it doesn't exist
     let toastContainer = document.getElementById('toastContainer');
     if (!toastContainer) {
@@ -1230,16 +1183,16 @@ function showToast(message, type = 'info') {
         toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
         document.body.appendChild(toastContainer);
     }
-    
+
     // Add toast to container
     const toastElement = document.createElement('div');
     toastElement.innerHTML = toastHtml;
     toastContainer.appendChild(toastElement.firstElementChild);
-    
+
     // Initialize and show toast
     const toast = new bootstrap.Toast(toastContainer.lastElementChild);
     toast.show();
-    
+
     // Remove toast element after it's hidden
     toastContainer.lastElementChild.addEventListener('hidden.bs.toast', function() {
         this.remove();
@@ -1305,7 +1258,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Only initialize charts if we're on the PHI tab
     const phiTab = document.getElementById('nav-phi');
     if (!phiTab) return;
-    
+
     // PHI Trends Chart (Line Chart)
     const trendsCtx = document.getElementById('phiTrendsChart');
     if (trendsCtx) {
@@ -1359,7 +1312,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // PHI Type Distribution Chart (Doughnut Chart)
     const typeCtx = document.getElementById('phiTypeChart');
     if (typeCtx) {
@@ -1412,7 +1365,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // Processing Efficiency Chart (Bar Chart)
     const efficiencyCtx = document.getElementById('efficiencyChart');
     if (efficiencyCtx) {
@@ -1493,10 +1446,10 @@ document.querySelectorAll('.btn-group-sm .btn').forEach(btn => {
         document.querySelectorAll('.btn-group-sm .btn').forEach(b => {
             b.classList.remove('active');
         });
-        
+
         // Add active class to clicked button
         this.classList.add('active');
-        
+
         // Here you would typically refresh the charts with new data
         // For now, we'll just show a toast notification
         showToast(`Showing PHI statistics for: ${this.textContent}`, 'info');
@@ -1509,7 +1462,7 @@ if (phiEnabledSwitch) {
     phiEnabledSwitch.addEventListener('change', function() {
         const isEnabled = this.checked;
         const statusBadge = this.closest('.alert').querySelector('.badge');
-        
+
         if (isEnabled) {
             statusBadge.className = 'badge bg-success fs-6';
             statusBadge.innerHTML = '<i class="fas fa-shield-alt me-1"></i>PROTECTED';
@@ -1519,7 +1472,7 @@ if (phiEnabledSwitch) {
             statusBadge.innerHTML = '<i class="fas fa-shield-alt me-1"></i>UNPROTECTED';
             showToast('Warning: PHI redaction disabled', 'warning');
         }
-        
+
         // Here you would typically make an API call to update the backend
         // updatePHISettings(isEnabled);
     });
@@ -1573,7 +1526,7 @@ function initializeAnalyticsCharts() {
     // Only initialize if we're on the analytics tab
     const analyticsTab = document.getElementById('nav-analytics');
     if (!analyticsTab) return;
-    
+
     // Time & Cost Savings Trends Chart (Main Chart)
     const savingsTrendsCtx = document.getElementById('savingsTrendsChart');
     if (savingsTrendsCtx) {
@@ -1661,7 +1614,7 @@ function initializeAnalyticsCharts() {
             }
         });
     }
-    
+
     // Efficiency Breakdown Chart (Pie Chart)
     const efficiencyCtx = document.getElementById('efficiencyBreakdownChart');
     if (efficiencyCtx) {
@@ -1711,7 +1664,7 @@ function initializeAnalyticsCharts() {
             }
         });
     }
-    
+
     // Monthly Labor Savings Chart (Bar Chart)
     const monthlySavingsCtx = document.getElementById('monthlySavingsChart');
     if (monthlySavingsCtx) {
@@ -1775,7 +1728,7 @@ function initializeAnalyticsCharts() {
             }
         });
     }
-    
+
     // Cumulative Value Impact Chart (Area Chart)
     const cumulativeCtx = document.getElementById('cumulativeValueChart');
     if (cumulativeCtx) {
@@ -1859,12 +1812,12 @@ document.querySelectorAll('[data-period]').forEach(btn => {
         document.querySelectorAll('[data-period]').forEach(b => {
             b.classList.remove('active');
         });
-        
+
         // Add active class to clicked button
         this.classList.add('active');
-        
+
         const period = this.getAttribute('data-period');
-        
+
         // Show different data based on period
         let message = '';
         switch(period) {
@@ -1878,9 +1831,9 @@ document.querySelectorAll('[data-period]').forEach(btn => {
                 message = 'Showing yearly analytics: 6,000 patients, $12,510 saved';
                 break;
         }
-        
+
         showToast(message, 'info');
-        
+
         // Here you would typically update chart data
         // For now, we'll just reinitialize with the same data
         setTimeout(initializeAnalyticsCharts, 100);
