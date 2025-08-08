@@ -839,8 +839,19 @@ class ScreeningPreset(db.Model):
         """Get number of screening types in this preset"""
         if not self.screening_data:
             return 0
+        
+        # Handle new format: screening_data is a dict with 'screening_types' key
+        if isinstance(self.screening_data, dict):
+            if 'screening_types' in self.screening_data:
+                screening_types = self.screening_data['screening_types']
+                return len(screening_types) if isinstance(screening_types, list) else 0
+            # If it's a dict but no 'screening_types' key, it's probably a single screening
+            return 1
+        
+        # Handle legacy format: screening_data is directly a list of screening types  
         if isinstance(self.screening_data, list):
             return len(self.screening_data)
+        
         return 1 if self.screening_data else 0
 
     @property
@@ -855,7 +866,15 @@ class ScreeningPreset(db.Model):
         if not self.screening_data:
             return []
         
-        # Handle both single screening type and array of screening types
+        # Handle new format: screening_data is a dict with 'screening_types' key
+        if isinstance(self.screening_data, dict):
+            if 'screening_types' in self.screening_data:
+                screening_types = self.screening_data['screening_types']
+                return screening_types if isinstance(screening_types, list) else []
+            # If it's a dict but no 'screening_types' key, treat the whole dict as one screening
+            return [self.screening_data]
+        
+        # Handle legacy format: screening_data is directly a list of screening types
         if isinstance(self.screening_data, list):
             return self.screening_data
         else:
@@ -1092,6 +1111,10 @@ class ScreeningPreset(db.Model):
         if not self.preset_metadata:
             return False
         return self.preset_metadata.get('approval_status') == 'pending'
+    
+    def can_request_approval(self):
+        """Check if preset can request global approval"""
+        return not self.shared and not self.is_pending_approval()
     
     def get_approval_status(self):
         """Get current approval status"""

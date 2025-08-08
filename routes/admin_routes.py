@@ -1200,36 +1200,19 @@ def users_list():
 @admin_bp.route('/presets')
 @login_required
 @admin_required
-def list_presets():
-    """List all screening presets - API endpoint"""
+def view_presets():
+    """View all screening presets - Web interface"""
     try:
-        from sqlalchemy import desc as sql_desc
-        presets = ScreeningPreset.query.order_by(sql_desc(ScreeningPreset.updated_at)).all()
+        # Get presets for this organization
+        org_id = current_user.org_id
+        presets = ScreeningPreset.query.filter_by(org_id=org_id).order_by(ScreeningPreset.updated_at.desc()).all()
         
-        preset_data = []
-        for preset in presets:
-            preset_data.append({
-                'id': preset.id,
-                'name': preset.name,
-                'description': preset.description,
-                'specialty': preset.specialty,
-                'specialty_display': preset.specialty_display,
-                'shared': preset.shared,
-                'screening_count': preset.screening_count,
-                'created_at': preset.created_at.isoformat() if preset.created_at else None,
-                'updated_at': preset.updated_at.isoformat() if preset.updated_at else None,
-                'creator': preset.creator.username if preset.creator else 'Unknown'
-            })
-        
-        return jsonify({
-            'success': True,
-            'presets': preset_data,
-            'total_count': len(preset_data)
-        })
+        return render_template('admin/presets.html', presets=presets)
         
     except Exception as e:
-        logger.error(f"Error listing presets: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        logger.error(f"Error viewing presets: {str(e)}")
+        flash(f'Error loading presets: {str(e)}', 'error')
+        return redirect(url_for('admin.dashboard_presets'))
 
 @admin_bp.route('/presets', methods=['POST'])
 @login_required
@@ -1574,3 +1557,58 @@ def export_preset_for_approval(preset_id):
         logger.error(f"Error exporting preset for approval: {str(e)}")
         flash('Error exporting preset for approval', 'error')
         return redirect(url_for('admin.dashboard_presets'))
+
+@admin_bp.route('/presets/<int:preset_id>/apply-to-organization', methods=['POST'])
+@login_required
+@admin_required
+def apply_preset_to_organization(preset_id):
+    """Apply preset to all users in the organization"""
+    try:
+        preset = ScreeningPreset.query.filter_by(
+            id=preset_id, org_id=current_user.org_id
+        ).first_or_404()
+        
+        # Import screening types from this preset to the organization
+        result = preset.import_to_screening_types(
+            overwrite_existing=False,
+            created_by=current_user.id
+        )
+        
+        if result['success']:
+            message_parts = []
+            if result['imported_count'] > 0:
+                message_parts.append(f"{result['imported_count']} screening types imported")
+            if result['updated_count'] > 0:
+                message_parts.append(f"{result['updated_count']} screening types updated")
+            if result['skipped_count'] > 0:
+                message_parts.append(f"{result['skipped_count']} screening types skipped (already exist)")
+            
+            success_message = f'Successfully applied preset "{preset.name}" to organization: ' + ', '.join(message_parts)
+            
+            # Log the action
+            log_admin_event(
+                event_type='apply_preset_to_organization',
+                user_id=current_user.id,
+                org_id=current_user.org_id,
+                ip=request.remote_addr,
+                data={
+                    'preset_name': preset.name,
+                    'preset_id': preset.id,
+                    'imported_count': result['imported_count'],
+                    'updated_count': result['updated_count'],
+                    'skipped_count': result['skipped_count'],
+                    'description': success_message
+                }
+            )
+            
+            flash(success_message, 'success')
+        else:
+            error_message = f'Failed to apply preset "{preset.name}": ' + '; '.join(result.get('errors', ['Unknown error']))
+            flash(error_message, 'error')
+        
+        return redirect(url_for('admin.view_presets'))
+        
+    except Exception as e:
+        logger.error(f"Error applying preset to organization: {str(e)}")
+        flash(f'Error applying preset: {str(e)}', 'error')
+        return redirect(url_for('admin.view_presets'))

@@ -1,0 +1,351 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Screening Presets - HealthPrep{% endblock %}
+
+{% block extra_css %}
+<style>
+.preset-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.preset-card:hover {
+    border-color: #007bff;
+    box-shadow: 0 2px 8px rgba(0,123,255,0.15);
+}
+
+.screening-type-item {
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    background-color: #f8f9fa;
+}
+
+.screening-type-item:last-child {
+    margin-bottom: 0;
+}
+
+.keyword-tag {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    margin: 2px;
+    background-color: #e9ecef;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.condition-tag {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    margin: 2px;
+    background-color: #fff3cd;
+    border-radius: 3px;
+    display: inline-block;
+    color: #856404;
+}
+
+.collapsible-content {
+    max-height: 200px;
+    overflow-y: auto;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="fas fa-cogs me-2"></i>Screening Presets</h1>
+    <div>
+        <a href="{{ url_for('admin.dashboard_presets') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+        </a>
+        <a href="{{ url_for('admin.create_preset_from_types') }}" class="btn btn-primary ms-2">
+            <i class="fas fa-plus me-1"></i>Create New Preset
+        </a>
+    </div>
+</div>
+
+{% if presets %}
+    <div class="row">
+        {% for preset in presets %}
+        <div class="col-lg-6 mb-4">
+            <div class="preset-card card h-100">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">{{ preset.name }}</h5>
+                        <div>
+                            <span class="badge bg-info">{{ preset.specialty_display }}</span>
+                            <span class="badge bg-primary">{{ preset.screening_count }} types</span>
+                        </div>
+                    </div>
+                    {% if preset.description %}
+                    <small class="text-muted">{{ preset.description }}</small>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <!-- Preset Metadata -->
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <small class="text-muted">Created:</small><br>
+                            <small>{{ preset.created_at.strftime('%m/%d/%Y') if preset.created_at else 'N/A' }}</small>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">Creator:</small><br>
+                            <small>{{ preset.creator.username if preset.creator else 'Unknown' }}</small>
+                        </div>
+                    </div>
+
+                    <!-- Screening Types Content -->
+                    <div class="mb-3">
+                        <h6 class="mb-2">
+                            <i class="fas fa-list me-1"></i>
+                            Screening Types ({{ preset.screening_count }})
+                        </h6>
+                        
+                        {% if preset.screening_count > 0 %}
+                            <div class="collapsible-content">
+                                {% for st in preset.get_screening_types() %}
+                                <div class="screening-type-item">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <strong>{{ st.name }}</strong>
+                                        <div>
+                                            {% if st.eligible_genders and st.eligible_genders != 'both' %}
+                                                <span class="badge bg-info badge-sm">{{ st.eligible_genders }}</span>
+                                            {% endif %}
+                                            {% if st.frequency_years %}
+                                                <span class="badge bg-primary badge-sm">
+                                                    {% if st.frequency_years == 1.0 %}
+                                                        Annual
+                                                    {% elif st.frequency_years == 0.5 %}
+                                                        Semi-annual
+                                                    {% elif st.frequency_years >= 1.0 %}
+                                                        {{ st.frequency_years|int }} years
+                                                    {% else %}
+                                                        {{ (st.frequency_years * 12)|int }} months
+                                                    {% endif %}
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    {% if st.min_age or st.max_age %}
+                                    <div class="mb-2">
+                                        <small class="text-muted">Age Range:</small>
+                                        <small>
+                                            {% if st.min_age and st.max_age %}
+                                                {{ st.min_age }}-{{ st.max_age }} years
+                                            {% elif st.min_age %}
+                                                {{ st.min_age }}+ years
+                                            {% else %}
+                                                Up to {{ st.max_age }} years
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if st.keywords %}
+                                    <div class="mb-2">
+                                        <small class="text-muted">Keywords ({{ st.keywords|length }}):</small><br>
+                                        {% for keyword in st.keywords[:5] %}
+                                            <span class="keyword-tag">{{ keyword }}</span>
+                                        {% endfor %}
+                                        {% if st.keywords|length > 5 %}
+                                            <span class="keyword-tag">... {{ st.keywords|length - 5 }} more</span>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if st.trigger_conditions %}
+                                    <div>
+                                        <small class="text-muted">Conditions ({{ st.trigger_conditions|length }}):</small><br>
+                                        {% for condition in st.trigger_conditions[:3] %}
+                                            <span class="condition-tag">{{ condition }}</span>
+                                        {% endfor %}
+                                        {% if st.trigger_conditions|length > 3 %}
+                                            <span class="condition-tag">... {{ st.trigger_conditions|length - 3 }} more</span>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                This preset contains no screening types.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            {% if preset.shared %}
+                                <span class="badge bg-success">Global</span>
+                            {% elif preset.is_pending_approval() %}
+                                <span class="badge bg-warning">Pending Approval</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Organization</span>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="btn-group btn-group-sm">
+                            <!-- Export for Root Admin Approval -->
+                            {% if not preset.shared and not preset.is_pending_approval() %}
+                            <a href="{{ url_for('admin.export_preset_for_approval', preset_id=preset.id) }}" 
+                               class="btn btn-outline-warning" title="Send to Root Admin for Global Approval">
+                                <i class="fas fa-paper-plane"></i> Request Global Approval
+                            </a>
+                            {% endif %}
+                            
+                            <!-- Apply to Organization Users -->
+                            <button class="btn btn-outline-success" 
+                                    onclick="applyToOrganization({{ preset.id }}, '{{ preset.name }}')"
+                                    title="Apply this preset to all users in your organization">
+                                <i class="fas fa-users"></i> Apply to Organization
+                            </button>
+                            
+                            <!-- Download Preset -->
+                            <a href="{{ url_for('admin.export_preset', preset_id=preset.id) }}" 
+                               class="btn btn-outline-primary" title="Download Preset">
+                                <i class="fas fa-download"></i> Export
+                            </a>
+                            
+                            <!-- Delete Preset -->
+                            <button class="btn btn-outline-danger" 
+                                    onclick="deletePreset({{ preset.id }}, '{{ preset.name }}')"
+                                    title="Delete Preset">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-cogs fa-3x text-muted mb-3"></i>
+        <h3 class="text-muted">No Presets Found</h3>
+        <p class="text-muted">Create your first screening preset to standardize care protocols.</p>
+        <div class="mt-3">
+            <a href="{{ url_for('admin.create_preset_from_types') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>Create First Preset
+            </a>
+        </div>
+    </div>
+{% endif %}
+
+<!-- Apply to Organization Confirmation Modal -->
+<div class="modal fade" id="applyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Apply Preset to Organization</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to apply the preset <strong id="applyPresetName"></strong> to all users in your organization?</p>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    This will make all screening types from this preset available to all users in your organization.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="confirmApply">Apply to Organization</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Delete Preset</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the preset <strong id="deletePresetName"></strong>?</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    This action cannot be undone. The preset will be permanently deleted.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDelete">Delete Preset</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentPresetId = null;
+
+function applyToOrganization(presetId, presetName) {
+    currentPresetId = presetId;
+    document.getElementById('applyPresetName').textContent = presetName;
+    const modal = new bootstrap.Modal(document.getElementById('applyModal'));
+    modal.show();
+}
+
+function deletePreset(presetId, presetName) {
+    currentPresetId = presetId;
+    document.getElementById('deletePresetName').textContent = presetName;
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
+
+document.getElementById('confirmApply').addEventListener('click', function() {
+    if (currentPresetId) {
+        // Create form and submit to apply preset to organization
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/admin/presets/${currentPresetId}/apply-to-organization`;
+        
+        // Add CSRF token
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrf_token';
+        csrfInput.value = '{{ csrf_token() }}';
+        form.appendChild(csrfInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+});
+
+document.getElementById('confirmDelete').addEventListener('click', function() {
+    if (currentPresetId) {
+        // Create form and submit to delete preset
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/admin/presets/${currentPresetId}`;
+        
+        // Add method override for DELETE
+        const methodInput = document.createElement('input');
+        methodInput.type = 'hidden';
+        methodInput.name = '_method';
+        methodInput.value = 'DELETE';
+        form.appendChild(methodInput);
+        
+        // Add CSRF token
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrf_token';
+        csrfInput.value = '{{ csrf_token() }}';
+        form.appendChild(csrfInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+});
+</script>
+
+{% endblock %}
