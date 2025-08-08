@@ -51,7 +51,9 @@ def login():
                 return redirect(next_page)
             else:
                 # Redirect based on user role
-                if user.is_admin_user():
+                if user.is_root_admin_user():
+                    return redirect(url_for('root_admin.dashboard'))
+                elif user.is_admin_user():
                     return redirect(url_for('admin.dashboard'))
                 else:
                     return redirect(url_for('ui.dashboard'))
@@ -89,12 +91,26 @@ def register():
             flash('Email already registered. Please use a different email.', 'error')
             return render_template('auth/register.html', form=form)
         
-        # Create new user
-        user = User(
-            username=form.username.data,
-            email=form.email.data,
-            is_admin=False  # Default to regular user
-        )
+        # Create new user (requires org_id for regular users)
+        # Note: Registration is for regular users within an organization
+        # Root admins should be created through setup scripts
+        from models import Organization
+        
+        # Get default organization or first available organization
+        default_org = Organization.query.filter_by(name='Default Organization').first()
+        if not default_org:
+            default_org = Organization.query.first()
+        
+        if not default_org:
+            flash('No organization available for registration. Please contact administrator.', 'error')
+            return render_template('auth/register.html', form=form)
+        
+        user = User()
+        user.username = form.username.data
+        user.email = form.email.data
+        user.role = 'nurse'  # Default role
+        user.is_admin = False
+        user.org_id = default_org.id
         user.set_password(form.password.data)
         
         try:
@@ -147,6 +163,7 @@ def change_password():
                 log_admin_event(
                     event_type='password_changed',
                     user_id=current_user.id,
+                    org_id=getattr(current_user, 'org_id', 1),
                     ip=request.remote_addr,
                     data={'username': current_user.username, 'user_agent': request.user_agent.string, 'description': f'Password changed for user {current_user.username}'}
                 )

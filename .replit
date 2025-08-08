@@ -9,6 +9,7 @@ deploymentTarget = "autoscale"
 run = ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
 
 [workflows]
+runButton = "Project"
 
 [[workflows.workflow]]
 name = "Flask Dev Server"
@@ -44,6 +45,23 @@ args = "pkill -f \"python.*main.py\" || true"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "sleep 2"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "healthprep-server"
+
+[[workflows.workflow]]
+name = "healthprep-server"
+author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
