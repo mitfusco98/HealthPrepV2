@@ -342,17 +342,13 @@ function deleteUser(userId, username) {
 function confirmDeleteUser() {
     if (!deletingUserId) return;
 
-    const button = event.target;
+    const button = document.querySelector('#deleteUserModal .btn-danger');
     const originalText = button.innerHTML;
-    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Deleting...';
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Deleting...';
     button.disabled = true;
 
-    // Get CSRF token from form or meta tag
-    let csrfToken = document.querySelector('input[name="csrf_token"]')?.value;
-    if (!csrfToken) {
-        const metaToken = document.querySelector('meta[name=csrf-token]');
-        csrfToken = metaToken ? metaToken.getAttribute('content') : '';
-    }
+    // Get CSRF token
+    const csrfToken = document.querySelector('meta[name=csrf-token]')?.getAttribute('content');
 
     fetch(`/admin/users/${deletingUserId}/delete`, {
         method: 'POST',
@@ -363,19 +359,36 @@ function confirmDeleteUser() {
         body: JSON.stringify({})
     })
     .then(response => {
+        console.log('Delete response status:', response.status);
+        console.log('Delete response headers:', response.headers.get('content-type'));
+
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            return response.json().then(err => Promise.reject(err));
         }
         return response.json();
     })
     .then(data => {
-        if (data.success) {
-            showToast('User deleted successfully', 'success');
+        console.log('Delete response data:', data);
 
-            // Remove row from table
+        if (data.success) {
+            showToast(data.message || 'User deleted successfully', 'success');
+
+            // Remove row from table with animation
             const row = document.querySelector(`tr[data-user-id="${deletingUserId}"]`);
             if (row) {
-                row.remove();
+                row.style.transition = 'opacity 0.3s';
+                row.style.opacity = '0.5';
+                setTimeout(() => {
+                    row.remove();
+
+                    // Check if table is now empty
+                    const remainingRows = document.querySelectorAll('tbody tr[data-user-id]');
+                    if (remainingRows.length === 0) {
+                        // Show empty state or reload
+                        const tableBody = document.querySelector('tbody');
+                        tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No users found</td></tr>';
+                    }
+                }, 300);
             }
 
             // Close modal
@@ -383,19 +396,13 @@ function confirmDeleteUser() {
             if (modal) {
                 modal.hide();
             }
-            
-            // Reload page if no rows left or if there were errors
-            const remainingRows = document.querySelectorAll('tbody tr[data-user-id]');
-            if (remainingRows.length === 0) {
-                window.location.reload();
-            }
         } else {
             showToast(data.error || 'Error deleting user', 'error');
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        showToast(`Error deleting user: ${error.message}`, 'error');
+        console.error('Delete user error:', error);
+        showToast(error.error || error.message || 'Error deleting user', 'error');
     })
     .finally(() => {
         button.innerHTML = originalText;
@@ -479,14 +486,14 @@ function showToast(message, type = 'info') {
     if (window.showToast && typeof window.showToast === 'function') {
         return window.showToast(message, type);
     }
-    
+
     // Fallback to alert for now
     if (type === 'error') {
         alert('Error: ' + message);
     } else {
         alert(message);
     }
-    
+
     // Try to create a simple toast notification
     const toast = document.createElement('div');
     toast.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} alert-dismissible fade show position-fixed`;
@@ -498,7 +505,7 @@ function showToast(message, type = 'info') {
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
     document.body.appendChild(toast);
-    
+
     // Auto-remove after 5 seconds
     setTimeout(() => {
         if (toast.parentNode) {

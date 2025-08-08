@@ -547,12 +547,12 @@ def delete_user(user_id):
         
         # Check organization access
         org_id = getattr(current_user, 'org_id', 1)
-        if user.org_id != org_id:
-            return jsonify({'success': False, 'error': 'Access denied'})
+        if hasattr(user, 'org_id') and user.org_id != org_id:
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
 
         # Don't allow deleting yourself
         if user.id == current_user.id:
-            return jsonify({'success': False, 'error': 'Cannot delete your own account'})
+            return jsonify({'success': False, 'error': 'Cannot delete your own account'}), 400
 
         username = user.username
         
@@ -572,12 +572,12 @@ def delete_user(user_id):
         db.session.delete(user)
         db.session.commit()
 
-        return jsonify({'success': True, 'message': f'User {username} deleted successfully'})
+        return jsonify({'success': True, 'message': f'User {username} deleted successfully'}), 200
 
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error deleting user {user_id}: {str(e)}")
-        return jsonify({'success': False, 'error': f'Error deleting user: {str(e)}'})
+        return jsonify({'success': False, 'error': f'Error deleting user: {str(e)}'}), 500
 
 
 @admin_bp.route('/users/<int:user_id>/toggle-status', methods=['POST'])
