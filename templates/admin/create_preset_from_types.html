@@ -63,6 +63,95 @@
     max-height: 300px;
     overflow-y: auto;
 }
+
+/* Stacked Variant Cards */
+.variant-stack {
+    position: relative;
+}
+
+.variant-card {
+    position: relative;
+    z-index: 1;
+    transition: all 0.3s ease;
+    margin-bottom: 4px;
+}
+
+.variant-card:not(:first-child) {
+    margin-top: -8px;
+    margin-left: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.variant-card:not(:first-child):not(:last-child) {
+    opacity: 0.85;
+}
+
+.variant-card:last-child:not(:first-child) {
+    opacity: 0.7;
+}
+
+.variant-stack:hover .variant-card {
+    margin-top: 0;
+    margin-left: 0;
+    opacity: 1;
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.variant-stack:hover .variant-card:not(:first-child) {
+    margin-top: 8px;
+}
+
+.variant-compact {
+    padding: 8px 12px;
+    min-height: auto;
+}
+
+.variant-compact .screening-details {
+    display: none;
+}
+
+.variant-compact .form-check-label {
+    font-size: 0.9rem;
+}
+
+.variant-stack:hover .variant-compact .screening-details {
+    display: block;
+}
+
+.variant-stack:hover .variant-compact {
+    padding: 15px;
+}
+
+.variant-header-compact {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    width: 100%;
+}
+
+.variant-author-compact {
+    font-size: 0.75rem;
+    color: var(--hp-text-muted);
+    margin-left: auto;
+}
+
+.stack-indicator {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background: var(--hp-primary);
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: bold;
+    z-index: 5;
+}
 </style>
 {% endblock %}
 
@@ -203,6 +292,8 @@
                                 {% endif %}
                             </div>
 
+                            {% if group.variant_count == 1 %}
+                            <!-- Single variant - display normally -->
                             <div class="row">
                                 {% for st in group.variants %}
                                 <div class="col-md-6 mb-3">
@@ -215,11 +306,6 @@
                                                     <div>
                                                         <div class="d-flex justify-content-between align-items-start mb-1">
                                                             <h6 class="mb-0">{{ st.name }}</h6>
-                                                            {% if group.variant_count > 1 %}
-                                                            <small class="text-muted ms-2">
-                                                                by {{ st.created_by_user.username if st.created_by_user else 'Unknown' }}
-                                                            </small>
-                                                            {% endif %}
                                                         </div>
 
                                                         <div class="d-flex align-items-center mb-1">
@@ -268,10 +354,6 @@
                                                                 </div>
                                                             </div>
                                                             {% endif %}
-
-                                                            {% if group.variant_count > 1 %}
-                                                            <small class="text-muted">Created {{ st.created_at.strftime('%Y-%m-%d') }}</small>
-                                                            {% endif %}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -281,6 +363,86 @@
                                 </div>
                                 {% endfor %}
                             </div>
+                            {% else %}
+                            <!-- Multiple variants - display as stacked cards -->
+                            <div class="row">
+                                <div class="col-md-8 mb-3">
+                                    <div class="variant-stack" style="position: relative;">
+                                        <div class="stack-indicator">{{ group.variant_count }}</div>
+                                        {% for st in group.variants %}
+                                        <div class="screening-type-card variant-card variant-compact" data-screening-id="{{ st.id }}">
+                                            <div class="form-check">
+                                                <input class="form-check-input screening-checkbox" type="checkbox" 
+                                                       name="screening_type_ids" value="{{ st.id }}" id="screening_{{ st.id }}">
+                                                <label class="form-check-label w-100" for="screening_{{ st.id }}">
+                                                    <div class="screening-type-info">
+                                                        <div>
+                                                            <div class="variant-header-compact">
+                                                                <h6 class="mb-0">{{ st.name }}</h6>
+                                                                <span class="variant-author-compact">
+                                                                    by {{ st.created_by_user.username if st.created_by_user else 'Unknown' }}
+                                                                </span>
+                                                            </div>
+
+                                                            <div class="d-flex align-items-center mb-1 mt-1">
+                                                                <span class="badge bg-primary frequency-badge me-2">{{ st.frequency_display }}</span>
+                                                                {% if st.eligible_genders and st.eligible_genders != 'both' %}
+                                                                    <span class="badge bg-info frequency-badge me-2">{{ st.eligible_genders }}</span>
+                                                                {% endif %}
+                                                                {% if st.min_age or st.max_age %}
+                                                                    <span class="badge bg-secondary frequency-badge">
+                                                                        {% if st.min_age and st.max_age %}
+                                                                            {{ st.min_age }}-{{ st.max_age }} years
+                                                                        {% elif st.min_age %}
+                                                                            {{ st.min_age }}+ years
+                                                                        {% else %}
+                                                                            Up to {{ st.max_age }} years
+                                                                        {% endif %}
+                                                                    </span>
+                                                                {% endif %}
+                                                            </div>
+
+                                                            <div class="screening-details mt-2">
+                                                                {% if st.keywords_list %}
+                                                                <div class="mb-2">
+                                                                    <small class="text-muted d-block mb-1">Keywords ({{ st.keywords_list|length }}):</small>
+                                                                    <div class="keyword-tags">
+                                                                        {% for keyword in st.keywords_list[:10] %}
+                                                                        <span class="badge bg-light text-dark me-1 mb-1" style="font-size: 0.7rem;">{{ keyword }}</span>
+                                                                        {% endfor %}
+                                                                        {% if st.keywords_list|length > 10 %}
+                                                                        <span class="badge bg-secondary me-1 mb-1" style="font-size: 0.7rem;">+{{ st.keywords_list|length - 10 }} more</span>
+                                                                        {% endif %}
+                                                                    </div>
+                                                                </div>
+                                                                {% endif %}
+
+                                                                {% if st.trigger_conditions_list %}
+                                                                <div class="mb-2">
+                                                                    <small class="text-muted d-block mb-1">Trigger Conditions ({{ st.trigger_conditions_list|length }}):</small>
+                                                                    <div class="condition-tags">
+                                                                        {% for condition in st.trigger_conditions_list[:5] %}
+                                                                        <span class="badge bg-warning text-dark me-1 mb-1" style="font-size: 0.7rem;">{{ condition }}</span>
+                                                                        {% endfor %}
+                                                                        {% if st.trigger_conditions_list|length > 5 %}
+                                                                        <span class="badge bg-secondary me-1 mb-1" style="font-size: 0.7rem;">+{{ st.trigger_conditions_list|length - 5 }} more</span>
+                                                                        {% endif %}
+                                                                    </div>
+                                                                </div>
+                                                                {% endif %}
+
+                                                                <small class="text-muted">Created {{ st.created_at.strftime('%Y-%m-%d') }}</small>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
                         </div>
                         {% endfor %}
                     {% else %}
