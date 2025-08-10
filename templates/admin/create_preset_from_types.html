@@ -86,7 +86,7 @@
     </div>
     <div class="card-body">
         <form method="GET" class="row g-3" id="filterForm">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label for="user_id" class="form-label">Filter by User</label>
                 <select class="form-select" name="user_id" id="user_id" onchange="document.getElementById('filterForm').submit();">
                     <option value="">All Users</option>
@@ -100,7 +100,18 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-6">
+            <div class="col-md-3">
+                <label for="screening_name" class="form-label">Filter by Screening Name</label>
+                <select class="form-select" name="screening_name" id="screening_name" onchange="document.getElementById('filterForm').submit();">
+                    <option value="">All Screening Types</option>
+                    {% for screening_name in available_screening_names %}
+                    <option value="{{ screening_name }}" {% if selected_screening_name == screening_name %}selected{% endif %}>
+                        {{ screening_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
                 <label for="q" class="form-label">Search Screening Types</label>
                 <input type="text" class="form-control" name="q" id="q" value="{{ search_query }}" 
                        placeholder="Search by name..." onkeyup="debounceSearch(this.value)">
@@ -109,7 +120,7 @@
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-search me-1"></i>Search
                 </button>
-                {% if selected_user_id or search_query %}
+                {% if selected_user_id or selected_screening_name or search_query %}
                 <a href="{{ url_for('admin.create_preset_from_types') }}" class="btn btn-outline-secondary ms-2">
                     <i class="fas fa-times"></i>
                 </a>
@@ -283,7 +294,7 @@
                     {% else %}
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle me-2"></i>
-                            {% if selected_user_id or search_query %}
+                            {% if selected_user_id or selected_screening_name or search_query %}
                                 No screening types found matching your filter criteria.
                                 <div class="mt-2">
                                     <a href="{{ url_for('admin.create_preset_from_types') }}" class="btn btn-outline-primary btn-sm">

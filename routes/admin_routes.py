@@ -1482,6 +1482,7 @@ def create_preset_from_types():
         if request.method == 'GET':
             # Get filter parameters
             user_filter = request.args.get('user_id', '').strip()
+            screening_name_filter = request.args.get('screening_name', '').strip()
             search_query = request.args.get('q', '').strip()
             
             # Determine admin scope
@@ -1500,11 +1501,25 @@ def create_preset_from_types():
                     User.role.in_(['admin', 'MA', 'nurse'])
                 ).order_by(User.username).all()
             
+            # Get available screening names for dropdown (unique base names)
+            available_screening_names = []
+            screening_names_query = base_query.filter_by(is_active=True)
+            if current_user.role != 'root_admin':
+                screening_names_query = screening_names_query.filter_by(org_id=current_user.org_id)
+            
+            # Get distinct screening names
+            from sqlalchemy import distinct
+            distinct_names = screening_names_query.with_entities(distinct(ScreeningType.name)).order_by(ScreeningType.name).all()
+            available_screening_names = [name[0] for name in distinct_names]
+            
             # Apply filters
             screening_types_query = base_query.filter_by(is_active=True)
             
             if user_filter and user_filter.isdigit():
                 screening_types_query = screening_types_query.filter_by(created_by=int(user_filter))
+            
+            if screening_name_filter:
+                screening_types_query = screening_types_query.filter_by(name=screening_name_filter)
             
             if search_query:
                 screening_types_query = screening_types_query.filter(
@@ -1520,7 +1535,9 @@ def create_preset_from_types():
             return render_template('admin/create_preset_from_types.html',
                                  grouped_types=grouped_types,
                                  available_users=available_users,
+                                 available_screening_names=available_screening_names,
                                  selected_user_id=user_filter,
+                                 selected_screening_name=screening_name_filter,
                                  search_query=search_query)
         
         # Handle POST - create preset from selected types
