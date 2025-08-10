@@ -111,18 +111,10 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-4">
-                <label for="q" class="form-label">Search Screening Types</label>
-                <input type="text" class="form-control" name="q" id="q" value="{{ search_query }}" 
-                       placeholder="Search by name..." onkeyup="debounceSearch(this.value)">
-            </div>
-            <div class="col-md-2 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-search me-1"></i>Search
-                </button>
-                {% if selected_user_id or selected_screening_name or search_query %}
-                <a href="{{ url_for('admin.create_preset_from_types') }}" class="btn btn-outline-secondary ms-2">
-                    <i class="fas fa-times"></i>
+            <div class="col-md-2">
+                {% if selected_user_id or selected_screening_name %}
+                <a href="{{ url_for('admin.create_preset_from_types') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-times"></i> Clear Filters
                 </a>
                 {% endif %}
             </div>
@@ -210,7 +202,7 @@
                                 </small>
                                 {% endif %}
                             </div>
-                            
+
                             <div class="row">
                                 {% for st in group.variants %}
                                 <div class="col-md-6 mb-3">
@@ -229,7 +221,7 @@
                                                             </small>
                                                             {% endif %}
                                                         </div>
-                                                        
+
                                                         <div class="d-flex align-items-center mb-1">
                                                             <span class="badge bg-primary frequency-badge me-2">{{ st.frequency_display }}</span>
                                                             {% if st.eligible_genders and st.eligible_genders != 'both' %}
@@ -247,7 +239,7 @@
                                                                 </span>
                                                             {% endif %}
                                                         </div>
-                                                        
+
                                                         <div class="screening-details mt-2">
                                                             {% if st.keywords_list %}
                                                             <div class="mb-2">
@@ -262,7 +254,7 @@
                                                                 </div>
                                                             </div>
                                                             {% endif %}
-                                                            
+
                                                             {% if st.trigger_conditions_list %}
                                                             <div class="mb-2">
                                                                 <small class="text-muted d-block mb-1">Trigger Conditions ({{ st.trigger_conditions_list|length }}):</small>
@@ -276,7 +268,7 @@
                                                                 </div>
                                                             </div>
                                                             {% endif %}
-                                                            
+
                                                             {% if group.variant_count > 1 %}
                                                             <small class="text-muted">Created {{ st.created_at.strftime('%Y-%m-%d') }}</small>
                                                             {% endif %}
@@ -294,7 +286,7 @@
                     {% else %}
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle me-2"></i>
-                            {% if selected_user_id or selected_screening_name or search_query %}
+                            {% if selected_user_id or selected_screening_name %}
                                 No screening types found matching your filter criteria.
                                 <div class="mt-2">
                                     <a href="{{ url_for('admin.create_preset_from_types') }}" class="btn btn-outline-primary btn-sm">
@@ -342,7 +334,7 @@
                         <span>Selected Types:</span>
                         <span class="badge bg-primary" id="selectedCount">0</span>
                     </div>
-                    
+
                     <div class="preset-preview">
                         <div id="selectedList" class="text-muted">
                             No screening types selected
@@ -378,17 +370,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectedCountEl = document.getElementById('selectedCount');
     const selectedListEl = document.getElementById('selectedList');
     const createButton = document.getElementById('createButton');
-    
+
     function updateSelection() {
         const selected = Array.from(checkboxes).filter(cb => cb.checked);
         const count = selected.length;
-        
+
         // Update count
         selectedCountEl.textContent = count;
-        
+
         // Update button state
         createButton.disabled = count === 0;
-        
+
         // Update selection list
         if (count === 0) {
             selectedListEl.innerHTML = '<em class="text-muted">No screening types selected</em>';
@@ -398,12 +390,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 const nameEl = card.querySelector('h6');
                 return nameEl.textContent.trim();
             });
-            
+
             selectedListEl.innerHTML = names.map(name => 
                 `<div class="small mb-1"><i class="fas fa-check text-success me-1"></i>${name}</div>`
             ).join('');
         }
-        
+
         // Update card styles
         checkboxes.forEach(cb => {
             const card = cb.closest('.screening-type-card');
@@ -414,12 +406,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // Listen for checkbox changes
     checkboxes.forEach(cb => {
         cb.addEventListener('change', updateSelection);
     });
-    
+
     // Initial update
     updateSelection();
 });
@@ -443,18 +435,18 @@ function updateSelection() {
     const selectedCountEl = document.getElementById('selectedCount');
     const selectedListEl = document.getElementById('selectedList');
     const createButton = document.getElementById('createButton');
-    
+
     const selected = Array.from(checkboxes).filter(cb => cb.checked);
     const count = selected.length;
-    
+
     // Update count
     selectedCountEl.textContent = count;
-    
+
     // Update button state
     if (createButton) {
         createButton.disabled = count === 0;
     }
-    
+
     // Update selection list
     if (count === 0) {
         selectedListEl.innerHTML = '<em class="text-muted">No screening types selected</em>';
@@ -464,12 +456,12 @@ function updateSelection() {
             const nameEl = card.querySelector('h6');
             return nameEl.textContent.trim();
         });
-        
+
         selectedListEl.innerHTML = names.map(name => 
             `<div class="small mb-1"><i class="fas fa-check text-success me-1"></i>${name}</div>`
         ).join('');
     }
-    
+
     // Update card styles
     checkboxes.forEach(cb => {
         const card = cb.closest('.screening-type-card');
@@ -485,38 +477,26 @@ function updateSelection() {
 document.getElementById('presetForm').addEventListener('submit', function(e) {
     const selectedTypes = document.querySelectorAll('.screening-checkbox:checked');
     const presetName = document.getElementById('preset_name').value.trim();
-    
+
     if (selectedTypes.length === 0) {
         e.preventDefault();
         alert('Please select at least one screening type.');
         return false;
     }
-    
+
     if (!presetName) {
         e.preventDefault();
         alert('Please enter a preset name.');
         document.getElementById('preset_name').focus();
         return false;
     }
-    
+
     // Show loading state
     const submitBtn = e.target.querySelector('button[type="submit"]');
     if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Creating Preset...';
     }
-
-    // Debounced search functionality
-    window.debounceSearch = function(value) {
-        clearTimeout(window.searchTimeout);
-        window.searchTimeout = setTimeout(() => {
-            if (value.length >= 2 || value.length === 0) {
-                document.getElementById('filterForm').submit();
-            }
-        }, 500);
-    };
-
-    // Keywords and conditions are now displayed inline, no comparison needed
 });
 </script>
 

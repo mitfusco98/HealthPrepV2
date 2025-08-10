@@ -1483,7 +1483,6 @@ def create_preset_from_types():
             # Get filter parameters
             user_filter = request.args.get('user_id', '').strip()
             screening_name_filter = request.args.get('screening_name', '').strip()
-            search_query = request.args.get('q', '').strip()
             
             # Determine admin scope
             if current_user.role == 'root_admin':
@@ -1521,10 +1520,7 @@ def create_preset_from_types():
             if screening_name_filter:
                 screening_types_query = screening_types_query.filter_by(name=screening_name_filter)
             
-            if search_query:
-                screening_types_query = screening_types_query.filter(
-                    ScreeningType.name.ilike(f'%{search_query}%')
-                )
+            
             
             # Get screening types - no need to join since we have the relationship
             screening_types = screening_types_query.order_by(ScreeningType.name, ScreeningType.created_at).all()
@@ -1537,8 +1533,7 @@ def create_preset_from_types():
                                  available_users=available_users,
                                  available_screening_names=available_screening_names,
                                  selected_user_id=user_filter,
-                                 selected_screening_name=screening_name_filter,
-                                 search_query=search_query)
+                                 selected_screening_name=screening_name_filter)
         
         # Handle POST - create preset from selected types
         selected_ids = request.form.getlist('screening_type_ids')
