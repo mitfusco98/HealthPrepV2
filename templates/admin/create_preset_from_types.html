@@ -60,6 +60,49 @@
     </div>
 </div>
 
+<!-- Enhanced Filtering Controls -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-filter me-2"></i>
+            Filter Screening Types
+        </h5>
+    </div>
+    <div class="card-body">
+        <form method="GET" class="row g-3" id="filterForm">
+            <div class="col-md-4">
+                <label for="user_id" class="form-label">Filter by User</label>
+                <select class="form-select" name="user_id" id="user_id" onchange="document.getElementById('filterForm').submit();">
+                    <option value="">All Users</option>
+                    {% for user in available_users %}
+                    <option value="{{ user.id }}" {% if selected_user_id == user.id|string %}selected{% endif %}>
+                        {{ user.username }} {% if user.role != 'admin' %}({{ user.role|title }}){% endif %}
+                        {% if user.organization %}
+                            - {{ user.organization.name }}
+                        {% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label for="q" class="form-label">Search Screening Types</label>
+                <input type="text" class="form-control" name="q" id="q" value="{{ search_query }}" 
+                       placeholder="Search by name..." onkeyup="debounceSearch(this.value)">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search me-1"></i>Search
+                </button>
+                {% if selected_user_id or search_query %}
+                <a href="{{ url_for('admin.create_preset_from_types') }}" class="btn btn-outline-secondary ms-2">
+                    <i class="fas fa-times"></i>
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="row">
     <div class="col-lg-8">
         <form method="POST" id="presetForm">
@@ -123,64 +166,115 @@
                     </div>
                 </div>
                 <div class="card-body">
-                    {% if screening_types %}
-                        <div class="row">
-                            {% for st in screening_types %}
-                            <div class="col-md-6 mb-3">
-                                <div class="screening-type-card" data-screening-id="{{ st.id }}">
-                                    <div class="form-check">
-                                        <input class="form-check-input screening-checkbox" type="checkbox" 
-                                               name="screening_type_ids" value="{{ st.id }}" id="screening_{{ st.id }}">
-                                        <label class="form-check-label w-100" for="screening_{{ st.id }}">
-                                            <div class="screening-type-info">
-                                                <div>
-                                                    <h6 class="mb-1">{{ st.name }}</h6>
-                                                    <div class="d-flex align-items-center mb-1">
-                                                        <span class="badge bg-primary frequency-badge me-2">{{ st.frequency_display }}</span>
-                                                        {% if st.eligible_genders and st.eligible_genders != 'both' %}
-                                                            <span class="badge bg-info frequency-badge me-2">{{ st.eligible_genders }}</span>
-                                                        {% endif %}
-                                                        {% if st.min_age or st.max_age %}
-                                                            <span class="badge bg-secondary frequency-badge">
-                                                                {% if st.min_age and st.max_age %}
-                                                                    {{ st.min_age }}-{{ st.max_age }} years
-                                                                {% elif st.min_age %}
-                                                                    {{ st.min_age }}+ years
-                                                                {% else %}
-                                                                    Up to {{ st.max_age }} years
-                                                                {% endif %}
-                                                            </span>
-                                                        {% endif %}
-                                                    </div>
-                                                    <div class="keyword-count">
-                                                        {{ st.keywords_list|length }} keywords
-                                                        {% if st.trigger_conditions_list %}
-                                                            • {{ st.trigger_conditions_list|length }} conditions
+                    {% if grouped_types %}
+                        {% for group in grouped_types %}
+                        <div class="screening-group mb-4">
+                            <div class="group-header d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0 text-primary">
+                                    <i class="fas fa-layer-group me-2"></i>{{ group.base_name }}
+                                    <span class="badge bg-secondary ms-2">{{ group.variant_count }} variant{{ 's' if group.variant_count > 1 else '' }}</span>
+                                </h6>
+                                {% if group.variant_count > 1 %}
+                                <small class="text-muted">
+                                    By: {{ group.authors|join(', ') }}
+                                    {% if group.organizations %}
+                                        • {{ group.organizations|join(', ') }}
+                                    {% endif %}
+                                </small>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="row">
+                                {% for st in group.variants %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="screening-type-card variant-card" data-screening-id="{{ st.id }}">
+                                        <div class="form-check">
+                                            <input class="form-check-input screening-checkbox" type="checkbox" 
+                                                   name="screening_type_ids" value="{{ st.id }}" id="screening_{{ st.id }}">
+                                            <label class="form-check-label w-100" for="screening_{{ st.id }}">
+                                                <div class="screening-type-info">
+                                                    <div>
+                                                        <div class="d-flex justify-content-between align-items-start mb-1">
+                                                            <h6 class="mb-0">{{ st.name }}</h6>
+                                                            {% if group.variant_count > 1 %}
+                                                            <small class="text-muted ms-2">
+                                                                by {{ st.created_by_user.username if st.created_by_user else 'Unknown' }}
+                                                            </small>
+                                                            {% endif %}
+                                                        </div>
+                                                        
+                                                        <div class="d-flex align-items-center mb-1">
+                                                            <span class="badge bg-primary frequency-badge me-2">{{ st.frequency_display }}</span>
+                                                            {% if st.eligible_genders and st.eligible_genders != 'both' %}
+                                                                <span class="badge bg-info frequency-badge me-2">{{ st.eligible_genders }}</span>
+                                                            {% endif %}
+                                                            {% if st.min_age or st.max_age %}
+                                                                <span class="badge bg-secondary frequency-badge">
+                                                                    {% if st.min_age and st.max_age %}
+                                                                        {{ st.min_age }}-{{ st.max_age }} years
+                                                                    {% elif st.min_age %}
+                                                                        {{ st.min_age }}+ years
+                                                                    {% else %}
+                                                                        Up to {{ st.max_age }} years
+                                                                    {% endif %}
+                                                                </span>
+                                                            {% endif %}
+                                                        </div>
+                                                        
+                                                        <div class="keyword-count">
+                                                            {{ st.keywords_list|length }} keywords
+                                                            {% if st.trigger_conditions_list %}
+                                                                • {{ st.trigger_conditions_list|length }} conditions
+                                                            {% endif %}
+                                                            {% if group.variant_count > 1 %}
+                                                                <br><small class="text-muted">Created {{ st.created_at.strftime('%Y-%m-%d') }}</small>
+                                                            {% endif %}
+                                                        </div>
+                                                        
+                                                        {% if group.variant_count > 1 %}
+                                                        <div class="mt-2">
+                                                            <button type="button" class="btn btn-outline-info btn-sm compare-btn" 
+                                                                    data-bs-toggle="modal" data-bs-target="#compareModal" 
+                                                                    data-variant-id="{{ st.id }}" data-variant-name="{{ st.name }}"
+                                                                    data-group-variants="{{ group.variants|map(attribute='id')|list|join(',') }}">
+                                                                <i class="fas fa-balance-scale me-1"></i>Compare
+                                                            </button>
+                                                        </div>
                                                         {% endif %}
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </label>
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
+                                {% endfor %}
                             </div>
-                            {% endfor %}
                         </div>
+                        {% endfor %}
                     {% else %}
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle me-2"></i>
-                            No active screening types found. You need to create screening types first before you can create presets from them.
-                            <div class="mt-2">
-                                <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-primary btn-sm">
-                                    <i class="fas fa-plus me-1"></i>Create Screening Type
-                                </a>
-                            </div>
+                            {% if selected_user_id or search_query %}
+                                No screening types found matching your filter criteria.
+                                <div class="mt-2">
+                                    <a href="{{ url_for('admin.create_preset_from_types') }}" class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-times me-1"></i>Clear Filters
+                                    </a>
+                                </div>
+                            {% else %}
+                                No active screening types found. You need to create screening types first before you can create presets from them.
+                                <div class="mt-2">
+                                    <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-primary btn-sm">
+                                        <i class="fas fa-plus me-1"></i>Create Screening Type
+                                    </a>
+                                </div>
+                            {% endif %}
                         </div>
                     {% endif %}
                 </div>
             </div>
 
-            {% if screening_types %}
+            {% if grouped_types %}
             <div class="d-flex justify-content-between mt-4">
                 <a href="{{ url_for('admin.dashboard_presets') }}" class="btn btn-secondary">
                     <i class="fas fa-times me-1"></i>Cancel
@@ -193,7 +287,7 @@
         </form>
     </div>
 
-    {% if screening_types %}
+    {% if grouped_types %}
     <div class="col-lg-4">
         <div class="selection-summary">
             <div class="card">
@@ -371,6 +465,53 @@ document.getElementById('presetForm').addEventListener('submit', function(e) {
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Creating Preset...';
     }
+
+    // Debounced search functionality
+    window.debounceSearch = function(value) {
+        clearTimeout(window.searchTimeout);
+        window.searchTimeout = setTimeout(() => {
+            if (value.length >= 2 || value.length === 0) {
+                document.getElementById('filterForm').submit();
+            }
+        }, 500);
+    };
+
+    // Compare variants functionality  
+    const compareButtons = document.querySelectorAll('.compare-btn');
+    compareButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const variantId = this.dataset.variantId;
+            const variantName = this.dataset.variantName;
+            const groupVariants = this.dataset.groupVariants.split(',');
+            
+            // Load comparison modal content
+            console.log(`Comparing variant ${variantId} with others:`, groupVariants);
+        });
+    });
 });
 </script>
+
+<!-- Comparison Modal (placeholder for future enhancement) -->
+<div class="modal fade" id="compareModal" tabindex="-1" aria-labelledby="compareModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="compareModalLabel">Compare Screening Variants</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading comparison...</span>
+                    </div>
+                    <p class="mt-2">Loading variant comparison details...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

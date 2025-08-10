@@ -1112,10 +1112,6 @@ class ScreeningPreset(db.Model):
             return False
         return self.preset_metadata.get('approval_status') == 'pending'
     
-    def can_request_approval(self):
-        """Check if preset can request global approval"""
-        return not self.shared and not self.is_pending_approval()
-    
     def get_approval_status(self):
         """Get current approval status"""
         if not self.preset_metadata:
@@ -1156,3 +1152,222 @@ class ScreeningPreset(db.Model):
     
     def __repr__(self):
         return f'<ScreeningPreset {self.name} ({self.screening_count} types)>'
+
+
+# ================================
+# Universal Screening Type System
+# ================================
+
+import uuid
+import hashlib
+
+class UniversalType(db.Model):
+    """Universal screening type for standardized naming and grouping"""
+    __tablename__ = 'universal_types'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    canonical_name = db.Column(db.String(200), unique=True, nullable=False)
+    slug = db.Column(db.String(250), unique=True, nullable=False)
+    status = db.Column(db.Enum('active', 'deprecated', name='universal_type_status'), default='active')
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    aliases = db.relationship('UniversalTypeAlias', backref='universal_type', lazy=True, cascade='all, delete-orphan')
+    protocols = db.relationship('ScreeningProtocol', backref='universal_type', lazy=True, cascade='all, delete-orphan')
+    label_associations = db.relationship('TypeLabelAssociation', backref='universal_type', lazy=True)
+    
+    @classmethod
+    def create_slug(cls, name):
+        """Create deterministic slug from canonical name"""
+        import re
+        slug = name.lower().strip()
+        # Replace punctuation and spaces with hyphens
+        slug = re.sub(r'[^a-z0-9]+', '-', slug)
+        # Remove multiple hyphens
+        slug = re.sub(r'-+', '-', slug)
+        return slug.strip('-')
+    
+    @property
+    def all_aliases(self):
+        """Get all aliases as a list"""
+        return [alias.alias for alias in self.aliases] if self.aliases else []
+    
+    def add_alias(self, alias_text, source='system', confidence=1.0):
+        """Add an alias for this universal type"""
+        existing = UniversalTypeAlias.query.filter_by(
+            universal_type_id=self.id,
+            alias=alias_text
+        ).first()
+        
+        if not existing:
+            alias = UniversalTypeAlias(
+                universal_type_id=self.id,
+                alias=alias_text,
+                source=source,
+                confidence=confidence
+            )
+            db.session.add(alias)
+            return alias
+        return existing
+    
+    def __repr__(self):
+        return f'<UniversalType {self.canonical_name}>'
+
+
+class UniversalTypeAlias(db.Model):
+    """Aliases for universal screening types"""
+    __tablename__ = 'universal_type_aliases'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    universal_type_id = db.Column(db.String(36), db.ForeignKey('universal_types.id'), nullable=False)
+    alias = db.Column(db.String(200), nullable=False)
+    source = db.Column(db.Enum('system', 'org', 'user', name='alias_source'), default='system')
+    confidence = db.Column(db.Float, default=1.0)  # 0-1 confidence score
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (db.UniqueConstraint('universal_type_id', 'alias'),)
+    
+    def __repr__(self):
+        return f'<UniversalTypeAlias {self.alias} -> {self.universal_type_id}>'
+
+
+class ScreeningProtocol(db.Model):
+    """Groups related variants that represent the same type across users/orgs"""
+    __tablename__ = 'screening_protocols'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    universal_type_id = db.Column(db.String(36), db.ForeignKey('universal_types.id'), nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    scope = db.Column(db.Enum('system', 'org', name='protocol_scope'), default='system')
+    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    variants = db.relationship('ScreeningVariant', backref='protocol', lazy=True, cascade='all, delete-orphan')
+    organization = db.relationship('Organization', backref='protocols')
+    
+    @property
+    def published_variants(self):
+        """Get only published variants"""
+        return [v for v in self.variants if v.is_published] if self.variants else []
+    
+    @property
+    def variant_count(self):
+        """Total number of variants"""
+        return len(self.variants) if self.variants else 0
+    
+    @property
+    def published_count(self):
+        """Number of published variants"""
+        return len(self.published_variants)
+    
+    def __repr__(self):
+        return f'<ScreeningProtocol {self.name} ({self.variant_count} variants)>'
+
+
+class ScreeningVariant(db.Model):
+    """A specific set of criteria created by a user; tied to a protocol"""
+    __tablename__ = 'screening_variants'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    protocol_id = db.Column(db.String(36), db.ForeignKey('screening_protocols.id'), nullable=False)
+    author_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
+    label = db.Column(db.String(200), nullable=False)  # e.g., "MA template v2", "Endo clinic protocol"
+    criteria_json = db.Column(db.JSON, nullable=False)
+    criteria_hash = db.Column(db.String(64), nullable=False)  # SHA256 of normalized criteria
+    derived_from_variant_id = db.Column(db.String(36), db.ForeignKey('screening_variants.id'), nullable=True)
+    is_published = db.Column(db.Boolean, default=False)  # Available to admins for preset creation
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    author = db.relationship('User', backref='created_variants')
+    organization = db.relationship('Organization', backref='variants')
+    derived_from = db.relationship('ScreeningVariant', remote_side=[id], backref='derivatives')
+    
+    @classmethod
+    def compute_criteria_hash(cls, criteria_json):
+        """Compute SHA256 hash of normalized criteria for duplicate detection"""
+        import json
+        # Normalize JSON by sorting keys
+        normalized = json.dumps(criteria_json, sort_keys=True, separators=(',', ':'))
+        return hashlib.sha256(normalized.encode()).hexdigest()
+    
+    @property
+    def criteria_summary(self):
+        """Get a summary of the criteria for display"""
+        if not self.criteria_json:
+            return "No criteria defined"
+        
+        summary = []
+        if self.criteria_json.get('keywords'):
+            summary.append(f"{len(self.criteria_json['keywords'])} keywords")
+        if self.criteria_json.get('trigger_conditions'):
+            summary.append(f"{len(self.criteria_json['trigger_conditions'])} conditions")
+        if self.criteria_json.get('frequency_number'):
+            unit = self.criteria_json.get('frequency_unit', 'years')
+            summary.append(f"Every {self.criteria_json['frequency_number']} {unit}")
+        
+        return ", ".join(summary) if summary else "Basic criteria"
+    
+    @property
+    def is_duplicate(self):
+        """Check if this variant has identical criteria to another variant"""
+        duplicate = ScreeningVariant.query.filter(
+            ScreeningVariant.criteria_hash == self.criteria_hash,
+            ScreeningVariant.id != self.id
+        ).first()
+        return duplicate is not None
+    
+    def get_duplicate_variants(self):
+        """Get all variants with identical criteria"""
+        return ScreeningVariant.query.filter(
+            ScreeningVariant.criteria_hash == self.criteria_hash,
+            ScreeningVariant.id != self.id
+        ).all()
+    
+    def __repr__(self):
+        return f'<ScreeningVariant {self.label} (by {self.author.username if self.author else "Unknown"})>'
+
+
+class TypeSynonymGroup(db.Model):
+    """Explicit admin-controlled mappings of synonymous labels"""
+    __tablename__ = 'type_synonym_groups'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    universal_type_id = db.Column(db.String(36), db.ForeignKey('universal_types.id'), nullable=False)
+    notes = db.Column(db.Text)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<TypeSynonymGroup for {self.universal_type_id}>'
+
+
+class TypeLabelAssociation(db.Model):
+    """Connects free-text labels found in the wild to a universal type"""
+    __tablename__ = 'type_label_associations'
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    label = db.Column(db.String(200), nullable=False)
+    universal_type_id = db.Column(db.String(36), db.ForeignKey('universal_types.id'), nullable=False)
+    source = db.Column(db.Enum('system', 'root_admin', 'org_admin', 'user', name='association_source'), default='user')
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (db.UniqueConstraint('label', 'universal_type_id'),)
+    
+    def promote_to_alias(self, confidence=0.9):
+        """Promote this association to a first-class alias"""
+        alias = self.universal_type.add_alias(
+            alias_text=self.label,
+            source='system',
+            confidence=confidence
+        )
+        return alias
+    
+    def __repr__(self):
+        return f'<TypeLabelAssociation {self.label} -> {self.universal_type_id}>'

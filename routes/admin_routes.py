@@ -12,6 +12,8 @@ import json
 import yaml
 import tempfile
 import os
+import difflib
+import re
 from werkzeug.utils import secure_filename
 
 from models import User, AdminLog, PHIFilterSettings, log_admin_event, Document, ScreeningPreset, ScreeningType
@@ -25,6 +27,90 @@ from ocr.phi_filter import PHIFilter
 logger = logging.getLogger(__name__)
 
 admin_bp = Blueprint('admin', __name__)
+
+def normalize_screening_name(name):
+    """Normalize screening type name for fuzzy matching"""
+    if not name:
+        return ""
+    
+    # Convert to lowercase and remove extra spaces
+    normalized = name.lower().strip()
+    
+    # Replace punctuation and separators with spaces
+    normalized = re.sub(r'[_\-\./\\]+', ' ', normalized)
+    
+    # Collapse multiple spaces
+    normalized = re.sub(r'\s+', ' ', normalized).strip()
+    
+    # Remove common stopwords but keep medical terms
+    stopwords = {'test', 'testing', 'scan', 'scanning', 'screen', 'screening', 'check', 'the', 'of'}
+    tokens = [token for token in normalized.split() if token not in stopwords or len(token) <= 3]
+    
+    return ' '.join(tokens)
+
+def group_screening_types_by_similarity(screening_types):
+    """Group screening types by similarity using fuzzy matching"""
+    groups = {}
+    processed = set()
+    
+    for st in screening_types:
+        if st.id in processed:
+            continue
+        
+        # Create new group with this screening type as the base
+        normalized_name = normalize_screening_name(st.name)
+        group_key = f"group_{len(groups)}"
+        
+        groups[group_key] = {
+            'base_name': st.name,
+            'normalized_name': normalized_name,
+            'variants': [st],
+            'authors': {st.created_by_user.username if st.created_by_user else 'Unknown'},
+            'organizations': set()
+        }
+        
+        if hasattr(st, 'organization') and st.organization:
+            groups[group_key]['organizations'].add(st.organization.name)
+        
+        processed.add(st.id)
+        
+        # Find similar screening types
+        for other_st in screening_types:
+            if other_st.id in processed:
+                continue
+            
+            other_normalized = normalize_screening_name(other_st.name)
+            
+            # Calculate similarity ratio
+            similarity = difflib.SequenceMatcher(None, normalized_name, other_normalized).ratio()
+            
+            # Also check token-based similarity for partial matches
+            tokens_a = set(normalized_name.split())
+            tokens_b = set(other_normalized.split())
+            
+            if tokens_a and tokens_b:
+                token_similarity = len(tokens_a.intersection(tokens_b)) / len(tokens_a.union(tokens_b))
+            else:
+                token_similarity = 0.0
+            
+            # Group if similarity is above threshold (0.8 for exact match, 0.6 for partial)
+            if similarity >= 0.8 or token_similarity >= 0.6:
+                groups[group_key]['variants'].append(other_st)
+                groups[group_key]['authors'].add(other_st.created_by_user.username if other_st.created_by_user else 'Unknown')
+                
+                if hasattr(other_st, 'organization') and other_st.organization:
+                    groups[group_key]['organizations'].add(other_st.organization.name)
+                
+                processed.add(other_st.id)
+    
+    # Sort variants within each group by creation date (newest first)
+    for group in groups.values():
+        group['variants'].sort(key=lambda x: x.created_at, reverse=True)
+        group['authors'] = list(group['authors'])
+        group['organizations'] = list(group['organizations'])
+        group['variant_count'] = len(group['variants'])
+    
+    return list(groups.values())
 
 def parse_log_details(log):
     """Parse log data to provide enhanced details for viewing"""
@@ -1394,14 +1480,50 @@ def create_preset_from_types():
     """Create preset from existing screening types"""
     try:
         if request.method == 'GET':
-            # Show interface to select screening types
-            org_id = current_user.org_id
-            screening_types = ScreeningType.query.filter_by(
-                org_id=org_id, is_active=True
-            ).order_by(ScreeningType.name).all()
+            # Get filter parameters
+            user_filter = request.args.get('user_id', '').strip()
+            search_query = request.args.get('q', '').strip()
+            
+            # Determine admin scope
+            if current_user.role == 'root_admin':
+                # Root admin can see all screening types
+                base_query = ScreeningType.query
+                available_users = User.query.filter(
+                    User.role.in_(['admin', 'MA', 'nurse'])
+                ).order_by(User.username).all()
+            else:
+                # Org admin can only see their organization's screening types
+                base_query = ScreeningType.query.filter_by(org_id=current_user.org_id)
+                available_users = User.query.filter_by(
+                    org_id=current_user.org_id
+                ).filter(
+                    User.role.in_(['admin', 'MA', 'nurse'])
+                ).order_by(User.username).all()
+            
+            # Apply filters
+            screening_types_query = base_query.filter_by(is_active=True)
+            
+            if user_filter and user_filter.isdigit():
+                screening_types_query = screening_types_query.filter_by(created_by=int(user_filter))
+            
+            if search_query:
+                screening_types_query = screening_types_query.filter(
+                    ScreeningType.name.ilike(f'%{search_query}%')
+                )
+            
+            # Get screening types with author information
+            screening_types = screening_types_query.join(
+                User, ScreeningType.created_by == User.id, isouter=True
+            ).order_by(ScreeningType.name, ScreeningType.created_at).all()
+            
+            # Group similar screening types using basic fuzzy matching
+            grouped_types = group_screening_types_by_similarity(screening_types)
             
             return render_template('admin/create_preset_from_types.html',
-                                 screening_types=screening_types)
+                                 grouped_types=grouped_types,
+                                 available_users=available_users,
+                                 selected_user_id=user_filter,
+                                 search_query=search_query)
         
         # Handle POST - create preset from selected types
         selected_ids = request.form.getlist('screening_type_ids')
