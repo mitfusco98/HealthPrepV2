@@ -175,9 +175,13 @@
     </div>
     <div class="card-body">
         <form method="GET" class="row g-3" id="filterForm">
+            <!-- Hidden fields to preserve pagination -->
+            <input type="hidden" name="page" value="{{ pagination.page }}">
+            <input type="hidden" name="per_page" value="{{ pagination.per_page }}">
+            
             <div class="col-md-3">
                 <label for="user_id" class="form-label">Filter by User</label>
-                <select class="form-select" name="user_id" id="user_id" onchange="document.getElementById('filterForm').submit();">
+                <select class="form-select" name="user_id" id="user_id" onchange="resetToFirstPage();">
                     <option value="">All Users</option>
                     {% for user in available_users %}
                     <option value="{{ user.id }}" {% if selected_user_id == user.id|string %}selected{% endif %}>
@@ -191,13 +195,22 @@
             </div>
             <div class="col-md-3">
                 <label for="screening_name" class="form-label">Filter by Screening Name</label>
-                <select class="form-select" name="screening_name" id="screening_name" onchange="document.getElementById('filterForm').submit();">
+                <select class="form-select" name="screening_name" id="screening_name" onchange="resetToFirstPage();">
                     <option value="">All Screening Types</option>
                     {% for screening_name in available_screening_names %}
                     <option value="{{ screening_name }}" {% if selected_screening_name == screening_name %}selected{% endif %}>
                         {{ screening_name }}
                     </option>
                     {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="per_page" class="form-label">Per Page</label>
+                <select class="form-select" name="per_page" id="per_page" onchange="resetToFirstPage();">
+                    <option value="10" {% if pagination.per_page == 10 %}selected{% endif %}>10</option>
+                    <option value="20" {% if pagination.per_page == 20 %}selected{% endif %}>20</option>
+                    <option value="50" {% if pagination.per_page == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if pagination.per_page == 100 %}selected{% endif %}>100</option>
                 </select>
             </div>
             <div class="col-md-2">
@@ -259,19 +272,30 @@
 
             <!-- Screening Types Selection -->
             <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="fas fa-list-check me-2"></i>
-                        Select Screening Types
-                    </h5>
-                    <div>
-                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectAll()">
-                            <i class="fas fa-check-square me-1"></i>Select All
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm ms-2" onclick="clearAll()">
-                            <i class="fas fa-square me-1"></i>Clear All
-                        </button>
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-list-check me-2"></i>
+                            Select Screening Types
+                        </h5>
+                        <div>
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectAll()">
+                                <i class="fas fa-check-square me-1"></i>Select All
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm ms-2" onclick="clearAll()">
+                                <i class="fas fa-square me-1"></i>Clear All
+                            </button>
+                        </div>
                     </div>
+                    {% if pagination.total > 0 %}
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <small class="text-muted">
+                            Showing {{ (pagination.page - 1) * pagination.per_page + 1 }} to 
+                            {{ pagination.page * pagination.per_page if pagination.page * pagination.per_page <= pagination.total else pagination.total }} 
+                            of {{ pagination.total }} screening type groups
+                        </small>
+                    </div>
+                    {% endif %}
                 </div>
                 <div class="card-body">
                     {% if grouped_types %}
@@ -468,6 +492,55 @@
                 </div>
             </div>
 
+            <!-- Pagination Controls -->
+            {% if pagination.total_pages > 1 %}
+            <div class="d-flex justify-content-center my-4">
+                <nav aria-label="Screening types pagination">
+                    <ul class="pagination">
+                        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                            <a class="page-link" href="{{ url_for('admin.create_preset_from_types', 
+                                page=pagination.prev_num, 
+                                per_page=pagination.per_page,
+                                user_id=selected_user_id,
+                                screening_name=selected_screening_name) if pagination.has_prev else '#' }}">
+                                <i class="fas fa-chevron-left"></i> Previous
+                            </a>
+                        </li>
+                        
+                        {% for page_num in range(1, pagination.total_pages + 1) %}
+                            {% if page_num == pagination.page %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ page_num }}</span>
+                                </li>
+                            {% elif page_num == 1 or page_num == pagination.total_pages or (page_num >= pagination.page - 2 and page_num <= pagination.page + 2) %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('admin.create_preset_from_types', 
+                                        page=page_num, 
+                                        per_page=pagination.per_page,
+                                        user_id=selected_user_id,
+                                        screening_name=selected_screening_name) }}">{{ page_num }}</a>
+                                </li>
+                            {% elif page_num == pagination.page - 3 or page_num == pagination.page + 3 %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                            <a class="page-link" href="{{ url_for('admin.create_preset_from_types', 
+                                page=pagination.next_num, 
+                                per_page=pagination.per_page,
+                                user_id=selected_user_id,
+                                screening_name=selected_screening_name) if pagination.has_next else '#' }}">
+                                Next <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
+
             {% if grouped_types %}
             <div class="d-flex justify-content-between mt-4">
                 <a href="{{ url_for('admin.dashboard_presets') }}" class="btn btn-secondary">
@@ -633,6 +706,12 @@ function updateSelection() {
             card.classList.remove('selected');
         }
     });
+}
+
+// Pagination and filter functions
+function resetToFirstPage() {
+    document.querySelector('input[name="page"]').value = '1';
+    document.getElementById('filterForm').submit();
 }
 
 // Form validation

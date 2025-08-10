@@ -1480,9 +1480,11 @@ def create_preset_from_types():
     """Create preset from existing screening types"""
     try:
         if request.method == 'GET':
-            # Get filter parameters
+            # Get filter and pagination parameters
             user_filter = request.args.get('user_id', '').strip()
             screening_name_filter = request.args.get('screening_name', '').strip()
+            page = request.args.get('page', 1, type=int)
+            per_page = request.args.get('per_page', 20, type=int)  # 20 screening groups per page
             
             # Determine admin scope
             if current_user.role == 'root_admin':
@@ -1520,20 +1522,44 @@ def create_preset_from_types():
             if screening_name_filter:
                 screening_types_query = screening_types_query.filter_by(name=screening_name_filter)
             
-            
-            
-            # Get screening types - no need to join since we have the relationship
-            screening_types = screening_types_query.order_by(ScreeningType.name, ScreeningType.created_at).all()
+            # Get all screening types first for grouping
+            all_screening_types = screening_types_query.order_by(ScreeningType.name, ScreeningType.created_at).all()
             
             # Group similar screening types using basic fuzzy matching
-            grouped_types = group_screening_types_by_similarity(screening_types)
+            all_grouped_types = group_screening_types_by_similarity(all_screening_types)
+            
+            # Apply pagination to groups
+            total_groups = len(all_grouped_types)
+            start_idx = (page - 1) * per_page
+            end_idx = start_idx + per_page
+            grouped_types = all_grouped_types[start_idx:end_idx]
+            
+            # Create pagination object
+            from math import ceil
+            has_prev = page > 1
+            has_next = end_idx < total_groups
+            prev_num = page - 1 if has_prev else None
+            next_num = page + 1 if has_next else None
+            total_pages = ceil(total_groups / per_page) if total_groups > 0 else 1
+            
+            pagination = {
+                'page': page,
+                'per_page': per_page,
+                'total': total_groups,
+                'total_pages': total_pages,
+                'has_prev': has_prev,
+                'has_next': has_next,
+                'prev_num': prev_num,
+                'next_num': next_num
+            }
             
             return render_template('admin/create_preset_from_types.html',
                                  grouped_types=grouped_types,
                                  available_users=available_users,
                                  available_screening_names=available_screening_names,
                                  selected_user_id=user_filter,
-                                 selected_screening_name=screening_name_filter)
+                                 selected_screening_name=screening_name_filter,
+                                 pagination=pagination)
         
         # Handle POST - create preset from selected types
         selected_ids = request.form.getlist('screening_type_ids')
