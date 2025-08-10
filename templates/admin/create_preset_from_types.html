@@ -38,6 +38,22 @@
     font-size: 0.85rem;
 }
 
+.keyword-tags .badge,
+.condition-tags .badge {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: top;
+}
+
+.screening-details {
+    border-top: 1px solid #e9ecef;
+    padding-top: 8px;
+    margin-top: 8px;
+}
+
 .selection-summary {
     position: sticky;
     top: 20px;
@@ -221,26 +237,39 @@
                                                             {% endif %}
                                                         </div>
                                                         
-                                                        <div class="keyword-count">
-                                                            {{ st.keywords_list|length }} keywords
+                                                        <div class="screening-details mt-2">
+                                                            {% if st.keywords_list %}
+                                                            <div class="mb-2">
+                                                                <small class="text-muted d-block mb-1">Keywords ({{ st.keywords_list|length }}):</small>
+                                                                <div class="keyword-tags">
+                                                                    {% for keyword in st.keywords_list[:10] %}
+                                                                    <span class="badge bg-light text-dark me-1 mb-1" style="font-size: 0.7rem;">{{ keyword }}</span>
+                                                                    {% endfor %}
+                                                                    {% if st.keywords_list|length > 10 %}
+                                                                    <span class="badge bg-secondary me-1 mb-1" style="font-size: 0.7rem;">+{{ st.keywords_list|length - 10 }} more</span>
+                                                                    {% endif %}
+                                                                </div>
+                                                            </div>
+                                                            {% endif %}
+                                                            
                                                             {% if st.trigger_conditions_list %}
-                                                                • {{ st.trigger_conditions_list|length }} conditions
+                                                            <div class="mb-2">
+                                                                <small class="text-muted d-block mb-1">Trigger Conditions ({{ st.trigger_conditions_list|length }}):</small>
+                                                                <div class="condition-tags">
+                                                                    {% for condition in st.trigger_conditions_list[:5] %}
+                                                                    <span class="badge bg-warning text-dark me-1 mb-1" style="font-size: 0.7rem;">{{ condition }}</span>
+                                                                    {% endfor %}
+                                                                    {% if st.trigger_conditions_list|length > 5 %}
+                                                                    <span class="badge bg-secondary me-1 mb-1" style="font-size: 0.7rem;">+{{ st.trigger_conditions_list|length - 5 }} more</span>
+                                                                    {% endif %}
+                                                                </div>
+                                                            </div>
                                                             {% endif %}
+                                                            
                                                             {% if group.variant_count > 1 %}
-                                                                <br><small class="text-muted">Created {{ st.created_at.strftime('%Y-%m-%d') }}</small>
+                                                            <small class="text-muted">Created {{ st.created_at.strftime('%Y-%m-%d') }}</small>
                                                             {% endif %}
                                                         </div>
-                                                        
-                                                        {% if group.variant_count > 1 %}
-                                                        <div class="mt-2">
-                                                            <button type="button" class="btn btn-outline-info btn-sm compare-btn" 
-                                                                    data-bs-toggle="modal" data-bs-target="#compareModal" 
-                                                                    data-variant-id="{{ st.id }}" data-variant-name="{{ st.name }}"
-                                                                    data-group-variants="{{ group.variants|map(attribute='id')|list|join(',') }}">
-                                                                <i class="fas fa-balance-scale me-1"></i>Compare
-                                                            </button>
-                                                        </div>
-                                                        {% endif %}
                                                     </div>
                                                 </div>
                                             </label>
@@ -476,42 +505,10 @@ document.getElementById('presetForm').addEventListener('submit', function(e) {
         }, 500);
     };
 
-    // Compare variants functionality  
-    const compareButtons = document.querySelectorAll('.compare-btn');
-    compareButtons.forEach(btn => {
-        btn.addEventListener('click', function() {
-            const variantId = this.dataset.variantId;
-            const variantName = this.dataset.variantName;
-            const groupVariants = this.dataset.groupVariants.split(',');
-            
-            // Load comparison modal content
-            console.log(`Comparing variant ${variantId} with others:`, groupVariants);
-        });
-    });
+    // Keywords and conditions are now displayed inline, no comparison needed
 });
 </script>
 
-<!-- Comparison Modal (placeholder for future enhancement) -->
-<div class="modal fade" id="compareModal" tabindex="-1" aria-labelledby="compareModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="compareModalLabel">Compare Screening Variants</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="text-center">
-                    <div class="spinner-border" role="status">
-                        <span class="visually-hidden">Loading comparison...</span>
-                    </div>
-                    <p class="mt-2">Loading variant comparison details...</p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
+
 
 {% endblock %}
