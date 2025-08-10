@@ -51,6 +51,7 @@ The frontend reuses assets from V1, organized under `templates/`. It includes `b
 - **✅ COMPLETE: Preset management UI/UX consolidation** with streamlined two-action interface across both `/admin/dashboard/presets` and `/admin/presets`, removing redundant download/import/create buttons and consolidating approval workflows for improved user experience
 - **✅ COMPLETE: Universal screening type system** with comprehensive models (UniversalType, UniversalTypeAlias, ScreeningProtocol, ScreeningVariant, TypeSynonymGroup, TypeLabelAssociation) enabling fuzzy detection, synonym management, and cross-organizational screening type standardization
 - **✅ COMPLETE: Enhanced variant management** with user-specific filtering in create_preset_from_types, fuzzy name grouping (0.8 exact match, 0.6 partial match thresholds), author tracking, comparison capabilities, and semantic separator handling for improved screening criteria discovery and reuse
+- **✅ COMPLETE: Root admin export request approval system** with ExportRequest model, comprehensive dashboard integration, approval/rejection workflows, review notes system, and HIPAA-compliant audit logging for universal screening type standardization
 
 ### External Dependencies
 - **FHIR-based EMRs:** e.g., Epic (for real-time data integration)

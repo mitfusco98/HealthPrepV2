@@ -9,7 +9,7 @@ import functools
 import uuid
 from werkzeug.security import generate_password_hash
 
-from models import User, Organization, AdminLog, log_admin_event, EpicCredentials, ScreeningPreset
+from models import User, Organization, AdminLog, log_admin_event, EpicCredentials, ScreeningPreset, ExportRequest
 from app import db
 from flask import request as flask_request
 
@@ -42,8 +42,11 @@ def dashboard():
         trial_orgs = sum(1 for org in organizations if org.setup_status == 'trial')
         
         # Get user statistics across all organizations
-        total_users = User.query.filter(User.org_id.isnot(None)).count()
+        total_users = User.query.filter(User.org_id != None).count()
         admin_users = User.query.filter(User.role == 'admin').count()
+        
+        # Get pending export requests
+        pending_export_requests = ExportRequest.query.filter_by(status='pending').order_by(ExportRequest.created_at.desc()).limit(10).all()
         
         # Get recent activities across all organizations
         recent_logs = AdminLog.query.order_by(AdminLog.timestamp.desc()).limit(20).all()
@@ -53,13 +56,15 @@ def dashboard():
             'active_organizations': active_orgs,
             'trial_organizations': trial_orgs,
             'total_users': total_users,
-            'admin_users': admin_users
+            'admin_users': admin_users,
+            'pending_export_requests': len(pending_export_requests)
         }
         
         return render_template('root_admin/dashboard.html', 
                              organizations=organizations,
                              stats=stats,
-                             recent_logs=recent_logs)
+                             recent_logs=recent_logs,
+                             pending_export_requests=pending_export_requests)
         
     except Exception as e:
         logger.error(f"Error in root admin dashboard: {str(e)}")
@@ -74,7 +79,7 @@ def manage_presets():
     try:
         # Get all presets for global management
         pending_presets = ScreeningPreset.query.filter(
-            ScreeningPreset.preset_metadata.op('->>')('approval_status') == 'pending'
+            db.func.json_extract(ScreeningPreset.preset_metadata, '$.approval_status') == 'pending'
         ).order_by(ScreeningPreset.updated_at.desc()).all()
         
         global_presets = ScreeningPreset.query.filter_by(shared=True).order_by(
@@ -83,7 +88,7 @@ def manage_presets():
         
         organization_presets = ScreeningPreset.query.filter(
             ScreeningPreset.shared == False,
-            ScreeningPreset.org_id.isnot(None)
+            ScreeningPreset.org_id != None
         ).order_by(ScreeningPreset.updated_at.desc()).limit(20).all()
         
         return render_template('root_admin/presets.html',
@@ -500,3 +505,107 @@ def system_logs():
         logger.error(f"Error loading system logs: {str(e)}")
         flash('Error loading logs', 'error')
         return render_template('error/500.html'), 500
+
+@root_admin_bp.route('/export-requests')
+@login_required
+@root_admin_required
+def export_requests():
+    """View all export requests from organization admins"""
+    try:
+        # Get filter parameters
+        status = request.args.get('status', 'pending')
+        org_id = request.args.get('org_id', type=int)
+        
+        # Build query
+        query = ExportRequest.query
+        
+        if status != 'all':
+            query = query.filter(ExportRequest.status == status)
+        if org_id:
+            query = query.filter(ExportRequest.org_id == org_id)
+        
+        export_requests = query.order_by(ExportRequest.created_at.desc()).all()
+        
+        # Get organizations for filter
+        organizations = Organization.query.order_by(Organization.name).all()
+        
+        return render_template('root_admin/export_requests.html',
+                             export_requests=export_requests,
+                             organizations=organizations,
+                             filters={'status': status, 'org_id': org_id})
+        
+    except Exception as e:
+        logger.error(f"Error loading export requests: {str(e)}")
+        flash('Error loading export requests', 'error')
+        return render_template('error/500.html'), 500
+
+@root_admin_bp.route('/export-requests/<string:request_id>')
+@login_required
+@root_admin_required
+def view_export_request(request_id):
+    """View detailed export request"""
+    try:
+        export_request = ExportRequest.query.get_or_404(request_id)
+        return render_template('root_admin/view_export_request.html',
+                             export_request=export_request)
+        
+    except Exception as e:
+        logger.error(f"Error viewing export request {request_id}: {str(e)}")
+        flash('Error loading export request', 'error')
+        return redirect(url_for('root_admin.export_requests'))
+
+@root_admin_bp.route('/export-requests/<string:request_id>/approve', methods=['POST'])
+@login_required
+@root_admin_required
+def approve_export_request(request_id):
+    """Approve export request and create universal type"""
+    try:
+        export_request = ExportRequest.query.get_or_404(request_id)
+        
+        if not export_request.is_pending:
+            flash('This export request has already been reviewed', 'error')
+            return redirect(url_for('root_admin.export_requests'))
+        
+        review_notes = request.form.get('review_notes', '').strip()
+        
+        # Approve the request
+        export_request.approve(current_user, review_notes)
+        
+        flash(f'Export request for "{export_request.proposed_universal_name}" approved successfully', 'success')
+        return redirect(url_for('root_admin.export_requests'))
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error approving export request {request_id}: {str(e)}")
+        flash('Error approving export request', 'error')
+        return redirect(url_for('root_admin.export_requests'))
+
+@root_admin_bp.route('/export-requests/<string:request_id>/reject', methods=['POST'])
+@login_required
+@root_admin_required
+def reject_export_request(request_id):
+    """Reject export request"""
+    try:
+        export_request = ExportRequest.query.get_or_404(request_id)
+        
+        if not export_request.is_pending:
+            flash('This export request has already been reviewed', 'error')
+            return redirect(url_for('root_admin.export_requests'))
+        
+        review_notes = request.form.get('review_notes', '').strip()
+        
+        if not review_notes:
+            flash('Please provide a reason for rejection', 'error')
+            return redirect(url_for('root_admin.view_export_request', request_id=request_id))
+        
+        # Reject the request
+        export_request.reject(current_user, review_notes)
+        
+        flash(f'Export request for "{export_request.proposed_universal_name}" rejected', 'warning')
+        return redirect(url_for('root_admin.export_requests'))
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error rejecting export request {request_id}: {str(e)}")
+        flash('Error rejecting export request', 'error')
+        return redirect(url_for('root_admin.export_requests'))
