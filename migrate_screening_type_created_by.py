@@ -26,7 +26,9 @@ def migrate_screening_type_created_by():
             print("Adding created_by column to screening_type table...")
             
             # Add the column using raw SQL
-            db.engine.execute("ALTER TABLE screening_type ADD COLUMN created_by INTEGER")
+            from sqlalchemy import text
+            db.session.execute(text("ALTER TABLE screening_type ADD COLUMN created_by INTEGER"))
+            db.session.commit()
             
             # Get the first admin user to assign as default creator
             admin_user = User.query.filter_by(is_admin=True).first()
@@ -36,10 +38,11 @@ def migrate_screening_type_created_by():
             if admin_user:
                 print(f"Setting default created_by to user: {admin_user.username}")
                 # Update existing records to have a created_by value
-                db.engine.execute(
-                    "UPDATE screening_type SET created_by = ? WHERE created_by IS NULL",
-                    (admin_user.id,)
+                db.session.execute(
+                    text("UPDATE screening_type SET created_by = :user_id WHERE created_by IS NULL"),
+                    {"user_id": admin_user.id}
                 )
+                db.session.commit()
             
             print("✓ Migration completed successfully")
             return True
