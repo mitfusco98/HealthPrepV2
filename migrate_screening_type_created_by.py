@@ -4,7 +4,7 @@ Migration script to add created_by field to ScreeningType table
 """
 import sqlite3
 import logging
-from app import app, db
+from app import create_app, db
 from models import ScreeningType, User
 
 def migrate_screening_type_created_by():
@@ -12,6 +12,7 @@ def migrate_screening_type_created_by():
     print("HealthPrepV2 - ScreeningType Created By Migration")
     print("This script will add created_by column to screening_type table")
     
+    app = create_app()
     with app.app_context():
         try:
             # Check if created_by column already exists
