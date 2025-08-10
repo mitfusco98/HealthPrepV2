@@ -65,7 +65,7 @@ def group_screening_types_by_similarity(screening_types):
             'base_name': st.name,
             'normalized_name': normalized_name,
             'variants': [st],
-            'authors': {st.created_by_user.username if st.created_by_user else 'Unknown'},
+            'authors': {st.created_by_user.username if hasattr(st, 'created_by_user') and st.created_by_user else 'Unknown'},
             'organizations': set()
         }
         
@@ -96,7 +96,7 @@ def group_screening_types_by_similarity(screening_types):
             # Group if similarity is above threshold (0.8 for exact match, 0.6 for partial)
             if similarity >= 0.8 or token_similarity >= 0.6:
                 groups[group_key]['variants'].append(other_st)
-                groups[group_key]['authors'].add(other_st.created_by_user.username if other_st.created_by_user else 'Unknown')
+                groups[group_key]['authors'].add(other_st.created_by_user.username if hasattr(other_st, 'created_by_user') and other_st.created_by_user else 'Unknown')
                 
                 if hasattr(other_st, 'organization') and other_st.organization:
                     groups[group_key]['organizations'].add(other_st.organization.name)
@@ -1511,10 +1511,8 @@ def create_preset_from_types():
                     ScreeningType.name.ilike(f'%{search_query}%')
                 )
             
-            # Get screening types with author information
-            screening_types = screening_types_query.join(
-                User, ScreeningType.created_by == User.id, isouter=True
-            ).order_by(ScreeningType.name, ScreeningType.created_at).all()
+            # Get screening types - no need to join since we have the relationship
+            screening_types = screening_types_query.order_by(ScreeningType.name, ScreeningType.created_at).all()
             
             # Group similar screening types using basic fuzzy matching
             grouped_types = group_screening_types_by_similarity(screening_types)

@@ -300,12 +300,14 @@ class ScreeningType(db.Model):
     frequency_years = db.Column(db.Float, nullable=False)  # Frequency in years (can be fractional like 0.25 for 3 months)
     trigger_conditions = db.Column(db.Text)  # JSON string of conditions that modify screening protocols
     is_active = db.Column(db.Boolean, default=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # User who created this screening type
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     organization = db.relationship('Organization', backref='screening_types')
     screenings = db.relationship('Screening', backref='screening_type', lazy=True)
+    created_by_user = db.relationship('User', backref='created_screening_types', foreign_keys=[created_by])
 
     @property
     def keywords_list(self):
