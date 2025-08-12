@@ -426,12 +426,12 @@ class ScreeningType(db.Model):
     @classmethod
     def get_base_names_with_counts(cls):
         """Get all unique base names with their variant counts"""
-        from sqlalchemy import func
+        from sqlalchemy import func, cast, Integer
         
         results = db.session.query(
             cls.name,
             func.count(cls.id).label('variant_count'),
-            func.min(cls.is_active).label('all_active')
+            func.min(cast(cls.is_active, Integer)).label('all_active')
         ).group_by(cls.name).order_by(cls.name).all()
         
         return [(name, int(count), bool(all_active)) for name, count, all_active in results]
