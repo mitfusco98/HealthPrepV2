@@ -1,0 +1,145 @@
+{% extends "root_admin/base_root_admin.html" %}
+
+{% block title %}Create User - Root Admin{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-user-plus text-danger me-2"></i>Create User
+            </h1>
+            <a href="{{ url_for('root_admin.all_users') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Back to Users
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card root-admin-card">
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="username" class="form-label">Username *</label>
+                                <input type="text" class="form-control" id="username" name="username" 
+                                       value="{{ request.form.username or '' }}" required
+                                       pattern="[a-zA-Z0-9_]+" title="Username can only contain letters, numbers, and underscores">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="email" class="form-label">Email *</label>
+                                <input type="email" class="form-control" id="email" name="email" 
+                                       value="{{ request.form.email or '' }}" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="password" class="form-label">Password *</label>
+                                <input type="password" class="form-control" id="password" name="password" 
+                                       required minlength="8">
+                                <small class="form-text text-muted">Minimum 8 characters</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="role" class="form-label">Role *</label>
+                                <select class="form-select" id="role" name="role" required>
+                                    <option value="">Select Role</option>
+                                    <option value="admin" {% if request.form.role == 'admin' %}selected{% endif %}>Admin</option>
+                                    <option value="ma" {% if request.form.role == 'ma' %}selected{% endif %}>Medical Assistant</option>
+                                    <option value="nurse" {% if request.form.role == 'nurse' %}selected{% endif %}>Nurse</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="org_id" class="form-label">Organization *</label>
+                        <select class="form-select" id="org_id" name="org_id" required>
+                            <option value="">Select Organization</option>
+                            {% for org in organizations %}
+                            <option value="{{ org.id }}" 
+                                    {% if request.form.org_id|int == org.id %}selected{% endif %}
+                                    data-max-users="{{ org.max_users }}" 
+                                    data-current-users="{{ org.user_count }}">
+                                {{ org.display_name or org.name }} ({{ org.user_count }}/{{ org.max_users }} users)
+                                {% if org.user_count >= org.max_users %} - FULL{% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text text-muted">Select the organization this user will belong to</small>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('root_admin.all_users') }}" class="btn btn-secondary me-md-2">Cancel</a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-plus me-1"></i>Create User
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card root-admin-card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-1"></i>User Creation Guidelines
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>Username Requirements:</strong>
+                    <ul class="mb-0 mt-1">
+                        <li>Letters, numbers, and underscores only</li>
+                        <li>Must be unique across all organizations</li>
+                        <li>Cannot be changed after creation</li>
+                    </ul>
+                </div>
+                <div class="mb-3">
+                    <strong>Role Permissions:</strong>
+                    <ul class="mb-0 mt-1">
+                        <li><strong>Admin:</strong> Full organization control</li>
+                        <li><strong>Medical Assistant:</strong> Patient screening</li>
+                        <li><strong>Nurse:</strong> Clinical review</li>
+                    </ul>
+                </div>
+                <div class="mb-0">
+                    <strong>Organization Limits:</strong>
+                    <p class="mb-0 mt-1">Each organization has a maximum user limit. Users cannot be created if the organization is at capacity.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Disable organizations at capacity
+document.addEventListener('DOMContentLoaded', function() {
+    const orgSelect = document.getElementById('org_id');
+    
+    for (let option of orgSelect.options) {
+        if (option.dataset.maxUsers && option.dataset.currentUsers) {
+            const maxUsers = parseInt(option.dataset.maxUsers);
+            const currentUsers = parseInt(option.dataset.currentUsers);
+            
+            if (currentUsers >= maxUsers && option.value !== '') {
+                option.disabled = true;
+                option.style.color = '#6c757d';
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

@@ -710,6 +710,256 @@ def system_logs():
         flash('Error loading logs', 'error')
         return render_template('error/500.html'), 500
 
+@root_admin_bp.route('/users/create', methods=['GET', 'POST'])
+@login_required
+@root_admin_required
+def create_user():
+    """Create new user for any organization"""
+    try:
+        if request.method == 'POST':
+            username = request.form.get('username')
+            email = request.form.get('email')
+            password = request.form.get('password')
+            role = request.form.get('role')
+            org_id = request.form.get('org_id', type=int)
+            
+            # Validate input
+            if not username or not email or not password or not role or not org_id:
+                flash('All fields are required', 'error')
+                return render_template('root_admin/create_user.html', 
+                                     organizations=Organization.query.order_by(Organization.name).all())
+            
+            # Check if username/email already exists
+            existing_user = User.query.filter(
+                (User.username == username) | (User.email == email)
+            ).first()
+            if existing_user:
+                flash('Username or email already exists', 'error')
+                return render_template('root_admin/create_user.html', 
+                                     organizations=Organization.query.order_by(Organization.name).all())
+            
+            # Get organization and check user limit
+            org = Organization.query.get_or_404(org_id)
+            current_user_count = User.query.filter_by(org_id=org_id).count()
+            if current_user_count >= org.max_users:
+                flash(f'Organization "{org.name}" has reached its user limit ({org.max_users})', 'error')
+                return render_template('root_admin/create_user.html', 
+                                     organizations=Organization.query.order_by(Organization.name).all())
+            
+            # Create user
+            user = User(
+                username=username,
+                email=email,
+                role=role,
+                org_id=org_id,
+                created_by=current_user.id,
+                is_active_user=True
+            )
+            user.set_password(password)
+            db.session.add(user)
+            db.session.commit()
+            
+            # Log the action
+            log_admin_event(
+                event_type='create_user',
+                user_id=current_user.id,
+                org_id=None,  # Root admin action
+                ip=flask_request.remote_addr,
+                data={
+                    'created_user_id': user.id,
+                    'created_username': username,
+                    'target_org_id': org_id,
+                    'target_org_name': org.name,
+                    'user_role': role,
+                    'description': f'Created user {username} for organization {org.name}'
+                }
+            )
+            
+            flash(f'User "{username}" created successfully in organization "{org.name}"', 'success')
+            return redirect(url_for('root_admin.all_users'))
+        
+        # GET request - show create form
+        organizations = Organization.query.filter_by(is_active=True).order_by(Organization.name).all()
+        return render_template('root_admin/create_user.html', organizations=organizations)
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error creating user: {str(e)}")
+        flash('Error creating user', 'error')
+        return redirect(url_for('root_admin.all_users'))
+
+@root_admin_bp.route('/users/<int:user_id>/edit', methods=['GET', 'POST'])
+@login_required
+@root_admin_required
+def edit_user(user_id):
+    """Edit user details"""
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        if request.method == 'POST':
+            # Update user details
+            user.email = request.form.get('email')
+            user.role = request.form.get('role')
+            user.is_active_user = request.form.get('is_active') == 'on'
+            
+            # Handle organization change
+            new_org_id = request.form.get('org_id', type=int)
+            if new_org_id != user.org_id:
+                new_org = Organization.query.get_or_404(new_org_id)
+                current_user_count = User.query.filter_by(org_id=new_org_id).count()
+                if current_user_count >= new_org.max_users:
+                    flash(f'Target organization "{new_org.name}" has reached its user limit ({new_org.max_users})', 'error')
+                    return render_template('root_admin/edit_user.html', 
+                                         user=user, 
+                                         organizations=Organization.query.order_by(Organization.name).all())
+                user.org_id = new_org_id
+            
+            # Handle password change
+            new_password = request.form.get('new_password')
+            if new_password:
+                user.set_password(new_password)
+            
+            db.session.commit()
+            
+            # Log the action
+            log_admin_event(
+                event_type='edit_user',
+                user_id=current_user.id,
+                org_id=None,  # Root admin action
+                ip=flask_request.remote_addr,
+                data={
+                    'target_user_id': user.id,
+                    'target_username': user.username,
+                    'target_org_id': user.org_id,
+                    'description': f'Updated user {user.username}'
+                }
+            )
+            
+            flash(f'User "{user.username}" updated successfully', 'success')
+            return redirect(url_for('root_admin.all_users'))
+        
+        # GET request - show edit form
+        organizations = Organization.query.order_by(Organization.name).all()
+        return render_template('root_admin/edit_user.html', user=user, organizations=organizations)
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error editing user {user_id}: {str(e)}")
+        flash('Error updating user', 'error')
+        return redirect(url_for('root_admin.all_users'))
+
+@root_admin_bp.route('/users/<int:user_id>/delete', methods=['POST'])
+@login_required
+@root_admin_required
+def delete_user(user_id):
+    """Delete user with safety checks"""
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        # Safety check - don't delete if it's the only admin in the organization
+        if user.role == 'admin':
+            admin_count = User.query.filter_by(org_id=user.org_id, role='admin').count()
+            if admin_count == 1:
+                return jsonify({
+                    'success': False,
+                    'error': 'Cannot delete the last admin user of an organization'
+                }), 400
+        
+        # Safety check - don't delete root admin users
+        if user.is_root_admin_user():
+            return jsonify({
+                'success': False,
+                'error': 'Cannot delete root admin users'
+            }), 400
+        
+        username = user.username
+        org_name = user.organization.name if user.organization else 'Unknown'
+        
+        # Log before deletion
+        log_admin_event(
+            event_type='delete_user',
+            user_id=current_user.id,
+            org_id=None,  # Root admin action
+            ip=flask_request.remote_addr,
+            data={
+                'deleted_user_id': user_id,
+                'deleted_username': username,
+                'target_org_name': org_name,
+                'description': f'Deleted user {username} from organization {org_name}'
+            }
+        )
+        
+        db.session.delete(user)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'User "{username}" deleted successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting user {user_id}: {str(e)}")
+        return jsonify({'success': False, 'error': 'Error deleting user'}), 500
+
+@root_admin_bp.route('/users/<int:user_id>/toggle-status', methods=['POST'])
+@login_required
+@root_admin_required
+def toggle_user_status(user_id):
+    """Toggle user active status"""
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        # Safety check - don't deactivate if it's the only admin in the organization
+        if user.role == 'admin' and user.is_active_user:
+            active_admin_count = User.query.filter_by(
+                org_id=user.org_id, 
+                role='admin', 
+                is_active_user=True
+            ).count()
+            if active_admin_count == 1:
+                return jsonify({
+                    'success': False,
+                    'error': 'Cannot deactivate the last active admin user of an organization'
+                }), 400
+        
+        # Safety check - don't deactivate root admin users
+        if user.is_root_admin_user():
+            return jsonify({
+                'success': False,
+                'error': 'Cannot deactivate root admin users'
+            }), 400
+        
+        user.is_active_user = not user.is_active_user
+        db.session.commit()
+        
+        action = 'activated' if user.is_active_user else 'deactivated'
+        
+        # Log the action
+        log_admin_event(
+            event_type='toggle_user_status',
+            user_id=current_user.id,
+            org_id=None,  # Root admin action
+            ip=flask_request.remote_addr,
+            data={
+                'target_user_id': user.id,
+                'target_username': user.username,
+                'new_status': 'active' if user.is_active_user else 'inactive',
+                'description': f'{action.title()} user {user.username}'
+            }
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': f'User "{user.username}" {action} successfully',
+            'new_status': 'active' if user.is_active_user else 'inactive'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error toggling user status {user_id}: {str(e)}")
+        return jsonify({'success': False, 'error': 'Error updating user status'}), 500
+
 # Duplicate edit_organization route removed - keeping only the one added at the end
 
 # Duplicate delete_organization route removed - keeping only the one added at the end

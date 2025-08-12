@@ -1,0 +1,192 @@
+{% extends "root_admin/base_root_admin.html" %}
+
+{% block title %}Edit User - Root Admin{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-user-edit text-danger me-2"></i>Edit User: {{ user.username }}
+            </h1>
+            <a href="{{ url_for('root_admin.all_users') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Back to Users
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card root-admin-card">
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="username" class="form-label">Username (Read-only)</label>
+                                <input type="text" class="form-control" id="username" value="{{ user.username }}" readonly>
+                                <small class="form-text text-muted">Username cannot be changed</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="email" class="form-label">Email *</label>
+                                <input type="email" class="form-control" id="email" name="email" 
+                                       value="{{ user.email }}" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="role" class="form-label">Role *</label>
+                                <select class="form-select" id="role" name="role" required>
+                                    <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+                                    <option value="ma" {% if user.role == 'ma' %}selected{% endif %}>Medical Assistant</option>
+                                    <option value="nurse" {% if user.role == 'nurse' %}selected{% endif %}>Nurse</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="org_id" class="form-label">Organization *</label>
+                                <select class="form-select" id="org_id" name="org_id" required>
+                                    {% for org in organizations %}
+                                    <option value="{{ org.id }}" 
+                                            {% if user.org_id == org.id %}selected{% endif %}
+                                            data-max-users="{{ org.max_users }}" 
+                                            data-current-users="{{ org.user_count }}">
+                                        {{ org.display_name or org.name }} ({{ org.user_count }}/{{ org.max_users }} users)
+                                        {% if org.user_count >= org.max_users and user.org_id != org.id %} - FULL{% endif %}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="new_password" class="form-label">New Password</label>
+                                <input type="password" class="form-control" id="new_password" name="new_password" 
+                                       minlength="8" placeholder="Leave blank to keep current password">
+                                <small class="form-text text-muted">Only enter if you want to change the password</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <div class="form-check form-switch mt-4">
+                                    <input class="form-check-input" type="checkbox" id="is_active" name="is_active" 
+                                           {% if user.is_active_user %}checked{% endif %}
+                                           {% if user.is_root_admin_user() %}disabled{% endif %}>
+                                    <label class="form-check-label" for="is_active">
+                                        Active User
+                                    </label>
+                                    {% if user.is_root_admin_user() %}
+                                        <small class="form-text text-muted">Root admin users cannot be deactivated</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('root_admin.all_users') }}" class="btn btn-secondary me-md-2">Cancel</a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-save me-1"></i>Update User
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card root-admin-card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-1"></i>User Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <strong>Current Organization:</strong><br>
+                    <small>{{ user.organization.display_name or user.organization.name }}</small>
+                </div>
+                <div class="mb-2">
+                    <strong>Created:</strong><br>
+                    <small>{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else 'Unknown' }}</small>
+                </div>
+                <div class="mb-2">
+                    <strong>Last Login:</strong><br>
+                    {% if user.last_login %}
+                        <small>{{ user.last_login.strftime('%Y-%m-%d %H:%M') }}</small>
+                    {% else %}
+                        <small class="text-muted">Never</small>
+                    {% endif %}
+                </div>
+                <div class="mb-2">
+                    <strong>Current Status:</strong><br>
+                    {% if user.is_active_user %}
+                        <span class="badge bg-success">Active</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Inactive</span>
+                    {% endif %}
+                    {% if user.is_root_admin_user() %}
+                        <span class="badge bg-dark ms-1">Root Admin</span>
+                    {% endif %}
+                </div>
+                {% if user.created_by_user %}
+                <div class="mb-2">
+                    <strong>Created By:</strong><br>
+                    <small>{{ user.created_by_user.username }}</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Safety Warning -->
+        <div class="card root-admin-card mt-3">
+            <div class="card-header bg-warning">
+                <h5 class="card-title mb-0 text-dark">
+                    <i class="fas fa-exclamation-triangle me-1"></i>Safety Checks
+                </h5>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li>Root admin users cannot be deactivated or deleted</li>
+                    <li>Last admin in an organization cannot be deleted</li>
+                    <li>Role changes affect user permissions immediately</li>
+                    <li>Organization changes move all user data</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Disable full organizations (except current one)
+document.addEventListener('DOMContentLoaded', function() {
+    const orgSelect = document.getElementById('org_id');
+    const currentOrgId = {{ user.org_id|safe }};
+    
+    for (let option of orgSelect.options) {
+        if (option.dataset.maxUsers && option.dataset.currentUsers) {
+            const maxUsers = parseInt(option.dataset.maxUsers);
+            const currentUsers = parseInt(option.dataset.currentUsers);
+            const orgId = parseInt(option.value);
+            
+            if (currentUsers >= maxUsers && orgId !== currentOrgId && option.value !== '') {
+                option.disabled = true;
+                option.style.color = '#6c757d';
+            }
+        }
+    }
+});
+</script>
+{% endblock %}
