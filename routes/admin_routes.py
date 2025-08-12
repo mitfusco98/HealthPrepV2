@@ -941,6 +941,7 @@ def edit_user(user_id):
         return redirect(url_for('admin.users'))
 
     except Exception as e:
+        db.session.rollback()
         logger.error(f"Error editing user: {str(e)}")
         flash('Error updating user', 'error')
         return redirect(url_for('admin.users'))
@@ -957,11 +958,13 @@ def delete_user(user_id):
         # Check organization access
         org_id = getattr(current_user, 'org_id', 1)
         if hasattr(user, 'org_id') and user.org_id != org_id:
-            return jsonify({'success': False, 'error': 'Access denied'}), 403
+            flash('Access denied', 'error')
+            return redirect(url_for('admin.users'))
 
         # Don't allow deleting yourself
         if user.id == current_user.id:
-            return jsonify({'success': False, 'error': 'Cannot delete your own account'}), 400
+            flash('Cannot delete your own account', 'error')
+            return redirect(url_for('admin.users'))
 
         username = user.username
         
@@ -981,12 +984,14 @@ def delete_user(user_id):
         db.session.delete(user)
         db.session.commit()
 
-        return jsonify({'success': True, 'message': f'User {username} deleted successfully'}), 200
+        flash(f'User {username} deleted successfully', 'success')
+        return redirect(url_for('admin.users'))
 
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error deleting user {user_id}: {str(e)}")
-        return jsonify({'success': False, 'error': f'Error deleting user: {str(e)}'}), 500
+        flash(f'Error deleting user: {str(e)}', 'error')
+        return redirect(url_for('admin.users'))
 
 
 @admin_bp.route('/users/<int:user_id>/toggle-status', methods=['POST'])
@@ -1000,11 +1005,13 @@ def toggle_user_status(user_id):
         # Check organization access
         org_id = getattr(current_user, 'org_id', 1)
         if user.org_id != org_id:
-            return jsonify({'success': False, 'error': 'Access denied'})
+            flash('Access denied', 'error')
+            return redirect(url_for('admin.users'))
 
         # Don't allow deactivating yourself
         if user.id == current_user.id:
-            return jsonify({'success': False, 'error': 'Cannot modify your own status'})
+            flash('Cannot modify your own status', 'error')
+            return redirect(url_for('admin.users'))
 
         # Toggle status
         user.is_active_user = not user.is_active_user
@@ -1020,15 +1027,14 @@ def toggle_user_status(user_id):
             data={'target_user': user.username, 'user_id': user_id, 'new_status': user.is_active_user, 'description': f'User {user.username} {status}'}
         )
 
-        return jsonify({
-            'success': True, 
-            'message': f'User {user.username} {status} successfully',
-            'is_active': user.is_active_user
-        })
+        flash(f'User {user.username} {status} successfully', 'success')
+        return redirect(url_for('admin.users'))
 
     except Exception as e:
+        db.session.rollback()
         logger.error(f"Error toggling user status: {str(e)}")
-        return jsonify({'success': False, 'error': 'Error updating user status'})
+        flash('Error updating user status', 'error')
+        return redirect(url_for('admin.users'))
 
 
 @admin_bp.route('/presets/import', methods=['GET', 'POST'])

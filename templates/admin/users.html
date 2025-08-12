@@ -144,7 +144,7 @@
             </div>
         </div>
     </div>
-    
+
 </div>
 
 <!-- Add User Modal -->
@@ -209,44 +209,47 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
-                    <i class="fas fa-edit me-2"></i>
+                    <i class="fas fa-user-edit me-2"></i>
                     Edit User
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" id="editUserForm">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <form id="editUserForm" method="POST" action="">
+                <div class="modal-body">
+                    <input type="hidden" id="editUserId" name="user_id" value="">
+
                     <div class="mb-3">
-                        <label for="editUsername" class="form-label">Username <span class="text-danger">*</span></label>
+                        <label for="editUsername" class="form-label">Username</label>
                         <input type="text" class="form-control" id="editUsername" name="username" required>
                     </div>
 
                     <div class="mb-3">
-                        <label for="editEmail" class="form-label">Email <span class="text-danger">*</span></label>
+                        <label for="editEmail" class="form-label">Email</label>
                         <input type="email" class="form-control" id="editEmail" name="email" required>
                     </div>
 
                     <div class="mb-3">
-                        <label for="editPassword" class="form-label">New Password</label>
-                        <input type="password" class="form-control" id="editPassword" name="password" minlength="6">
-                        <div class="form-text">Leave blank to keep current password</div>
+                        <label for="editPassword" class="form-label">Password (leave blank to keep current)</label>
+                        <input type="password" class="form-control" id="editPassword" name="password">
+                        <small class="form-text text-muted">Only enter a password if you want to change it</small>
                     </div>
 
                     <div class="mb-3">
-                        <label for="editRole" class="form-label">Role <span class="text-danger">*</span></label>
-                        <select class="form-control" id="editRole" name="role" required>
+                        <label for="editRole" class="form-label">Role</label>
+                        <select class="form-select" id="editRole" name="role" required>
                             <option value="nurse">Nurse</option>
                             <option value="MA">Medical Assistant</option>
                             <option value="admin">Administrator</option>
                         </select>
                     </div>
 
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="editIsActive" name="is_active">
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="editIsActive" name="is_active">
                         <label class="form-check-label" for="editIsActive">
                             Active User
                         </label>
                     </div>
+                </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-primary">
