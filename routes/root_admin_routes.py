@@ -960,6 +960,13 @@ def toggle_user_status(user_id):
         logger.error(f"Error toggling user status {user_id}: {str(e)}")
         return jsonify({'success': False, 'error': 'Error updating user status'}), 500
 
+@root_admin_bp.route('/users/<int:user_id>/delete', methods=['POST'])
+@login_required
+@root_admin_required
+def delete_user_route(user_id):
+    """Delete user route - calls the existing delete_user function"""
+    return delete_user(user_id)
+
 # Duplicate edit_organization route removed - keeping only the one added at the end
 
 # Duplicate delete_organization route removed - keeping only the one added at the end
