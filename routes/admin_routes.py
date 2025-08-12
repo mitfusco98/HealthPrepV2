@@ -1452,36 +1452,7 @@ def import_preset():
         logger.error(f"Error importing preset: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@admin_bp.route('/presets/export/<int:preset_id>')
-@login_required
-@admin_required
-def export_preset(preset_id):
-    """Export screening preset to downloadable file"""
-    try:
-        preset = ScreeningPreset.query.get_or_404(preset_id)
-        export_data = preset.to_export_dict()
-        
-        response = make_response(json.dumps(export_data, indent=2))
-        response.headers['Content-Type'] = 'application/json'
-        response.headers['Content-Disposition'] = f'attachment; filename={preset.name.replace(" ", "_")}_preset.json'
-        
-        log_admin_event(
-            event_type='export_preset',
-            user_id=current_user.id,
-            org_id=getattr(current_user, 'org_id', 1),
-            ip=request.remote_addr,
-            data={
-                'preset_id': preset.id,
-                'preset_name': preset.name,
-                'description': f'Exported screening preset: {preset.name}'
-            }
-        )
-        
-        return response
-        
-    except Exception as e:
-        logger.error(f"Error exporting preset: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+# Export preset functionality removed - global presets managed directly by root admin
 
 @admin_bp.route('/presets/create-from-types', methods=['GET', 'POST'])
 @login_required
