@@ -260,9 +260,9 @@ def view_preset(preset_id):
         
         # Get creator information
         creator_info = {
-            'username': preset.created_by_user.username if preset.created_by_user else 'System',
-            'role': preset.created_by_user.role if preset.created_by_user else 'system',
-            'email': preset.created_by_user.email if preset.created_by_user else None
+            'username': preset.creator.username if preset.creator else 'System',
+            'role': preset.creator.role if preset.creator else 'system',
+            'email': preset.creator.email if preset.creator else None
         }
         
         return render_template('root_admin/view_preset.html',
