@@ -67,6 +67,44 @@ def create_app():
             logger.error(f"Error loading user {user_id}: {e}")
             return None
 
+    @login_manager.unauthorized_handler
+    def unauthorized():
+        from flask import flash, redirect, url_for, request
+        flash('Please log in to access this page.', 'warning')
+        return redirect(url_for('auth.login', next=request.url))
+
+    @app.before_request
+    def check_user_role_redirect():
+        from flask_login import current_user
+        from flask import request, redirect, url_for
+        
+        # Skip for static files, auth routes, and API routes
+        if (request.endpoint and 
+            (request.endpoint.startswith('static') or 
+             request.endpoint.startswith('auth.') or
+             request.endpoint.startswith('api.'))):
+            return
+        
+        # If user is authenticated and trying to access wrong dashboard
+        if current_user.is_authenticated:
+            current_endpoint = request.endpoint
+            
+            # Root admin trying to access regular admin dashboard
+            if (current_user.is_root_admin_user() and 
+                current_endpoint and current_endpoint.startswith('admin.') and
+                not current_endpoint.startswith('admin.dashboard')):
+                return redirect(url_for('root_admin.dashboard'))
+            
+            # Regular admin trying to access root admin dashboard  
+            elif (current_user.is_admin_user() and not current_user.is_root_admin_user() and
+                  current_endpoint and current_endpoint.startswith('root_admin.')):
+                return redirect(url_for('admin.dashboard'))
+            
+            # Regular user trying to access admin areas
+            elif (not current_user.is_admin_user() and not current_user.is_root_admin_user() and
+                  current_endpoint and (current_endpoint.startswith('admin.') or current_endpoint.startswith('root_admin.'))):
+                return redirect(url_for('ui.dashboard'))
+
     # Register blueprints
     register_blueprints(app)
 
@@ -87,8 +125,13 @@ def create_app():
     @app.route('/')
     def index():
         from flask_login import current_user
+        from flask import session
+        
         if current_user.is_authenticated:
-            # Redirect based on user role
+            # Clear any cached redirect to ensure proper role-based routing
+            session.pop('_flashes', None)
+            
+            # Redirect based on user role with explicit priority
             if current_user.is_root_admin_user():
                 return redirect(url_for('root_admin.dashboard'))
             elif current_user.is_admin_user():
