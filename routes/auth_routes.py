@@ -24,7 +24,7 @@ def login():
         from models import User
         from datetime import datetime
         from app import db
-        
+
         # Find user by username - note: usernames are unique within organizations
         user = User.query.filter_by(username=form.username.data).first()
 
@@ -33,12 +33,12 @@ def login():
             if user.is_account_locked():
                 flash('Account is temporarily locked due to multiple failed login attempts. Please try again later.', 'error')
                 return render_template('auth/login.html', form=form)
-            
+
             # Check if user is active
             if not user.is_active_user:
                 flash('Your account has been deactivated. Please contact your administrator.', 'error')
                 return render_template('auth/login.html', form=form)
-            
+
             # Record successful login
             user.record_login_attempt(success=True)
             login_user(user)
@@ -56,7 +56,7 @@ def login():
                 elif user.is_admin_user():
                     return redirect(url_for('admin.dashboard'))
                 else:
-                    return redirect(url_for('ui.dashboard'))
+                    return redirect(url_for('main.index'))
         else:
             # Record failed login attempt if user exists
             if user:
@@ -78,33 +78,33 @@ def register():
     if form.validate_on_submit():
         from models import User
         from app import db
-        
+
         # Check if username already exists
         existing_user = User.query.filter_by(username=form.username.data).first()
         if existing_user:
             flash('Username already exists. Please choose a different one.', 'error')
             return render_template('auth/register.html', form=form)
-        
+
         # Check if email already exists
         existing_email = User.query.filter_by(email=form.email.data).first()
         if existing_email:
             flash('Email already registered. Please use a different email.', 'error')
             return render_template('auth/register.html', form=form)
-        
+
         # Create new user (requires org_id for regular users)
         # Note: Registration is for regular users within an organization
         # Root admins should be created through setup scripts
         from models import Organization
-        
+
         # Get default organization or first available organization
         default_org = Organization.query.filter_by(name='Default Organization').first()
         if not default_org:
             default_org = Organization.query.first()
-        
+
         if not default_org:
             flash('No organization available for registration. Please contact administrator.', 'error')
             return render_template('auth/register.html', form=form)
-        
+
         user = User()
         user.username = form.username.data
         user.email = form.email.data
@@ -112,11 +112,11 @@ def register():
         user.is_admin = False
         user.org_id = default_org.id
         user.set_password(form.password.data)
-        
+
         try:
             db.session.add(user)
             db.session.commit()
-            
+
             flash('Registration successful! Please log in.', 'success')
             return redirect(url_for('auth.login'))
         except Exception as e:

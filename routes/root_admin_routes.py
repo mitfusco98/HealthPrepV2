@@ -21,9 +21,12 @@ def root_admin_required(f):
     """Decorator to require root admin role"""
     @functools.wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or not current_user.is_root_admin_user():
+        if not current_user.is_authenticated:
+            flash('Please log in to access this page', 'error')
+            return redirect(url_for('auth.login'))
+        if not current_user.is_root_admin_user():
             flash('Root admin access required', 'error')
-            return redirect(url_for('main.index'))
+            return redirect(url_for('auth.login'))
         return f(*args, **kwargs)
     return decorated_function
 
