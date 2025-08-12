@@ -964,55 +964,8 @@ def toggle_user_status(user_id):
 @login_required
 @root_admin_required
 def delete_user_route(user_id):
-    """Delete user with safety checks"""
-    try:
-        user = User.query.get_or_404(user_id)
-        
-        # Safety check - don't delete if it's the only admin in the organization
-        if user.role == 'admin':
-            admin_count = User.query.filter_by(org_id=user.org_id, role='admin').count()
-            if admin_count == 1:
-                return jsonify({
-                    'success': False,
-                    'error': 'Cannot delete the last admin user of an organization'
-                }), 400
-        
-        # Safety check - don't delete root admin users
-        if user.is_root_admin_user():
-            return jsonify({
-                'success': False,
-                'error': 'Cannot delete root admin users'
-            }), 400
-        
-        username = user.username
-        org_name = user.organization.name if user.organization else 'Unknown'
-        
-        # Log before deletion
-        log_admin_event(
-            event_type='delete_user',
-            user_id=current_user.id,
-            org_id=None,  # Root admin action
-            ip=flask_request.remote_addr,
-            data={
-                'deleted_user_id': user_id,
-                'deleted_username': username,
-                'target_org_name': org_name,
-                'description': f'Deleted user {username} from organization {org_name}'
-            }
-        )
-        
-        db.session.delete(user)
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'message': f'User "{username}" deleted successfully'
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error deleting user {user_id}: {str(e)}")
-        return jsonify({'success': False, 'error': 'Error deleting user'}), 500
+    """Delete user route - calls the existing delete_user function"""
+    return delete_user(user_id)
 
 # Duplicate edit_organization route removed - keeping only the one added at the end
 
