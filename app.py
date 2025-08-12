@@ -89,10 +89,10 @@ def create_app():
         if current_user.is_authenticated:
             current_endpoint = request.endpoint
             
-            # Root admin trying to access regular admin dashboard
+            # Root admin trying to access regular admin dashboard (but not root admin dashboard)
             if (current_user.is_root_admin_user() and 
                 current_endpoint and current_endpoint.startswith('admin.') and
-                not current_endpoint.startswith('admin.dashboard')):
+                not current_endpoint.startswith('root_admin.')):
                 return redirect(url_for('root_admin.dashboard'))
             
             # Regular admin trying to access root admin dashboard  
