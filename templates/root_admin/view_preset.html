@@ -203,6 +203,18 @@
                                             {% endif %}
                                         {% elif st.frequency_months %}
                                             <span class="badge badge-frequency">{{ st.frequency_months }} months</span>
+                                        {% elif st.frequency_number and st.frequency_unit %}
+                                            {% if st.frequency_unit == 'years' %}
+                                                {% if st.frequency_number == 1 %}
+                                                    <span class="badge badge-frequency">Annual</span>
+                                                {% elif st.frequency_number == 0.5 %}
+                                                    <span class="badge badge-frequency">Semi-annual</span>
+                                                {% else %}
+                                                    <span class="badge badge-frequency">{{ st.frequency_number }} years</span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="badge badge-frequency">{{ st.frequency_number }} {{ st.frequency_unit }}</span>
+                                            {% endif %}
                                         {% endif %}
                                         
                                         {% if st.eligible_genders and st.eligible_genders != 'both' %}
@@ -282,6 +294,8 @@
                                                     {% elif st.frequency_years >= 1.0 %}every {{ st.frequency_years|int }} years
                                                     {% else %}every {{ (st.frequency_years * 12)|int }} months
                                                     {% endif %}
+                                                {% elif st.frequency_number and st.frequency_unit %}
+                                                    , frequency: every {{ st.frequency_number }} {{ st.frequency_unit }}
                                                 {% endif %}
                                             </small>
                                         </div>

@@ -230,18 +230,23 @@ def view_preset(preset_id):
         
         # Get detailed screening type information
         screening_types = []
-        if preset.screening_types_data:
-            for st_data in preset.screening_types_data:
+        screening_data_list = preset.get_screening_types()
+        
+        if screening_data_list:
+            for st_data in screening_data_list:
+                # Handle different data formats
                 screening_types.append({
                     'name': st_data.get('name', 'Unknown'),
                     'description': st_data.get('description', ''),
                     'keywords': st_data.get('keywords', []),
                     'trigger_conditions': st_data.get('trigger_conditions', []),
-                    'eligible_genders': st_data.get('eligible_genders', 'both'),
-                    'min_age': st_data.get('min_age'),
-                    'max_age': st_data.get('max_age'),
+                    'eligible_genders': st_data.get('gender_criteria', st_data.get('eligible_genders', 'both')),
+                    'min_age': st_data.get('age_min', st_data.get('min_age')),
+                    'max_age': st_data.get('age_max', st_data.get('max_age')),
                     'frequency_years': st_data.get('frequency_years'),
                     'frequency_months': st_data.get('frequency_months'),
+                    'frequency_number': st_data.get('frequency_number'),
+                    'frequency_unit': st_data.get('frequency_unit'),
                     'variants': st_data.get('variants', [])
                 })
         
