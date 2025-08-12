@@ -1,0 +1,197 @@
+{% extends "root_admin/base_root_admin.html" %}
+
+{% block title %}System Logs - Root Admin{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-list-alt text-danger me-2"></i>System Logs
+            </h1>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card root-admin-card">
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('root_admin.system_logs') }}" class="row g-3">
+                    <div class="col-md-3">
+                        <label for="event_type" class="form-label">Event Type</label>
+                        <select name="event_type" id="event_type" class="form-select">
+                            <option value="">All Events</option>
+                            {% for event_type in event_types %}
+                            <option value="{{ event_type }}" {% if filters.event_type == event_type %}selected{% endif %}>
+                                {{ event_type.replace('_', ' ').title() }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="org_id" class="form-label">Organization</label>
+                        <select name="org_id" id="org_id" class="form-select">
+                            <option value="">All Organizations</option>
+                            {% for org in organizations %}
+                            <option value="{{ org.id }}" {% if filters.org_id == org.id|string %}selected{% endif %}>
+                                {{ org.display_name or org.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="date_from" class="form-label">From Date</label>
+                        <input type="date" name="date_from" id="date_from" class="form-control" 
+                               value="{{ filters.date_from }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="date_to" class="form-label">To Date</label>
+                        <input type="date" name="date_to" id="date_to" class="form-control" 
+                               value="{{ filters.date_to }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-filter"></i> Filter
+                            </button>
+                            <a href="{{ url_for('root_admin.system_logs') }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Clear
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Logs Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card root-admin-card">
+            <div class="card-body">
+                {% if logs.items %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Event Type</th>
+                                    <th>User</th>
+                                    <th>Organization</th>
+                                    <th>IP Address</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in logs.items %}
+                                <tr>
+                                    <td>
+                                        <small>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if log.event_type in ['create_user', 'create_organization', 'create_screening_type'] %}bg-success
+                                            {% elif log.event_type in ['delete_user', 'delete_organization', 'delete_screening_type'] %}bg-danger
+                                            {% elif log.event_type in ['edit_user', 'edit_organization', 'edit_screening_type'] %}bg-warning
+                                            {% elif log.event_type in ['login', 'logout'] %}bg-info
+                                            {% else %}bg-secondary
+                                            {% endif %}">
+                                            {{ log.event_type.replace('_', ' ').title() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if log.user %}
+                                            <small>{{ log.user.username }}</small>
+                                            <br><small class="text-muted">{{ log.user.role.title() }}</small>
+                                        {% else %}
+                                            <small class="text-muted">System</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if log.organization %}
+                                            <small>{{ log.organization.display_name or log.organization.name }}</small>
+                                        {% else %}
+                                            <small class="text-muted">Global</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ log.ip_address or 'N/A' }}</small>
+                                    </td>
+                                    <td>
+                                        {% if log.data and log.data.get('description') %}
+                                            <small>{{ log.data.description }}</small>
+                                        {% else %}
+                                            <small class="text-muted">No details</small>
+                                        {% endif %}
+                                        
+                                        {% if log.data and (log.data.keys()|length > 1 or not log.data.get('description')) %}
+                                        <button class="btn btn-sm btn-outline-info ms-2" type="button" 
+                                                data-bs-toggle="collapse" data-bs-target="#details-{{ log.id }}">
+                                            <i class="fas fa-info-circle"></i>
+                                        </button>
+                                        <div class="collapse mt-2" id="details-{{ log.id }}">
+                                            <div class="card card-body">
+                                                <pre class="mb-0" style="font-size: 0.8rem;">{{ log.data | tojson(indent=2) if log.data else 'No additional data' }}</pre>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    {% if logs.pages > 1 %}
+                    <nav aria-label="Logs pagination" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if logs.has_prev %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('root_admin.system_logs', page=logs.prev_num, **filters) }}">Previous</a>
+                                </li>
+                            {% endif %}
+                            
+                            {% for page_num in logs.iter_pages() %}
+                                {% if page_num %}
+                                    {% if page_num != logs.page %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="{{ url_for('root_admin.system_logs', page=page_num, **filters) }}">{{ page_num }}</a>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ page_num }}</span>
+                                        </li>
+                                    {% endif %}
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">…</span>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if logs.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('root_admin.system_logs', page=logs.next_num, **filters) }}">Next</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                    
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-list-alt fa-4x text-muted mb-3"></i>
+                        <h4 class="text-muted">No System Logs</h4>
+                        <p class="text-muted">No logs match the current filters</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

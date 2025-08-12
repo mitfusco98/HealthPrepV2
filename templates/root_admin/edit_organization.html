@@ -1,0 +1,200 @@
+{% extends "root_admin/base_root_admin.html" %}
+
+{% block title %}Edit Organization - Root Admin{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-edit text-danger me-2"></i>Edit Organization: {{ organization.name }}
+            </h1>
+            <a href="{{ url_for('root_admin.organizations') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Back to Organizations
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card root-admin-card">
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Organization Name (Read-only)</label>
+                                <input type="text" class="form-control" id="name" value="{{ organization.name }}" readonly>
+                                <small class="form-text text-muted">Organization name cannot be changed</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="display_name" class="form-label">Display Name</label>
+                                <input type="text" class="form-control" id="display_name" name="display_name" 
+                                       value="{{ organization.display_name or '' }}" placeholder="Optional display name">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="contact_email" class="form-label">Contact Email</label>
+                                <input type="email" class="form-control" id="contact_email" name="contact_email" 
+                                       value="{{ organization.contact_email or '' }}" placeholder="admin@organization.com">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="phone" class="form-label">Phone Number</label>
+                                <input type="text" class="form-control" id="phone" name="phone" 
+                                       value="{{ organization.phone or '' }}" placeholder="+1 (555) 123-4567">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="address" class="form-label">Address</label>
+                        <textarea class="form-control" id="address" name="address" rows="3" 
+                                  placeholder="Organization address">{{ organization.address or '' }}</textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="max_users" class="form-label">Maximum Users</label>
+                                <input type="number" class="form-control" id="max_users" name="max_users" 
+                                       value="{{ organization.max_users }}" min="1" max="1000" required>
+                                <small class="form-text text-muted">Current users: {{ organization.user_count }}</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="setup_status" class="form-label">Setup Status</label>
+                                <select class="form-select" id="setup_status" name="setup_status" required>
+                                    <option value="incomplete" {% if organization.setup_status == 'incomplete' %}selected{% endif %}>Incomplete</option>
+                                    <option value="trial" {% if organization.setup_status == 'trial' %}selected{% endif %}>Trial</option>
+                                    <option value="live" {% if organization.setup_status == 'live' %}selected{% endif %}>Live</option>
+                                    <option value="suspended" {% if organization.setup_status == 'suspended' %}selected{% endif %}>Suspended</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('root_admin.organizations') }}" class="btn btn-secondary me-md-2">Cancel</a>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-save me-1"></i>Update Organization
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card root-admin-card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-1"></i>Organization Info
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-2">
+                    <strong>Created:</strong><br>
+                    <small>{{ organization.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                </div>
+                <div class="mb-2">
+                    <strong>Current Status:</strong><br>
+                    {% if organization.setup_status == 'live' %}
+                        <span class="badge bg-success">Live</span>
+                    {% elif organization.setup_status == 'trial' %}
+                        <span class="badge bg-warning">Trial</span>
+                    {% elif organization.setup_status == 'incomplete' %}
+                        <span class="badge bg-secondary">Setup</span>
+                    {% else %}
+                        <span class="badge bg-danger">Suspended</span>
+                    {% endif %}
+                </div>
+                <div class="mb-2">
+                    <strong>Epic Configuration:</strong><br>
+                    {% if organization.epic_client_id %}
+                        <span class="badge bg-success">
+                            <i class="fas fa-check"></i> Configured
+                        </span>
+                    {% else %}
+                        <span class="badge bg-secondary">
+                            <i class="fas fa-times"></i> Not Set
+                        </span>
+                    {% endif %}
+                </div>
+                <div class="mb-2">
+                    <strong>User Count:</strong><br>
+                    <span class="badge bg-info">{{ organization.user_count }} / {{ organization.max_users }}</span>
+                </div>
+                {% if organization.trial_expiry %}
+                <div class="mb-2">
+                    <strong>Trial Expires:</strong><br>
+                    <small>{{ organization.trial_expiry.strftime('%Y-%m-%d') }}</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card root-admin-card mt-3">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-tools me-1"></i>Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('root_admin.view_organization', org_id=organization.id) }}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-eye me-1"></i>View Details
+                    </a>
+                    <a href="{{ url_for('root_admin.organization_users', org_id=organization.id) }}" class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-users me-1"></i>Manage Users
+                    </a>
+                    {% if organization.user_count == 0 %}
+                    <button class="btn btn-outline-danger btn-sm" 
+                            onclick="deleteOrganization({{ organization.id }}, '{{ organization.name }}')">
+                        <i class="fas fa-trash me-1"></i>Delete Organization
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function deleteOrganization(orgId, orgName) {
+    if (confirm(`Are you sure you want to delete organization "${orgName}"?\n\nThis action cannot be undone.`)) {
+        fetch(`/root-admin/organizations/${orgId}/delete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                window.location.href = '{{ url_for("root_admin.organizations") }}';
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error deleting organization');
+        });
+    }
+}
+</script>
+{% endblock %}

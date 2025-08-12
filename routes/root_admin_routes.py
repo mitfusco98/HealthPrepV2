@@ -700,8 +700,7 @@ def system_logs():
         event_types = [event.event_type for event in event_types if event.event_type]
         
         return render_template('root_admin/system_logs.html',
-                             logs=logs_pagination.items,
-                             pagination=logs_pagination,
+                             logs=logs_pagination,
                              organizations=organizations,
                              event_types=event_types,
                              filters={'org_id': org_id, 'event_type': event_type})
@@ -710,4 +709,8 @@ def system_logs():
         logger.error(f"Error loading system logs: {str(e)}")
         flash('Error loading logs', 'error')
         return render_template('error/500.html'), 500
+
+# Duplicate edit_organization route removed - keeping only the one added at the end
+
+# Duplicate delete_organization route removed - keeping only the one added at the end
 
