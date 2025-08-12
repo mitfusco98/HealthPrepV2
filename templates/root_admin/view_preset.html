@@ -20,13 +20,13 @@
 
 .keyword-tag {
     font-size: 0.75rem;
-    padding: 3px 8px;
+    padding: 4px 8px;
     margin: 2px;
-    background-color: rgba(220, 53, 69, 0.1);
-    border-radius: 3px;
+    background-color: #e9ecef;
+    border-radius: 4px;
     display: inline-block;
-    color: #dc3545;
-    border: 1px solid rgba(220, 53, 69, 0.3);
+    color: #495057;
+    border: none;
 }
 
 .condition-tag {
@@ -304,9 +304,14 @@
                                 {% if st.keywords %}
                                 <div class="mb-3">
                                     <strong>Keywords ({{ st.keywords|length }}):</strong><br>
-                                    {% for keyword in st.keywords %}
-                                        <span class="keyword-tag">{{ keyword }}</span>
-                                    {% endfor %}
+                                    <div class="keyword-tags">
+                                        {% for keyword in st.keywords[:10] %}
+                                            <span class="badge bg-light text-dark me-1 mb-1" style="font-size: 0.75rem;">{{ keyword }}</span>
+                                        {% endfor %}
+                                        {% if st.keywords|length > 10 %}
+                                            <span class="badge bg-secondary me-1 mb-1" style="font-size: 0.75rem;">+{{ st.keywords|length - 10 }} more</span>
+                                        {% endif %}
+                                    </div>
                                 </div>
                                 {% endif %}
 
