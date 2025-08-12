@@ -346,31 +346,17 @@ function confirmDeleteUser() {
     .then(data => {
         if (data.success) {
             showToast(data.message, 'success');
-
-            // Remove the user row from the table
-            const userRow = document.querySelector(`tr[data-user-id="${deletingUserId}"]`);
-            if (userRow) {
-                // Add fade out animation
-                userRow.style.opacity = '0.5';
-                userRow.style.transition = 'opacity 0.3s ease';
-
-                setTimeout(() => {
-                    userRow.remove();
-
-                    // Check if table is empty and show message
-                    const tbody = document.querySelector('#usersTable tbody');
-                    const remainingRows = tbody.querySelectorAll('tr');
-                    if (remainingRows.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No users found</td></tr>';
-                    }
-                }, 300);
-            }
-
-            // Close modal
+            
+            // Close modal first
             const modal = bootstrap.Modal.getInstance(document.getElementById('deleteUserModal'));
             if (modal) {
                 modal.hide();
             }
+            
+            // Redirect to refresh the page and show updated user list
+            setTimeout(() => {
+                window.location.href = '/admin/users';
+            }, 500);
         } else {
             showToast(data.error || 'Error deleting user', 'error');
         }
@@ -404,28 +390,11 @@ function toggleUserStatus(userId, username, currentStatus) {
     .then(data => {
         if (data.success) {
             showToast(data.message, 'success');
-
-            // Update the table row
-            const row = document.querySelector(`tr[data-user-id="${userId}"]`);
-            if (row) {
-                const statusBadge = row.querySelector('td:nth-child(4) .badge');
-                const toggleBtn = row.querySelector('button[onclick*="toggleUserStatus"]');
-
-                if (data.is_active) {
-                    statusBadge.className = 'badge bg-success';
-                    statusBadge.textContent = 'Active';
-                    toggleBtn.className = 'btn btn-outline-warning btn-sm';
-                    toggleBtn.innerHTML = '<i class="fas fa-ban"></i>';
-                } else {
-                    statusBadge.className = 'badge bg-danger';
-                    statusBadge.textContent = 'Inactive';
-                    toggleBtn.className = 'btn btn-outline-success btn-sm';
-                    toggleBtn.innerHTML = '<i class="fas fa-check"></i>';
-                }
-
-                // Update the onclick attribute
-                toggleBtn.setAttribute('onclick', `toggleUserStatus(${userId}, '${username}', ${data.is_active})`);
-            }
+            
+            // Redirect to refresh the page and show updated user list
+            setTimeout(() => {
+                window.location.href = '/admin/users';
+            }, 500);
         } else {
             showToast(data.error || 'Error updating user status', 'error');
         }
