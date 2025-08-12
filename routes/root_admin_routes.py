@@ -53,7 +53,7 @@ def dashboard():
         
         # Get preset statistics
         total_presets = ScreeningPreset.query.count()
-        global_presets = ScreeningPreset.query.filter_by(is_global=True).count()
+        global_presets = ScreeningPreset.query.filter_by(shared=True).count()
         
         stats = {
             'total_organizations': total_orgs,
@@ -85,12 +85,12 @@ def presets():
         all_presets = ScreeningPreset.query.order_by(ScreeningPreset.created_at.desc()).all()
         
         # Get global presets (universally available)
-        global_presets = ScreeningPreset.query.filter_by(is_global=True).order_by(ScreeningPreset.updated_at.desc()).all()
+        global_presets = ScreeningPreset.query.filter_by(shared=True).order_by(ScreeningPreset.updated_at.desc()).all()
         
         # Organize presets by organization for better display
         org_presets = {}
         for preset in all_presets:
-            if not preset.is_global:  # Don't duplicate global presets in org sections
+            if not preset.shared:  # Don't duplicate global presets in org sections
                 org_name = preset.organization.name if preset.organization else 'Unknown Organization'
                 if org_name not in org_presets:
                     org_presets[org_name] = []
@@ -123,9 +123,9 @@ def make_preset_global(preset_id):
         preset = ScreeningPreset.query.get_or_404(preset_id)
         
         # Make preset global
-        preset.is_global = True
-        preset.global_approved_by = current_user.id
-        preset.global_approved_at = datetime.utcnow()
+        preset.shared = True
+        preset.preset_scope = 'global'
+        preset.org_id = None  # Make it available to all organizations
         
         db.session.commit()
         
@@ -160,9 +160,8 @@ def remove_global_preset(preset_id):
         preset = ScreeningPreset.query.get_or_404(preset_id)
         
         # Remove global status
-        preset.is_global = False
-        preset.global_approved_by = None
-        preset.global_approved_at = None
+        preset.shared = False
+        preset.preset_scope = 'organization'
         
         db.session.commit()
         
