@@ -9,7 +9,7 @@ import functools
 import uuid
 from werkzeug.security import generate_password_hash
 
-from models import User, Organization, AdminLog, log_admin_event, EpicCredentials, ScreeningPreset, ExportRequest
+from models import User, Organization, AdminLog, log_admin_event, EpicCredentials, ScreeningPreset
 from app import db
 from flask import request as flask_request
 
@@ -48,11 +48,12 @@ def dashboard():
         total_users = User.query.filter(User.org_id != None).count()
         admin_users = User.query.filter(User.role == 'admin').count()
         
-        # Get pending export requests
-        pending_export_requests = ExportRequest.query.filter_by(status='pending').order_by(ExportRequest.created_at.desc()).limit(10).all()
-        
         # Get recent activities across all organizations
         recent_logs = AdminLog.query.order_by(AdminLog.timestamp.desc()).limit(20).all()
+        
+        # Get preset statistics
+        total_presets = ScreeningPreset.query.count()
+        global_presets = ScreeningPreset.query.filter_by(is_global=True).count()
         
         stats = {
             'total_organizations': total_orgs,
@@ -60,19 +61,165 @@ def dashboard():
             'trial_organizations': trial_orgs,
             'total_users': total_users,
             'admin_users': admin_users,
-            'pending_export_requests': len(pending_export_requests)
+            'total_presets': total_presets,
+            'global_presets': global_presets
         }
         
         return render_template('root_admin/dashboard.html', 
                              organizations=organizations,
                              stats=stats,
-                             recent_logs=recent_logs,
-                             pending_export_requests=pending_export_requests)
+                             recent_logs=recent_logs)
         
     except Exception as e:
         logger.error(f"Error in root admin dashboard: {str(e)}")
         flash('Error loading dashboard', 'error')
         return render_template('error/500.html'), 500
+
+@root_admin_bp.route('/presets')
+@login_required
+@root_admin_required
+def presets():
+    """Root admin presets management page"""
+    try:
+        # Get all presets from all organizations
+        all_presets = ScreeningPreset.query.order_by(ScreeningPreset.created_at.desc()).all()
+        
+        # Get global presets (universally available)
+        global_presets = ScreeningPreset.query.filter_by(is_global=True).order_by(ScreeningPreset.updated_at.desc()).all()
+        
+        # Organize presets by organization for better display
+        org_presets = {}
+        for preset in all_presets:
+            if not preset.is_global:  # Don't duplicate global presets in org sections
+                org_name = preset.organization.name if preset.organization else 'Unknown Organization'
+                if org_name not in org_presets:
+                    org_presets[org_name] = []
+                org_presets[org_name].append(preset)
+        
+        # Get statistics
+        stats = {
+            'total_presets': len(all_presets),
+            'global_presets': len(global_presets),
+            'org_presets': sum(len(presets) for presets in org_presets.values()),
+            'organizations_with_presets': len(org_presets)
+        }
+        
+        return render_template('root_admin/presets.html', 
+                             global_presets=global_presets,
+                             org_presets=org_presets,
+                             stats=stats)
+        
+    except Exception as e:
+        logger.error(f"Error loading root admin presets: {str(e)}")
+        flash('Error loading presets', 'error')
+        return render_template('error/500.html'), 500
+
+@root_admin_bp.route('/presets/<int:preset_id>/make-global', methods=['POST'])
+@login_required
+@root_admin_required
+def make_preset_global(preset_id):
+    """Make a preset globally available to all organizations"""
+    try:
+        preset = ScreeningPreset.query.get_or_404(preset_id)
+        
+        # Make preset global
+        preset.is_global = True
+        preset.global_approved_by = current_user.id
+        preset.global_approved_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        # Log the action
+        log_admin_event(
+            event_type='preset_made_global',
+            user_id=current_user.id,
+            org_id=1,  # Root admin org
+            ip=request.remote_addr,
+            data={
+                'preset_id': preset_id,
+                'preset_name': preset.name,
+                'original_org': preset.organization.name if preset.organization else 'Unknown',
+                'description': f'Made preset "{preset.name}" globally available'
+            }
+        )
+        
+        flash(f'Preset "{preset.name}" is now globally available to all organizations', 'success')
+        return redirect(url_for('root_admin.presets'))
+        
+    except Exception as e:
+        logger.error(f"Error making preset global: {str(e)}")
+        flash('Error making preset global', 'error')
+        return redirect(url_for('root_admin.presets'))
+
+@root_admin_bp.route('/presets/<int:preset_id>/remove-global', methods=['POST'])
+@login_required
+@root_admin_required
+def remove_global_preset(preset_id):
+    """Remove global availability from a preset"""
+    try:
+        preset = ScreeningPreset.query.get_or_404(preset_id)
+        
+        # Remove global status
+        preset.is_global = False
+        preset.global_approved_by = None
+        preset.global_approved_at = None
+        
+        db.session.commit()
+        
+        # Log the action
+        log_admin_event(
+            event_type='preset_global_removed',
+            user_id=current_user.id,
+            org_id=1,  # Root admin org
+            ip=request.remote_addr,
+            data={
+                'preset_id': preset_id,
+                'preset_name': preset.name,
+                'description': f'Removed global availability from preset "{preset.name}"'
+            }
+        )
+        
+        flash(f'Preset "{preset.name}" is no longer globally available', 'success')
+        return redirect(url_for('root_admin.presets'))
+        
+    except Exception as e:
+        logger.error(f"Error removing global preset: {str(e)}")
+        flash('Error removing global preset', 'error')
+        return redirect(url_for('root_admin.presets'))
+
+@root_admin_bp.route('/presets/<int:preset_id>/delete', methods=['POST'])
+@login_required
+@root_admin_required
+def delete_universal_preset(preset_id):
+    """Delete a universal preset completely"""
+    try:
+        preset = ScreeningPreset.query.get_or_404(preset_id)
+        preset_name = preset.name
+        
+        # Log the action before deletion
+        log_admin_event(
+            event_type='universal_preset_deleted',
+            user_id=current_user.id,
+            org_id=1,  # Root admin org
+            ip=request.remote_addr,
+            data={
+                'preset_id': preset_id,
+                'preset_name': preset_name,
+                'description': f'Deleted universal preset "{preset_name}"'
+            }
+        )
+        
+        # Delete the preset
+        db.session.delete(preset)
+        db.session.commit()
+        
+        flash(f'Universal preset "{preset_name}" has been deleted', 'success')
+        return redirect(url_for('root_admin.presets'))
+        
+    except Exception as e:
+        logger.error(f"Error deleting universal preset: {str(e)}")
+        flash('Error deleting preset', 'error')
+        return redirect(url_for('root_admin.presets'))
 
 @root_admin_bp.route('/presets')
 @login_required
@@ -509,106 +656,3 @@ def system_logs():
         flash('Error loading logs', 'error')
         return render_template('error/500.html'), 500
 
-@root_admin_bp.route('/export-requests')
-@login_required
-@root_admin_required
-def export_requests():
-    """View all export requests from organization admins"""
-    try:
-        # Get filter parameters
-        status = request.args.get('status', 'pending')
-        org_id = request.args.get('org_id', type=int)
-        
-        # Build query
-        query = ExportRequest.query
-        
-        if status != 'all':
-            query = query.filter(ExportRequest.status == status)
-        if org_id:
-            query = query.filter(ExportRequest.org_id == org_id)
-        
-        export_requests = query.order_by(ExportRequest.created_at.desc()).all()
-        
-        # Get organizations for filter
-        organizations = Organization.query.order_by(Organization.name).all()
-        
-        return render_template('root_admin/export_requests.html',
-                             export_requests=export_requests,
-                             organizations=organizations,
-                             filters={'status': status, 'org_id': org_id})
-        
-    except Exception as e:
-        logger.error(f"Error loading export requests: {str(e)}")
-        flash('Error loading export requests', 'error')
-        return render_template('error/500.html'), 500
-
-@root_admin_bp.route('/export-requests/<string:request_id>')
-@login_required
-@root_admin_required
-def view_export_request(request_id):
-    """View detailed export request"""
-    try:
-        export_request = ExportRequest.query.get_or_404(request_id)
-        return render_template('root_admin/view_export_request.html',
-                             export_request=export_request)
-        
-    except Exception as e:
-        logger.error(f"Error viewing export request {request_id}: {str(e)}")
-        flash('Error loading export request', 'error')
-        return redirect(url_for('root_admin.export_requests'))
-
-@root_admin_bp.route('/export-requests/<string:request_id>/approve', methods=['POST'])
-@login_required
-@root_admin_required
-def approve_export_request(request_id):
-    """Approve export request and create universal type"""
-    try:
-        export_request = ExportRequest.query.get_or_404(request_id)
-        
-        if not export_request.is_pending:
-            flash('This export request has already been reviewed', 'error')
-            return redirect(url_for('root_admin.export_requests'))
-        
-        review_notes = request.form.get('review_notes', '').strip()
-        
-        # Approve the request
-        export_request.approve(current_user, review_notes)
-        
-        flash(f'Export request for "{export_request.proposed_universal_name}" approved successfully', 'success')
-        return redirect(url_for('root_admin.export_requests'))
-        
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error approving export request {request_id}: {str(e)}")
-        flash('Error approving export request', 'error')
-        return redirect(url_for('root_admin.export_requests'))
-
-@root_admin_bp.route('/export-requests/<string:request_id>/reject', methods=['POST'])
-@login_required
-@root_admin_required
-def reject_export_request(request_id):
-    """Reject export request"""
-    try:
-        export_request = ExportRequest.query.get_or_404(request_id)
-        
-        if not export_request.is_pending:
-            flash('This export request has already been reviewed', 'error')
-            return redirect(url_for('root_admin.export_requests'))
-        
-        review_notes = request.form.get('review_notes', '').strip()
-        
-        if not review_notes:
-            flash('Please provide a reason for rejection', 'error')
-            return redirect(url_for('root_admin.view_export_request', request_id=request_id))
-        
-        # Reject the request
-        export_request.reject(current_user, review_notes)
-        
-        flash(f'Export request for "{export_request.proposed_universal_name}" rejected', 'warning')
-        return redirect(url_for('root_admin.export_requests'))
-        
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error rejecting export request {request_id}: {str(e)}")
-        flash('Error rejecting export request', 'error')
-        return redirect(url_for('root_admin.export_requests'))

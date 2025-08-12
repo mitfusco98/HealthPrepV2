@@ -1,0 +1,283 @@
+{% extends "base_admin.html" %}
+
+{% block title %}Root Admin - Presets Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-2 d-none d-md-block bg-light sidebar">
+            <div class="sidebar-sticky">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('root_admin.dashboard') }}">
+                            <i class="bi bi-speedometer2"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('root_admin.organizations') }}">
+                            <i class="bi bi-building"></i> Organizations
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('root_admin.presets') }}">
+                            <i class="bi bi-collection"></i> Universal Presets
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('root_admin.all_users') }}">
+                            <i class="bi bi-people"></i> All Users
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('root_admin.system_logs') }}">
+                            <i class="bi bi-journal-text"></i> System Logs
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main content -->
+        <main role="main" class="col-md-10 ml-sm-auto px-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">Universal Presets Management</h1>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="row mb-4">
+                <div class="col-xl-3 col-md-6 mb-3">
+                    <div class="card border-left-primary shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                        Total Presets
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                        {{ stats.total_presets }}
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="bi bi-collection fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-3">
+                    <div class="card border-left-success shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                        Global Presets
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                        {{ stats.global_presets }}
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="bi bi-globe fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-3">
+                    <div class="card border-left-info shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                        Organization Presets
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                        {{ stats.org_presets }}
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="bi bi-building fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-3">
+                    <div class="card border-left-warning shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                        Organizations with Presets
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                        {{ stats.organizations_with_presets }}
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="bi bi-diagram-3 fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Global Presets Section -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-globe"></i> Universal Presets (Available to All Organizations)
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if global_presets %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Specialty</th>
+                                        <th>Types Count</th>
+                                        <th>Created By</th>
+                                        <th>Organization</th>
+                                        <th>Made Global</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for preset in global_presets %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ preset.name }}</strong>
+                                            {% if preset.description %}
+                                                <br><small class="text-muted">{{ preset.description }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ preset.specialty or 'General' }}</td>
+                                        <td>
+                                            <span class="badge badge-info">
+                                                {{ preset.get_screening_type_count() }} types
+                                            </span>
+                                        </td>
+                                        <td>{{ preset.created_by_user.username if preset.created_by_user else 'System' }}</td>
+                                        <td>{{ preset.organization.name if preset.organization else 'System' }}</td>
+                                        <td>
+                                            {{ preset.global_approved_at.strftime('%Y-%m-%d') if preset.global_approved_at else 'Unknown' }}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <form method="POST" action="{{ url_for('root_admin.remove_global_preset', preset_id=preset.id) }}" class="d-inline">
+                                                    <button type="submit" class="btn btn-warning btn-sm" 
+                                                            onclick="return confirm('Remove global availability from this preset?')">
+                                                        <i class="bi bi-globe-slash"></i> Remove Global
+                                                    </button>
+                                                </form>
+                                                <form method="POST" action="{{ url_for('root_admin.delete_universal_preset', preset_id=preset.id) }}" class="d-inline">
+                                                    <button type="submit" class="btn btn-danger btn-sm" 
+                                                            onclick="return confirm('Permanently delete this universal preset? This cannot be undone.')">
+                                                        <i class="bi bi-trash"></i> Delete
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i>
+                            No universal presets are currently available. Promote organization presets below to make them globally available.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Organization Presets Section -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-building"></i> Organization Presets (Candidates for Global Promotion)
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if org_presets %}
+                        {% for org_name, presets in org_presets.items() %}
+                            <div class="mb-4">
+                                <h5 class="text-secondary">{{ org_name }}</h5>
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Specialty</th>
+                                                <th>Types Count</th>
+                                                <th>Created</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for preset in presets %}
+                                            <tr>
+                                                <td>
+                                                    <strong>{{ preset.name }}</strong>
+                                                    {% if preset.description %}
+                                                        <br><small class="text-muted">{{ preset.description }}</small>
+                                                    {% endif %}
+                                                </td>
+                                                <td>{{ preset.specialty or 'General' }}</td>
+                                                <td>
+                                                    <span class="badge badge-secondary">
+                                                        {{ preset.get_screening_type_count() }} types
+                                                    </span>
+                                                </td>
+                                                <td>{{ preset.created_at.strftime('%Y-%m-%d') }}</td>
+                                                <td>
+                                                    <form method="POST" action="{{ url_for('root_admin.make_preset_global', preset_id=preset.id) }}" class="d-inline">
+                                                        <button type="submit" class="btn btn-success btn-sm" 
+                                                                onclick="return confirm('Make this preset globally available to all organizations?')">
+                                                            <i class="bi bi-globe-plus"></i> Make Global
+                                                        </button>
+                                                    </form>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i>
+                            No organization-specific presets found. Organizations need to create presets first before they can be promoted to global availability.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add confirmation dialogs for destructive actions
+    const deleteButtons = document.querySelectorAll('button[onclick*="delete"]');
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            if (!confirm('Are you sure? This action cannot be undone.')) {
+                e.preventDefault();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

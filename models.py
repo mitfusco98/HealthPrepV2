@@ -1375,7 +1375,8 @@ class TypeLabelAssociation(db.Model):
         return f'<TypeLabelAssociation {self.label} -> {self.universal_type_id}>'
 
 
-class ExportRequest(db.Model):
+# Removed ExportRequest model - functionality replaced by direct root admin preset management
+# class ExportRequest(db.Model):
     """Tracks requests from organization admins to export screening types for universal approval"""
     __tablename__ = 'export_requests'
 
