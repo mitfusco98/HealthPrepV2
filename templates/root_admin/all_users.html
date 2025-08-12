@@ -201,6 +201,10 @@
 
 {% block extra_js %}
 <script>
+// Make functions globally accessible
+window.deleteUser = deleteUser;
+window.toggleUserStatus = toggleUserStatus;
+
 // Initialize DataTable if available
 if (typeof $.fn.DataTable !== 'undefined') {
     $(document).ready(function() {
@@ -241,25 +245,36 @@ function toggleUserStatus(userId, username, currentlyActive) {
 
 function deleteUser(userId, username) {
     if (confirm(`Are you sure you want to delete user "${username}"?\n\nThis action cannot be undone.`)) {
+        console.log(`Attempting to delete user ${userId} (${username})`);
+        
+        // Get CSRF token from meta tag or fallback to inline token
+        const csrfToken = document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || '{{ csrf_token() }}';
+        console.log('CSRF Token found:', csrfToken ? 'Yes' : 'No');
+        
         fetch(`/root-admin/users/${userId}/delete`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || ''
+                'X-CSRFToken': csrfToken
             }
         })
         .then(response => {
+            console.log('Response status:', response.status);
+            
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                return response.text().then(text => {
+                    throw new Error(`HTTP ${response.status}: ${text}`);
+                });
             }
             return response.json();
         })
         .then(data => {
+            console.log('Response data:', data);
             if (data.success) {
                 alert(data.message);
                 location.reload();
             } else {
-                alert('Error: ' + data.error);
+                alert('Error: ' + (data.error || 'Unknown error'));
             }
         })
         .catch(error => {
