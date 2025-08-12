@@ -23,28 +23,28 @@ class Organization(db.Model):
     address = db.Column(db.Text)
     contact_email = db.Column(db.String(120))
     phone = db.Column(db.String(20))
-    
+
     # Epic FHIR Configuration
     epic_client_id = db.Column(db.String(100))  # Epic client ID
     epic_client_secret = db.Column(db.String(255))  # Encrypted Epic client secret
     epic_fhir_url = db.Column(db.String(255))  # Epic FHIR base URL
     epic_environment = db.Column(db.String(20), default='sandbox')  # sandbox, production
-    
+
     # Organizational Settings
     setup_status = db.Column(db.String(20), default='incomplete')  # incomplete, live, trial, suspended
     custom_presets_enabled = db.Column(db.Boolean, default=True)
     auto_sync_enabled = db.Column(db.Boolean, default=False)
     max_users = db.Column(db.Integer, default=10)  # User limit for this org
-    
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     trial_expires = db.Column(db.DateTime)  # For trial accounts
-    
+
     # Relationships
     users = db.relationship('User', backref='organization', lazy=True)
     epic_credentials = db.relationship('EpicCredentials', backref='organization', lazy=True, cascade='all, delete-orphan')
-    
+
     @property
     def is_active(self):
         """Check if organization is active"""
@@ -53,18 +53,18 @@ class Organization(db.Model):
         if self.setup_status == 'trial' and self.trial_expires and self.trial_expires < datetime.utcnow():
             return False
         return True
-    
+
     @property
     def user_count(self):
         """Get current user count"""
         from sqlalchemy import func
         return db.session.query(func.count(User.id)).filter(User.org_id == self.id).scalar() or 0
-    
+
     @property
     def can_add_users(self):
         """Check if organization can add more users"""
         return self.user_count < self.max_users
-    
+
     def get_epic_config(self):
         """Get Epic configuration for this organization"""
         return {
@@ -73,7 +73,7 @@ class Organization(db.Model):
             'environment': self.epic_environment,
             'has_credentials': bool(self.epic_client_id and self.epic_client_secret)
         }
-    
+
     def __repr__(self):
         return f'<Organization {self.name}>'
 
@@ -84,39 +84,39 @@ class EpicCredentials(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
-    
+
     # Token storage (encrypted at rest)
     access_token = db.Column(db.Text)  # Encrypted access token
     refresh_token = db.Column(db.Text)  # Encrypted refresh token
     token_expires_at = db.Column(db.DateTime)
     token_scope = db.Column(db.String(255))  # FHIR scopes granted
-    
+
     # Epic user context (if user-specific tokens)
     epic_user_id = db.Column(db.String(100))  # Epic user ID if token is user-specific
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))  # Internal user if mapped
-    
+
     # Metadata
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_used = db.Column(db.DateTime)
-    
+
     # Relationships
     user = db.relationship('User', backref='epic_credentials')
-    
+
     @property
     def is_expired(self):
         """Check if token is expired"""
         if not self.token_expires_at:
             return True
         return datetime.utcnow() >= self.token_expires_at
-    
+
     @property
     def expires_soon(self):
         """Check if token expires within 30 minutes"""
         if not self.token_expires_at:
             return True
         return datetime.utcnow() >= (self.token_expires_at - timedelta(minutes=30))
-    
+
     def __repr__(self):
         return f'<EpicCredentials for org {self.org_id}>'
 
@@ -133,24 +133,24 @@ class User(UserMixin, db.Model):
     is_admin = db.Column(db.Boolean, default=False, nullable=False)  # Kept for backward compatibility
     is_active_user = db.Column(db.Boolean, default=True, nullable=False)
     is_root_admin = db.Column(db.Boolean, default=False, nullable=False)  # Super admin for managing all organizations
-    
+
     # Multi-tenancy fields
     org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=True)  # Nullable for root admins
     epic_user_id = db.Column(db.String(100))  # Epic user ID for mapping
-    
+
     # Security and session management
     two_factor_enabled = db.Column(db.Boolean, default=False)
     session_timeout_minutes = db.Column(db.Integer, default=30)
     last_activity = db.Column(db.DateTime, default=datetime.utcnow)
     failed_login_attempts = db.Column(db.Integer, default=0)
     locked_until = db.Column(db.DateTime)
-    
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime, default=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Create unique constraints within organization
     __table_args__ = (
         db.UniqueConstraint('username', 'org_id', name='unique_username_per_org'),
@@ -168,7 +168,7 @@ class User(UserMixin, db.Model):
     def is_admin_user(self):
         """Check if user has admin privileges"""
         return self.role == 'admin' or self.is_admin or self.is_root_admin
-    
+
     def is_root_admin_user(self):
         """Check if user has root admin privileges"""
         return self.is_root_admin or self.role == 'root_admin'
@@ -180,28 +180,28 @@ class User(UserMixin, db.Model):
     def can_manage_users(self):
         """Check if user can manage other users"""
         return self.role == 'admin' or self.is_root_admin
-    
+
     def can_manage_organizations(self):
         """Check if user can manage organizations"""
         return self.is_root_admin
-    
+
     def can_access_data(self, org_id):
         """Check if user can access data for a specific organization"""
         return self.org_id == org_id or self.is_root_admin
-    
+
     def is_session_expired(self):
         """Check if user session is expired based on activity"""
         if not self.last_activity:
             return True
         timeout_delta = timedelta(minutes=self.session_timeout_minutes)
         return datetime.utcnow() > (self.last_activity + timeout_delta)
-    
+
     def is_account_locked(self):
         """Check if account is temporarily locked"""
         if not self.locked_until:
             return False
         return datetime.utcnow() < self.locked_until
-    
+
     def record_login_attempt(self, success=True):
         """Record login attempt and handle account locking"""
         if success:
@@ -214,7 +214,7 @@ class User(UserMixin, db.Model):
             # Lock account after 5 failed attempts for 30 minutes
             if self.failed_login_attempts >= 5:
                 self.locked_until = datetime.utcnow() + timedelta(minutes=30)
-    
+
     def update_activity(self):
         """Update last activity timestamp"""
         self.last_activity = datetime.utcnow()
@@ -250,16 +250,16 @@ class Patient(db.Model):
     phone = db.Column(db.String(20))
     email = db.Column(db.String(120))
     address = db.Column(db.Text)
-    
+
     # Multi-tenancy
     org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
-    
+
     # Epic integration
     epic_patient_id = db.Column(db.String(100))  # Epic patient ID for FHIR sync
-    
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Unique MRN within organization
     __table_args__ = (
         db.UniqueConstraint('mrn', 'org_id', name='unique_mrn_per_org'),
@@ -324,11 +324,11 @@ class ScreeningType(db.Model):
         """Return trigger conditions as a list, filtering out empty/invalid conditions"""
         if not self.trigger_conditions or self.trigger_conditions.strip() == "":
             return []
-        
-        # Handle special cases like "[]", "null", empty arrays
+
+        # Handle case where JSON loads to None
         if self.trigger_conditions.strip() in ["[]", "null", "None"]:
             return []
-            
+
         try:
             conditions = json.loads(self.trigger_conditions)
             # Handle case where JSON loads to None
@@ -343,18 +343,18 @@ class ScreeningType(db.Model):
         except (json.JSONDecodeError, TypeError):
             # Fallback to comma-separated parsing
             return [cond.strip() for cond in self.trigger_conditions.split(',') if cond and cond.strip()]
-    
+
     def get_content_keywords(self):
         """Get keywords for content matching"""
         return self.keywords_list
-    
+
     def set_content_keywords(self, keywords):
         """Set keywords for content matching"""
         if isinstance(keywords, list):
             self.keywords = json.dumps(keywords)
         else:
             self.keywords = keywords
-    
+
     def get_trigger_conditions(self):
         """Get trigger conditions as a list"""
         if self.trigger_conditions:
@@ -363,7 +363,7 @@ class ScreeningType(db.Model):
             except (json.JSONDecodeError, TypeError):
                 return []
         return []
-    
+
     def set_trigger_conditions(self, conditions):
         """Set trigger conditions from a list"""
         self.trigger_conditions = json.dumps(conditions) if conditions else None
@@ -372,7 +372,7 @@ class ScreeningType(db.Model):
     def frequency_display(self):
         """Return frequency in user-friendly format"""
         frequency_months = self.frequency_years * 12
-        
+
         # Special cases for common frequencies
         if self.frequency_years == 1.0:
             return "Every year"
@@ -380,7 +380,7 @@ class ScreeningType(db.Model):
             return "Every 6 months"
         elif self.frequency_years == 2.0:
             return "Every 2 years"
-        
+
         # If it's a clean number of months and less than 12 months, show in months
         if frequency_months < 12 and frequency_months == int(frequency_months):
             months = int(frequency_months)
@@ -427,20 +427,20 @@ class ScreeningType(db.Model):
     def get_base_names_with_counts(cls):
         """Get all unique base names with their variant counts"""
         from sqlalchemy import func, cast, Integer
-        
+
         results = db.session.query(
             cls.name,
             func.count(cls.id).label('variant_count'),
             func.min(cast(cls.is_active, Integer)).label('all_active')
         ).group_by(cls.name).order_by(cls.name).all()
-        
+
         return [(name, int(count), bool(all_active)) for name, count, all_active in results]
 
     def sync_status_to_variants(self):
         """Sync the is_active status to all other variants of the same base name"""
         # Get the base name (everything before ' - ' if it exists)
         base_name = self.name.split(' - ')[0] if ' - ' in self.name else self.name
-        
+
         # Find all screening types that share the same base name
         variants = ScreeningType.query.filter(
             db.or_(
@@ -448,19 +448,19 @@ class ScreeningType(db.Model):
                 ScreeningType.name.like(f"{base_name} - %")
             )
         ).all()
-        
+
         # Update all variants to match this screening type's status
         for variant in variants:
             if variant.id != self.id:
                 variant.is_active = self.is_active
-        
+
         db.session.commit()
-    
+
     def to_preset_format(self):
         """Convert screening type to preset format for export"""
         # Convert frequency_years to number and unit that PresetLoader expects
         frequency_years = self.frequency_years or 1.0
-        
+
         if frequency_years >= 1.0 and frequency_years == int(frequency_years):
             # Whole years
             frequency_number = int(frequency_years)
@@ -479,7 +479,7 @@ class ScreeningType(db.Model):
             # Fractional years
             frequency_number = frequency_years
             frequency_unit = 'years'
-        
+
         return {
             'name': self.name,
             'description': '',  # ScreeningType doesn't have description field yet
@@ -493,12 +493,12 @@ class ScreeningType(db.Model):
             'is_active': self.is_active,
             'org_id': self.org_id
         }
-    
+
     @classmethod
     def create_preset_from_types(cls, screening_type_ids, preset_name, description='', specialty='Custom', created_by=None, org_id=None):
         """Create a ScreeningPreset from selected screening types"""
         from datetime import datetime
-        
+
         # Get the screening types with organization scope
         if org_id:
             screening_types = cls.query.filter(
@@ -507,15 +507,15 @@ class ScreeningType(db.Model):
             ).all()
         else:
             screening_types = cls.query.filter(cls.id.in_(screening_type_ids)).all()
-        
+
         if not screening_types:
             return None
-        
+
         # Convert to preset format
         screening_data = []
         for st in screening_types:
             screening_data.append(st.to_preset_format())
-        
+
         # Create preset data structure for the screening_data field
         preset_data = {
             'name': preset_name,
@@ -525,7 +525,7 @@ class ScreeningType(db.Model):
             'created_date': datetime.utcnow().isoformat(),
             'screening_types': screening_data
         }
-        
+
         # Create ScreeningPreset record
         preset = ScreeningPreset(
             name=preset_name,
@@ -543,7 +543,7 @@ class ScreeningType(db.Model):
             },
             created_by=created_by
         )
-        
+
         return preset
 
     def __repr__(self):
@@ -568,7 +568,7 @@ class Screening(db.Model):
 
     # Relationships
     organization = db.relationship('Organization', backref='screenings')
-    
+
     @property
     def matched_documents_list(self):
         """Return matched documents as a list"""
@@ -598,7 +598,7 @@ class Document(db.Model):
     phi_filtered = db.Column(db.Boolean, default=False)
     processed_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     # Relationships
     organization = db.relationship('Organization', backref='documents')
 
@@ -645,19 +645,19 @@ class AdminLog(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)  # Organization scope
     ip_address = db.Column(db.String(45))
-    
+
     # Enhanced logging fields for HIPAA compliance
     patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'))  # Patient accessed (if applicable)
     resource_type = db.Column(db.String(50))  # Type of resource accessed (patient, document, screening)
     resource_id = db.Column(db.Integer)  # ID of specific resource
     action_details = db.Column(db.Text)  # Human-readable action description
-    
+
     data = db.Column(db.JSON)  # Additional structured data
-    
+
     # Security tracking
     session_id = db.Column(db.String(100))  # Session identifier
     user_agent = db.Column(db.Text)  # Browser/client information
-    
+
     # Relationships
     user = db.relationship('User', backref=db.backref('admin_logs', lazy=True))
     organization = db.relationship('Organization', backref=db.backref('admin_logs', lazy=True))
@@ -729,9 +729,9 @@ class PrepSheetSettings(db.Model):
     def get_effective_cutoff_date(self, data_type, patient_id=None):
         """Calculate the effective cutoff date for a data type"""
         from datetime import datetime, timedelta
-        
+
         cutoff_months = getattr(self, f'{data_type}_cutoff_months', 6)
-        
+
         # If cutoff is 0, use last appointment logic
         if cutoff_months == 0 and patient_id:
             # Find patient's most recent appointment before today
@@ -743,7 +743,7 @@ class PrepSheetSettings(db.Model):
                 pass
             # Fallback to 6 months if no appointments or patient not found
             cutoff_months = 6
-        
+
         # Calculate cutoff date
         cutoff_date = datetime.now() - timedelta(days=cutoff_months * 30)
         return cutoff_date
@@ -757,7 +757,7 @@ class PrepSheetSettings(db.Model):
             'extended': {'labs': 12, 'imaging': 12, 'consults': 12, 'hospital': 12},
             'last_appointment': {'labs': 0, 'imaging': 0, 'consults': 0, 'hospital': 0}
         }
-        
+
         if preset_name in presets:
             preset = presets[preset_name]
             return {
@@ -819,19 +819,19 @@ class ScreeningPreset(db.Model):
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
     specialty = db.Column(db.String(50))  # e.g., 'cardiology', 'primary_care', 'oncology'
-    
+
     # Multi-tenancy support
     org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'))  # NULL = global/shared preset
     shared = db.Column(db.Boolean, default=False, nullable=False)  # Shared across tenants/organizations
     preset_scope = db.Column(db.String(20), default='organization')  # 'global', 'organization', 'user'
-    
+
     screening_data = db.Column(db.JSON, nullable=False)  # Complete screening type data
     preset_metadata = db.Column(db.JSON)  # Additional metadata (version, tags, etc.)
-    
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    
+
     # Relationships
     creator = db.relationship('User', backref='created_presets')
     organization = db.relationship('Organization', backref='screening_presets')
@@ -841,7 +841,7 @@ class ScreeningPreset(db.Model):
         """Get number of screening types in this preset"""
         if not self.screening_data:
             return 0
-        
+
         # Handle new format: screening_data is a dict with 'screening_types' key
         if isinstance(self.screening_data, dict):
             if 'screening_types' in self.screening_data:
@@ -849,11 +849,11 @@ class ScreeningPreset(db.Model):
                 return len(screening_types) if isinstance(screening_types, list) else 0
             # If it's a dict but no 'screening_types' key, it's probably a single screening
             return 1
-        
+
         # Handle legacy format: screening_data is directly a list of screening types  
         if isinstance(self.screening_data, list):
             return len(self.screening_data)
-        
+
         return 1 if self.screening_data else 0
 
     @property
@@ -867,7 +867,7 @@ class ScreeningPreset(db.Model):
         """Get all screening types in this preset"""
         if not self.screening_data:
             return []
-        
+
         # Handle new format: screening_data is a dict with 'screening_types' key
         if isinstance(self.screening_data, dict):
             if 'screening_types' in self.screening_data:
@@ -875,7 +875,7 @@ class ScreeningPreset(db.Model):
                 return screening_types if isinstance(screening_types, list) else []
             # If it's a dict but no 'screening_types' key, treat the whole dict as one screening
             return [self.screening_data]
-        
+
         # Handle legacy format: screening_data is directly a list of screening types
         if isinstance(self.screening_data, list):
             return self.screening_data
@@ -913,7 +913,7 @@ class ScreeningPreset(db.Model):
     def from_screening_types(cls, screening_types, name, description='', specialty='', shared=False, created_by=None):
         """Create a preset from existing ScreeningType objects"""
         screening_data = []
-        
+
         for st in screening_types:
             screening_data.append({
                 'name': st.name,
@@ -925,7 +925,7 @@ class ScreeningPreset(db.Model):
                 'trigger_conditions': st.trigger_conditions_list,
                 'is_active': st.is_active
             })
-        
+
         preset = cls(
             name=name,
             description=description,
@@ -934,7 +934,7 @@ class ScreeningPreset(db.Model):
             screening_data=screening_data,
             created_by=created_by
         )
-        
+
         return preset
 
     def import_to_screening_types(self, overwrite_existing=False, created_by=None):
@@ -943,17 +943,17 @@ class ScreeningPreset(db.Model):
         updated_count = 0
         skipped_count = 0
         errors = []
-        
+
         try:
             for st_data in self.get_screening_types():
                 try:
                     # Check if screening type already exists
                     existing = ScreeningType.query.filter_by(name=st_data['name']).first()
-                    
+
                     if existing and not overwrite_existing:
                         skipped_count += 1
                         continue
-                    
+
                     if existing and overwrite_existing:
                         # Update existing screening type
                         existing.keywords = json.dumps(st_data.get('keywords', []))
@@ -978,13 +978,13 @@ class ScreeningPreset(db.Model):
                         new_st.is_active = st_data.get('is_active', True)
                         db.session.add(new_st)
                         imported_count += 1
-                        
+
                 except Exception as e:
                     errors.append(f"Error processing '{st_data.get('name', 'Unknown')}': {str(e)}")
                     continue
-            
+
             db.session.commit()
-            
+
             return {
                 'success': True,
                 'imported_count': imported_count,
@@ -992,7 +992,7 @@ class ScreeningPreset(db.Model):
                 'skipped_count': skipped_count,
                 'errors': errors
             }
-            
+
         except Exception as e:
             db.session.rollback()
             return {
@@ -1023,7 +1023,7 @@ class ScreeningPreset(db.Model):
     def from_import_dict(cls, data, created_by):
         """Create preset from imported data"""
         preset_info = data.get('preset_info', {})
-        
+
         return cls(
             name=preset_info.get('name', 'Imported Preset'),
             description=preset_info.get('description', ''),
@@ -1039,38 +1039,38 @@ class ScreeningPreset(db.Model):
         # Global/shared presets are accessible to all users
         if self.shared or self.preset_scope == 'global':
             return True
-        
+
         # Organization-specific presets are accessible to users in the same org
         if self.org_id and user.org_id == self.org_id:
             return True
-        
+
         # User can access their own presets
         if self.created_by == user.id:
             return True
-        
+
         return False
-    
+
     def can_be_edited_by_user(self, user):
         """Check if preset can be edited by a specific user"""
         # Global presets can only be edited by super admins (future feature)
         if self.preset_scope == 'global':
             return False  # Reserved for future super admin role
-        
+
         # User can edit their own presets
         if self.created_by == user.id:
             return True
-        
+
         # Admin users can edit organization presets
         if user.is_admin_user() and self.org_id == user.org_id:
             return True
-        
+
         return False
 
     def request_global_approval(self, requested_by):
         """Request approval for global sharing by root admin"""
         if not self.preset_metadata:
             self.preset_metadata = {}
-        
+
         self.preset_metadata.update({
             'approval_requested': True,
             'approval_requested_by': requested_by,
@@ -1078,28 +1078,28 @@ class ScreeningPreset(db.Model):
             'approval_status': 'pending'
         })
         self.updated_at = datetime.utcnow()
-    
+
     def approve_for_global_sharing(self, approved_by):
         """Approve preset for global sharing (root admin function)"""
         self.shared = True
         self.preset_scope = 'global'
         self.org_id = None  # Make it available to all organizations
-        
+
         if not self.preset_metadata:
             self.preset_metadata = {}
-        
+
         self.preset_metadata.update({
             'approval_status': 'approved',
             'approved_by': approved_by,
             'approved_at': datetime.utcnow().isoformat()
         })
         self.updated_at = datetime.utcnow()
-    
+
     def reject_global_approval(self, rejected_by, reason=''):
         """Reject preset for global sharing (root admin function)"""
         if not self.preset_metadata:
             self.preset_metadata = {}
-        
+
         self.preset_metadata.update({
             'approval_status': 'rejected',
             'rejected_by': rejected_by,
@@ -1107,29 +1107,29 @@ class ScreeningPreset(db.Model):
             'rejection_reason': reason
         })
         self.updated_at = datetime.utcnow()
-    
+
     def is_pending_approval(self):
-        """Check if preset is pending global approval"""
+        """Check if preset is pending approval"""
         if not self.preset_metadata:
             return False
         return self.preset_metadata.get('approval_status') == 'pending'
-    
+
     def get_approval_status(self):
         """Get current approval status"""
         if not self.preset_metadata:
             return 'none'
         return self.preset_metadata.get('approval_status', 'none')
-    
+
     def can_request_approval(self):
         """Check if preset can request global approval"""
         # Must be organization-scoped and not already shared
         if self.shared or self.preset_scope == 'global':
             return False
-        
+
         # Must not already be pending or approved
         status = self.get_approval_status()
         return status not in ['pending', 'approved']
-    
+
     def get_screening_type_count(self):
         """Get number of screening types in preset (compatible with existing code)"""
         if not self.screening_data:
@@ -1139,7 +1139,7 @@ class ScreeningPreset(db.Model):
         elif isinstance(self.screening_data, list):
             return len(self.screening_data)
         return 0
-    
+
     def get_screening_type_names(self):
         """Get list of screening type names in this preset"""
         names = []
@@ -1151,7 +1151,7 @@ class ScreeningPreset(db.Model):
                 for st in self.screening_data:
                     names.append(st.get('name', 'Unknown'))
         return names
-    
+
     def __repr__(self):
         return f'<ScreeningPreset {self.name} ({self.screening_count} types)>'
 
@@ -1173,12 +1173,12 @@ class UniversalType(db.Model):
     status = db.Column(db.Enum('active', 'deprecated', name='universal_type_status'), default='active')
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     # Relationships
     aliases = db.relationship('UniversalTypeAlias', backref='universal_type', lazy=True, cascade='all, delete-orphan')
     protocols = db.relationship('ScreeningProtocol', backref='universal_type', lazy=True, cascade='all, delete-orphan')
     label_associations = db.relationship('TypeLabelAssociation', backref='universal_type', lazy=True)
-    
+
     @classmethod
     def create_slug(cls, name):
         """Create deterministic slug from canonical name"""
@@ -1189,19 +1189,19 @@ class UniversalType(db.Model):
         # Remove multiple hyphens
         slug = re.sub(r'-+', '-', slug)
         return slug.strip('-')
-    
+
     @property
     def all_aliases(self):
         """Get all aliases as a list"""
         return [alias.alias for alias in self.aliases] if self.aliases else []
-    
+
     def add_alias(self, alias_text, source='system', confidence=1.0):
         """Add an alias for this universal type"""
         existing = UniversalTypeAlias.query.filter_by(
             universal_type_id=self.id,
             alias=alias_text
         ).first()
-        
+
         if not existing:
             alias = UniversalTypeAlias(
                 universal_type_id=self.id,
@@ -1212,7 +1212,7 @@ class UniversalType(db.Model):
             db.session.add(alias)
             return alias
         return existing
-    
+
     def __repr__(self):
         return f'<UniversalType {self.canonical_name}>'
 
@@ -1227,9 +1227,9 @@ class UniversalTypeAlias(db.Model):
     source = db.Column(db.Enum('system', 'org', 'user', name='alias_source'), default='system')
     confidence = db.Column(db.Float, default=1.0)  # 0-1 confidence score
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     __table_args__ = (db.UniqueConstraint('universal_type_id', 'alias'),)
-    
+
     def __repr__(self):
         return f'<UniversalTypeAlias {self.alias} -> {self.universal_type_id}>'
 
@@ -1245,26 +1245,26 @@ class ScreeningProtocol(db.Model):
     org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=True)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     # Relationships
     variants = db.relationship('ScreeningVariant', backref='protocol', lazy=True, cascade='all, delete-orphan')
     organization = db.relationship('Organization', backref='protocols')
-    
+
     @property
     def published_variants(self):
         """Get only published variants"""
         return [v for v in self.variants if v.is_published] if self.variants else []
-    
+
     @property
     def variant_count(self):
         """Total number of variants"""
         return len(self.variants) if self.variants else 0
-    
+
     @property
     def published_count(self):
         """Number of published variants"""
         return len(self.published_variants)
-    
+
     def __repr__(self):
         return f'<ScreeningProtocol {self.name} ({self.variant_count} variants)>'
 
@@ -1284,12 +1284,12 @@ class ScreeningVariant(db.Model):
     is_published = db.Column(db.Boolean, default=False)  # Available to admins for preset creation
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relationships
     author = db.relationship('User', backref='created_variants')
     organization = db.relationship('Organization', backref='variants')
     derived_from = db.relationship('ScreeningVariant', remote_side=[id], backref='derivatives')
-    
+
     @classmethod
     def compute_criteria_hash(cls, criteria_json):
         """Compute SHA256 hash of normalized criteria for duplicate detection"""
@@ -1297,13 +1297,13 @@ class ScreeningVariant(db.Model):
         # Normalize JSON by sorting keys
         normalized = json.dumps(criteria_json, sort_keys=True, separators=(',', ':'))
         return hashlib.sha256(normalized.encode()).hexdigest()
-    
+
     @property
     def criteria_summary(self):
         """Get a summary of the criteria for display"""
         if not self.criteria_json:
             return "No criteria defined"
-        
+
         summary = []
         if self.criteria_json.get('keywords'):
             summary.append(f"{len(self.criteria_json['keywords'])} keywords")
@@ -1312,9 +1312,9 @@ class ScreeningVariant(db.Model):
         if self.criteria_json.get('frequency_number'):
             unit = self.criteria_json.get('frequency_unit', 'years')
             summary.append(f"Every {self.criteria_json['frequency_number']} {unit}")
-        
+
         return ", ".join(summary) if summary else "Basic criteria"
-    
+
     @property
     def is_duplicate(self):
         """Check if this variant has identical criteria to another variant"""
@@ -1323,14 +1323,14 @@ class ScreeningVariant(db.Model):
             ScreeningVariant.id != self.id
         ).first()
         return duplicate is not None
-    
+
     def get_duplicate_variants(self):
         """Get all variants with identical criteria"""
         return ScreeningVariant.query.filter(
             ScreeningVariant.criteria_hash == self.criteria_hash,
             ScreeningVariant.id != self.id
         ).all()
-    
+
     def __repr__(self):
         return f'<ScreeningVariant {self.label} (by {self.author.username if self.author else "Unknown"})>'
 
@@ -1344,7 +1344,7 @@ class TypeSynonymGroup(db.Model):
     notes = db.Column(db.Text)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     def __repr__(self):
         return f'<TypeSynonymGroup for {self.universal_type_id}>'
 
@@ -1359,9 +1359,9 @@ class TypeLabelAssociation(db.Model):
     source = db.Column(db.Enum('system', 'root_admin', 'org_admin', 'user', name='association_source'), default='user')
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     __table_args__ = (db.UniqueConstraint('label', 'universal_type_id'),)
-    
+
     def promote_to_alias(self, confidence=0.9):
         """Promote this association to a first-class alias"""
         alias = self.universal_type.add_alias(
@@ -1370,7 +1370,7 @@ class TypeLabelAssociation(db.Model):
             confidence=confidence
         )
         return alias
-    
+
     def __repr__(self):
         return f'<TypeLabelAssociation {self.label} -> {self.universal_type_id}>'
 
@@ -1383,67 +1383,67 @@ class TypeLabelAssociation(db.Model):
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
     requested_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    
+
     # What they want to export
     screening_type_ids = db.Column(db.JSON, nullable=False)  # List of ScreeningType IDs
     proposed_universal_name = db.Column(db.String(200), nullable=False)
     justification = db.Column(db.Text, nullable=False)
-    
+
     # Request status
     status = db.Column(db.Enum('pending', 'approved', 'rejected', name='export_request_status'), default='pending')
     reviewed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     review_notes = db.Column(db.Text)
     review_date = db.Column(db.DateTime)
-    
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relationships
     organization = db.relationship('Organization', backref='export_requests')
     requester = db.relationship('User', foreign_keys=[requested_by], backref='export_requests')
     reviewer = db.relationship('User', foreign_keys=[reviewed_by], backref='reviewed_export_requests')
-    
+
     @property
     def screening_types(self):
         """Get the actual ScreeningType objects being requested for export"""
         if not self.screening_type_ids:
             return []
         return ScreeningType.query.filter(ScreeningType.id.in_(self.screening_type_ids)).all()
-    
+
     @property
     def screening_type_count(self):
         """Get count of screening types in this export request"""
         return len(self.screening_type_ids) if self.screening_type_ids else 0
-    
+
     @property
     def is_pending(self):
         """Check if request is still pending review"""
         return self.status == 'pending'
-    
+
     @property
     def is_approved(self):
         """Check if request was approved"""
         return self.status == 'approved'
-    
+
     @property
     def is_rejected(self):
         """Check if request was rejected"""
         return self.status == 'rejected'
-        
+
     def approve(self, reviewer_user, notes=None):
         """Approve the export request and create universal type"""
         self.status = 'approved'
         self.reviewed_by = reviewer_user.id
         self.review_notes = notes
         self.review_date = datetime.utcnow()
-        
+
         # Create or update universal type
         # This would integrate with the universal type system
         # Implementation would go here
-        
+
         db.session.commit()
-        
+
         # Log the approval
         log_admin_event(
             user_id=reviewer_user.id,
@@ -1456,16 +1456,16 @@ class TypeLabelAssociation(db.Model):
                 'description': f'Approved export request for {self.proposed_universal_name}'
             }
         )
-    
+
     def reject(self, reviewer_user, notes=None):
         """Reject the export request"""
         self.status = 'rejected'
         self.reviewed_by = reviewer_user.id
         self.review_notes = notes
         self.review_date = datetime.utcnow()
-        
+
         db.session.commit()
-        
+
         # Log the rejection
         log_admin_event(
             user_id=reviewer_user.id,
@@ -1478,6 +1478,6 @@ class TypeLabelAssociation(db.Model):
                 'description': f'Rejected export request for {self.proposed_universal_name}'
             }
         )
-    
+
     def __repr__(self):
         return f'<ExportRequest {self.proposed_universal_name} from {self.organization.name}>'

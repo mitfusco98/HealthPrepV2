@@ -201,13 +201,11 @@
                                 <i class="fas fa-arrow-right"></i> Apply
                             </button>
                             
-                            <!-- Export Request (consolidated action) -->
-                            {% if not preset.shared and not preset.is_pending_approval() %}
-                            <a href="{{ url_for('admin.export_preset_for_approval', preset_id=preset.id) }}" 
-                               class="btn btn-outline-warning" title="Export Approval Request">
-                                <i class="fas fa-star"></i> Export Request
+                            <!-- Export Preset -->
+                            <a href="{{ url_for('admin.export_preset', preset_id=preset.id) }}" 
+                               class="btn btn-outline-info" title="Export Preset">
+                                <i class="fas fa-download"></i> Export
                             </a>
-                            {% endif %}
                             
                             <!-- Delete Preset -->
                             <button class="btn btn-outline-danger" 
