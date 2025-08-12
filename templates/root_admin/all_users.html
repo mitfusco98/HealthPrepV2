@@ -3,6 +3,10 @@
 
 {% block title %}All Users - Root Admin{% endblock %}
 
+{% block head %}
+<meta name="csrf-token" content="{{ csrf_token() }}">
+{% endblock %}
+
 {% block content %}
 <div class="row">
     <div class="col-12">
@@ -241,10 +245,15 @@ function deleteUser(userId, username) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token() }}'
+                'X-CSRFToken': document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || ''
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 alert(data.message);
@@ -254,7 +263,8 @@ function deleteUser(userId, username) {
             }
         })
         .catch(error => {
-            alert('Error deleting user');
+            console.error('Delete user error:', error);
+            alert('Error deleting user: ' + error.message);
         });
     }
 }
