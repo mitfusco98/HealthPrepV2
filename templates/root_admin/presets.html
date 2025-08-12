@@ -135,6 +135,9 @@
                                         </td>
                                         <td>
                                             <div class="btn-group" role="group">
+                                                <a href="{{ url_for('root_admin.view_preset', preset_id=preset.id) }}" class="btn btn-info btn-sm">
+                                                    <i class="bi bi-eye"></i> View Details
+                                                </a>
                                                 <form method="POST" action="{{ url_for('root_admin.remove_global_preset', preset_id=preset.id) }}" class="d-inline">
                                                     <button type="submit" class="btn btn-warning btn-sm" 
                                                             onclick="return confirm('Remove global availability from this preset?')">
@@ -203,12 +206,17 @@
                                                 </td>
                                                 <td>{{ preset.created_at.strftime('%Y-%m-%d') }}</td>
                                                 <td>
-                                                    <form method="POST" action="{{ url_for('root_admin.make_preset_global', preset_id=preset.id) }}" class="d-inline">
-                                                        <button type="submit" class="btn btn-success btn-sm" 
-                                                                onclick="return confirm('Make this preset globally available to all organizations?')">
-                                                            <i class="bi bi-globe-plus"></i> Make Global
-                                                        </button>
-                                                    </form>
+                                                    <div class="btn-group" role="group">
+                                                        <a href="{{ url_for('root_admin.view_preset', preset_id=preset.id) }}" class="btn btn-info btn-sm">
+                                                            <i class="bi bi-eye"></i> View Details
+                                                        </a>
+                                                        <form method="POST" action="{{ url_for('root_admin.make_preset_global', preset_id=preset.id) }}" class="d-inline">
+                                                            <button type="submit" class="btn btn-success btn-sm" 
+                                                                    onclick="return confirm('Make this preset globally available to all organizations?')">
+                                                                <i class="bi bi-globe-plus"></i> Make Global
+                                                            </button>
+                                                        </form>
+                                                    </div>
                                                 </td>
                                             </tr>
                                             {% endfor %}

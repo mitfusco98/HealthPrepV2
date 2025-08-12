@@ -53,6 +53,7 @@ The frontend reuses assets from V1, organized under `templates/`. It includes `b
 - **✅ COMPLETE: Enhanced variant management** with user-specific filtering in create_preset_from_types, fuzzy name grouping (0.8 exact match, 0.6 partial match thresholds), author tracking, comparison capabilities, and semantic separator handling for improved screening criteria discovery and reuse
 - **✅ COMPLETE: Root admin preset management system** with dedicated /root-admin/presets page for direct preset promotion to universal availability, preset activation/deactivation controls, universal preset deletion capabilities, and HIPAA-compliant audit logging
 - **✅ COMPLETE: Export request functionality removed** - all global preset management is now handled directly by root admin on /root-admin/presets without organization admin requests
+- **✅ COMPLETE: Root admin preset detail view** - comprehensive /root-admin/presets/view/<id> page showing detailed screening type information including name, keywords, conditions, eligibility criteria, frequency, variants, and organization context for thorough preset evaluation before global promotion
 
 ### External Dependencies
 - **FHIR-based EMRs:** e.g., Epic (for real-time data integration)

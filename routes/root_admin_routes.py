@@ -220,6 +220,57 @@ def delete_universal_preset(preset_id):
         flash('Error deleting preset', 'error')
         return redirect(url_for('root_admin.presets'))
 
+@root_admin_bp.route('/presets/view/<int:preset_id>')
+@login_required
+@root_admin_required
+def view_preset(preset_id):
+    """View detailed preset information for root admin review"""
+    try:
+        preset = ScreeningPreset.query.get_or_404(preset_id)
+        
+        # Get detailed screening type information
+        screening_types = []
+        if preset.screening_types_data:
+            for st_data in preset.screening_types_data:
+                screening_types.append({
+                    'name': st_data.get('name', 'Unknown'),
+                    'description': st_data.get('description', ''),
+                    'keywords': st_data.get('keywords', []),
+                    'trigger_conditions': st_data.get('trigger_conditions', []),
+                    'eligible_genders': st_data.get('eligible_genders', 'both'),
+                    'min_age': st_data.get('min_age'),
+                    'max_age': st_data.get('max_age'),
+                    'frequency_years': st_data.get('frequency_years'),
+                    'frequency_months': st_data.get('frequency_months'),
+                    'variants': st_data.get('variants', [])
+                })
+        
+        # Get organization context
+        org_context = {
+            'name': preset.organization.name if preset.organization else 'System',
+            'setup_status': preset.organization.setup_status if preset.organization else 'active',
+            'user_count': preset.organization.user_count if preset.organization else 0,
+            'created_at': preset.organization.created_at if preset.organization else None
+        }
+        
+        # Get creator information
+        creator_info = {
+            'username': preset.created_by_user.username if preset.created_by_user else 'System',
+            'role': preset.created_by_user.role if preset.created_by_user else 'system',
+            'email': preset.created_by_user.email if preset.created_by_user else None
+        }
+        
+        return render_template('root_admin/view_preset.html',
+                             preset=preset,
+                             screening_types=screening_types,
+                             org_context=org_context,
+                             creator_info=creator_info)
+        
+    except Exception as e:
+        logger.error(f"Error viewing preset {preset_id}: {str(e)}")
+        flash('Error loading preset details', 'error')
+        return redirect(url_for('root_admin.presets'))
+
 @root_admin_bp.route('/presets')
 @login_required
 @root_admin_required

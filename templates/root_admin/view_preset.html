@@ -1,0 +1,383 @@
+{% extends "base_admin.html" %}
+
+{% block title %}View Preset: {{ preset.name }} - Root Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+.screening-type-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    transition: all 0.2s ease;
+}
+
+.screening-type-card:hover {
+    border-color: #007bff;
+    box-shadow: 0 2px 8px rgba(0,123,255,0.15);
+}
+
+.keyword-tag {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+    margin: 2px;
+    background-color: #e9ecef;
+    border-radius: 3px;
+    display: inline-block;
+    color: #495057;
+}
+
+.condition-tag {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+    margin: 2px;
+    background-color: #fff3cd;
+    border-radius: 3px;
+    display: inline-block;
+    color: #856404;
+}
+
+.variant-tag {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+    margin: 2px;
+    background-color: #d1ecf1;
+    border-radius: 3px;
+    display: inline-block;
+    color: #0c5460;
+}
+
+.info-section {
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.badge-frequency {
+    background-color: #6f42c1;
+    color: white;
+}
+
+.badge-gender {
+    background-color: #20c997;
+    color: white;
+}
+
+.badge-age {
+    background-color: #fd7e14;
+    color: white;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-2 d-none d-md-block bg-light sidebar">
+            <div class="sidebar-sticky">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('root_admin.dashboard') }}">
+                            <i class="bi bi-speedometer2"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('root_admin.organizations') }}">
+                            <i class="bi bi-building"></i> Organizations
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('root_admin.presets') }}">
+                            <i class="bi bi-collection"></i> Universal Presets
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('root_admin.all_users') }}">
+                            <i class="bi bi-people"></i> All Users
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('root_admin.system_logs') }}">
+                            <i class="bi bi-journal-text"></i> System Logs
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main content -->
+        <main role="main" class="col-md-10 ml-sm-auto px-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">
+                    <i class="bi bi-eye"></i> Preset Details: {{ preset.name }}
+                </h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <div class="btn-group me-2">
+                        <a href="{{ url_for('root_admin.presets') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Presets
+                        </a>
+                        {% if not preset.is_global %}
+                        <form method="POST" action="{{ url_for('root_admin.make_preset_global', preset_id=preset.id) }}" class="d-inline">
+                            <button type="submit" class="btn btn-success" 
+                                    onclick="return confirm('Make this preset globally available to all organizations?')">
+                                <i class="bi bi-globe-plus"></i> Make Global
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preset Overview -->
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <div class="info-section">
+                        <h4><i class="bi bi-info-circle"></i> Preset Overview</h4>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Name:</strong> {{ preset.name }}<br>
+                                <strong>Specialty:</strong> {{ preset.specialty or 'General' }}<br>
+                                <strong>Status:</strong> 
+                                {% if preset.is_global %}
+                                    <span class="badge bg-success">Global</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Organization</span>
+                                {% endif %}<br>
+                                <strong>Created:</strong> {{ preset.created_at.strftime('%Y-%m-%d %H:%M') }}
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Creator:</strong> {{ creator_info.username }} ({{ creator_info.role }})<br>
+                                <strong>Organization:</strong> {{ org_context.name }}<br>
+                                <strong>Screening Types:</strong> {{ preset.get_screening_type_count() }}<br>
+                                {% if preset.is_global %}
+                                <strong>Global Since:</strong> {{ preset.global_approved_at.strftime('%Y-%m-%d') if preset.global_approved_at else 'Unknown' }}
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% if preset.description %}
+                        <div class="mt-3">
+                            <strong>Description:</strong><br>
+                            <p class="text-muted">{{ preset.description }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="info-section">
+                        <h5><i class="bi bi-building"></i> Organization Context</h5>
+                        <strong>Organization:</strong> {{ org_context.name }}<br>
+                        <strong>Status:</strong> {{ org_context.setup_status.title() }}<br>
+                        <strong>Users:</strong> {{ org_context.user_count }}<br>
+                        {% if org_context.created_at %}
+                        <strong>Org Created:</strong> {{ org_context.created_at.strftime('%Y-%m-%d') }}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Screening Types Details -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-list-check"></i> Screening Types ({{ screening_types|length }})
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if screening_types %}
+                        {% for st in screening_types %}
+                        <div class="screening-type-card card">
+                            <div class="card-header">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <h5 class="mb-0">{{ st.name }}</h5>
+                                    <div class="badge-group">
+                                        {% if st.frequency_years %}
+                                            {% if st.frequency_years == 1.0 %}
+                                                <span class="badge badge-frequency">Annual</span>
+                                            {% elif st.frequency_years == 0.5 %}
+                                                <span class="badge badge-frequency">Semi-annual</span>
+                                            {% elif st.frequency_years >= 1.0 %}
+                                                <span class="badge badge-frequency">{{ st.frequency_years|int }} years</span>
+                                            {% else %}
+                                                <span class="badge badge-frequency">{{ (st.frequency_years * 12)|int }} months</span>
+                                            {% endif %}
+                                        {% elif st.frequency_months %}
+                                            <span class="badge badge-frequency">{{ st.frequency_months }} months</span>
+                                        {% endif %}
+                                        
+                                        {% if st.eligible_genders and st.eligible_genders != 'both' %}
+                                            <span class="badge badge-gender">{{ st.eligible_genders.title() }}</span>
+                                        {% endif %}
+                                        
+                                        {% if st.min_age or st.max_age %}
+                                            <span class="badge badge-age">
+                                                {% if st.min_age and st.max_age %}
+                                                    {{ st.min_age }}-{{ st.max_age }} years
+                                                {% elif st.min_age %}
+                                                    {{ st.min_age }}+ years
+                                                {% else %}
+                                                    Up to {{ st.max_age }} years
+                                                {% endif %}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                {% if st.description %}
+                                <div class="mb-3">
+                                    <strong>Description:</strong>
+                                    <p class="text-muted">{{ st.description }}</p>
+                                </div>
+                                {% endif %}
+
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        {% if st.keywords %}
+                                        <div class="mb-3">
+                                            <strong>Keywords ({{ st.keywords|length }}):</strong><br>
+                                            {% for keyword in st.keywords %}
+                                                <span class="keyword-tag">{{ keyword }}</span>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+
+                                        {% if st.trigger_conditions %}
+                                        <div class="mb-3">
+                                            <strong>Trigger Conditions ({{ st.trigger_conditions|length }}):</strong><br>
+                                            {% for condition in st.trigger_conditions %}
+                                                <span class="condition-tag">{{ condition }}</span>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6">
+                                        {% if st.variants %}
+                                        <div class="mb-3">
+                                            <strong>Variants ({{ st.variants|length }}):</strong><br>
+                                            {% for variant in st.variants %}
+                                                <span class="variant-tag">{{ variant }}</span>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+
+                                        <div class="mb-3">
+                                            <strong>Eligibility Summary:</strong><br>
+                                            <small class="text-muted">
+                                                {% if st.eligible_genders == 'both' %}All genders{% else %}{{ st.eligible_genders.title() }} only{% endif %}
+                                                {% if st.min_age or st.max_age %}
+                                                    , ages 
+                                                    {% if st.min_age and st.max_age %}
+                                                        {{ st.min_age }}-{{ st.max_age }}
+                                                    {% elif st.min_age %}
+                                                        {{ st.min_age }}+
+                                                    {% else %}
+                                                        up to {{ st.max_age }}
+                                                    {% endif %}
+                                                {% endif %}
+                                                {% if st.frequency_years %}
+                                                    , frequency: 
+                                                    {% if st.frequency_years == 1.0 %}annual
+                                                    {% elif st.frequency_years == 0.5 %}semi-annual
+                                                    {% elif st.frequency_years >= 1.0 %}every {{ st.frequency_years|int }} years
+                                                    {% else %}every {{ (st.frequency_years * 12)|int }} months
+                                                    {% endif %}
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            This preset contains no screening types.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Action History -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-clock-history"></i> Action History
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-primary"></div>
+                            <div class="timeline-content">
+                                <h6 class="timeline-title">Preset Created</h6>
+                                <p class="timeline-description text-muted">
+                                    Created by {{ creator_info.username }} on {{ preset.created_at.strftime('%Y-%m-%d at %H:%M') }}
+                                </p>
+                            </div>
+                        </div>
+                        {% if preset.is_global %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-success"></div>
+                            <div class="timeline-content">
+                                <h6 class="timeline-title">Made Global</h6>
+                                <p class="timeline-description text-muted">
+                                    {% if preset.global_approved_at %}
+                                        Made globally available on {{ preset.global_approved_at.strftime('%Y-%m-%d at %H:%M') }}
+                                    {% else %}
+                                        Made globally available (date unknown)
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -35px;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 3px #dee2e6;
+}
+
+.timeline-content {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 3px solid #007bff;
+}
+
+.timeline-title {
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.timeline-description {
+    margin-bottom: 0;
+    font-size: 0.9rem;
+}
+</style>
+{% endblock %}
