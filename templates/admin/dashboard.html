@@ -312,11 +312,10 @@
                                                                 <i class="fas fa-arrow-right"></i> Apply
                                                             </button>
 
-                                                            <!-- Export Preset -->
-                                                            <a href="{{ url_for('admin.export_preset', preset_id=preset.id) }}" 
-                                                               class="btn btn-outline-info" title="Export Preset">
-                                                                <i class="fas fa-download"></i> Export
-                                                            </a>
+                                                            <!-- View Preset Details -->
+                                                            <button class="btn btn-outline-info" onclick="viewPresetDetails({{ preset.id }}, '{{ preset.name }}')" title="View Preset Details">
+                                                                <i class="fas fa-eye"></i> View
+                                                            </button>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -933,6 +932,20 @@ function applyActivityFilters() {
 }
 
 // Quick actions
+function loadAllPresets() {
+    showRealTimeIndicator('Loading all presets...');
+    // Implement preset loading logic
+    setTimeout(() => {
+        location.reload();
+    }, 1000);
+}
+
+function viewPresetDetails(presetId, presetName) {
+    showToast(`Viewing details for preset: ${presetName}`, 'info');
+    // Redirect to the full presets page which shows detailed information
+    window.location.href = '/admin/presets';
+}
+
 function refreshAllData() {
     showRealTimeIndicator('Refreshing dashboard data...');
     // Implement refresh logic
