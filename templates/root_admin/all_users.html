@@ -201,23 +201,7 @@
 
 {% block extra_js %}
 <script>
-// Make functions globally accessible
-window.deleteUser = deleteUser;
-window.toggleUserStatus = toggleUserStatus;
-
-// Initialize DataTable if available
-if (typeof $.fn.DataTable !== 'undefined') {
-    $(document).ready(function() {
-        $('#allUsersTable').DataTable({
-            "pageLength": 25,
-            "order": [[2, "asc"], [0, "asc"]], // Sort by organization, then username
-            "columnDefs": [
-                { "orderable": false, "targets": [7] } // Actions column not sortable
-            ]
-        });
-    });
-}
-
+// Define functions first
 function toggleUserStatus(userId, username, currentlyActive) {
     const action = currentlyActive ? 'deactivate' : 'activate';
     if (confirm(`Are you sure you want to ${action} user "${username}"?`)) {
@@ -282,6 +266,23 @@ function deleteUser(userId, username) {
             alert('Error deleting user: ' + error.message);
         });
     }
+}
+
+// Make functions globally accessible after they are defined
+window.deleteUser = deleteUser;
+window.toggleUserStatus = toggleUserStatus;
+
+// Initialize DataTable if available
+if (typeof $.fn.DataTable !== 'undefined') {
+    $(document).ready(function() {
+        $('#allUsersTable').DataTable({
+            "pageLength": 25,
+            "order": [[2, "asc"], [0, "asc"]], // Sort by organization, then username
+            "columnDefs": [
+                { "orderable": false, "targets": [7] } // Actions column not sortable
+            ]
+        });
+    });
 }
 </script>
 {% endblock %}
