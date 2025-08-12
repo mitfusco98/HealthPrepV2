@@ -443,8 +443,7 @@ def get_dashboard_data():
     total_presets = ScreeningPreset.query.count()
     shared_presets = ScreeningPreset.query.filter_by(shared=True).count()
     try:
-        from sqlalchemy import desc as sql_desc
-        recent_presets = ScreeningPreset.query.order_by(sql_desc(ScreeningPreset.updated_at)).limit(5).all()
+        recent_presets = ScreeningPreset.query.order_by(ScreeningPreset.updated_at.desc()).limit(5).all()
     except Exception:
         recent_presets = []
     

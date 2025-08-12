@@ -11,6 +11,7 @@ import logging
 from flask import Flask, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -28,11 +29,14 @@ migrate = Migrate()
 def create_app():
     """Create and configure Flask application"""
     app = Flask(__name__)
+    
+    # Add proxy fix for proper URL generation behind reverse proxy
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
     # Configuration
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-    # Database configuration - Use SQLite for local development
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///healthprep.db'
+    app.config['SECRET_KEY'] = os.environ.get('SESSION_SECRET', 'dev-secret-key-change-in-production')
+    # Database configuration - Use PostgreSQL for production
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'pool_recycle': 300,
@@ -71,6 +75,7 @@ def create_app():
 
     # Template filters and context processors
     register_template_utilities(app)
+    configure_jinja_filters(app)
 
     # Create tables
     with app.app_context():
