@@ -138,8 +138,10 @@
                                         <td>
                                             {% if preset.preset_metadata and preset.preset_metadata.get('original_org_name') %}
                                                 {{ preset.preset_metadata.original_org_name }}
+                                            {% elif preset.organization %}
+                                                {{ preset.organization.name }}
                                             {% else %}
-                                                {{ preset.organization.name if preset.organization else 'System' }}
+                                                System
                                             {% endif %}
                                         </td>
                                         <td>

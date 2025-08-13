@@ -125,8 +125,8 @@ def make_preset_global(preset_id):
 
         # Store original org info before making it global
         original_org_id = preset.org_id
-        original_org_name = preset.organization.name if preset.organization else 'Unknown'
-        original_creator = preset.creator.username if preset.creator else 'Unknown'
+        original_org_name = preset.organization.name if preset.organization else 'System'
+        original_creator = preset.creator.username if preset.creator else 'System'
 
         # Preserve original information in metadata
         if not preset.preset_metadata:
