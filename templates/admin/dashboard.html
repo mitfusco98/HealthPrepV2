@@ -307,9 +307,9 @@
                                                     </td>
                                                     <td>
                                                         <div class="btn-group btn-group-sm" role="group">
-                                                            <!-- Import to Types / Apply to Organization -->
-                                                            <button class="btn btn-outline-success" onclick="importToTypes({{ preset.id }}, '{{ preset.name }})" title="Import to Types / Apply to Organization">
-                                                                <i class="fas fa-arrow-right"></i> Apply
+                                                            <!-- Apply to Organization -->
+                                                            <button class="btn btn-outline-success" onclick="applyPreset({{ preset.id }}, '{{ preset.name|e }}')" title="Apply to Organization">
+                                                                <i class="fas fa-play"></i> Apply
                                                             </button>
 
                                                             <!-- View Preset Details -->
@@ -978,7 +978,7 @@ function importToTypes(presetId, presetName) {
     currentPresetId = presetId;
     currentPresetName = presetName;
     document.getElementById('importToTypesPresetName').textContent = presetName;
-    
+
     // First check for conflicts
     fetch(`/admin/presets/${presetId}/check-conflicts`)
         .then(response => response.json())
@@ -1000,6 +1000,32 @@ function importToTypes(presetId, presetName) {
         });
 }
 
+// Function to handle the 'Apply Preset' action from the dashboard
+function applyPreset(presetId, presetName) {
+    currentPresetId = presetId;
+    currentPresetName = presetName;
+
+    // We need to check for conflicts before showing the modal for direct apply
+    fetch(`/admin/presets/${presetId}/check-conflicts`)
+        .then(response => response.json())
+        .then(conflicts => {
+            if (conflicts.has_conflicts && conflicts.modified_types && conflicts.modified_types.length > 0) {
+                // Show conflict warning modal
+                showConflictWarning(conflicts);
+            } else {
+                // If no conflicts, directly apply
+                performApplyPreset(false); // No force overwrite needed if no conflicts
+            }
+        })
+        .catch(error => {
+            console.error('Error checking conflicts:', error);
+            // If there's an error checking conflicts, we might want to default to showing the modal or handling it gracefully
+            // For now, we'll assume no conflict and proceed, or show a generic error
+            showToast('Could not verify conflicts. Please try again or use the full presets page.', 'danger');
+        });
+}
+
+
 function showConflictWarning(conflicts) {
     const conflictDetails = document.getElementById('conflictDetails');
     if (conflictDetails) {
@@ -1010,7 +1036,7 @@ function showConflictWarning(conflicts) {
         detailsHtml += '</ul>';
         conflictDetails.innerHTML = detailsHtml;
     }
-    
+
     const modal = new bootstrap.Modal(document.getElementById('conflictWarningModal'));
     modal.show();
 }
@@ -1019,37 +1045,39 @@ function showConflictWarning(conflicts) {
 document.addEventListener('DOMContentLoaded', function() {
     const confirmImportBtn = document.getElementById('confirmImportToTypes');
     const confirmApplyBtn = document.getElementById('confirmApplyDashboard');
-    
+
     if (confirmImportBtn) {
         confirmImportBtn.addEventListener('click', function() {
             if (currentPresetId) {
-                applyPresetDashboard(false);
+                applyPresetDashboard(false); // This refers to the "Import to Types" flow
             }
         });
     }
-    
+
     if (confirmApplyBtn) {
         confirmApplyBtn.addEventListener('click', function() {
             const forceOverwrite = document.getElementById('forceOverwriteDashboard').checked;
-            applyPresetDashboard(forceOverwrite);
+            applyPresetDashboard(forceOverwrite); // This refers to the direct "Apply Preset" flow
         });
     }
 });
 
+// This function is called from the "Apply" button in the presets table
 function applyPresetDashboard(forceOverwrite = false) {
     if (!currentPresetId) return;
-    
+
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = `/admin/presets/${currentPresetId}/apply-to-organization`;
-    
+    // This URL applies the preset to the organization's screening types
+    form.action = `/admin/presets/${currentPresetId}/apply-to-organization`; 
+
     // Add CSRF token
     const csrfInput = document.createElement('input');
     csrfInput.type = 'hidden';
     csrfInput.name = 'csrf_token';
     csrfInput.value = '{{ csrf_token() }}';
     form.appendChild(csrfInput);
-    
+
     // Add force overwrite flag if requested
     if (forceOverwrite) {
         const overwriteInput = document.createElement('input');
@@ -1058,7 +1086,7 @@ function applyPresetDashboard(forceOverwrite = false) {
         overwriteInput.value = 'true';
         form.appendChild(overwriteInput);
     }
-    
+
     document.body.appendChild(form);
     form.submit();
 }
@@ -1489,10 +1517,10 @@ document.querySelectorAll('#nav-overview .btn-group-sm .btn').forEach(btn => {
         if (!this.closest('#nav-overview')) {
             return;
         }
-        
+
         // Prevent event bubbling to avoid conflicts with other modals
         e.stopPropagation();
-        
+
         // Remove active class from all buttons in this group only
         this.closest('.btn-group-sm').querySelectorAll('.btn').forEach(b => {
             b.classList.remove('active');
