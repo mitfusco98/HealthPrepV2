@@ -990,21 +990,6 @@ class ScreeningPreset(db.Model):
                         conflicts['modified_types'].append({
                             'name': existing.name,
                             'id': existing.id,
-                            'last_modified': existing.updated_at
-                        })
-            
-            conflicts['has_conflicts'] = len(conflicts['existing_types']) > 0
-            
-        except Exception as e:
-            logger.error(f"Error checking conflicts: {str(e)}")
-            conflicts['error'] = str(e)
-        
-        return conflicts
-                        st_data.get('max_age') != existing.max_age):
-                        
-                        conflicts['modified_types'].append({
-                            'name': existing.name,
-                            'id': existing.id,
                             'last_modified': existing.updated_at,
                             'created_by': existing.created_by
                         })
