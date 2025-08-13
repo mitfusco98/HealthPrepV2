@@ -243,6 +243,25 @@
                     <i class="fas fa-info-circle me-2"></i>
                     This will make all screening types from this preset available to all users in your organization.
                 </div>
+                
+                <!-- Conflict Warning Section (hidden by default) -->
+                <div id="conflictWarning" class="alert alert-warning" style="display: none;">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Warning: User Modifications Detected</strong>
+                    <p class="mb-2">Some screening types in this preset already exist and have been modified by users:</p>
+                    <ul id="conflictList" class="mb-2"></ul>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="forceOverwrite">
+                        <label class="form-check-label text-danger" for="forceOverwrite">
+                            <strong>Force overwrite user modifications</strong> (This will reset all user changes)
+                        </label>
+                    </div>
+                </div>
+                
+                <div id="loadingConflicts" class="text-center" style="display: none;">
+                    <div class="spinner-border spinner-border-sm me-2"></div>
+                    Checking for conflicts...
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -281,8 +300,52 @@ let currentPresetId = null;
 function applyToOrganization(presetId, presetName) {
     currentPresetId = presetId;
     document.getElementById('applyPresetName').textContent = presetName;
+    
+    // Reset conflict warning
+    document.getElementById('conflictWarning').style.display = 'none';
+    document.getElementById('forceOverwrite').checked = false;
+    
+    // Show modal and check for conflicts
     const modal = new bootstrap.Modal(document.getElementById('applyModal'));
     modal.show();
+    
+    // Check for conflicts
+    checkPresetConflicts(presetId);
+}
+
+function checkPresetConflicts(presetId) {
+    const loadingEl = document.getElementById('loadingConflicts');
+    const warningEl = document.getElementById('conflictWarning');
+    
+    loadingEl.style.display = 'block';
+    
+    fetch(`/admin/presets/${presetId}/check-conflicts`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        loadingEl.style.display = 'none';
+        
+        if (data.has_conflicts) {
+            const conflictList = document.getElementById('conflictList');
+            conflictList.innerHTML = '';
+            
+            data.modified_types.forEach(type => {
+                const li = document.createElement('li');
+                li.innerHTML = `<strong>${type.name}</strong> (last modified: ${new Date(type.last_modified).toLocaleDateString()})`;
+                conflictList.appendChild(li);
+            });
+            
+            warningEl.style.display = 'block';
+        }
+    })
+    .catch(error => {
+        loadingEl.style.display = 'none';
+        console.error('Error checking conflicts:', error);
+    });
 }
 
 function deletePreset(presetId, presetName) {
@@ -305,6 +368,16 @@ document.getElementById('confirmApply').addEventListener('click', function() {
         csrfInput.name = 'csrf_token';
         csrfInput.value = '{{ csrf_token() }}';
         form.appendChild(csrfInput);
+        
+        // Add force overwrite flag if checked
+        const forceOverwrite = document.getElementById('forceOverwrite');
+        if (forceOverwrite.checked) {
+            const overwriteInput = document.createElement('input');
+            overwriteInput.type = 'hidden';
+            overwriteInput.name = 'force_overwrite';
+            overwriteInput.value = 'true';
+            form.appendChild(overwriteInput);
+        }
         
         document.body.appendChild(form);
         form.submit();

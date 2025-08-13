@@ -6,11 +6,14 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 import json
+import logging
 from sqlalchemy import event
 from sqlalchemy.ext.hybrid import hybrid_property
 
 # Import db from app module
 from app import db
+
+logger = logging.getLogger(__name__)
 
 
 class Organization(db.Model):
@@ -943,6 +946,47 @@ class ScreeningPreset(db.Model):
         )
 
         return preset
+
+    def check_application_conflicts(self):
+        """Check for conflicts when applying this preset"""
+        conflicts = {
+            'existing_types': [],
+            'modified_types': [],
+            'has_conflicts': False
+        }
+        
+        try:
+            for st_data in self.get_screening_types():
+                existing = ScreeningType.query.filter_by(name=st_data['name']).first()
+                if existing:
+                    conflicts['existing_types'].append({
+                        'name': existing.name,
+                        'id': existing.id,
+                        'last_modified': existing.updated_at
+                    })
+                    
+                    # Check if existing type differs from preset (indicating user modifications)
+                    preset_keywords = set(st_data.get('keywords', []))
+                    existing_keywords = set(json.loads(existing.keywords) if existing.keywords else [])
+                    
+                    if (preset_keywords != existing_keywords or
+                        st_data.get('eligible_genders') != existing.eligible_genders or
+                        st_data.get('frequency_years') != existing.frequency_years or
+                        st_data.get('min_age') != existing.min_age or
+                        st_data.get('max_age') != existing.max_age):
+                        
+                        conflicts['modified_types'].append({
+                            'name': existing.name,
+                            'id': existing.id,
+                            'last_modified': existing.updated_at,
+                            'created_by': existing.created_by
+                        })
+                        conflicts['has_conflicts'] = True
+            
+            return conflicts
+        except Exception as e:
+            logger.warning(f"Error checking preset conflicts: {str(e)}")
+            return conflicts
 
     def import_to_screening_types(self, overwrite_existing=False, created_by=None):
         """Import this preset's screening types to the database"""

@@ -1639,12 +1639,19 @@ def apply_preset_to_organization(preset_id):
     """Apply preset to all users in the organization"""
     try:
         preset = ScreeningPreset.query.filter_by(
-            id=preset_id, org_id=current_user.org_id
+            id=preset_id
+        ).filter(
+            (ScreeningPreset.org_id == current_user.org_id) | 
+            (ScreeningPreset.preset_scope == 'global')
         ).first_or_404()
+        
+        # Check for conflicts before applying
+        conflicts = preset.check_application_conflicts()
+        overwrite_requested = request.form.get('force_overwrite') == 'true'
         
         # Import screening types from this preset to the organization
         result = preset.import_to_screening_types(
-            overwrite_existing=False,
+            overwrite_existing=overwrite_requested,
             created_by=current_user.id
         )
         
@@ -1656,6 +1663,8 @@ def apply_preset_to_organization(preset_id):
                 message_parts.append(f"{result['updated_count']} screening types updated")
             if result['skipped_count'] > 0:
                 message_parts.append(f"{result['skipped_count']} screening types skipped (already exist)")
+            if conflicts.get('modified_types'):
+                message_parts.append(f"{len(conflicts['modified_types'])} types had user modifications {'overwritten' if overwrite_requested else 'preserved'}")
             
             success_message = f'Successfully applied preset "{preset.name}" to organization: ' + ', '.join(message_parts)
             
@@ -1686,3 +1695,26 @@ def apply_preset_to_organization(preset_id):
         logger.error(f"Error applying preset to organization: {str(e)}")
         flash(f'Error applying preset: {str(e)}', 'error')
         return redirect(url_for('admin.view_presets'))
+
+@admin_bp.route('/presets/<int:preset_id>/check-conflicts', methods=['GET'])
+@login_required
+@admin_required
+def check_preset_conflicts(preset_id):
+    """Check for conflicts when applying a preset"""
+    try:
+        preset = ScreeningPreset.query.filter_by(
+            id=preset_id
+        ).filter(
+            (ScreeningPreset.org_id == current_user.org_id) | 
+            (ScreeningPreset.preset_scope == 'global')
+        ).first_or_404()
+        
+        conflicts = preset.check_application_conflicts()
+        return jsonify(conflicts)
+        
+    except Exception as e:
+        logger.error(f"Error checking preset conflicts: {str(e)}")
+        return jsonify({
+            'has_conflicts': False,
+            'error': 'Error checking conflicts'
+        }), 500
