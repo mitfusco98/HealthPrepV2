@@ -960,7 +960,13 @@ class ScreeningPreset(db.Model):
         target_org_id = current_user.org_id
         
         try:
-            for st_data in self.get_screening_types():
+            screening_types_data = []
+            if isinstance(self.screening_data, dict) and 'screening_types' in self.screening_data:
+                screening_types_data = self.screening_data['screening_types']
+            elif isinstance(self.screening_data, list):
+                screening_types_data = self.screening_data
+            
+            for st_data in screening_types_data:
                 existing = ScreeningType.query.filter_by(
                     name=st_data['name'],
                     org_id=target_org_id
@@ -980,6 +986,20 @@ class ScreeningPreset(db.Model):
                         st_data.get('eligible_genders') != existing.eligible_genders or
                         st_data.get('frequency_years') != existing.frequency_years or
                         st_data.get('min_age') != existing.min_age or
+                        st_data.get('max_age') != existing.max_age):
+                        conflicts['modified_types'].append({
+                            'name': existing.name,
+                            'id': existing.id,
+                            'last_modified': existing.updated_at
+                        })
+            
+            conflicts['has_conflicts'] = len(conflicts['existing_types']) > 0
+            
+        except Exception as e:
+            logger.error(f"Error checking conflicts: {str(e)}")
+            conflicts['error'] = str(e)
+        
+        return conflicts
                         st_data.get('max_age') != existing.max_age):
                         
                         conflicts['modified_types'].append({
