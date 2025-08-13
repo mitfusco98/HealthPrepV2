@@ -139,12 +139,14 @@
                                                     <i class="bi bi-eye"></i> View Details
                                                 </a>
                                                 <form method="POST" action="{{ url_for('root_admin.remove_global_preset', preset_id=preset.id) }}" class="d-inline">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                                     <button type="submit" class="btn btn-warning btn-sm" 
                                                             onclick="return confirm('Remove global availability from this preset?')">
                                                         <i class="bi bi-globe-slash"></i> Remove Global
                                                     </button>
                                                 </form>
                                                 <form method="POST" action="{{ url_for('root_admin.delete_universal_preset', preset_id=preset.id) }}" class="d-inline">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                                     <button type="submit" class="btn btn-danger btn-sm" 
                                                             onclick="return confirm('Permanently delete this universal preset? This cannot be undone.')">
                                                         <i class="bi bi-trash"></i> Delete
@@ -211,6 +213,7 @@
                                                             <i class="bi bi-eye"></i> View Details
                                                         </a>
                                                         <form method="POST" action="{{ url_for('root_admin.make_preset_global', preset_id=preset.id) }}" class="d-inline">
+                                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                                             <button type="submit" class="btn btn-success btn-sm" 
                                                                     onclick="return confirm('Make this preset globally available to all organizations?')">
                                                                 <i class="bi bi-globe-plus"></i> Make Global
