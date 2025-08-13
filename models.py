@@ -58,6 +58,8 @@ class Organization(db.Model):
     def user_count(self):
         """Get current user count"""
         from sqlalchemy import func
+        # Ensure User is imported before use, or use a forward reference if necessary
+        # For simplicity here, assuming User is accessible in this scope or imported earlier
         return db.session.query(func.count(User.id)).filter(User.org_id == self.id).scalar() or 0
 
     @property
@@ -835,6 +837,11 @@ class ScreeningPreset(db.Model):
     # Relationships
     creator = db.relationship('User', backref='created_presets')
     organization = db.relationship('Organization', backref='screening_presets')
+
+    @property
+    def is_global(self):
+        """Check if preset is globally accessible"""
+        return self.preset_scope == 'global'
 
     @property
     def screening_count(self):
