@@ -200,11 +200,30 @@
                         <strong>Created:</strong> {{ preset.created_at.strftime('%Y-%m-%d %H:%M') }}
                     </div>
                     <div class="col-md-6">
-                        <strong>Creator:</strong> {{ creator_info.username }} ({{ creator_info.role }})<br>
-                        <strong>Organization:</strong> {{ org_context.name }}<br>
+                        <strong>Creator:</strong> 
+                        {% if preset.shared and preset.preset_metadata and preset.preset_metadata.get('original_creator_username') %}
+                            {{ preset.preset_metadata.original_creator_username }}
+                        {% else %}
+                            {{ creator_info.username }} ({{ creator_info.role }})
+                        {% endif %}<br>
+                        <strong>Organization:</strong> 
+                        {% if preset.shared and preset.preset_metadata and preset.preset_metadata.get('original_org_name') %}
+                            {{ preset.preset_metadata.original_org_name }}
+                        {% else %}
+                            {{ org_context.name }}
+                        {% endif %}<br>
                         <strong>Screening Types:</strong> {{ preset.get_screening_type_count() }}<br>
                         {% if preset.shared %}
-                        <strong>Global Since:</strong> {{ preset.updated_at.strftime('%Y-%m-%d') if preset.updated_at else 'Unknown' }}
+                        <strong>Made Global:</strong> 
+                        {% if preset.preset_metadata and preset.preset_metadata.get('made_global_at') %}
+                            {% set made_global_dt = preset.preset_metadata.made_global_at %}
+                            {{ made_global_dt[:10] if made_global_dt else 'Unknown' }}
+                            {% if preset.preset_metadata.get('made_global_by') %}
+                                by {{ preset.preset_metadata.made_global_by }}
+                            {% endif %}
+                        {% else %}
+                            {{ preset.updated_at.strftime('%Y-%m-%d') if preset.updated_at else 'Unknown' }}
+                        {% endif %}
                         {% endif %}
                     </div>
                 </div>

@@ -128,10 +128,31 @@
                                                 {{ preset.get_screening_type_count() }} types
                                             </span>
                                         </td>
-                                        <td>{{ preset.created_by_user.username if preset.created_by_user else 'System' }}</td>
-                                        <td>{{ preset.organization.name if preset.organization else 'System' }}</td>
                                         <td>
-                                            {{ preset.global_approved_at.strftime('%Y-%m-%d') if preset.global_approved_at else 'Unknown' }}
+                                            {% if preset.preset_metadata and preset.preset_metadata.get('original_creator_username') %}
+                                                {{ preset.preset_metadata.original_creator_username }}
+                                            {% else %}
+                                                {{ preset.creator.username if preset.creator else 'System' }}
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if preset.preset_metadata and preset.preset_metadata.get('original_org_name') %}
+                                                {{ preset.preset_metadata.original_org_name }}
+                                            {% else %}
+                                                {{ preset.organization.name if preset.organization else 'System' }}
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if preset.preset_metadata and preset.preset_metadata.get('made_global_at') %}
+                                                {% set made_global_dt = preset.preset_metadata.made_global_at %}
+                                                {% if made_global_dt %}
+                                                    {{ made_global_dt[:10] }}
+                                                {% else %}
+                                                    {{ preset.updated_at.strftime('%Y-%m-%d') if preset.updated_at else 'Unknown' }}
+                                                {% endif %}
+                                            {% else %}
+                                                {{ preset.updated_at.strftime('%Y-%m-%d') if preset.updated_at else 'Unknown' }}
+                                            {% endif %}
                                         </td>
                                         <td>
                                             <div class="btn-group" role="group">

@@ -123,8 +123,22 @@ def make_preset_global(preset_id):
     try:
         preset = ScreeningPreset.query.get_or_404(preset_id)
 
-        # Store original org name before making it global
+        # Store original org info before making it global
+        original_org_id = preset.org_id
         original_org_name = preset.organization.name if preset.organization else 'Unknown'
+        original_creator = preset.creator.username if preset.creator else 'Unknown'
+
+        # Preserve original information in metadata
+        if not preset.preset_metadata:
+            preset.preset_metadata = {}
+
+        preset.preset_metadata.update({
+            'original_org_id': original_org_id,
+            'original_org_name': original_org_name,
+            'original_creator_username': original_creator,
+            'made_global_at': datetime.utcnow().isoformat(),
+            'made_global_by': current_user.username
+        })
 
         # Make preset global
         preset.shared = True
@@ -893,7 +907,7 @@ def delete_user(user_id):
                 'deleted_user_id': user_id,
                 'deleted_username': username,
                 'target_org_name': org_name,
-                'description': f'Deleted user {username} from organization {org_name}'
+                'description': f'Deleted user {username} from organization {org.name}'
             }
         )
 
@@ -988,8 +1002,22 @@ def promote_preset_globally(preset_id):
     try:
         preset = ScreeningPreset.query.get_or_404(preset_id)
 
-        # Store original org name before making it global
+        # Store original org info before making it global
+        original_org_id = preset.org_id
         original_org_name = preset.organization.name if preset.organization else 'Unknown'
+        original_creator = preset.creator.username if preset.creator else 'Unknown'
+
+        # Preserve original information in metadata
+        if not preset.preset_metadata:
+            preset.preset_metadata = {}
+
+        preset.preset_metadata.update({
+            'original_org_id': original_org_id,
+            'original_org_name': original_org_name,
+            'original_creator_username': original_creator,
+            'made_global_at': datetime.utcnow().isoformat(),
+            'made_global_by': current_user.username
+        })
 
         # Make preset global
         preset.shared = True
@@ -1031,6 +1059,23 @@ def api_promote_preset_globally(preset_id):
 
         if preset.preset_scope == 'global':
             return jsonify({'error': 'Preset is already globally available'}), 400
+
+        # Store original org info before making it global
+        original_org_id = preset.org_id
+        original_org_name = preset.organization.name if preset.organization else 'Unknown'
+        original_creator = preset.creator.username if preset.creator else 'Unknown'
+
+        # Preserve original information in metadata
+        if not preset.preset_metadata:
+            preset.preset_metadata = {}
+
+        preset.preset_metadata.update({
+            'original_org_id': original_org_id,
+            'original_org_name': original_org_name,
+            'original_creator_username': original_creator,
+            'made_global_at': datetime.utcnow().isoformat(),
+            'made_global_by': current_user.username
+        })
 
         preset.shared = True
         preset.preset_scope = 'global'
