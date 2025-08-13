@@ -56,7 +56,7 @@ def login():
                 elif user.is_admin_user():
                     return redirect(url_for('admin.dashboard'))
                 else:
-                    return redirect(url_for('main.index'))
+                    return redirect(url_for('index'))
         else:
             # Record failed login attempt if user exists
             if user:
