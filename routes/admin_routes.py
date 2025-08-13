@@ -391,8 +391,10 @@ def get_dashboard_data():
     # Get dashboard statistics
     dashboard_stats = analytics.get_roi_metrics()
     
-    # Get recent activity
-    recent_logs = AdminLog.query.order_by(AdminLog.timestamp.desc()).limit(10).all()
+    # Get recent activity - ORGANIZATION SCOPED
+    recent_logs = AdminLog.query.filter(
+        AdminLog.org_id == current_user.org_id
+    ).order_by(AdminLog.timestamp.desc()).limit(10).all()
     
     # Get system health indicators
     system_health = analytics.get_usage_statistics()
@@ -401,10 +403,11 @@ def get_dashboard_data():
     phi_filter = PHIFilter()
     phi_settings = PHIFilterSettings.query.first()
     
-    # Calculate PHI statistics (placeholder data for now)
+    # Calculate PHI statistics - ORGANIZATION SCOPED
     try:
         documents_processed = Document.query.filter(
-            Document.ocr_confidence.isnot(None)
+            Document.ocr_confidence.isnot(None),
+            Document.org_id == current_user.org_id
         ).count()
     except Exception as e:
         logger.warning(f"Could not count processed documents: {str(e)}")
@@ -439,11 +442,20 @@ def get_dashboard_data():
     admin_users = sum(1 for user in users if user.is_admin_user())
     inactive_users = total_users - active_users
     
-    # Get preset statistics
-    total_presets = ScreeningPreset.query.count()
-    shared_presets = ScreeningPreset.query.filter_by(shared=True).count()
+    # Get preset statistics - ORGANIZATION SCOPED
+    total_presets = ScreeningPreset.query.filter(
+        (ScreeningPreset.org_id == current_user.org_id) | 
+        (ScreeningPreset.is_global == True)
+    ).count()
+    shared_presets = ScreeningPreset.query.filter(
+        (ScreeningPreset.org_id == current_user.org_id) | 
+        (ScreeningPreset.is_global == True)
+    ).filter_by(shared=True).count()
     try:
-        recent_presets = ScreeningPreset.query.order_by(ScreeningPreset.updated_at.desc()).limit(5).all()
+        recent_presets = ScreeningPreset.query.filter(
+            (ScreeningPreset.org_id == current_user.org_id) | 
+            (ScreeningPreset.is_global == True)
+        ).order_by(ScreeningPreset.updated_at.desc()).limit(5).all()
     except Exception:
         recent_presets = []
     
@@ -555,8 +567,8 @@ def logs():
             'end_date': end_date
         }
         
-        # Get filtered logs
-        query = AdminLog.query
+        # Get filtered logs - ORGANIZATION SCOPED
+        query = AdminLog.query.filter(AdminLog.org_id == current_user.org_id)
         if event_type:
             query = query.filter(AdminLog.event_type == event_type)
         if user_id:
@@ -1299,9 +1311,12 @@ def users_list():
 def view_presets():
     """View all screening presets - Web interface"""
     try:
-        # Get presets for this organization
+        # Get presets for this organization + globally available ones
         org_id = current_user.org_id
-        presets = ScreeningPreset.query.filter_by(org_id=org_id).order_by(ScreeningPreset.updated_at.desc()).all()
+        presets = ScreeningPreset.query.filter(
+            (ScreeningPreset.org_id == org_id) | 
+            (ScreeningPreset.is_global == True)
+        ).order_by(ScreeningPreset.updated_at.desc()).all()
         
         return render_template('admin/presets.html', presets=presets)
         
@@ -1324,9 +1339,13 @@ def create_preset():
         if not name:
             return jsonify({'success': False, 'error': 'Preset name is required'}), 400
         
-        existing = ScreeningPreset.query.filter_by(name=name).first()
+        # Check for existing preset in current organization only
+        existing = ScreeningPreset.query.filter_by(
+            name=name, 
+            org_id=current_user.org_id
+        ).first()
         if existing:
-            return jsonify({'success': False, 'error': 'Preset name already exists'}), 400
+            return jsonify({'success': False, 'error': 'Preset name already exists in your organization'}), 400
         
         preset = ScreeningPreset()
         preset.name = name
@@ -1336,6 +1355,7 @@ def create_preset():
         preset.screening_data = data.get('screening_data', [])
         preset.metadata = data.get('metadata', {})
         preset.created_by = current_user.id
+        preset.org_id = current_user.org_id  # ORGANIZATION SCOPE
         
         db.session.add(preset)
         db.session.commit()
@@ -1369,7 +1389,11 @@ def create_preset():
 def delete_preset(preset_id):
     """Delete a screening preset"""
     try:
-        preset = ScreeningPreset.query.get_or_404(preset_id)
+        # ORGANIZATION SCOPE - Only allow deletion of own org's presets
+        preset = ScreeningPreset.query.filter_by(
+            id=preset_id, 
+            org_id=current_user.org_id
+        ).first_or_404()
         preset_name = preset.name
         
         db.session.delete(preset)
@@ -1425,6 +1449,7 @@ def import_preset():
             return jsonify({'success': False, 'error': f'Invalid file format: {str(e)}'}), 400
         
         preset = ScreeningPreset.from_import_dict(data, current_user.id)
+        preset.org_id = current_user.org_id  # ORGANIZATION SCOPE
         db.session.add(preset)
         db.session.commit()
         
