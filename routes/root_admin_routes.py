@@ -137,7 +137,7 @@ def make_preset_global(preset_id):
         log_admin_event(
             event_type='preset_made_global',
             user_id=current_user.id,
-            org_id=getattr(current_user, 'org_id', 1),  # Root admin org
+            org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
             ip=request.remote_addr,
             data={
                 'preset_id': preset_id,
@@ -177,7 +177,7 @@ def remove_global_preset(preset_id):
         log_admin_event(
             event_type='preset_global_removed',
             user_id=current_user.id,
-            org_id=getattr(current_user, 'org_id', 1),  # Root admin org
+            org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
             ip=request.remote_addr,
             data={
                 'preset_id': preset_id,
@@ -207,7 +207,7 @@ def delete_universal_preset(preset_id):
         log_admin_event(
             event_type='universal_preset_deleted',
             user_id=current_user.id,
-            org_id=getattr(current_user, 'org_id', 1),  # Root admin org
+            org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
             ip=request.remote_addr,
             data={
                 'preset_id': preset_id,
@@ -334,7 +334,7 @@ def approve_preset(preset_id):
         log_admin_event(
             event_type='approve_preset_global',
             user_id=current_user.id,
-            org_id=None,  # Root admin action
+            org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
             ip=flask_request.remote_addr,
             data={
                 'preset_name': preset.name,
@@ -373,7 +373,7 @@ def reject_preset(preset_id):
         log_admin_event(
             event_type='reject_preset_global',
             user_id=current_user.id,
-            org_id=None,  # Root admin action
+            org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
             ip=flask_request.remote_addr,
             data={
                 'preset_name': preset.name,
@@ -771,7 +771,7 @@ def create_user():
             log_admin_event(
                 event_type='create_user',
                 user_id=current_user.id,
-                org_id=None,  # Root admin action
+                org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
                 ip=flask_request.remote_addr,
                 data={
                     'created_user_id': user.id,
@@ -833,7 +833,7 @@ def edit_user(user_id):
             log_admin_event(
                 event_type='edit_user',
                 user_id=current_user.id,
-                org_id=None,  # Root admin action
+                org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
                 ip=flask_request.remote_addr,
                 data={
                     'target_user_id': user.id,
@@ -887,7 +887,7 @@ def delete_user(user_id):
         log_admin_event(
             event_type='delete_user',
             user_id=current_user.id,
-            org_id=None,  # Root admin action
+            org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
             ip=flask_request.remote_addr,
             data={
                 'deleted_user_id': user_id,
@@ -947,7 +947,7 @@ def toggle_user_status(user_id):
         log_admin_event(
             event_type='toggle_user_status',
             user_id=current_user.id,
-            org_id=None,  # Root admin action
+            org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
             ip=flask_request.remote_addr,
             data={
                 'target_user_id': user.id,
@@ -1002,7 +1002,7 @@ def promote_preset_globally(preset_id):
         log_admin_event(
             event_type='preset_made_global',
             user_id=current_user.id,
-            org_id=getattr(current_user, 'org_id', 1),  # Root admin org
+            org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
             ip=request.remote_addr,
             data={
                 'preset_id': preset_id,
@@ -1042,7 +1042,7 @@ def api_promote_preset_globally(preset_id):
         log_admin_event(
             event_type='preset_promoted',
             user_id=current_user.id,
-            org_id=getattr(current_user, 'org_id', 1),  # Root admin org
+            org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
             ip=request.remote_addr,
             data={
                 'preset_id': preset_id,
