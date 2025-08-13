@@ -165,8 +165,8 @@ def remove_global_preset(preset_id):
 
         # Remove global status and assign back to original organization
         # Note: We need to handle org assignment properly
-        if not preset.organization and preset.created_by_user and preset.created_by_user.org_id:
-            preset.org_id = preset.created_by_user.org_id
+        if not preset.organization and preset.creator and preset.creator.org_id:
+            preset.org_id = preset.creator.org_id
 
         preset.shared = False
         preset.preset_scope = 'organization'
