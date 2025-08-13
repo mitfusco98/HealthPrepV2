@@ -445,16 +445,16 @@ def get_dashboard_data():
     # Get preset statistics - ORGANIZATION SCOPED
     total_presets = ScreeningPreset.query.filter(
         (ScreeningPreset.org_id == current_user.org_id) | 
-        (ScreeningPreset.is_global == True)
+        (ScreeningPreset.preset_scope == 'global')
     ).count()
     shared_presets = ScreeningPreset.query.filter(
         (ScreeningPreset.org_id == current_user.org_id) | 
-        (ScreeningPreset.is_global == True)
+        (ScreeningPreset.preset_scope == 'global')
     ).filter_by(shared=True).count()
     try:
         recent_presets = ScreeningPreset.query.filter(
             (ScreeningPreset.org_id == current_user.org_id) | 
-            (ScreeningPreset.is_global == True)
+            (ScreeningPreset.preset_scope == 'global')
         ).order_by(ScreeningPreset.updated_at.desc()).limit(5).all()
     except Exception:
         recent_presets = []
@@ -1315,7 +1315,7 @@ def view_presets():
         org_id = current_user.org_id
         presets = ScreeningPreset.query.filter(
             (ScreeningPreset.org_id == org_id) | 
-            (ScreeningPreset.is_global == True)
+            (ScreeningPreset.preset_scope == 'global')
         ).order_by(ScreeningPreset.updated_at.desc()).all()
         
         return render_template('admin/presets.html', presets=presets)

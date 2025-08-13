@@ -53,7 +53,7 @@ def dashboard():
         
         # Get preset statistics
         total_presets = ScreeningPreset.query.count()
-        global_presets = ScreeningPreset.query.filter_by(shared=True).count()
+        global_presets = ScreeningPreset.query.filter_by(preset_scope='global').count()
         
         stats = {
             'total_organizations': total_orgs,
@@ -85,12 +85,12 @@ def presets():
         all_presets = ScreeningPreset.query.order_by(ScreeningPreset.created_at.desc()).all()
         
         # Get global presets (universally available)
-        global_presets = ScreeningPreset.query.filter_by(shared=True).order_by(ScreeningPreset.updated_at.desc()).all()
+        global_presets = ScreeningPreset.query.filter_by(preset_scope='global').order_by(ScreeningPreset.updated_at.desc()).all()
         
         # Organize presets by organization for better display
         org_presets = {}
         for preset in all_presets:
-            if not preset.shared:  # Don't duplicate global presets in org sections
+            if preset.preset_scope != 'global':  # Don't duplicate global presets in org sections
                 org_name = preset.organization.name if preset.organization else 'Unknown Organization'
                 if org_name not in org_presets:
                     org_presets[org_name] = []
@@ -122,6 +122,9 @@ def make_preset_global(preset_id):
     try:
         preset = ScreeningPreset.query.get_or_404(preset_id)
         
+        # Store original org name before making it global
+        original_org_name = preset.organization.name if preset.organization else 'Unknown'
+        
         # Make preset global
         preset.shared = True
         preset.preset_scope = 'global'
@@ -133,12 +136,12 @@ def make_preset_global(preset_id):
         log_admin_event(
             event_type='preset_made_global',
             user_id=current_user.id,
-            org_id=1,  # Root admin org
+            org_id=getattr(current_user, 'org_id', 1),  # Root admin org
             ip=request.remote_addr,
             data={
                 'preset_id': preset_id,
                 'preset_name': preset.name,
-                'original_org': preset.organization.name if preset.organization else 'Unknown',
+                'original_org': original_org_name,
                 'description': f'Made preset "{preset.name}" globally available'
             }
         )
@@ -159,7 +162,11 @@ def remove_global_preset(preset_id):
     try:
         preset = ScreeningPreset.query.get_or_404(preset_id)
         
-        # Remove global status
+        # Remove global status and assign back to original organization
+        # Note: We need to handle org assignment properly
+        if not preset.organization and preset.created_by_user and preset.created_by_user.org_id:
+            preset.org_id = preset.created_by_user.org_id
+        
         preset.shared = False
         preset.preset_scope = 'organization'
         
@@ -169,7 +176,7 @@ def remove_global_preset(preset_id):
         log_admin_event(
             event_type='preset_global_removed',
             user_id=current_user.id,
-            org_id=1,  # Root admin org
+            org_id=getattr(current_user, 'org_id', 1),  # Root admin org
             ip=request.remote_addr,
             data={
                 'preset_id': preset_id,
@@ -199,7 +206,7 @@ def delete_universal_preset(preset_id):
         log_admin_event(
             event_type='universal_preset_deleted',
             user_id=current_user.id,
-            org_id=1,  # Root admin org
+            org_id=getattr(current_user, 'org_id', 1),  # Root admin org
             ip=request.remote_addr,
             data={
                 'preset_id': preset_id,
