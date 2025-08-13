@@ -1350,11 +1350,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Time period filter functionality
-document.querySelectorAll('.btn-group-sm .btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        // Remove active class from all buttons
-        document.querySelectorAll('.btn-group-sm .btn').forEach(b => {
+// Time period filter functionality - only apply to dashboard PHI controls
+document.querySelectorAll('#nav-overview .btn-group-sm .btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        // Only handle this if it's within the overview tab (dashboard)
+        if (!this.closest('#nav-overview')) {
+            return;
+        }
+        
+        // Prevent event bubbling to avoid conflicts with other modals
+        e.stopPropagation();
+        
+        // Remove active class from all buttons in this group only
+        this.closest('.btn-group-sm').querySelectorAll('.btn').forEach(b => {
             b.classList.remove('active');
         });
 

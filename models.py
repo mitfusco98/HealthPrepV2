@@ -955,9 +955,16 @@ class ScreeningPreset(db.Model):
             'has_conflicts': False
         }
         
+        # Get the target organization from the user making the request
+        from flask_login import current_user
+        target_org_id = current_user.org_id
+        
         try:
             for st_data in self.get_screening_types():
-                existing = ScreeningType.query.filter_by(name=st_data['name']).first()
+                existing = ScreeningType.query.filter_by(
+                    name=st_data['name'],
+                    org_id=target_org_id
+                ).first()
                 if existing:
                     conflicts['existing_types'].append({
                         'name': existing.name,
@@ -994,12 +1001,19 @@ class ScreeningPreset(db.Model):
         updated_count = 0
         skipped_count = 0
         errors = []
+        
+        # Get the target organization from the user making the request
+        from flask_login import current_user
+        target_org_id = current_user.org_id
 
         try:
             for st_data in self.get_screening_types():
                 try:
-                    # Check if screening type already exists
-                    existing = ScreeningType.query.filter_by(name=st_data['name']).first()
+                    # Check if screening type already exists within the organization
+                    existing = ScreeningType.query.filter_by(
+                        name=st_data['name'],
+                        org_id=target_org_id
+                    ).first()
 
                     if existing and not overwrite_existing:
                         skipped_count += 1
@@ -1017,9 +1031,10 @@ class ScreeningPreset(db.Model):
                         existing.updated_at = datetime.utcnow()
                         updated_count += 1
                     else:
-                        # Create new screening type
+                        # Create new screening type in target organization
                         new_st = ScreeningType()
                         new_st.name = st_data['name']
+                        new_st.org_id = target_org_id  # CRITICAL: Set organization ID
                         new_st.keywords = json.dumps(st_data.get('keywords', []))
                         new_st.eligible_genders = st_data.get('eligible_genders', 'both')
                         new_st.min_age = st_data.get('min_age')
@@ -1027,6 +1042,7 @@ class ScreeningPreset(db.Model):
                         new_st.frequency_years = st_data.get('frequency_years', 1.0)
                         new_st.trigger_conditions = json.dumps(st_data.get('trigger_conditions', []))
                         new_st.is_active = st_data.get('is_active', True)
+                        new_st.created_by = created_by
                         db.session.add(new_st)
                         imported_count += 1
 

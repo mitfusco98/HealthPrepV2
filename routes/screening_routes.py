@@ -109,7 +109,10 @@ def screening_list():
 def screening_types():
     """Screening types management"""
     try:
-        screening_types = ScreeningType.query.order_by(ScreeningType.name).all()
+        # CRITICAL: Only show screening types from user's organization
+        screening_types = ScreeningType.query.filter_by(
+            org_id=current_user.org_id
+        ).order_by(ScreeningType.name).all()
 
         return render_template('screening/types.html',
                              screening_types=screening_types)
@@ -380,10 +383,17 @@ def toggle_screening_type_status(type_id):
 def delete_screening_type(type_id):
     """Delete screening type"""
     try:
-        screening_type = ScreeningType.query.get_or_404(type_id)
+        # CRITICAL: Ensure multi-tenancy - only get screening types from user's organization
+        screening_type = ScreeningType.query.filter_by(
+            id=type_id, 
+            org_id=current_user.org_id
+        ).first_or_404()
 
-        # Check if screening type is in use
-        active_screenings = Screening.query.filter_by(screening_type_id=type_id).count()
+        # Check if screening type is in use within this organization only
+        active_screenings = Screening.query.join(Patient).filter(
+            Screening.screening_type_id == type_id,
+            Patient.org_id == current_user.org_id
+        ).count()
         if active_screenings > 0:
             flash(f'Cannot delete screening type "{screening_type.name}" - it has {active_screenings} active screenings', 'error')
             return redirect(url_for('screening.screening_types'))
