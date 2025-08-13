@@ -960,45 +960,56 @@ class ScreeningPreset(db.Model):
         target_org_id = current_user.org_id
         
         try:
-            screening_types_data = []
-            if isinstance(self.screening_data, dict) and 'screening_types' in self.screening_data:
-                screening_types_data = self.screening_data['screening_types']
-            elif isinstance(self.screening_data, list):
-                screening_types_data = self.screening_data
+            screening_types_data = self.get_screening_types()
+            
+            # Handle case where no screening types in preset
+            if not screening_types_data:
+                return conflicts
             
             for st_data in screening_types_data:
                 existing = ScreeningType.query.filter_by(
                     name=st_data['name'],
                     org_id=target_org_id
                 ).first()
+                
                 if existing:
                     conflicts['existing_types'].append({
                         'name': existing.name,
                         'id': existing.id,
-                        'last_modified': existing.updated_at
+                        'modified_date': existing.updated_at.strftime('%Y-%m-%d %H:%M') if existing.updated_at else 'Unknown'
                     })
                     
                     # Check if existing type differs from preset (indicating user modifications)
-                    preset_keywords = set(st_data.get('keywords', []))
-                    existing_keywords = set(json.loads(existing.keywords) if existing.keywords else [])
-                    
-                    if (preset_keywords != existing_keywords or
-                        st_data.get('eligible_genders') != existing.eligible_genders or
-                        st_data.get('frequency_years') != existing.frequency_years or
-                        st_data.get('min_age') != existing.min_age or
-                        st_data.get('max_age') != existing.max_age):
-                        conflicts['modified_types'].append({
-                            'name': existing.name,
-                            'id': existing.id,
-                            'last_modified': existing.updated_at,
-                            'created_by': existing.created_by
-                        })
-                        conflicts['has_conflicts'] = True
+                    try:
+                        preset_keywords = set(st_data.get('keywords', []))
+                        existing_keywords = set(json.loads(existing.keywords) if existing.keywords else [])
+                        
+                        if (preset_keywords != existing_keywords or
+                            st_data.get('eligible_genders') != existing.eligible_genders or
+                            st_data.get('frequency_years') != existing.frequency_years or
+                            st_data.get('min_age') != existing.min_age or
+                            st_data.get('max_age') != existing.max_age):
+                            conflicts['modified_types'].append({
+                                'name': existing.name,
+                                'id': existing.id,
+                                'modified_date': existing.updated_at.strftime('%Y-%m-%d %H:%M') if existing.updated_at else 'Unknown'
+                            })
+                    except Exception as detail_error:
+                        logger.warning(f"Error comparing screening type {st_data.get('name', 'Unknown')}: {str(detail_error)}")
+                        continue
             
+            conflicts['has_conflicts'] = len(conflicts['modified_types']) > 0
             return conflicts
+            
         except Exception as e:
-            logger.warning(f"Error checking preset conflicts: {str(e)}")
-            return conflicts
+            logger.error(f"Error checking preset conflicts: {str(e)}")
+            # Return safe default that allows application to proceed
+            return {
+                'existing_types': [],
+                'modified_types': [],
+                'has_conflicts': False,
+                'error': f'Could not verify conflicts: {str(e)}'
+            }
 
     def import_to_screening_types(self, overwrite_existing=False, created_by=None):
         """Import this preset's screening types to the database"""
@@ -1012,8 +1023,25 @@ class ScreeningPreset(db.Model):
         target_org_id = current_user.org_id
 
         try:
-            for st_data in self.get_screening_types():
+            screening_types_data = self.get_screening_types()
+            
+            # Handle case where preset has no screening types
+            if not screening_types_data:
+                return {
+                    'success': True,
+                    'imported_count': 0,
+                    'updated_count': 0,
+                    'skipped_count': 0,
+                    'errors': ['No screening types found in preset']
+                }
+            
+            for st_data in screening_types_data:
                 try:
+                    # Validate required fields
+                    if not st_data.get('name'):
+                        errors.append("Screening type missing required 'name' field")
+                        continue
+                    
                     # Check if screening type already exists within the organization
                     existing = ScreeningType.query.filter_by(
                         name=st_data['name'],
@@ -1055,6 +1083,7 @@ class ScreeningPreset(db.Model):
                     errors.append(f"Error processing '{st_data.get('name', 'Unknown')}': {str(e)}")
                     continue
 
+            # Commit the transaction
             db.session.commit()
 
             return {
@@ -1067,9 +1096,11 @@ class ScreeningPreset(db.Model):
 
         except Exception as e:
             db.session.rollback()
+            error_msg = f"Failed to import screening types: {str(e)}"
+            logger.error(error_msg)
             return {
                 'success': False,
-                'error': str(e),
+                'error': error_msg,
                 'imported_count': 0,
                 'updated_count': 0,
                 'skipped_count': 0,

@@ -981,8 +981,18 @@ function importToTypes(presetId, presetName) {
 
     // First check for conflicts
     fetch(`/admin/presets/${presetId}/check-conflicts`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
         .then(conflicts => {
+            if (conflicts.error) {
+                showToast(`Could not verify conflicts: ${conflicts.error}. Please try again or use the full presets page.`, 'warning');
+                return;
+            }
+            
             if (conflicts.has_conflicts && conflicts.modified_types && conflicts.modified_types.length > 0) {
                 // Show conflict warning modal instead
                 showConflictWarning(conflicts);
@@ -994,9 +1004,7 @@ function importToTypes(presetId, presetName) {
         })
         .catch(error => {
             console.error('Error checking conflicts:', error);
-            // Fall back to showing the standard modal
-            const modal = new bootstrap.Modal(document.getElementById('importToTypesModal'));
-            modal.show();
+            showToast('Could not verify conflicts. Please try again or use the full presets page.', 'warning');
         });
 }
 
