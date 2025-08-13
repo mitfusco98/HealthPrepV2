@@ -898,7 +898,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-success" onclick="confirmImportToTypes()">
+                <button type="button" class="btn btn-success" id="confirmImportToTypes">
                     <i class="fas fa-arrow-right me-1"></i>
                     Import to Types
                 </button>
@@ -906,6 +906,45 @@
         </div>
     </div>
 </div>
+
+<!-- Conflict Warning Modal for Dashboard Apply -->
+<div class="modal fade" id="conflictWarningModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                    Conflict Detected
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <strong>User modifications detected!</strong>
+                    <p>Some screening types have been modified since they were last applied from a preset.</p>
+                </div>
+                <div id="conflictDetails"></div>
+                <div class="form-check mt-3">
+                    <input class="form-check-input" type="checkbox" id="forceOverwriteDashboard">
+                    <label class="form-check-label text-danger" for="forceOverwriteDashboard">
+                        <strong>Force overwrite user modifications</strong>
+                    </label>
+                    <div class="form-text">
+                        Warning: This will replace user-modified screening types with preset versions.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" id="confirmApplyDashboard">
+                    <i class="fas fa-arrow-right me-1"></i>
+                    Apply Preset
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -929,6 +968,99 @@ document.addEventListener('DOMContentLoaded', function() {
 function applyActivityFilters() {
     // Placeholder for filter logic
     console.log('Applying activity filters...');
+}
+
+// Missing JavaScript functions for dashboard presets
+let currentPresetId = null;
+let currentPresetName = null;
+
+function importToTypes(presetId, presetName) {
+    currentPresetId = presetId;
+    currentPresetName = presetName;
+    document.getElementById('importToTypesPresetName').textContent = presetName;
+    
+    // First check for conflicts
+    fetch(`/admin/presets/${presetId}/check-conflicts`)
+        .then(response => response.json())
+        .then(conflicts => {
+            if (conflicts.has_conflicts && conflicts.modified_types && conflicts.modified_types.length > 0) {
+                // Show conflict warning modal instead
+                showConflictWarning(conflicts);
+            } else {
+                // Show standard apply modal
+                const modal = new bootstrap.Modal(document.getElementById('importToTypesModal'));
+                modal.show();
+            }
+        })
+        .catch(error => {
+            console.error('Error checking conflicts:', error);
+            // Fall back to showing the standard modal
+            const modal = new bootstrap.Modal(document.getElementById('importToTypesModal'));
+            modal.show();
+        });
+}
+
+function showConflictWarning(conflicts) {
+    const conflictDetails = document.getElementById('conflictDetails');
+    if (conflictDetails) {
+        let detailsHtml = '<ul class="list-unstyled">';
+        conflicts.modified_types.forEach(type => {
+            detailsHtml += `<li><strong>${type.name}</strong> - Modified on ${type.modified_date}</li>`;
+        });
+        detailsHtml += '</ul>';
+        conflictDetails.innerHTML = detailsHtml;
+    }
+    
+    const modal = new bootstrap.Modal(document.getElementById('conflictWarningModal'));
+    modal.show();
+}
+
+// Event listeners for dashboard apply functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const confirmImportBtn = document.getElementById('confirmImportToTypes');
+    const confirmApplyBtn = document.getElementById('confirmApplyDashboard');
+    
+    if (confirmImportBtn) {
+        confirmImportBtn.addEventListener('click', function() {
+            if (currentPresetId) {
+                applyPresetDashboard(false);
+            }
+        });
+    }
+    
+    if (confirmApplyBtn) {
+        confirmApplyBtn.addEventListener('click', function() {
+            const forceOverwrite = document.getElementById('forceOverwriteDashboard').checked;
+            applyPresetDashboard(forceOverwrite);
+        });
+    }
+});
+
+function applyPresetDashboard(forceOverwrite = false) {
+    if (!currentPresetId) return;
+    
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/admin/presets/${currentPresetId}/apply-to-organization`;
+    
+    // Add CSRF token
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrf_token';
+    csrfInput.value = '{{ csrf_token() }}';
+    form.appendChild(csrfInput);
+    
+    // Add force overwrite flag if requested
+    if (forceOverwrite) {
+        const overwriteInput = document.createElement('input');
+        overwriteInput.type = 'hidden';
+        overwriteInput.name = 'force_overwrite';
+        overwriteInput.value = 'true';
+        form.appendChild(overwriteInput);
+    }
+    
+    document.body.appendChild(form);
+    form.submit();
 }
 
 // Quick actions
