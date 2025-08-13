@@ -502,7 +502,7 @@ def create_organization():
             db.session.rollback()
             logger.error(f"Error creating organization: {str(e)}")
             flash('Error creating organization', 'error')
-            return render_template('root_admin/create_organization.html')
+            return redirect(url_for('root_admin.organizations'))
     
     return render_template('root_admin/create_organization.html')
 
