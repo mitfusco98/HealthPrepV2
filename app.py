@@ -221,27 +221,9 @@ def register_template_utilities(app):
 # Configure CSRF protection to exempt API routes
 def configure_csrf_exemptions(app):
     """Configure CSRF exemptions for API routes"""
-    from flask_wtf.csrf import CSRFProtect
-    
-    # Get the CSRF instance
-    csrf_instance = app.extensions.get('csrf')
-    if csrf_instance:
-        # Exempt specific admin routes from CSRF protection
-        csrf_instance.exempt('admin.log_error')
-        csrf_instance.exempt('root_admin.promote_preset_globally')
-        csrf_instance.exempt('root_admin.api_promote_preset_globally')
-        
-        # Exempt all API endpoint patterns
-        @app.before_request
-        def exempt_api_routes():
-            from flask import request
-            # Exempt all routes starting with /api/, /emr/, or /fuzzy/
-            if (request.endpoint and 
-                (request.endpoint.startswith('api.') or 
-                 request.endpoint.startswith('emr_sync.') or
-                 request.endpoint.startswith('fuzzy.'))):
-                from flask_wtf.csrf import exempt
-                exempt(request.endpoint)
+    # CSRF exemptions are handled at blueprint level in register_blueprints()
+    # This function is kept for compatibility but exemptions are done via csrf.exempt()
+    pass
 
 def configure_jinja_filters(app):
     """Configure custom Jinja2 filters"""
