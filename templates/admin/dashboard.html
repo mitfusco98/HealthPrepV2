@@ -1075,12 +1075,15 @@ function applyPresetDashboard(forceOverwrite = false) {
     // This URL applies the preset to the organization's screening types
     form.action = `/admin/presets/${currentPresetId}/apply-to-organization`; 
 
-    // Add CSRF token
-    const csrfInput = document.createElement('input');
-    csrfInput.type = 'hidden';
-    csrfInput.name = 'csrf_token';
-    csrfInput.value = '{{ csrf_token() }}';
-    form.appendChild(csrfInput);
+    // Add CSRF token - get from meta tag
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (csrfToken) {
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrf_token';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+    }
 
     // Add force overwrite flag if requested
     if (forceOverwrite) {
@@ -1193,7 +1196,7 @@ document.getElementById('phiEnabled').addEventListener('change', function() {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token() }}'
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
         },
         body: JSON.stringify({ enabled: enabled })
     })
