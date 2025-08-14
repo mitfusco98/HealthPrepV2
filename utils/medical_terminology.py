@@ -214,25 +214,76 @@ class MedicalTerminologyDB:
         
         return {}
     
-    def import_standard_keywords(self, screening_name: str) -> List[str]:
-        """Import standard medical keywords for a screening type"""
-        keywords = self.get_keywords_for_screening(screening_name)
+    def import_standard_keywords(self, screening_name: str, max_keywords: int = 8, 
+                                  include_variations: bool = False, 
+                                  priority_only: bool = False) -> List[str]:
+        """Import standard medical keywords for a screening type with limits"""
+        base_keywords = self.get_keywords_for_screening(screening_name)
         
-        # Add common variations
+        # If priority_only, return only the most essential keywords
+        if priority_only:
+            base_keywords = self._get_priority_keywords(screening_name, base_keywords)
+        
+        # Limit base keywords if requested
+        if max_keywords and len(base_keywords) > max_keywords:
+            base_keywords = base_keywords[:max_keywords]
+        
+        # Add variations only if requested
         additional_keywords = []
-        for keyword in keywords:
-            # Add plural forms
-            if not keyword.endswith('s') and not keyword.endswith('y'):
-                additional_keywords.append(keyword + 's')
-            
-            # Add acronym forms
-            words = keyword.split()
-            if len(words) > 1:
-                acronym = ''.join(word[0].upper() for word in words if word[0].isalpha())
-                if len(acronym) > 1:
-                    additional_keywords.append(acronym)
+        if include_variations:
+            for keyword in base_keywords:
+                # Add plural forms
+                if not keyword.endswith('s') and not keyword.endswith('y'):
+                    additional_keywords.append(keyword + 's')
+                
+                # Add acronym forms
+                words = keyword.split()
+                if len(words) > 1:
+                    acronym = ''.join(word[0].upper() for word in words if word[0].isalpha())
+                    if len(acronym) > 1:
+                        additional_keywords.append(acronym)
         
-        return list(set(keywords + additional_keywords))
+        all_keywords = list(set(base_keywords + additional_keywords))
+        
+        # Final limit check
+        if max_keywords and len(all_keywords) > max_keywords:
+            # Prioritize base keywords over variations
+            result = base_keywords.copy()
+            for var in additional_keywords:
+                if len(result) < max_keywords:
+                    result.append(var)
+                else:
+                    break
+            return result
+            
+        return all_keywords
+    
+    def _get_priority_keywords(self, screening_name: str, all_keywords: List[str]) -> List[str]:
+        """Get only the most essential keywords for a screening type"""
+        screening_lower = screening_name.lower()
+        
+        # Priority mappings for essential keywords only
+        priority_maps = {
+            'mammography': ['mammogram', 'mammography', 'breast imaging'],
+            'cervical_screening': ['pap smear', 'pap test', 'cervical cytology'],
+            'diabetes_monitoring': ['A1C', 'HbA1c', 'glucose'],
+            'cardiovascular': ['ECG', 'EKG', 'echocardiogram', 'stress test'],
+            'colonoscopy': ['colonoscopy', 'colorectal screening'],
+            'bone_health': ['DEXA scan', 'bone density'],
+            'pulmonary': ['chest X-ray', 'chest CT'],
+            'laboratory': ['CBC', 'CMP', 'lipid panel'],
+            'dermatology': ['skin cancer screening', 'melanoma screening'],
+            'ophthalmology': ['eye exam', 'glaucoma screening']
+        }
+        
+        # Find matching category and return priority keywords
+        for category, keywords in self.terminology.items():
+            if any(keyword.lower() in screening_lower for keyword in keywords[:3]):  # Check first 3 keywords
+                priority_keywords = priority_maps.get(category, keywords[:3])
+                return [kw for kw in priority_keywords if kw in all_keywords]
+        
+        # Fallback to first 3-4 keywords
+        return all_keywords[:4]
 
 # Global instance
 medical_terminology_db = MedicalTerminologyDB()

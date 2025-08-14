@@ -533,6 +533,74 @@ def update_screening_settings():
     
     return redirect(url_for('screening.screening_list', view='settings'))
 
+@screening_bp.route('/api/keyword-analysis')
+@login_required
+def analyze_keyword_distribution():
+    """Analyze keyword count distribution across screening types"""
+    try:
+        screening_types = ScreeningType.query.filter_by(
+            org_id=current_user.org_id,
+            is_active=True
+        ).all()
+        
+        analysis = {
+            'total_screening_types': len(screening_types),
+            'keyword_distribution': {},
+            'screening_details': [],
+            'summary': {
+                'avg_keywords': 0,
+                'min_keywords': float('inf'),
+                'max_keywords': 0,
+                'total_keywords': 0
+            }
+        }
+        
+        keyword_counts = []
+        
+        for st in screening_types:
+            keyword_count = len(st.keywords_list)
+            keyword_counts.append(keyword_count)
+            
+            # Update distribution
+            count_range = f"{(keyword_count // 5) * 5}-{(keyword_count // 5) * 5 + 4}"
+            if keyword_count == 0:
+                count_range = "0"
+            elif keyword_count >= 20:
+                count_range = "20+"
+            
+            analysis['keyword_distribution'][count_range] = analysis['keyword_distribution'].get(count_range, 0) + 1
+            
+            analysis['screening_details'].append({
+                'name': st.name,
+                'keyword_count': keyword_count,
+                'keywords': st.keywords_list[:5],  # First 5 keywords for preview
+                'created_by': st.created_by_user.username if st.created_by_user else 'System'
+            })
+        
+        # Calculate summary stats
+        if keyword_counts:
+            analysis['summary'] = {
+                'avg_keywords': round(sum(keyword_counts) / len(keyword_counts), 1),
+                'min_keywords': min(keyword_counts),
+                'max_keywords': max(keyword_counts),
+                'total_keywords': sum(keyword_counts)
+            }
+        
+        # Sort screening details by keyword count (descending)
+        analysis['screening_details'].sort(key=lambda x: x['keyword_count'], reverse=True)
+        
+        return jsonify({
+            'success': True,
+            'analysis': analysis
+        })
+        
+    except Exception as e:
+        logger.error(f"Error analyzing keyword distribution: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @screening_bp.route('/presets')
 @login_required
 def screening_presets():
@@ -688,34 +756,27 @@ def get_keyword_suggestions():
 @screening_bp.route('/api/import-keywords/<int:screening_type_id>')
 @login_required
 def import_medical_keywords(screening_type_id):
-    """Import standard medical keywords for a screening type"""
+    """Import standard medical keywords for a screening type with options"""
     try:
         screening_type = ScreeningType.query.get_or_404(screening_type_id)
+        
+        # Get import options from query parameters
+        max_keywords = request.args.get('max_keywords', 8, type=int)
+        include_variations = request.args.get('include_variations', 'false').lower() == 'true'
+        priority_only = request.args.get('priority_only', 'true').lower() == 'true'
         
         from utils.medical_terminology import medical_terminology_db
         
         # Get current keywords
         current_keywords = set(screening_type.get_content_keywords())
         
-        # Get medical keywords based on screening type name
-        screening_name_lower = screening_type.name.lower()
-        medical_keywords = set()
-        
-        # Map screening types to medical categories
-        if any(term in screening_name_lower for term in ['mammo', 'breast']):
-            medical_keywords.update(medical_terminology_db.get_category_keywords('mammography'))
-        if any(term in screening_name_lower for term in ['cardio', 'heart', 'echo']):
-            medical_keywords.update(medical_terminology_db.get_category_keywords('cardiovascular'))
-        if any(term in screening_name_lower for term in ['colon', 'colonoscopy']):
-            medical_keywords.update(medical_terminology_db.get_category_keywords('colonoscopy'))
-        if any(term in screening_name_lower for term in ['diabetes', 'glucose', 'a1c']):
-            medical_keywords.update(medical_terminology_db.get_category_keywords('diabetes'))
-        if any(term in screening_name_lower for term in ['skin', 'dermatol', 'mole']):
-            medical_keywords.update(medical_terminology_db.get_category_keywords('dermatology'))
-        
-        # If no specific match, use general medical terms
-        if not medical_keywords:
-            medical_keywords.update(medical_terminology_db.get_category_keywords('general'))
+        # Get medical keywords with limits
+        medical_keywords = set(medical_terminology_db.import_standard_keywords(
+            screening_type.name,
+            max_keywords=max_keywords,
+            include_variations=include_variations,
+            priority_only=priority_only
+        ))
         
         # Find new keywords
         new_keywords = medical_keywords - current_keywords
@@ -731,14 +792,25 @@ def import_medical_keywords(screening_type_id):
             user_id=current_user.id,
             org_id=current_user.org_id,
             ip=request.remote_addr,
-            data={'screening_type_name': screening_type.name, 'imported_count': len(new_keywords), 'description': f'Imported {len(new_keywords)} new medical keywords for screening type: {screening_type.name}'}
+            data={
+                'screening_type_name': screening_type.name, 
+                'imported_count': len(new_keywords),
+                'max_keywords': max_keywords,
+                'priority_only': priority_only,
+                'description': f'Imported {len(new_keywords)} targeted medical keywords for screening type: {screening_type.name}'
+            }
         )
         
         return jsonify({
             'success': True,
             'keywords': all_keywords,
             'new_keywords': list(new_keywords),
-            'message': f'Imported {len(new_keywords)} new medical keywords'
+            'message': f'Imported {len(new_keywords)} targeted medical keywords (max: {max_keywords})',
+            'options_used': {
+                'max_keywords': max_keywords,
+                'priority_only': priority_only,
+                'include_variations': include_variations
+            }
         })
         
     except Exception as e:
