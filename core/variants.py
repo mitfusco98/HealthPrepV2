@@ -14,7 +14,7 @@ class ScreeningVariants:
     def get_applicable_variant(self, patient, base_screening_type):
         """Get the most applicable screening variant for a patient"""
         
-        # Get all variants of this screening type
+        # Get all variants of this screening type (including the base type itself)
         variants = ScreeningType.query.filter(
             ScreeningType.name.like(f"{base_screening_type.name}%"),
             ScreeningType.is_active == True
@@ -23,18 +23,41 @@ class ScreeningVariants:
         if not variants:
             return base_screening_type
         
-        # Check each variant for trigger condition matches
-        best_match = None
-        max_matched_conditions = 0
+        # Separate general population and conditional variants
+        general_variants = []
+        conditional_variants = []
         
         for variant in variants:
+            screening_category = getattr(variant, 'screening_category', 'general')
+            if screening_category == 'general':
+                general_variants.append(variant)
+            else:
+                conditional_variants.append(variant)
+        
+        # First try to find a matching conditional variant
+        best_conditional = None
+        max_matched_conditions = 0
+        
+        for variant in conditional_variants:
             matched_conditions = self._count_matched_conditions(patient, variant)
             
             if matched_conditions > max_matched_conditions:
                 max_matched_conditions = matched_conditions
-                best_match = variant
+                best_conditional = variant
         
-        return best_match or base_screening_type
+        # If patient has conditions matching a conditional variant, use it
+        if best_conditional and max_matched_conditions > 0:
+            return best_conditional
+        
+        # Otherwise, use the most appropriate general variant
+        # Prefer variants over base types for more specific protocols
+        preferred_general = None
+        for variant in general_variants:
+            if variant.name != base_screening_type.name:  # Prefer variants over base
+                preferred_general = variant
+                break
+        
+        return preferred_general or general_variants[0] if general_variants else base_screening_type
     
     def create_screening_variant(self, base_screening_type, variant_name, trigger_conditions, 
                                frequency_value=None, frequency_unit=None):

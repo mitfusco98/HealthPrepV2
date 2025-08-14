@@ -49,11 +49,77 @@ def normalize_screening_name(name):
     return ' '.join(tokens)
 
 def group_screening_types_by_similarity(screening_types):
-    """Group screening types by similarity using fuzzy matching"""
+    """Group screening types by similarity with enhanced base/variant detection"""
     groups = {}
     processed = set()
     
+    # First pass: Group by exact base name matching (for dash-separated variants)
+    base_groups = {}
+    standalone_types = []
+    
     for st in screening_types:
+        if ' - ' in st.name:
+            # This is likely a variant
+            base_name = st.name.split(' - ')[0].strip()
+            if base_name not in base_groups:
+                base_groups[base_name] = []
+            base_groups[base_name].append(st)
+        else:
+            # Check if this could be a base type for existing variants
+            matching_variants = [v for variants in base_groups.values() for v in variants if v.name.startswith(st.name + ' - ')]
+            if matching_variants:
+                if st.name not in base_groups:
+                    base_groups[st.name] = []
+                base_groups[st.name].append(st)
+            else:
+                standalone_types.append(st)
+    
+    # Create groups from base name groups
+    for base_name, variants in base_groups.items():
+        group_key = f"group_{len(groups)}"
+        
+        # Find the actual base type (without dash) or use first variant as representative
+        base_type = next((v for v in variants if v.name == base_name), variants[0])
+        
+        # Separate base types from variants and categorize by screening category
+        base_types = [v for v in variants if v.name == base_name]
+        variant_types = [v for v in variants if v.name != base_name]
+        
+        # Sort variants by category: general first, then conditional/risk_based
+        variant_types.sort(key=lambda x: (
+            getattr(x, 'screening_category', 'general') != 'general',
+            x.name
+        ))
+        
+        all_variants = base_types + variant_types
+        
+        groups[group_key] = {
+            'base_name': base_name,
+            'normalized_name': normalize_screening_name(base_name),
+            'variants': all_variants,
+            'authors': set(),
+            'organizations': set(),
+            'has_base_type': len(base_types) > 0,
+            'has_conditional_variants': any(getattr(v, 'screening_category', 'general') == 'conditional' for v in variant_types),
+            'has_general_variants': any(getattr(v, 'screening_category', 'general') == 'general' for v in variant_types)
+        }
+        
+        # Collect authors and organizations
+        for variant in all_variants:
+            if hasattr(variant, 'created_by_user') and variant.created_by_user:
+                groups[group_key]['authors'].add(variant.created_by_user.username)
+            else:
+                groups[group_key]['authors'].add('Unknown')
+                
+            if hasattr(variant, 'organization') and variant.organization:
+                groups[group_key]['organizations'].add(variant.organization.name)
+        
+        # Mark all as processed
+        for variant in all_variants:
+            processed.add(variant.id)
+    
+    # Second pass: Group remaining standalone types using fuzzy matching
+    for st in standalone_types:
         if st.id in processed:
             continue
         
@@ -65,17 +131,25 @@ def group_screening_types_by_similarity(screening_types):
             'base_name': st.name,
             'normalized_name': normalized_name,
             'variants': [st],
-            'authors': {st.created_by_user.username if hasattr(st, 'created_by_user') and st.created_by_user else 'Unknown'},
-            'organizations': set()
+            'authors': set(),
+            'organizations': set(),
+            'has_base_type': True,
+            'has_conditional_variants': getattr(st, 'screening_category', 'general') == 'conditional',
+            'has_general_variants': getattr(st, 'screening_category', 'general') == 'general'
         }
         
+        if hasattr(st, 'created_by_user') and st.created_by_user:
+            groups[group_key]['authors'].add(st.created_by_user.username)
+        else:
+            groups[group_key]['authors'].add('Unknown')
+            
         if hasattr(st, 'organization') and st.organization:
             groups[group_key]['organizations'].add(st.organization.name)
         
         processed.add(st.id)
         
-        # Find similar screening types
-        for other_st in screening_types:
+        # Find similar screening types using fuzzy matching
+        for other_st in standalone_types:
             if other_st.id in processed:
                 continue
             
@@ -96,16 +170,33 @@ def group_screening_types_by_similarity(screening_types):
             # Group if similarity is above threshold (0.8 for exact match, 0.6 for partial)
             if similarity >= 0.8 or token_similarity >= 0.6:
                 groups[group_key]['variants'].append(other_st)
-                groups[group_key]['authors'].add(other_st.created_by_user.username if hasattr(other_st, 'created_by_user') and other_st.created_by_user else 'Unknown')
                 
+                if hasattr(other_st, 'created_by_user') and other_st.created_by_user:
+                    groups[group_key]['authors'].add(other_st.created_by_user.username)
+                else:
+                    groups[group_key]['authors'].add('Unknown')
+                    
                 if hasattr(other_st, 'organization') and other_st.organization:
                     groups[group_key]['organizations'].add(other_st.organization.name)
                 
+                # Update group flags
+                other_category = getattr(other_st, 'screening_category', 'general')
+                if other_category == 'conditional':
+                    groups[group_key]['has_conditional_variants'] = True
+                else:
+                    groups[group_key]['has_general_variants'] = True
+                
                 processed.add(other_st.id)
     
-    # Sort variants within each group by creation date (newest first)
+    # Finalize all groups
     for group in groups.values():
-        group['variants'].sort(key=lambda x: x.created_at, reverse=True)
+        # Sort variants: base types first, then general, then conditional
+        group['variants'].sort(key=lambda x: (
+            ' - ' in x.name,  # Base types first (no dash)
+            getattr(x, 'screening_category', 'general') == 'conditional',  # General before conditional
+            x.name
+        ))
+        
         group['authors'] = list(group['authors'])
         group['organizations'] = list(group['organizations'])
         group['variant_count'] = len(group['variants'])

@@ -304,6 +304,7 @@ class ScreeningType(db.Model):
     max_age = db.Column(db.Integer)
     frequency_years = db.Column(db.Float, nullable=False)  # Frequency in years (can be fractional like 0.25 for 3 months)
     trigger_conditions = db.Column(db.Text)  # JSON string of conditions that modify screening protocols
+    screening_category = db.Column(db.String(20), default='general')  # 'general', 'conditional', 'risk_based'
     is_active = db.Column(db.Boolean, default=True)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # User who created this screening type
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

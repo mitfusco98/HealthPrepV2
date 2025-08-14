@@ -57,6 +57,11 @@ class ScreeningTypeForm(FlaskForm):
     trigger_conditions = TextAreaField('Trigger Conditions', 
                                      validators=[Length(max=1000)],
                                      render_kw={'placeholder': 'diabetes, hypertension, family history'})
+    screening_category = SelectField('Screening Category',
+                                   choices=[('general', 'General Population'), 
+                                           ('conditional', 'Requires Trigger Conditions'),
+                                           ('risk_based', 'Risk-Based Variant')],
+                                   default='general')
     submit = SubmitField('Save Screening Type')
 
 class ScreeningSettingsForm(FlaskForm):
