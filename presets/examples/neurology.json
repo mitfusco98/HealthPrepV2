@@ -49,6 +49,39 @@
       "is_active": true
     },
     {
+      "name": "Lipid Panel",
+      "description": "Standard cholesterol screening for cardiovascular risk in neurology patients",
+      "keywords": ["lipid panel", "cholesterol", "lipids", "ldl", "hdl", "triglycerides"],
+      "min_age": 20,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 5.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "A1C Test", 
+      "description": "Diabetes screening for general neurology population (stroke risk factor)",
+      "keywords": ["a1c", "hba1c", "diabetes screening", "glucose", "hemoglobin a1c"],
+      "min_age": 35,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 3.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Depression Screening",
+      "description": "Standard depression screening for neurological patients",
+      "keywords": ["depression screening", "phq9", "mental health", "mood assessment"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 2.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
       "name": "Cognitive Assessment - Early Screening",
       "description": "Early cognitive screening for high-risk individuals",
       "keywords": ["cognitive assessment", "memory screening", "cognitive evaluation", "dementia screening"],

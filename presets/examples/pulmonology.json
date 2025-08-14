@@ -5,7 +5,51 @@
   "created_at": "2025-01-14T00:00:00Z",
   "screening_types": [
     {
-      "name": "Lung Cancer Screening - LDCT",
+      "name": "Chest X-ray",
+      "description": "Standard chest radiography for general population pulmonary assessment",
+      "keywords": ["chest x-ray", "chest xray", "cxr", "chest radiograph", "lung x-ray"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 3.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Pulmonary Function Test",
+      "description": "Basic spirometry screening for general population lung function assessment",
+      "keywords": ["pulmonary function", "spirometry", "pfts", "lung function test", "fev1"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 5.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Blood Pressure Monitoring",
+      "description": "Standard blood pressure screening for pulmonary patients",
+      "keywords": ["blood pressure", "bp check", "hypertension screening", "systolic", "diastolic"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Chest X-ray - High Risk",
+      "description": "Frequent chest radiography for high-risk patients with pulmonary concerns",
+      "keywords": ["chest x-ray", "chest xray", "cxr", "chest radiograph", "lung x-ray"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["chronic cough", "smoking history", "occupational exposure"],
+      "is_active": true
+    },
+    {
+      "name": "Lung Cancer Screening",
       "description": "Low-dose CT screening for lung cancer (2024 expanded guidelines)",
       "keywords": ["low dose ct", "ldct", "lung cancer screening", "chest ct", "lung screening"],
       "min_age": 50,
@@ -16,35 +60,24 @@
       "is_active": true
     },
     {
-      "name": "Chest X-ray",
-      "description": "Standard chest radiography for pulmonary assessment",
-      "keywords": ["chest x-ray", "chest xray", "cxr", "chest radiograph", "lung x-ray"],
-      "min_age": 18,
-      "max_age": null,
-      "eligible_genders": "both",
-      "frequency_years": 2.0,
-      "trigger_conditions": ["chronic cough", "smoking history", "occupational exposure"],
-      "is_active": true
-    },
-    {
-      "name": "Pulmonary Function Test",
-      "description": "Spirometry and comprehensive pulmonary function testing",
-      "keywords": ["pulmonary function", "spirometry", "pfts", "lung function test", "fev1"],
-      "min_age": 18,
-      "max_age": null,
-      "eligible_genders": "both",
-      "frequency_years": 1.0,
-      "trigger_conditions": ["asthma", "COPD", "chronic cough", "dyspnea"],
-      "is_active": true
-    },
-    {
-      "name": "Pulmonary Function Test - COPD",
-      "description": "Regular spirometry monitoring for COPD patients",
+      "name": "Pulmonary Function Test - COPD Monitoring",
+      "description": "Frequent spirometry monitoring for COPD and chronic lung disease patients",
       "keywords": ["pulmonary function", "spirometry", "pfts", "copd monitoring", "fev1"],
       "min_age": 18,
       "max_age": null,
       "eligible_genders": "both",
       "frequency_years": 0.5,
+      "trigger_conditions": ["asthma", "COPD", "chronic cough", "dyspnea"],
+      "is_active": true
+    },
+    {
+      "name": "Pulmonary Function Test - Severe COPD",
+      "description": "Intensive spirometry monitoring for severe COPD patients",
+      "keywords": ["pulmonary function", "spirometry", "pfts", "severe copd", "fev1"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 0.25,
       "trigger_conditions": ["COPD", "chronic obstructive pulmonary disease", "emphysema", "chronic bronchitis"],
       "is_active": true
     },
