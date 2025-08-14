@@ -1037,11 +1037,26 @@ function applyPreset(presetId, presetName) {
 function showConflictWarning(conflicts) {
     const conflictDetails = document.getElementById('conflictDetails');
     if (conflictDetails) {
-        let detailsHtml = '<ul class="list-unstyled">';
-        conflicts.modified_types.forEach(type => {
-            detailsHtml += `<li><strong>${type.name}</strong> - Modified on ${type.modified_date}</li>`;
-        });
-        detailsHtml += '</ul>';
+        let detailsHtml = '';
+        
+        if (conflicts.modified_types && conflicts.modified_types.length > 0) {
+            detailsHtml += '<h6>Modified Screening Types (will be overwritten):</h6>';
+            detailsHtml += '<ul class="list-unstyled">';
+            conflicts.modified_types.forEach(type => {
+                detailsHtml += `<li><i class="fas fa-exclamation-triangle text-warning"></i> <strong>${type.name}</strong> - Modified on ${type.modified_date}</li>`;
+            });
+            detailsHtml += '</ul>';
+        }
+        
+        if (conflicts.missing_types && conflicts.missing_types.length > 0) {
+            detailsHtml += '<h6 class="mt-3">Missing Screening Types (will be added):</h6>';
+            detailsHtml += '<ul class="list-unstyled">';
+            conflicts.missing_types.forEach(type => {
+                detailsHtml += `<li><i class="fas fa-plus text-success"></i> <strong>${type.name}</strong> - Will be added</li>`;
+            });
+            detailsHtml += '</ul>';
+        }
+        
         conflictDetails.innerHTML = detailsHtml;
     }
 

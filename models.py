@@ -952,6 +952,7 @@ class ScreeningPreset(db.Model):
         conflicts = {
             'existing_types': [],
             'modified_types': [],
+            'missing_types': [],
             'has_conflicts': False
         }
         
@@ -968,7 +969,7 @@ class ScreeningPreset(db.Model):
             
             for st_data in screening_types_data:
                 existing = ScreeningType.query.filter_by(
-                    name=st_data.get('name'),
+                    name=st_data['name'],
                     org_id=target_org_id
                 ).first()
                 
@@ -1021,12 +1022,13 @@ class ScreeningPreset(db.Model):
                             
                     except Exception as detail_error:
                         logger.warning(f"Error comparing screening type {st_data.get('name', 'Unknown')}: {str(detail_error)}")
-                        # If we can't compare, assume it's modified to be safe
-                        conflicts['modified_types'].append({
-                            'name': existing.name,
-                            'id': existing.id,
-                            'modified_date': existing.updated_at.strftime('%Y-%m-%d %H:%M') if existing.updated_at else 'Unknown'
-                        })
+                        # If we can't compare properly, treat as unchanged to be safe
+                        continue
+                else:
+                    # This screening type is missing from the organization
+                    conflicts['missing_types'].append({
+                        'name': st_data['name']
+                    })
             
             conflicts['has_conflicts'] = len(conflicts['modified_types']) > 0
             return conflicts
@@ -1037,6 +1039,7 @@ class ScreeningPreset(db.Model):
             return {
                 'existing_types': [],
                 'modified_types': [],
+                'missing_types': [],
                 'has_conflicts': False,
                 'error': f'Could not verify conflicts: {str(e)}'
             }
