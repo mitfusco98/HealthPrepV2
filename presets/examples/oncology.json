@@ -1,0 +1,140 @@
+{
+  "name": "Oncology Cancer Screening Package",
+  "description": "Comprehensive cancer screening protocols based on 2024 guidelines including expanded lung cancer screening and updated breast cancer recommendations",
+  "specialty": "Oncology",
+  "created_at": "2025-01-14T00:00:00Z",
+  "screening_types": [
+    {
+      "name": "Colorectal Cancer Screening - Colonoscopy",
+      "description": "Standard colonoscopy screening for colorectal cancer (average risk)",
+      "keywords": ["colonoscopy", "colon screening", "colorectal screening", "colo screening", "bowel screening"],
+      "min_age": 45,
+      "max_age": 75,
+      "eligible_genders": "both",
+      "frequency_years": 10.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Colorectal Cancer Screening - High Risk",
+      "description": "Enhanced colonoscopy screening for high-risk colorectal cancer patients",
+      "keywords": ["colonoscopy", "colon screening", "colorectal screening", "colo screening"],
+      "min_age": 40,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 3.0,
+      "trigger_conditions": ["family history colorectal cancer", "Lynch syndrome", "FAP", "inflammatory bowel disease"],
+      "is_active": true
+    },
+    {
+      "name": "Colorectal Cancer Screening - FIT",
+      "description": "Fecal immunochemical test for colorectal cancer screening",
+      "keywords": ["fit test", "fecal immunochemical", "stool test", "colorectal screening", "fecal occult blood"],
+      "min_age": 45,
+      "max_age": 75,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Lung Cancer Screening - LDCT",
+      "description": "Low-dose CT screening for lung cancer (2024 expanded guidelines)",
+      "keywords": ["low dose ct", "ldct", "lung cancer screening", "chest ct", "lung screening"],
+      "min_age": 50,
+      "max_age": 80,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["smoking history 20 pack years", "current smoker", "quit smoking within 15 years"],
+      "is_active": true
+    },
+    {
+      "name": "Mammogram - Cancer Screening",
+      "description": "Breast cancer screening mammography (2024 USPSTF guidelines)",
+      "keywords": ["mammogram", "mammography", "breast imaging", "breast cancer screening"],
+      "min_age": 40,
+      "max_age": 74,
+      "eligible_genders": "female",
+      "frequency_years": 2.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Cervical Cancer Screening",
+      "description": "Primary HPV testing for cervical cancer screening",
+      "keywords": ["hpv test", "cervical screening", "pap smear", "cervical cancer screening"],
+      "min_age": 25,
+      "max_age": 65,
+      "eligible_genders": "female",
+      "frequency_years": 5.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Prostate Cancer Screening - PSA",
+      "description": "Prostate-specific antigen screening for prostate cancer",
+      "keywords": ["psa", "prostate screening", "prostate cancer screening", "prostate specific antigen"],
+      "min_age": 50,
+      "max_age": 70,
+      "eligible_genders": "male",
+      "frequency_years": 2.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Prostate Cancer Screening - High Risk",
+      "description": "Earlier PSA screening for high-risk prostate cancer patients",
+      "keywords": ["psa", "prostate screening", "prostate cancer screening", "prostate specific antigen"],
+      "min_age": 45,
+      "max_age": 70,
+      "eligible_genders": "male",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["African American", "family history prostate cancer", "BRCA2"],
+      "is_active": true
+    },
+    {
+      "name": "Skin Cancer Screening",
+      "description": "Full-body skin examination for melanoma and skin cancer detection",
+      "keywords": ["skin cancer screening", "melanoma screening", "dermatology exam", "mole check"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["high sun exposure", "family history melanoma", "multiple moles", "fair skin"],
+      "is_active": true
+    },
+    {
+      "name": "Genetic Cancer Risk Assessment",
+      "description": "Comprehensive genetic counseling and testing for hereditary cancer syndromes",
+      "keywords": ["genetic testing", "brca testing", "hereditary cancer", "genetic counseling", "cancer genetics"],
+      "min_age": 25,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 10.0,
+      "trigger_conditions": ["strong family history cancer", "multiple primary cancers", "early onset cancer"],
+      "is_active": true
+    },
+    {
+      "name": "Ovarian Cancer Screening - High Risk",
+      "description": "CA-125 and transvaginal ultrasound for high-risk ovarian cancer screening",
+      "keywords": ["ca-125", "ovarian cancer screening", "transvaginal ultrasound", "ovarian ultrasound"],
+      "min_age": 35,
+      "max_age": null,
+      "eligible_genders": "female",
+      "frequency_years": 0.5,
+      "trigger_conditions": ["BRCA1", "BRCA2", "Lynch syndrome", "family history ovarian cancer"],
+      "is_active": true
+    },
+    {
+      "name": "Lynch Syndrome Screening",
+      "description": "Microsatellite instability testing and genetic assessment for Lynch syndrome",
+      "keywords": ["lynch syndrome", "msi testing", "mismatch repair", "hereditary colorectal cancer"],
+      "min_age": 25,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 5.0,
+      "trigger_conditions": ["family history colorectal cancer", "endometrial cancer", "multiple cancers"],
+      "is_active": true
+    }
+  ]
+}

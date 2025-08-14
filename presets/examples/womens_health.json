@@ -1,0 +1,151 @@
+{
+  "name": "Women's Health Comprehensive Screening Package",
+  "description": "Evidence-based women's health screening protocols including 2024 updated mammography guidelines and risk-stratified approaches",
+  "specialty": "Women's Health / OBGYN",
+  "created_at": "2025-01-14T00:00:00Z",
+  "screening_types": [
+    {
+      "name": "Mammogram",
+      "description": "Breast cancer screening mammography - 2024 USPSTF updated guidelines",
+      "keywords": ["mammogram", "mammography", "breast imaging", "breast screening", "breast cancer screening"],
+      "min_age": 40,
+      "max_age": 74,
+      "eligible_genders": "female",
+      "frequency_years": 2.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Mammogram - High Risk",
+      "description": "Annual mammography for high-risk breast cancer patients",
+      "keywords": ["mammogram", "mammography", "breast imaging", "breast screening", "breast cancer screening"],
+      "min_age": 25,
+      "max_age": null,
+      "eligible_genders": "female",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["BRCA1", "BRCA2", "family history breast cancer", "genetic predisposition"],
+      "is_active": true
+    },
+    {
+      "name": "Breast MRI",
+      "description": "High-risk breast cancer screening with MRI",
+      "keywords": ["breast mri", "breast magnetic resonance", "high risk breast screening"],
+      "min_age": 25,
+      "max_age": null,
+      "eligible_genders": "female",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["BRCA1", "BRCA2", "genetic predisposition", "strong family history"],
+      "is_active": true
+    },
+    {
+      "name": "Cervical Cancer Screening - Pap Test",
+      "description": "Pap smear for cervical cancer screening (ages 21-29)",
+      "keywords": ["pap smear", "pap test", "cervical screening", "cytology", "cervical cancer screening"],
+      "min_age": 21,
+      "max_age": 29,
+      "eligible_genders": "female",
+      "frequency_years": 3.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Cervical Cancer Screening - HPV Primary",
+      "description": "Primary HPV testing for cervical cancer screening (ages 30-65)",
+      "keywords": ["hpv test", "hpv screening", "cervical screening", "human papillomavirus", "cervical cancer screening"],
+      "min_age": 30,
+      "max_age": 65,
+      "eligible_genders": "female",
+      "frequency_years": 5.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Cervical Cancer Screening - Co-testing",
+      "description": "Combined Pap and HPV testing for cervical cancer screening",
+      "keywords": ["pap smear", "hpv test", "co-testing", "cervical screening", "cytology"],
+      "min_age": 30,
+      "max_age": 65,
+      "eligible_genders": "female",
+      "frequency_years": 5.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Bone Density Scan (DEXA)",
+      "description": "Osteoporosis screening for all women 65 and older",
+      "keywords": ["dexa", "dxa", "bone density", "bone scan", "osteoporosis screening", "bone mineral density"],
+      "min_age": 65,
+      "max_age": null,
+      "eligible_genders": "female",
+      "frequency_years": 2.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Bone Density Scan (DEXA) - High Risk",
+      "description": "Earlier osteoporosis screening for high-risk postmenopausal women",
+      "keywords": ["dexa", "dxa", "bone density", "bone scan", "osteoporosis screening"],
+      "min_age": 50,
+      "max_age": 64,
+      "eligible_genders": "female",
+      "frequency_years": 2.0,
+      "trigger_conditions": ["postmenopausal", "family history osteoporosis", "low BMI", "smoking", "steroid use"],
+      "is_active": true
+    },
+    {
+      "name": "Pelvic Exam",
+      "description": "Annual pelvic examination for reproductive health assessment",
+      "keywords": ["pelvic exam", "gynecologic exam", "pelvic examination", "reproductive health"],
+      "min_age": 21,
+      "max_age": null,
+      "eligible_genders": "female",
+      "frequency_years": 1.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Ovarian Cancer Screening",
+      "description": "CA-125 and transvaginal ultrasound for high-risk ovarian cancer screening",
+      "keywords": ["ca-125", "ovarian cancer screening", "transvaginal ultrasound", "ovarian ultrasound"],
+      "min_age": 35,
+      "max_age": null,
+      "eligible_genders": "female",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["BRCA1", "BRCA2", "family history ovarian cancer", "Lynch syndrome"],
+      "is_active": true
+    },
+    {
+      "name": "Contraceptive Counseling",
+      "description": "Annual contraceptive and reproductive planning counseling",
+      "keywords": ["contraceptive counseling", "family planning", "birth control", "reproductive counseling"],
+      "min_age": 15,
+      "max_age": 50,
+      "eligible_genders": "female",
+      "frequency_years": 1.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Preconception Counseling",
+      "description": "Comprehensive preconception health assessment and counseling",
+      "keywords": ["preconception counseling", "pregnancy planning", "folic acid", "preconception care"],
+      "min_age": 18,
+      "max_age": 45,
+      "eligible_genders": "female",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["planning pregnancy"],
+      "is_active": true
+    },
+    {
+      "name": "Menopause Assessment",
+      "description": "Comprehensive menopause screening and hormone evaluation",
+      "keywords": ["menopause", "hormone assessment", "perimenopause", "menopause screening", "hot flashes"],
+      "min_age": 45,
+      "max_age": null,
+      "eligible_genders": "female",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["perimenopausal symptoms", "menopause"],
+      "is_active": true
+    }
+  ]
+}

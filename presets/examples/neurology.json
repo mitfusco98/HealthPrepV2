@@ -1,0 +1,151 @@
+{
+  "name": "Neurology Cognitive & Neurological Screening Package",
+  "description": "Comprehensive neurological screening protocols including cognitive assessment, stroke prevention, and neurological monitoring",
+  "specialty": "Neurology",
+  "created_at": "2025-01-14T00:00:00Z",
+  "screening_types": [
+    {
+      "name": "Cognitive Assessment - MOCA",
+      "description": "Montreal Cognitive Assessment for mild cognitive impairment screening",
+      "keywords": ["cognitive assessment", "moca", "montreal cognitive", "cognitive screening", "memory test"],
+      "min_age": 65,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Cognitive Assessment - Early Screening",
+      "description": "Early cognitive screening for high-risk individuals",
+      "keywords": ["cognitive assessment", "memory screening", "cognitive evaluation", "dementia screening"],
+      "min_age": 50,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 2.0,
+      "trigger_conditions": ["family history dementia", "mild cognitive impairment", "memory complaints"],
+      "is_active": true
+    },
+    {
+      "name": "Stroke Risk Assessment",
+      "description": "Comprehensive stroke risk evaluation including carotid assessment",
+      "keywords": ["stroke risk", "carotid ultrasound", "stroke prevention", "cerebrovascular"],
+      "min_age": 50,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 2.0,
+      "trigger_conditions": ["hypertension", "diabetes", "atrial fibrillation", "smoking"],
+      "is_active": true
+    },
+    {
+      "name": "Carotid Ultrasound",
+      "description": "Carotid artery ultrasound for stroke risk assessment",
+      "keywords": ["carotid ultrasound", "carotid doppler", "carotid stenosis", "stroke screening"],
+      "min_age": 65,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 3.0,
+      "trigger_conditions": ["stroke risk factors", "TIA", "carotid bruit"],
+      "is_active": true
+    },
+    {
+      "name": "Brain MRI - Cognitive",
+      "description": "Brain MRI for cognitive impairment and dementia evaluation",
+      "keywords": ["brain mri", "mri brain", "cognitive mri", "dementia imaging"],
+      "min_age": 50,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 5.0,
+      "trigger_conditions": ["cognitive decline", "memory loss", "dementia evaluation"],
+      "is_active": true
+    },
+    {
+      "name": "EEG Screening",
+      "description": "Electroencephalogram for seizure disorder screening",
+      "keywords": ["eeg", "electroencephalogram", "seizure screening", "epilepsy screening"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 2.0,
+      "trigger_conditions": ["seizure history", "unexplained episodes", "epilepsy"],
+      "is_active": true
+    },
+    {
+      "name": "Neuropsychological Testing",
+      "description": "Comprehensive neuropsychological evaluation for cognitive disorders",
+      "keywords": ["neuropsychological testing", "cognitive testing", "neuropsychology", "cognitive evaluation"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 3.0,
+      "trigger_conditions": ["cognitive decline", "head injury", "learning disabilities"],
+      "is_active": true
+    },
+    {
+      "name": "Parkinson's Disease Screening",
+      "description": "Movement disorder assessment and Parkinson's disease screening",
+      "keywords": ["parkinson screening", "movement disorder", "tremor assessment", "bradykinesia"],
+      "min_age": 60,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 2.0,
+      "trigger_conditions": ["tremor", "bradykinesia", "family history Parkinson's"],
+      "is_active": true
+    },
+    {
+      "name": "Multiple Sclerosis Monitoring",
+      "description": "Regular MRI and clinical monitoring for MS patients",
+      "keywords": ["multiple sclerosis", "ms monitoring", "brain mri", "ms surveillance"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["multiple sclerosis", "demyelinating disease", "optic neuritis"],
+      "is_active": true
+    },
+    {
+      "name": "Migraine Assessment",
+      "description": "Comprehensive migraine evaluation and headache disorder screening",
+      "keywords": ["migraine assessment", "headache evaluation", "migraine screening", "headache disorder"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["chronic headaches", "migraine", "headache disorder"],
+      "is_active": true
+    },
+    {
+      "name": "Neuropathy Screening",
+      "description": "Peripheral neuropathy assessment and nerve conduction studies",
+      "keywords": ["neuropathy screening", "nerve conduction", "peripheral neuropathy", "diabetic neuropathy"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["diabetes", "peripheral neuropathy", "numbness", "tingling"],
+      "is_active": true
+    },
+    {
+      "name": "Sleep Disorder Assessment",
+      "description": "Neurological sleep disorder evaluation including sleep study referral",
+      "keywords": ["sleep disorder", "sleep study", "sleep neurology", "sleep assessment"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 2.0,
+      "trigger_conditions": ["sleep apnea", "insomnia", "narcolepsy", "restless leg syndrome"],
+      "is_active": true
+    },
+    {
+      "name": "Alzheimer's Biomarkers",
+      "description": "CSF or blood biomarker testing for Alzheimer's disease",
+      "keywords": ["alzheimer biomarkers", "csf biomarkers", "amyloid", "tau protein"],
+      "min_age": 50,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 5.0,
+      "trigger_conditions": ["cognitive decline", "family history Alzheimer's", "mild cognitive impairment"],
+      "is_active": true
+    }
+  ]
+}

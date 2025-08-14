@@ -1,0 +1,129 @@
+{
+  "name": "Pulmonology Respiratory Screening Package",
+  "description": "Comprehensive pulmonary and respiratory screening protocols including expanded 2024 lung cancer screening guidelines",
+  "specialty": "Pulmonology",
+  "created_at": "2025-01-14T00:00:00Z",
+  "screening_types": [
+    {
+      "name": "Lung Cancer Screening - LDCT",
+      "description": "Low-dose CT screening for lung cancer (2024 expanded guidelines)",
+      "keywords": ["low dose ct", "ldct", "lung cancer screening", "chest ct", "lung screening"],
+      "min_age": 50,
+      "max_age": 80,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["smoking history 20 pack years", "current smoker", "quit smoking within 15 years"],
+      "is_active": true
+    },
+    {
+      "name": "Chest X-ray",
+      "description": "Standard chest radiography for pulmonary assessment",
+      "keywords": ["chest x-ray", "chest xray", "cxr", "chest radiograph", "lung x-ray"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 2.0,
+      "trigger_conditions": ["chronic cough", "smoking history", "occupational exposure"],
+      "is_active": true
+    },
+    {
+      "name": "Pulmonary Function Test",
+      "description": "Spirometry and comprehensive pulmonary function testing",
+      "keywords": ["pulmonary function", "spirometry", "pfts", "lung function test", "fev1"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["asthma", "COPD", "chronic cough", "dyspnea"],
+      "is_active": true
+    },
+    {
+      "name": "Pulmonary Function Test - COPD",
+      "description": "Regular spirometry monitoring for COPD patients",
+      "keywords": ["pulmonary function", "spirometry", "pfts", "copd monitoring", "fev1"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 0.5,
+      "trigger_conditions": ["COPD", "chronic obstructive pulmonary disease", "emphysema", "chronic bronchitis"],
+      "is_active": true
+    },
+    {
+      "name": "Alpha-1 Antitrypsin",
+      "description": "Alpha-1 antitrypsin deficiency screening for early-onset emphysema",
+      "keywords": ["alpha-1 antitrypsin", "a1at", "alpha-1", "antitrypsin deficiency"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 10.0,
+      "trigger_conditions": ["early emphysema", "family history alpha-1", "liver disease"],
+      "is_active": true
+    },
+    {
+      "name": "Tuberculosis Screening",
+      "description": "TB screening with interferon-gamma release assay or tuberculin skin test",
+      "keywords": ["tuberculosis screening", "tb screening", "igra", "quantiferon", "tuberculin skin test"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["high TB risk", "immunocompromised", "healthcare worker", "homeless"],
+      "is_active": true
+    },
+    {
+      "name": "Sleep Study Screening",
+      "description": "Sleep apnea screening questionnaire and overnight sleep study",
+      "keywords": ["sleep study", "sleep apnea screening", "polysomnography", "sleep disorder"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 3.0,
+      "trigger_conditions": ["snoring", "sleep apnea symptoms", "daytime sleepiness", "obesity"],
+      "is_active": true
+    },
+    {
+      "name": "Occupational Lung Disease Screening",
+      "description": "Screening for occupational lung diseases in high-risk workers",
+      "keywords": ["occupational lung", "pneumoconiosis", "asbestos screening", "silicosis screening"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["asbestos exposure", "silica exposure", "coal mining", "construction work"],
+      "is_active": true
+    },
+    {
+      "name": "Asthma Control Assessment",
+      "description": "Regular asthma control evaluation and spirometry",
+      "keywords": ["asthma control", "asthma assessment", "peak flow", "asthma monitoring"],
+      "min_age": 5,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 0.5,
+      "trigger_conditions": ["asthma", "allergic asthma", "exercise-induced asthma"],
+      "is_active": true
+    },
+    {
+      "name": "High-Resolution CT Chest",
+      "description": "HRCT for interstitial lung disease and pulmonary fibrosis evaluation",
+      "keywords": ["hrct chest", "high resolution ct", "interstitial lung disease", "pulmonary fibrosis"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 2.0,
+      "trigger_conditions": ["interstitial lung disease", "pulmonary fibrosis", "sarcoidosis", "connective tissue disease"],
+      "is_active": true
+    },
+    {
+      "name": "Bronchoscopy Screening",
+      "description": "Flexible bronchoscopy for suspected lung cancer or endobronchial disease",
+      "keywords": ["bronchoscopy", "flexible bronchoscopy", "endobronchial", "lung biopsy"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 5.0,
+      "trigger_conditions": ["suspicious lung nodule", "persistent cough", "hemoptysis"],
+      "is_active": true
+    }
+  ]
+}

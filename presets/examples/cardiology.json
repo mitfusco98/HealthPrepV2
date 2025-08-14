@@ -1,0 +1,140 @@
+{
+  "name": "Cardiology Preventive Screening Package",
+  "description": "Comprehensive cardiovascular screening protocols for primary and secondary prevention with risk-stratified variants",
+  "specialty": "Cardiology",
+  "created_at": "2025-01-14T00:00:00Z",
+  "screening_types": [
+    {
+      "name": "Lipid Panel",
+      "description": "Standard cholesterol and lipid screening for cardiovascular risk assessment",
+      "keywords": ["lipid panel", "cholesterol", "lipids", "lipid profile", "LDL", "HDL", "triglycerides"],
+      "min_age": 20,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 5.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Lipid Panel - High Risk",
+      "description": "Frequent lipid monitoring for high cardiovascular risk patients",
+      "keywords": ["lipid panel", "cholesterol", "lipids", "lipid profile", "LDL", "HDL", "triglycerides"],
+      "min_age": 20,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["diabetes", "coronary artery disease", "hypertension", "familial hypercholesterolemia"],
+      "is_active": true
+    },
+    {
+      "name": "Blood Pressure Monitoring",
+      "description": "Standard blood pressure screening for hypertension detection",
+      "keywords": ["blood pressure", "bp check", "hypertension screening", "systolic", "diastolic"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Blood Pressure Monitoring - Hypertensive",
+      "description": "Frequent blood pressure monitoring for diagnosed hypertensive patients",
+      "keywords": ["blood pressure", "bp check", "hypertension monitoring", "systolic", "diastolic"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 0.25,
+      "trigger_conditions": ["hypertension", "stage 1 hypertension", "stage 2 hypertension"],
+      "is_active": true
+    },
+    {
+      "name": "Electrocardiogram (ECG)",
+      "description": "Baseline ECG for cardiovascular assessment",
+      "keywords": ["ecg", "ekg", "electrocardiogram", "cardiac rhythm", "heart rhythm"],
+      "min_age": 40,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 3.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Electrocardiogram (ECG) - High Risk",
+      "description": "Frequent ECG monitoring for high-risk cardiovascular patients",
+      "keywords": ["ecg", "ekg", "electrocardiogram", "cardiac rhythm", "heart rhythm"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["coronary artery disease", "heart failure", "arrhythmia", "cardiomyopathy"],
+      "is_active": true
+    },
+    {
+      "name": "Echocardiogram",
+      "description": "Cardiac ultrasound for structural heart assessment",
+      "keywords": ["echocardiogram", "echo", "cardiac ultrasound", "heart ultrasound", "ejection fraction"],
+      "min_age": 50,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 5.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Echocardiogram - Heart Failure",
+      "description": "Regular echocardiogram monitoring for heart failure patients",
+      "keywords": ["echocardiogram", "echo", "cardiac ultrasound", "heart ultrasound", "ejection fraction"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["heart failure", "cardiomyopathy", "valvular disease"],
+      "is_active": true
+    },
+    {
+      "name": "Stress Test",
+      "description": "Exercise or pharmacological stress testing for coronary assessment",
+      "keywords": ["stress test", "exercise stress test", "treadmill test", "nuclear stress", "cardiac stress"],
+      "min_age": 40,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 3.0,
+      "trigger_conditions": ["chest pain", "coronary artery disease risk"],
+      "is_active": true
+    },
+    {
+      "name": "Coronary Artery Calcium Score",
+      "description": "CT calcium scoring for coronary atherosclerosis assessment",
+      "keywords": ["calcium score", "coronary calcium", "cac score", "cardiac ct", "coronary ct"],
+      "min_age": 40,
+      "max_age": 75,
+      "eligible_genders": "both",
+      "frequency_years": 5.0,
+      "trigger_conditions": ["intermediate cardiovascular risk"],
+      "is_active": true
+    },
+    {
+      "name": "Carotid Ultrasound",
+      "description": "Carotid artery ultrasound for stroke risk assessment",
+      "keywords": ["carotid ultrasound", "carotid doppler", "carotid artery", "stroke screening"],
+      "min_age": 65,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 3.0,
+      "trigger_conditions": ["stroke risk", "carotid stenosis", "transient ischemic attack"],
+      "is_active": true
+    },
+    {
+      "name": "BNP/NT-proBNP",
+      "description": "Brain natriuretic peptide testing for heart failure assessment",
+      "keywords": ["bnp", "nt-probnp", "brain natriuretic peptide", "heart failure marker"],
+      "min_age": 50,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["heart failure", "shortness of breath", "edema"],
+      "is_active": true
+    }
+  ]
+}

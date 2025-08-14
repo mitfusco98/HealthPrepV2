@@ -1,0 +1,162 @@
+{
+  "name": "Endocrinology Metabolic Screening Package",
+  "description": "Comprehensive endocrine and metabolic screening protocols including 2024 diabetes guidelines and thyroid function assessment",
+  "specialty": "Endocrinology",
+  "created_at": "2025-01-14T00:00:00Z",
+  "screening_types": [
+    {
+      "name": "Diabetes Screening - A1C",
+      "description": "Hemoglobin A1C screening for diabetes in adults 45+ or high-risk individuals",
+      "keywords": ["a1c", "hemoglobin a1c", "hba1c", "glycohemoglobin", "diabetes screening"],
+      "min_age": 45,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 3.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Diabetes Screening - High Risk",
+      "description": "A1C screening for high-risk individuals regardless of age",
+      "keywords": ["a1c", "hemoglobin a1c", "hba1c", "glycohemoglobin", "diabetes screening"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["overweight", "obesity", "family history diabetes", "gestational diabetes history", "PCOS"],
+      "is_active": true
+    },
+    {
+      "name": "Diabetes Monitoring - A1C",
+      "description": "Regular A1C monitoring for established diabetic patients",
+      "keywords": ["a1c", "hemoglobin a1c", "hba1c", "diabetes monitoring", "glycemic control"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 0.25,
+      "trigger_conditions": ["diabetes", "type 1 diabetes", "type 2 diabetes"],
+      "is_active": true
+    },
+    {
+      "name": "Fasting Glucose",
+      "description": "Fasting plasma glucose for diabetes screening and monitoring",
+      "keywords": ["fasting glucose", "fpg", "fasting blood sugar", "glucose screening"],
+      "min_age": 45,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 3.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Oral Glucose Tolerance Test",
+      "description": "75g OGTT for diabetes diagnosis in unclear cases",
+      "keywords": ["ogtt", "oral glucose tolerance", "glucose tolerance test", "75g glucose"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 5.0,
+      "trigger_conditions": ["prediabetes", "borderline glucose", "gestational diabetes history"],
+      "is_active": true
+    },
+    {
+      "name": "Thyroid Function - TSH",
+      "description": "Thyroid stimulating hormone screening for thyroid dysfunction",
+      "keywords": ["tsh", "thyroid stimulating hormone", "thyroid function", "thyroid screening"],
+      "min_age": 35,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 5.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Thyroid Function - Complete Panel",
+      "description": "Complete thyroid function testing (TSH, Free T4, Free T3)",
+      "keywords": ["tsh", "free t4", "free t3", "thyroid function", "thyroid panel"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["thyroid disease", "hypothyroidism", "hyperthyroidism", "thyroid symptoms"],
+      "is_active": true
+    },
+    {
+      "name": "Thyroid Antibodies",
+      "description": "Thyroid peroxidase and thyroglobulin antibodies for autoimmune thyroid disease",
+      "keywords": ["thyroid antibodies", "tpo antibodies", "anti-thyroglobulin", "thyroid autoimmune"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 5.0,
+      "trigger_conditions": ["family history thyroid disease", "autoimmune disease", "goiter"],
+      "is_active": true
+    },
+    {
+      "name": "Vitamin D",
+      "description": "25-hydroxyvitamin D screening for deficiency assessment",
+      "keywords": ["vitamin d", "25-hydroxyvitamin d", "vitamin d3", "calcidiol"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 2.0,
+      "trigger_conditions": ["osteoporosis", "limited sun exposure", "malabsorption"],
+      "is_active": true
+    },
+    {
+      "name": "Lipid Panel - Metabolic",
+      "description": "Lipid screening for metabolic syndrome and cardiovascular risk",
+      "keywords": ["lipid panel", "cholesterol", "triglycerides", "HDL", "LDL", "metabolic panel"],
+      "min_age": 20,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 5.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Comprehensive Metabolic Panel",
+      "description": "Complete metabolic panel including glucose, electrolytes, kidney function",
+      "keywords": ["cmp", "comprehensive metabolic panel", "basic metabolic panel", "chemistry panel"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["diabetes", "hypertension", "kidney disease", "electrolyte disorders"],
+      "is_active": true
+    },
+    {
+      "name": "Microalbumin",
+      "description": "Urine microalbumin for diabetic nephropathy screening",
+      "keywords": ["microalbumin", "microalbuminuria", "urine albumin", "diabetic nephropathy"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["diabetes", "type 1 diabetes", "type 2 diabetes"],
+      "is_active": true
+    },
+    {
+      "name": "Testosterone",
+      "description": "Testosterone screening for hypogonadism in symptomatic men",
+      "keywords": ["testosterone", "total testosterone", "free testosterone", "hypogonadism"],
+      "min_age": 30,
+      "max_age": null,
+      "eligible_genders": "male",
+      "frequency_years": 3.0,
+      "trigger_conditions": ["low libido", "fatigue", "erectile dysfunction", "osteoporosis"],
+      "is_active": true
+    },
+    {
+      "name": "PCOS Screening",
+      "description": "Hormonal assessment for polycystic ovary syndrome",
+      "keywords": ["pcos", "polycystic ovary", "testosterone", "androgen", "insulin resistance"],
+      "min_age": 15,
+      "max_age": 40,
+      "eligible_genders": "female",
+      "frequency_years": 2.0,
+      "trigger_conditions": ["irregular periods", "hirsutism", "acne", "weight gain"],
+      "is_active": true
+    }
+  ]
+}

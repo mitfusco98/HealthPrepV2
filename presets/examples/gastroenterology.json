@@ -1,0 +1,162 @@
+{
+  "name": "Gastroenterology Digestive Health Screening Package",
+  "description": "Comprehensive gastrointestinal screening protocols including colorectal cancer screening and liver disease assessment",
+  "specialty": "Gastroenterology",
+  "created_at": "2025-01-14T00:00:00Z",
+  "screening_types": [
+    {
+      "name": "Colonoscopy - Average Risk",
+      "description": "Standard colonoscopy screening for colorectal cancer (average risk)",
+      "keywords": ["colonoscopy", "colon screening", "colorectal screening", "colo screening", "bowel screening"],
+      "min_age": 45,
+      "max_age": 75,
+      "eligible_genders": "both",
+      "frequency_years": 10.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Colonoscopy - High Risk",
+      "description": "Enhanced colonoscopy screening for high-risk colorectal cancer patients",
+      "keywords": ["colonoscopy", "colon screening", "colorectal screening", "high risk screening"],
+      "min_age": 40,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 3.0,
+      "trigger_conditions": ["family history colorectal cancer", "Lynch syndrome", "FAP", "inflammatory bowel disease"],
+      "is_active": true
+    },
+    {
+      "name": "Flexible Sigmoidoscopy",
+      "description": "Flexible sigmoidoscopy for colorectal cancer screening",
+      "keywords": ["sigmoidoscopy", "flexible sigmoidoscopy", "sigmoid screening", "lower GI"],
+      "min_age": 45,
+      "max_age": 75,
+      "eligible_genders": "both",
+      "frequency_years": 5.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "FIT Test",
+      "description": "Fecal immunochemical test for colorectal cancer screening",
+      "keywords": ["fit test", "fecal immunochemical", "stool test", "fecal occult blood", "fobt"],
+      "min_age": 45,
+      "max_age": 75,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Upper Endoscopy - Surveillance",
+      "description": "EGD surveillance for Barrett's esophagus and gastric pathology",
+      "keywords": ["upper endoscopy", "egd", "esophagogastroduodenoscopy", "gastroscopy"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 2.0,
+      "trigger_conditions": ["Barrett's esophagus", "gastric polyps", "gastric metaplasia"],
+      "is_active": true
+    },
+    {
+      "name": "Upper Endoscopy - GERD",
+      "description": "EGD for chronic GERD evaluation and surveillance",
+      "keywords": ["upper endoscopy", "egd", "gerd evaluation", "esophagitis", "reflux"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 3.0,
+      "trigger_conditions": ["chronic GERD", "refractory GERD", "alarm symptoms"],
+      "is_active": true
+    },
+    {
+      "name": "Hepatitis B Screening",
+      "description": "Hepatitis B surface antigen and antibody screening",
+      "keywords": ["hepatitis b", "hbsag", "hepatitis b screening", "hbv screening"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 5.0,
+      "trigger_conditions": ["high-risk populations", "injection drug use", "multiple partners"],
+      "is_active": true
+    },
+    {
+      "name": "Hepatitis C Screening",
+      "description": "Hepatitis C antibody screening for all adults",
+      "keywords": ["hepatitis c", "hcv", "hepatitis c screening", "hcv antibody"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 10.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Liver Function Tests",
+      "description": "Comprehensive liver function panel (ALT, AST, bilirubin, alkaline phosphatase)",
+      "keywords": ["liver function", "lfts", "alt", "ast", "bilirubin", "alkaline phosphatase"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["alcohol use", "fatty liver", "hepatitis", "medication monitoring"],
+      "is_active": true
+    },
+    {
+      "name": "Hepatic Ultrasonography",
+      "description": "Liver ultrasound for fatty liver disease and hepatic pathology screening",
+      "keywords": ["liver ultrasound", "hepatic ultrasound", "fatty liver screening", "liver imaging"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 2.0,
+      "trigger_conditions": ["fatty liver disease", "elevated liver enzymes", "metabolic syndrome"],
+      "is_active": true
+    },
+    {
+      "name": "Celiac Disease Screening",
+      "description": "Tissue transglutaminase antibody and total IgA for celiac disease",
+      "keywords": ["celiac disease", "tissue transglutaminase", "tTG", "celiac antibodies", "gluten sensitivity"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 5.0,
+      "trigger_conditions": ["chronic diarrhea", "iron deficiency", "family history celiac"],
+      "is_active": true
+    },
+    {
+      "name": "H. Pylori Testing",
+      "description": "Helicobacter pylori testing for peptic ulcer disease and gastritis",
+      "keywords": ["h pylori", "helicobacter pylori", "urea breath test", "stool antigen"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 5.0,
+      "trigger_conditions": ["peptic ulcer disease", "gastritis", "family history gastric cancer"],
+      "is_active": true
+    },
+    {
+      "name": "Inflammatory Bowel Disease Monitoring",
+      "description": "Regular monitoring for IBD patients with colonoscopy and laboratory studies",
+      "keywords": ["ibd monitoring", "crohn disease", "ulcerative colitis", "inflammatory bowel"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["Crohn's disease", "ulcerative colitis", "inflammatory bowel disease"],
+      "is_active": true
+    },
+    {
+      "name": "Pancreatic Cancer Screening - High Risk",
+      "description": "EUS and MRI/MRCP for high-risk pancreatic cancer screening",
+      "keywords": ["pancreatic cancer screening", "eus", "mrcp", "pancreatic imaging"],
+      "min_age": 50,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["BRCA2", "PALB2", "family history pancreatic cancer", "hereditary pancreatitis"],
+      "is_active": true
+    }
+  ]
+}
