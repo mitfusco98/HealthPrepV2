@@ -106,7 +106,7 @@ def enhance_oncology_preset():
                 "description": "Enhanced colorectal cancer screening for high-risk patients",
                 "keywords": ["colorectal screening", "colonoscopy", "colon cancer", "fit test"],
                 "min_age": 40,
-                "max_age": null,
+                "max_age": None,
                 "eligible_genders": "both",
                 "frequency_years": 5.0,
                 "trigger_conditions": ["family history colorectal cancer", "inflammatory bowel disease", "lynch syndrome"],
@@ -117,7 +117,7 @@ def enhance_oncology_preset():
                 "description": "Enhanced breast cancer screening for high-risk women including MRI",
                 "keywords": ["mammogram", "breast mri", "breast cancer screening", "high risk"],
                 "min_age": 25,
-                "max_age": null,
+                "max_age": None,
                 "eligible_genders": "female",
                 "frequency_years": 0.5,
                 "trigger_conditions": ["BRCA mutation", "family history breast cancer", "personal history breast cancer"],
@@ -128,7 +128,7 @@ def enhance_oncology_preset():
                 "description": "More frequent cervical cancer screening for high-risk patients",
                 "keywords": ["pap smear", "cervical screening", "hpv test", "cervical cancer"],
                 "min_age": 18,
-                "max_age": null,
+                "max_age": None,
                 "eligible_genders": "female",
                 "frequency_years": 1.0,
                 "trigger_conditions": ["HIV", "immunocompromised", "DES exposure", "previous abnormal pap"],
@@ -150,7 +150,7 @@ def enhance_oncology_preset():
                 "description": "Full-body skin examination for melanoma and skin cancer detection",
                 "keywords": ["skin cancer screening", "dermatology exam", "melanoma screening", "skin check"],
                 "min_age": 18,
-                "max_age": null,
+                "max_age": None,
                 "eligible_genders": "both",
                 "frequency_years": 1.0,
                 "trigger_conditions": ["family history melanoma", "multiple moles", "fair skin", "sun exposure history"],
@@ -161,7 +161,7 @@ def enhance_oncology_preset():
                 "description": "Genetic counseling and testing for hereditary cancer syndromes",
                 "keywords": ["genetic counseling", "genetic testing", "BRCA", "lynch syndrome", "hereditary cancer"],
                 "min_age": 18,
-                "max_age": null,
+                "max_age": None,
                 "eligible_genders": "both",
                 "frequency_years": 5.0,
                 "trigger_conditions": ["family history cancer", "young onset cancer", "multiple primary cancers"],
@@ -169,10 +169,10 @@ def enhance_oncology_preset():
             }
         ]
     }
-    
+
     with open('presets/examples/oncology.json', 'w') as f:
         json.dump(oncology_preset, f, indent=2)
-    
+
     logger.info("✅ Enhanced oncology preset with baseline + high-risk variants")
 
 def enhance_primary_care_preset():
@@ -189,7 +189,7 @@ def enhance_primary_care_preset():
                 "description": "Standard blood pressure screening for hypertension detection",
                 "keywords": ["blood pressure", "bp check", "hypertension screening", "systolic", "diastolic"],
                 "min_age": 18,
-                "max_age": null,
+                "max_age": None,
                 "eligible_genders": "both",
                 "frequency_years": 1.0,
                 "trigger_conditions": [],
@@ -200,7 +200,7 @@ def enhance_primary_care_preset():
                 "description": "Standard cholesterol and lipid screening",
                 "keywords": ["lipid panel", "cholesterol", "lipids", "ldl", "hdl", "triglycerides"],
                 "min_age": 20,
-                "max_age": null,
+                "max_age": None,
                 "eligible_genders": "both",
                 "frequency_years": 5.0,
                 "trigger_conditions": [],
@@ -211,7 +211,7 @@ def enhance_primary_care_preset():
                 "description": "Diabetes screening for general population",
                 "keywords": ["a1c", "hba1c", "diabetes screening", "glucose", "hemoglobin a1c"],
                 "min_age": 35,
-                "max_age": null,
+                "max_age": None,
                 "eligible_genders": "both", 
                 "frequency_years": 3.0,
                 "trigger_conditions": [],
@@ -222,7 +222,7 @@ def enhance_primary_care_preset():
                 "description": "Routine immunization status review and updates",
                 "keywords": ["immunizations", "vaccines", "vaccination status", "immune status"],
                 "min_age": 18,
-                "max_age": null,
+                "max_age": None,
                 "eligible_genders": "both",
                 "frequency_years": 1.0,
                 "trigger_conditions": [],
@@ -234,7 +234,7 @@ def enhance_primary_care_preset():
                 "description": "Frequent monitoring for diagnosed hypertensive patients",
                 "keywords": ["blood pressure", "bp check", "hypertension monitoring"],
                 "min_age": 18,
-                "max_age": null,
+                "max_age": None,
                 "eligible_genders": "both",
                 "frequency_years": 0.25,
                 "trigger_conditions": ["hypertension", "high blood pressure"],
@@ -245,7 +245,7 @@ def enhance_primary_care_preset():
                 "description": "Frequent A1C monitoring for diabetic patients",
                 "keywords": ["a1c", "hba1c", "diabetes monitoring", "glucose control"],
                 "min_age": 18,
-                "max_age": null,
+                "max_age": None,
                 "eligible_genders": "both",
                 "frequency_years": 0.25,
                 "trigger_conditions": ["diabetes mellitus type 1", "diabetes mellitus type 2", "prediabetes"],
@@ -256,7 +256,7 @@ def enhance_primary_care_preset():
                 "description": "Frequent lipid monitoring for cardiovascular risk patients",
                 "keywords": ["lipid panel", "cholesterol", "lipids", "cardiovascular risk"],
                 "min_age": 18,
-                "max_age": null,
+                "max_age": None,
                 "eligible_genders": "both",
                 "frequency_years": 1.0,
                 "trigger_conditions": ["diabetes", "coronary artery disease", "familial hypercholesterolemia"],
@@ -264,16 +264,16 @@ def enhance_primary_care_preset():
             }
         ]
     }
-    
+
     with open('presets/examples/primary_care.json', 'w') as f:
         json.dump(primary_care_preset, f, indent=2)
-    
+
     logger.info("✅ Enhanced primary care preset with comprehensive baseline coverage")
 
 def test_enhanced_coverage():
     """Test that the enhanced presets provide better coverage"""
     logger.info("🧪 Testing enhanced baseline coverage...")
-    
+
     # Count baseline vs conditional screenings in enhanced presets
     presets_to_check = [
         'presets/examples/neurology.json',
@@ -281,32 +281,32 @@ def test_enhanced_coverage():
         'presets/examples/primary_care.json',
         'presets/examples/cardiology.json'
     ]
-    
+
     total_baseline = 0
     total_conditional = 0
-    
+
     for preset_file in presets_to_check:
         if os.path.exists(preset_file):
             with open(preset_file, 'r') as f:
                 preset_data = json.load(f)
-            
+
             baseline_count = 0
             conditional_count = 0
-            
+
             for screening_type in preset_data.get('screening_types', []):
                 if not screening_type.get('trigger_conditions') or len(screening_type.get('trigger_conditions', [])) == 0:
                     baseline_count += 1
                 else:
                     conditional_count += 1
-            
+
             specialty = preset_data.get('specialty', 'Unknown')
             logger.info(f"   {specialty}: {baseline_count} baseline + {conditional_count} conditional = {baseline_count + conditional_count} total")
-            
+
             total_baseline += baseline_count
             total_conditional += conditional_count
-    
+
     logger.info(f"✅ Enhanced Coverage Summary: {total_baseline} baseline + {total_conditional} conditional = {total_baseline + total_conditional} total screenings")
-    
+
     improvement_ratio = total_baseline / (total_baseline + total_conditional) * 100
     logger.info(f"📊 Baseline Coverage: {improvement_ratio:.1f}% of all screening types apply to general population")
 
@@ -314,22 +314,22 @@ def main():
     """Implement enhanced baseline screening coverage solution"""
     with app.app_context():
         logger.info("🚀 Starting Enhanced Baseline Screening Coverage...")
-        
+
         try:
             # Step 1: Remove categorization column (no longer needed)
             remove_categorization_column()
-            
+
             # Step 2: Enhance specialty presets with baseline variants
             enhance_oncology_preset()
             enhance_primary_care_preset()
             # Neurology already enhanced above
             # Cardiology already follows the pattern
-            
+
             # Step 3: Test the enhanced coverage
             test_enhanced_coverage()
-            
+
             logger.info(f"""
-            
+
 🎉 ENHANCED BASELINE SCREENING COVERAGE COMPLETE!
 
 ✅ SOLUTION IMPLEMENTED:
@@ -350,7 +350,7 @@ def main():
 
 This provides comprehensive coverage for all patient types visiting specialty practices.
             """)
-            
+
         except Exception as e:
             logger.error(f"❌ Enhancement failed: {str(e)}")
             raise
