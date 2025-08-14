@@ -194,9 +194,6 @@
                         </div>
 
                         <div class="btn-group" role="group">
-                                            <button class="btn btn-sm btn-outline-primary" onclick="viewPreset({{ preset.id }})">
-                                                <i class="fas fa-eye"></i> View
-                                            </button>
                                             <button class="btn btn-sm btn-success" onclick="applyPreset({{ preset.id }}, '{{ preset.name|e }}')">
                                                 <i class="fas fa-play"></i> Apply
                                             </button>
@@ -323,11 +320,6 @@
 
 {% block extra_js %}
 <script>
-function viewPreset(presetId) {
-    // Implementation for viewing preset details
-    window.location.href = '/admin/presets/' + presetId + '/view';
-}
-
 function applyPreset(presetId, presetName) {
     document.getElementById('applyPresetName').textContent = presetName;
     document.getElementById('applyPresetForm').action = '/admin/presets/' + presetId + '/apply-to-organization';
