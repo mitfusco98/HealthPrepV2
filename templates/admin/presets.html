@@ -234,6 +234,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="applyPresetForm" method="POST">
+                {{ csrf_token() }}
                 <div class="modal-body">
                     <p>Are you sure you want to apply the preset "<span id="applyPresetName"></span>" to your organization?</p>
                     <div class="form-check">
@@ -339,6 +340,7 @@ function deletePreset(presetId) {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
             }
         })
         .then(response => response.json())
