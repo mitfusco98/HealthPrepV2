@@ -968,7 +968,7 @@ class ScreeningPreset(db.Model):
             
             for st_data in screening_types_data:
                 existing = ScreeningType.query.filter_by(
-                    name=st_data['name'],
+                    name=st_data.get('name'),
                     org_id=target_org_id
                 ).first()
                 
@@ -979,24 +979,54 @@ class ScreeningPreset(db.Model):
                         'modified_date': existing.updated_at.strftime('%Y-%m-%d %H:%M') if existing.updated_at else 'Unknown'
                     })
                     
-                    # Check if existing type differs from preset (indicating user modifications)
+                    # More accurate comparison - check if existing type differs from preset
+                    is_modified = False
+                    
                     try:
+                        # Compare keywords
                         preset_keywords = set(st_data.get('keywords', []))
-                        existing_keywords = set(json.loads(existing.keywords) if existing.keywords else [])
+                        existing_keywords = set(existing.keywords_list)
                         
+                        # Compare basic fields with proper type conversion
+                        preset_genders = st_data.get('eligible_genders', 'both')
+                        preset_freq = float(st_data.get('frequency_years', 1.0))
+                        preset_min_age = st_data.get('min_age')
+                        preset_max_age = st_data.get('max_age')
+                        
+                        # Convert None values for comparison
+                        existing_min_age = existing.min_age
+                        existing_max_age = existing.max_age
+                        
+                        # Check for actual differences
                         if (preset_keywords != existing_keywords or
-                            st_data.get('eligible_genders') != existing.eligible_genders or
-                            st_data.get('frequency_years') != existing.frequency_years or
-                            st_data.get('min_age') != existing.min_age or
-                            st_data.get('max_age') != existing.max_age):
+                            preset_genders != (existing.eligible_genders or 'both') or
+                            abs(preset_freq - (existing.frequency_years or 1.0)) > 0.001 or  # Float comparison
+                            preset_min_age != existing_min_age or
+                            preset_max_age != existing_max_age):
+                            is_modified = True
+                            
+                        # Also compare trigger conditions
+                        preset_conditions = set(st_data.get('trigger_conditions', []))
+                        existing_conditions = set(existing.trigger_conditions_list)
+                        
+                        if preset_conditions != existing_conditions:
+                            is_modified = True
+                            
+                        if is_modified:
                             conflicts['modified_types'].append({
                                 'name': existing.name,
                                 'id': existing.id,
                                 'modified_date': existing.updated_at.strftime('%Y-%m-%d %H:%M') if existing.updated_at else 'Unknown'
                             })
+                            
                     except Exception as detail_error:
                         logger.warning(f"Error comparing screening type {st_data.get('name', 'Unknown')}: {str(detail_error)}")
-                        continue
+                        # If we can't compare, assume it's modified to be safe
+                        conflicts['modified_types'].append({
+                            'name': existing.name,
+                            'id': existing.id,
+                            'modified_date': existing.updated_at.strftime('%Y-%m-%d %H:%M') if existing.updated_at else 'Unknown'
+                        })
             
             conflicts['has_conflicts'] = len(conflicts['modified_types']) > 0
             return conflicts
@@ -1038,13 +1068,14 @@ class ScreeningPreset(db.Model):
             for st_data in screening_types_data:
                 try:
                     # Validate required fields
-                    if not st_data.get('name'):
+                    screening_name = st_data.get('name')
+                    if not screening_name:
                         errors.append("Screening type missing required 'name' field")
                         continue
                     
                     # Check if screening type already exists within the organization
                     existing = ScreeningType.query.filter_by(
-                        name=st_data['name'],
+                        name=screening_name,
                         org_id=target_org_id
                     ).first()
 
@@ -1052,13 +1083,30 @@ class ScreeningPreset(db.Model):
                         skipped_count += 1
                         continue
 
+                    # Helper function to safely convert frequency data
+                    def get_frequency_years(data):
+                        # Handle different frequency formats from preset data
+                        freq_years = data.get('frequency_years')
+                        if freq_years is not None:
+                            return float(freq_years)
+                        
+                        freq_number = data.get('frequency_number', 1)
+                        freq_unit = data.get('frequency_unit', 'years')
+                        
+                        if freq_unit == 'months':
+                            return float(freq_number) / 12.0
+                        elif freq_unit == 'weeks':
+                            return float(freq_number) / 52.0
+                        else:  # assume years
+                            return float(freq_number)
+
                     if existing and overwrite_existing:
                         # Update existing screening type
                         existing.keywords = json.dumps(st_data.get('keywords', []))
-                        existing.eligible_genders = st_data.get('eligible_genders', 'both')
-                        existing.min_age = st_data.get('min_age')
-                        existing.max_age = st_data.get('max_age')
-                        existing.frequency_years = st_data.get('frequency_years', 1.0)
+                        existing.eligible_genders = st_data.get('eligible_genders') or st_data.get('gender_criteria', 'both')
+                        existing.min_age = st_data.get('min_age') or st_data.get('age_min')
+                        existing.max_age = st_data.get('max_age') or st_data.get('age_max') 
+                        existing.frequency_years = get_frequency_years(st_data)
                         existing.trigger_conditions = json.dumps(st_data.get('trigger_conditions', []))
                         existing.is_active = st_data.get('is_active', True)
                         existing.updated_at = datetime.utcnow()
@@ -1066,13 +1114,13 @@ class ScreeningPreset(db.Model):
                     else:
                         # Create new screening type in target organization
                         new_st = ScreeningType()
-                        new_st.name = st_data['name']
+                        new_st.name = screening_name
                         new_st.org_id = target_org_id  # CRITICAL: Set organization ID
                         new_st.keywords = json.dumps(st_data.get('keywords', []))
-                        new_st.eligible_genders = st_data.get('eligible_genders', 'both')
-                        new_st.min_age = st_data.get('min_age')
-                        new_st.max_age = st_data.get('max_age')
-                        new_st.frequency_years = st_data.get('frequency_years', 1.0)
+                        new_st.eligible_genders = st_data.get('eligible_genders') or st_data.get('gender_criteria', 'both')
+                        new_st.min_age = st_data.get('min_age') or st_data.get('age_min')
+                        new_st.max_age = st_data.get('max_age') or st_data.get('age_max')
+                        new_st.frequency_years = get_frequency_years(st_data)
                         new_st.trigger_conditions = json.dumps(st_data.get('trigger_conditions', []))
                         new_st.is_active = st_data.get('is_active', True)
                         new_st.created_by = created_by
@@ -1081,11 +1129,13 @@ class ScreeningPreset(db.Model):
 
                 except Exception as e:
                     errors.append(f"Error processing '{st_data.get('name', 'Unknown')}': {str(e)}")
+                    logger.error(f"Error processing screening type {st_data.get('name', 'Unknown')}: {str(e)}")
                     continue
 
-            # Commit the transaction
-            db.session.commit()
-
+            # Only commit if we have something to commit
+            if imported_count > 0 or updated_count > 0:
+                db.session.commit()
+            
             return {
                 'success': True,
                 'imported_count': imported_count,

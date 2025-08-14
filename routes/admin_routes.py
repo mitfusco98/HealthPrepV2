@@ -1647,102 +1647,55 @@ def apply_preset_to_organization(preset_id):
         
         overwrite_requested = request.form.get('force_overwrite') == 'true'
         
-        # Get screening types from preset data
-        screening_types_data = []
-        if isinstance(preset.screening_data, dict) and 'screening_types' in preset.screening_data:
-            screening_types_data = preset.screening_data['screening_types']
-        elif isinstance(preset.screening_data, list):
-            screening_types_data = preset.screening_data
+        # Use the improved import method
+        result = preset.import_to_screening_types(
+            overwrite_existing=overwrite_requested,
+            created_by=current_user.id
+        )
         
-        imported_count = 0
-        updated_count = 0
-        skipped_count = 0
-        errors = []
-        
-        for st_data in screening_types_data:
-            try:
-                name = st_data.get('name')
-                if not name:
-                    continue
-                
-                # Check if screening type already exists in this organization
-                existing = ScreeningType.query.filter_by(
-                    name=name,
-                    org_id=current_user.org_id
-                ).first()
-                
-                if existing and not overwrite_requested:
-                    skipped_count += 1
-                    continue
-                
-                if existing:
-                    # Update existing screening type
-                    screening_type = existing
-                    action = 'updated'
-                    updated_count += 1
-                else:
-                    # Create new screening type
-                    screening_type = ScreeningType()
-                    screening_type.org_id = current_user.org_id
-                    screening_type.created_by = current_user.id
-                    db.session.add(screening_type)
-                    action = 'imported'
-                    imported_count += 1
-                
-                # Set screening type properties
-                screening_type.name = name
-                screening_type.keywords = json.dumps(st_data.get('keywords', []))
-                screening_type.eligible_genders = st_data.get('eligible_genders', 'both')
-                screening_type.min_age = st_data.get('min_age')
-                screening_type.max_age = st_data.get('max_age')
-                screening_type.frequency_years = st_data.get('frequency_years', 1.0)
-                
-                # Handle trigger conditions
-                trigger_conditions = st_data.get('trigger_conditions', [])
-                screening_type.trigger_conditions = json.dumps(trigger_conditions) if trigger_conditions else None
-                
-                screening_type.is_active = st_data.get('is_active', True)
-                screening_type.updated_at = datetime.utcnow()
-                
-            except Exception as e:
-                errors.append(f"Error processing {st_data.get('name', 'unknown')}: {str(e)}")
-                continue
-        
-        if imported_count > 0 or updated_count > 0:
-            db.session.commit()
+        if result['success']:
+            imported_count = result['imported_count']
+            updated_count = result['updated_count']
+            skipped_count = result['skipped_count']
             
-            message_parts = []
-            if imported_count > 0:
-                message_parts.append(f"{imported_count} screening types imported")
-            if updated_count > 0:
-                message_parts.append(f"{updated_count} screening types updated")
-            if skipped_count > 0:
-                message_parts.append(f"{skipped_count} screening types skipped (already exist)")
-            
-            success_message = f'Successfully applied preset "{preset.name}" to organization: ' + ', '.join(message_parts)
-            
-            # Log the action
-            log_admin_event(
-                event_type='apply_preset_to_organization',
-                user_id=current_user.id,
-                org_id=current_user.org_id,
-                ip=request.remote_addr,
-                data={
-                    'preset_name': preset.name,
-                    'preset_id': preset.id,
-                    'imported_count': imported_count,
-                    'updated_count': updated_count,
-                    'skipped_count': skipped_count,
-                    'description': success_message
-                }
-            )
-            
-            flash(success_message, 'success')
-        else:
-            if errors:
-                flash(f'Failed to apply preset "{preset.name}": ' + '; '.join(errors), 'error')
+            if imported_count > 0 or updated_count > 0:
+                message_parts = []
+                if imported_count > 0:
+                    message_parts.append(f"{imported_count} screening types imported")
+                if updated_count > 0:
+                    message_parts.append(f"{updated_count} screening types updated")
+                if skipped_count > 0:
+                    message_parts.append(f"{skipped_count} screening types skipped (already exist)")
+                
+                success_message = f'Successfully applied preset "{preset.name}" to organization: ' + ', '.join(message_parts)
+                
+                # Log the action
+                log_admin_event(
+                    event_type='apply_preset_to_organization',
+                    user_id=current_user.id,
+                    org_id=current_user.org_id,
+                    ip=request.remote_addr,
+                    data={
+                        'preset_name': preset.name,
+                        'preset_id': preset.id,
+                        'imported_count': imported_count,
+                        'updated_count': updated_count,
+                        'skipped_count': skipped_count,
+                        'description': success_message
+                    }
+                )
+                
+                flash(success_message, 'success')
             else:
-                flash(f'No changes made - all screening types already exist. Use "Force Overwrite" to update existing types.', 'info')
+                if result['errors']:
+                    flash(f'Failed to apply preset "{preset.name}": ' + '; '.join(result['errors']), 'error')
+                else:
+                    flash(f'No changes made - all screening types already exist. Use "Force Overwrite" to update existing types.', 'info')
+        else:
+            error_message = f'Failed to apply preset "{preset.name}": {result.get("error", "Unknown error")}'
+            if result.get('errors'):
+                error_message += ' Additional errors: ' + '; '.join(result['errors'])
+            flash(error_message, 'error')
         
         return redirect(url_for('admin.view_presets'))
         
