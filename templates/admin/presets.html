@@ -234,7 +234,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="applyPresetForm" method="POST">
-                {{ csrf_token() }}
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <div class="modal-body">
                     <p>Are you sure you want to apply the preset "<span id="applyPresetName"></span>" to your organization?</p>
                     <div class="form-check">
