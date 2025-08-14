@@ -104,7 +104,7 @@
                                             <span class="badge bg-primary">{{ log.event_type.replace('_', ' ').title() if log.event_type else 'Unknown' }}</span>
                                         </td>
                                         <td>{{ log.user.username if log.user else 'System' }}</td>
-                                        <td>{{ log.timestamp.strftime('%m/%d %H:%M') }}</td>
+                                        <td>{{ log.timestamp.strftime('%m/%d/%H:%M') }}</td>
                                         <td>
                                             <small class="text-muted">{{ log.data.get('description', '') if log.data else '' }}</small>
                                         </td>
@@ -880,65 +880,46 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="fas fa-arrow-right me-2"></i>
-                    Import to Screening Types
-                </h5>
+                <h5 class="modal-title">Apply Preset: <span id="importToTypesPresetName"></span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p>Import screening types from preset <strong id="importToTypesPresetName"></strong> to the main screening types database?</p>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="overwriteExistingTypes">
-                    <label class="form-check-label" for="overwriteExistingTypes">
-                        Overwrite existing screening types
-                    </label>
-                    <div class="form-text">Replace screening types with the same name</div>
-                </div>
+                <div id="applyPresetSummary"></div>
+                <p>This will apply the preset to your organization's screening types. Are you sure you want to continue?</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-success" id="confirmImportToTypes">
-                    <i class="fas fa-arrow-right me-1"></i>
-                    Import to Types
-                </button>
+                <button type="button" class="btn btn-primary" id="confirmImportToTypes">Apply Preset</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Conflict Warning Modal for Dashboard Apply -->
+<!-- Conflict Warning Modal -->
 <div class="modal fade" id="conflictWarningModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header bg-warning text-dark">
                 <h5 class="modal-title">
-                    <i class="fas fa-exclamation-triangle text-warning me-2"></i>
-                    Conflict Detected
+                    <i class="fas fa-exclamation-triangle"></i> Preset Application Conflicts
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="alert alert-warning">
-                    <strong>User modifications detected!</strong>
-                    <p>Some screening types have been modified since they were last applied from a preset.</p>
-                </div>
+                <p>The preset "<span id="conflictPresetName"></span>" has conflicts with existing screening types:</p>
                 <div id="conflictDetails"></div>
                 <div class="form-check mt-3">
                     <input class="form-check-input" type="checkbox" id="forceOverwriteDashboard">
-                    <label class="form-check-label text-danger" for="forceOverwriteDashboard">
-                        <strong>Force overwrite user modifications</strong>
+                    <label class="form-check-label" for="forceOverwriteDashboard">
+                        <strong>Force overwrite existing screening types</strong>
+                        <small class="text-muted d-block">This will replace existing screening types with preset data.</small>
                     </label>
-                    <div class="form-text">
-                        Warning: This will replace user-modified screening types with preset versions.
-                    </div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-warning" id="confirmApplyDashboard">
-                    <i class="fas fa-arrow-right me-1"></i>
-                    Apply Preset
+                    <i class="fas fa-exclamation-triangle"></i> Apply Anyway
                 </button>
             </div>
         </div>
@@ -992,7 +973,7 @@ function importToTypes(presetId, presetName) {
                 showToast(`Could not verify conflicts: ${conflicts.error}. Please try again or use the full presets page.`, 'warning');
                 return;
             }
-            
+
             if (conflicts.has_conflicts && conflicts.modified_types && conflicts.modified_types.length > 0) {
                 // Show conflict warning modal instead
                 showConflictWarning(conflicts);
@@ -1038,7 +1019,7 @@ function showConflictWarning(conflicts) {
     const conflictDetails = document.getElementById('conflictDetails');
     if (conflictDetails) {
         let detailsHtml = '';
-        
+
         if (conflicts.modified_types && conflicts.modified_types.length > 0) {
             detailsHtml += '<h6>Modified Screening Types (will be overwritten):</h6>';
             detailsHtml += '<ul class="list-unstyled">';
@@ -1047,7 +1028,7 @@ function showConflictWarning(conflicts) {
             });
             detailsHtml += '</ul>';
         }
-        
+
         if (conflicts.missing_types && conflicts.missing_types.length > 0) {
             detailsHtml += '<h6 class="mt-3">Missing Screening Types (will be added):</h6>';
             detailsHtml += '<ul class="list-unstyled">';
@@ -1056,7 +1037,7 @@ function showConflictWarning(conflicts) {
             });
             detailsHtml += '</ul>';
         }
-        
+
         conflictDetails.innerHTML = detailsHtml;
     }
 
