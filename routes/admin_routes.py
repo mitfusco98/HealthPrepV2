@@ -452,12 +452,12 @@ def get_dashboard_data():
         (ScreeningPreset.preset_scope == 'global')
     ).filter_by(shared=True).count()
     try:
-        # Fix: Use same query as root admin to show all global presets
+        # Fix: Use same query as root admin to show all global presets - removed limit(5)
         recent_presets = ScreeningPreset.query.filter(
             (ScreeningPreset.org_id == current_user.org_id) | 
             (ScreeningPreset.preset_scope == 'global') |
             (ScreeningPreset.shared == True)
-        ).order_by(ScreeningPreset.updated_at.desc()).limit(5).all()
+        ).order_by(ScreeningPreset.updated_at.desc()).all()
     except Exception:
         recent_presets = []
     
