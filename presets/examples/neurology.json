@@ -16,6 +16,39 @@
       "is_active": true
     },
     {
+      "name": "Blood Pressure Monitoring",
+      "description": "Standard blood pressure screening for neurological patients",
+      "keywords": ["blood pressure", "bp check", "hypertension screening", "systolic", "diastolic"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Basic Neurological Exam",
+      "description": "Routine neurological assessment for general population",
+      "keywords": ["neurological exam", "neuro assessment", "neurological screening", "nerve function"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 2.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
+      "name": "Stroke Risk Assessment",
+      "description": "Basic stroke risk evaluation for general population",
+      "keywords": ["stroke risk", "stroke prevention", "cerebrovascular", "stroke screening"],
+      "min_age": 50,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 3.0,
+      "trigger_conditions": [],
+      "is_active": true
+    },
+    {
       "name": "Cognitive Assessment - Early Screening",
       "description": "Early cognitive screening for high-risk individuals",
       "keywords": ["cognitive assessment", "memory screening", "cognitive evaluation", "dementia screening"],
@@ -27,13 +60,13 @@
       "is_active": true
     },
     {
-      "name": "Stroke Risk Assessment",
-      "description": "Comprehensive stroke risk evaluation including carotid assessment",
+      "name": "Stroke Risk Assessment - High Risk",
+      "description": "Comprehensive stroke risk evaluation for high-risk patients including carotid assessment",
       "keywords": ["stroke risk", "carotid ultrasound", "stroke prevention", "cerebrovascular"],
       "min_age": 50,
       "max_age": null,
       "eligible_genders": "both",
-      "frequency_years": 2.0,
+      "frequency_years": 1.0,
       "trigger_conditions": ["hypertension", "diabetes", "atrial fibrillation", "smoking"],
       "is_active": true
     },

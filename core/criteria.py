@@ -79,17 +79,9 @@ class EligibilityCriteria:
     
     def _check_trigger_conditions(self, patient, screening_type):
         """Check if patient has required trigger conditions"""
-        # Handle different screening categories
-        screening_category = getattr(screening_type, 'screening_category', 'general')
-        
-        # General population screenings apply to all eligible patients
-        if screening_category == 'general':
-            return True
-        
-        # If no trigger conditions defined but category is conditional/risk_based, 
-        # treat as general population screening
+        # If no trigger conditions defined, screening applies to all patients
         if not screening_type.trigger_conditions_list:
-            return screening_category == 'general'
+            return True
         
         # Get patient conditions
         patient_conditions = [c.condition_name.lower() for c in patient.conditions if c.is_active]
@@ -104,9 +96,8 @@ class EligibilityCriteria:
                     patient_condition in trigger_condition):
                     return True
         
-        # For conditional/risk_based screenings, patient must have trigger conditions
-        # For general screenings, they apply regardless
-        return screening_category == 'general'
+        # Patient doesn't have required trigger conditions
+        return False
     
     def _calculate_next_due_date(self, last_completed_date, frequency_value, frequency_unit):
         """Calculate the next due date based on frequency"""
