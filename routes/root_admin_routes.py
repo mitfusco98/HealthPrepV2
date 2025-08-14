@@ -85,8 +85,11 @@ def presets():
         # Get all presets from all organizations
         all_presets = ScreeningPreset.query.order_by(ScreeningPreset.created_at.desc()).all()
 
-        # Get global presets (universally available)
-        global_presets = ScreeningPreset.query.filter_by(preset_scope='global').order_by(ScreeningPreset.updated_at.desc()).all()
+        # Get global presets - check both preset_scope='global' AND shared=True for compatibility
+        global_presets = ScreeningPreset.query.filter(
+            (ScreeningPreset.preset_scope == 'global') | 
+            (ScreeningPreset.shared == True)
+        ).order_by(ScreeningPreset.updated_at.desc()).all()
 
         # Organize presets by organization for better display
         org_presets = {}
