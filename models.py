@@ -1094,6 +1094,42 @@ class ScreeningPreset(db.Model):
                     'errors': ['No screening types found in preset']
                 }
             
+            # Helper function to safely convert frequency data
+            def get_frequency_years(data):
+                # Handle different frequency formats from preset data
+                freq_years = data.get('frequency_years')
+                if freq_years is not None:
+                    try:
+                        return float(freq_years)
+                    except (ValueError, TypeError):
+                        pass
+                
+                freq_number = data.get('frequency_number', 1)
+                freq_unit = data.get('frequency_unit', 'years')
+                
+                try:
+                    freq_number = float(freq_number)
+                except (ValueError, TypeError):
+                    freq_number = 1.0
+                
+                if freq_unit == 'months':
+                    return freq_number / 12.0
+                elif freq_unit == 'weeks':
+                    return freq_number / 52.0
+                else:  # assume years
+                    return freq_number
+
+            # Helper function to safely get integer age values
+            def get_age_value(data, field_names):
+                for field_name in field_names:
+                    value = data.get(field_name)
+                    if value is not None:
+                        try:
+                            return int(value)
+                        except (ValueError, TypeError):
+                            continue
+                return None
+            
             for st_data in screening_types_data:
                 try:
                     # Validate required fields
@@ -1105,8 +1141,9 @@ class ScreeningPreset(db.Model):
                     screening_name = screening_name.strip()
                     logger.info(f"Processing screening type: '{screening_name}' for org {target_org_id}")
                     
-                    # Check if EXACT screening type already exists (same name AND same criteria)
-                    # For variants, we need to allow multiple screening types with same name but different criteria
+                    # VARIANT SUPPORT: Check if EXACT duplicate exists (same name AND same criteria)
+                    # Only skip if the screening type is IDENTICAL in every way
+                    # This allows variants (same name, different criteria) to be created
                     keywords_json = json.dumps(st_data.get('keywords', []))
                     trigger_conditions_json = json.dumps(st_data.get('trigger_conditions', []))
                     eligible_genders = st_data.get('eligible_genders') or st_data.get('gender_criteria', 'both')
@@ -1131,41 +1168,7 @@ class ScreeningPreset(db.Model):
                         skipped_count += 1
                         continue
 
-                    # Helper function to safely convert frequency data
-                    def get_frequency_years(data):
-                        # Handle different frequency formats from preset data
-                        freq_years = data.get('frequency_years')
-                        if freq_years is not None:
-                            try:
-                                return float(freq_years)
-                            except (ValueError, TypeError):
-                                pass
-                        
-                        freq_number = data.get('frequency_number', 1)
-                        freq_unit = data.get('frequency_unit', 'years')
-                        
-                        try:
-                            freq_number = float(freq_number)
-                        except (ValueError, TypeError):
-                            freq_number = 1.0
-                        
-                        if freq_unit == 'months':
-                            return freq_number / 12.0
-                        elif freq_unit == 'weeks':
-                            return freq_number / 52.0
-                        else:  # assume years
-                            return freq_number
 
-                    # Helper function to safely get integer age values
-                    def get_age_value(data, field_names):
-                        for field_name in field_names:
-                            value = data.get(field_name)
-                            if value is not None:
-                                try:
-                                    return int(value)
-                                except (ValueError, TypeError):
-                                    continue
-                        return None
 
                     if existing and overwrite_existing:
                         # Update existing screening type (exact match found)
