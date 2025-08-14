@@ -1647,6 +1647,10 @@ def apply_preset_to_organization(preset_id):
         
         overwrite_requested = request.form.get('force_overwrite') == 'true'
         
+        # Check how many screening types currently exist in the organization
+        existing_count = ScreeningType.query.filter_by(org_id=current_user.org_id).count()
+        preset_count = len(preset.get_screening_types())
+        
         # Use the improved import method
         result = preset.import_to_screening_types(
             overwrite_existing=overwrite_requested,
@@ -1669,6 +1673,10 @@ def apply_preset_to_organization(preset_id):
                 
                 success_message = f'Successfully applied preset "{preset.name}" to organization: ' + ', '.join(message_parts)
                 
+                # Special message for empty organizations
+                if existing_count == 0 and imported_count > 0:
+                    success_message = f'Successfully populated your organization with {imported_count} screening types from preset "{preset.name}". Your organization is now ready to use!'
+                
                 # Log the action
                 log_admin_event(
                     event_type='apply_preset_to_organization',
@@ -1681,6 +1689,7 @@ def apply_preset_to_organization(preset_id):
                         'imported_count': imported_count,
                         'updated_count': updated_count,
                         'skipped_count': skipped_count,
+                        'was_empty_org': existing_count == 0,
                         'description': success_message
                     }
                 )
@@ -1690,11 +1699,14 @@ def apply_preset_to_organization(preset_id):
                 if result['errors']:
                     flash(f'Failed to apply preset "{preset.name}": ' + '; '.join(result['errors']), 'error')
                 else:
-                    flash(f'No changes made - all screening types already exist. Use "Force Overwrite" to update existing types.', 'info')
+                    if existing_count == 0:
+                        flash(f'Warning: No screening types were imported from preset "{preset.name}". This may indicate a data format issue.', 'warning')
+                    else:
+                        flash(f'No changes made - all screening types already exist. Use "Force Overwrite" to update existing types.', 'info')
         else:
             error_message = f'Failed to apply preset "{preset.name}": {result.get("error", "Unknown error")}'
             if result.get('errors'):
-                error_message += ' Additional errors: ' + '; '.join(result['errors'])
+                error_message += ' Details: ' + '; '.join(result['errors'])
             flash(error_message, 'error')
         
         return redirect(url_for('admin.view_presets'))
@@ -1719,11 +1731,40 @@ def check_preset_conflicts(preset_id):
         ).first_or_404()
         
         conflicts = preset.check_application_conflicts()
+        
+        # Add summary information for the UI
+        total_types = len(preset.get_screening_types())
+        existing_count = len(conflicts.get('existing_types', []))
+        missing_count = len(conflicts.get('missing_types', []))
+        modified_count = len(conflicts.get('modified_types', []))
+        
+        conflicts['summary'] = {
+            'total_types': total_types,
+            'existing_count': existing_count,
+            'missing_count': missing_count,
+            'modified_count': modified_count,
+            'will_add': missing_count,
+            'will_update': modified_count if conflicts.get('has_conflicts') else 0,
+            'will_skip': existing_count - modified_count
+        }
+        
         return jsonify(conflicts)
         
     except Exception as e:
         logger.error(f"Error checking preset conflicts: {str(e)}")
         return jsonify({
             'has_conflicts': False,
-            'error': 'Error checking conflicts'
+            'existing_types': [],
+            'modified_types': [],
+            'missing_types': [],
+            'error': 'Error checking conflicts',
+            'summary': {
+                'total_types': 0,
+                'existing_count': 0,
+                'missing_count': 0,
+                'modified_count': 0,
+                'will_add': 0,
+                'will_update': 0,
+                'will_skip': 0
+            }
         }), 500

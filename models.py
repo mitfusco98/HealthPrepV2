@@ -980,7 +980,7 @@ class ScreeningPreset(db.Model):
                         'modified_date': existing.updated_at.strftime('%Y-%m-%d %H:%M') if existing.updated_at else 'Unknown'
                     })
                     
-                    # More accurate comparison - check if existing type differs from preset
+                    # Check if existing type differs from preset
                     is_modified = False
                     
                     try:
@@ -988,22 +988,33 @@ class ScreeningPreset(db.Model):
                         preset_keywords = set(st_data.get('keywords', []))
                         existing_keywords = set(existing.keywords_list)
                         
-                        # Compare basic fields with proper type conversion
-                        preset_genders = st_data.get('eligible_genders', 'both')
-                        preset_freq = float(st_data.get('frequency_years', 1.0))
-                        preset_min_age = st_data.get('min_age')
-                        preset_max_age = st_data.get('max_age')
+                        # Handle different field name formats for compatibility
+                        preset_genders = st_data.get('eligible_genders') or st_data.get('gender_criteria', 'both')
                         
-                        # Convert None values for comparison
-                        existing_min_age = existing.min_age
-                        existing_max_age = existing.max_age
+                        # Handle frequency - check for both formats
+                        if 'frequency_years' in st_data:
+                            preset_freq = float(st_data.get('frequency_years', 1.0))
+                        else:
+                            # Convert from frequency_number/frequency_unit format
+                            freq_number = st_data.get('frequency_number', 1)
+                            freq_unit = st_data.get('frequency_unit', 'years')
+                            if freq_unit == 'months':
+                                preset_freq = float(freq_number) / 12.0
+                            elif freq_unit == 'weeks':
+                                preset_freq = float(freq_number) / 52.0
+                            else:  # years
+                                preset_freq = float(freq_number)
+                        
+                        # Handle different age field names
+                        preset_min_age = st_data.get('min_age') or st_data.get('age_min')
+                        preset_max_age = st_data.get('max_age') or st_data.get('age_max')
                         
                         # Check for actual differences
                         if (preset_keywords != existing_keywords or
                             preset_genders != (existing.eligible_genders or 'both') or
                             abs(preset_freq - (existing.frequency_years or 1.0)) > 0.001 or  # Float comparison
-                            preset_min_age != existing_min_age or
-                            preset_max_age != existing_max_age):
+                            preset_min_age != existing.min_age or
+                            preset_max_age != existing.max_age):
                             is_modified = True
                             
                         # Also compare trigger conditions
@@ -1022,24 +1033,29 @@ class ScreeningPreset(db.Model):
                             
                     except Exception as detail_error:
                         logger.warning(f"Error comparing screening type {st_data.get('name', 'Unknown')}: {str(detail_error)}")
-                        # If we can't compare properly, treat as unchanged to be safe
-                        continue
+                        # If we can't compare properly, treat as potential conflict to be safe
+                        conflicts['modified_types'].append({
+                            'name': existing.name,
+                            'id': existing.id,
+                            'modified_date': existing.updated_at.strftime('%Y-%m-%d %H:%M') if existing.updated_at else 'Unknown'
+                        })
                 else:
                     # This screening type is missing from the organization
                     conflicts['missing_types'].append({
                         'name': st_data['name']
                     })
             
+            # Only flag conflicts for types that would be modified, not missing ones
             conflicts['has_conflicts'] = len(conflicts['modified_types']) > 0
             return conflicts
             
         except Exception as e:
             logger.error(f"Error checking preset conflicts: {str(e)}")
-            # Return safe default that allows application to proceed
+            # Return safe default that allows application to proceed for empty orgs
             return {
                 'existing_types': [],
                 'modified_types': [],
-                'missing_types': [],
+                'missing_types': [{'name': st_data.get('name', 'Unknown')} for st_data in self.get_screening_types()],
                 'has_conflicts': False,
                 'error': f'Could not verify conflicts: {str(e)}'
             }
@@ -1054,6 +1070,16 @@ class ScreeningPreset(db.Model):
         # Get the target organization from the user making the request
         from flask_login import current_user
         target_org_id = current_user.org_id
+
+        if not target_org_id:
+            return {
+                'success': False,
+                'error': 'No organization ID found for current user',
+                'imported_count': 0,
+                'updated_count': 0,
+                'skipped_count': 0,
+                'errors': ['User must belong to an organization']
+            }
 
         try:
             screening_types_data = self.get_screening_types()
@@ -1072,9 +1098,11 @@ class ScreeningPreset(db.Model):
                 try:
                     # Validate required fields
                     screening_name = st_data.get('name')
-                    if not screening_name:
+                    if not screening_name or not screening_name.strip():
                         errors.append("Screening type missing required 'name' field")
                         continue
+                    
+                    screening_name = screening_name.strip()
                     
                     # Check if screening type already exists within the organization
                     existing = ScreeningType.query.filter_by(
@@ -1091,24 +1119,43 @@ class ScreeningPreset(db.Model):
                         # Handle different frequency formats from preset data
                         freq_years = data.get('frequency_years')
                         if freq_years is not None:
-                            return float(freq_years)
+                            try:
+                                return float(freq_years)
+                            except (ValueError, TypeError):
+                                pass
                         
                         freq_number = data.get('frequency_number', 1)
                         freq_unit = data.get('frequency_unit', 'years')
                         
+                        try:
+                            freq_number = float(freq_number)
+                        except (ValueError, TypeError):
+                            freq_number = 1.0
+                        
                         if freq_unit == 'months':
-                            return float(freq_number) / 12.0
+                            return freq_number / 12.0
                         elif freq_unit == 'weeks':
-                            return float(freq_number) / 52.0
+                            return freq_number / 52.0
                         else:  # assume years
-                            return float(freq_number)
+                            return freq_number
+
+                    # Helper function to safely get integer age values
+                    def get_age_value(data, field_names):
+                        for field_name in field_names:
+                            value = data.get(field_name)
+                            if value is not None:
+                                try:
+                                    return int(value)
+                                except (ValueError, TypeError):
+                                    continue
+                        return None
 
                     if existing and overwrite_existing:
                         # Update existing screening type
                         existing.keywords = json.dumps(st_data.get('keywords', []))
                         existing.eligible_genders = st_data.get('eligible_genders') or st_data.get('gender_criteria', 'both')
-                        existing.min_age = st_data.get('min_age') or st_data.get('age_min')
-                        existing.max_age = st_data.get('max_age') or st_data.get('age_max') 
+                        existing.min_age = get_age_value(st_data, ['min_age', 'age_min'])
+                        existing.max_age = get_age_value(st_data, ['max_age', 'age_max'])
                         existing.frequency_years = get_frequency_years(st_data)
                         existing.trigger_conditions = json.dumps(st_data.get('trigger_conditions', []))
                         existing.is_active = st_data.get('is_active', True)
@@ -1121,31 +1168,48 @@ class ScreeningPreset(db.Model):
                         new_st.org_id = target_org_id  # CRITICAL: Set organization ID
                         new_st.keywords = json.dumps(st_data.get('keywords', []))
                         new_st.eligible_genders = st_data.get('eligible_genders') or st_data.get('gender_criteria', 'both')
-                        new_st.min_age = st_data.get('min_age') or st_data.get('age_min')
-                        new_st.max_age = st_data.get('max_age') or st_data.get('age_max')
+                        new_st.min_age = get_age_value(st_data, ['min_age', 'age_min'])
+                        new_st.max_age = get_age_value(st_data, ['max_age', 'age_max'])
                         new_st.frequency_years = get_frequency_years(st_data)
                         new_st.trigger_conditions = json.dumps(st_data.get('trigger_conditions', []))
                         new_st.is_active = st_data.get('is_active', True)
                         new_st.created_by = created_by
+                        new_st.created_at = datetime.utcnow()
+                        new_st.updated_at = datetime.utcnow()
                         db.session.add(new_st)
                         imported_count += 1
 
                 except Exception as e:
-                    errors.append(f"Error processing '{st_data.get('name', 'Unknown')}': {str(e)}")
+                    error_msg = f"Error processing '{st_data.get('name', 'Unknown')}': {str(e)}"
+                    errors.append(error_msg)
                     logger.error(f"Error processing screening type {st_data.get('name', 'Unknown')}: {str(e)}")
                     continue
 
-            # Only commit if we have something to commit
-            if imported_count > 0 or updated_count > 0:
-                db.session.commit()
-            
-            return {
-                'success': True,
-                'imported_count': imported_count,
-                'updated_count': updated_count,
-                'skipped_count': skipped_count,
-                'errors': errors
-            }
+            # Attempt to commit changes
+            try:
+                if imported_count > 0 or updated_count > 0:
+                    db.session.commit()
+                    logger.info(f"Successfully imported {imported_count} and updated {updated_count} screening types")
+                
+                return {
+                    'success': True,
+                    'imported_count': imported_count,
+                    'updated_count': updated_count,
+                    'skipped_count': skipped_count,
+                    'errors': errors
+                }
+            except Exception as commit_error:
+                db.session.rollback()
+                error_msg = f"Database commit failed: {str(commit_error)}"
+                logger.error(error_msg)
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'imported_count': 0,
+                    'updated_count': 0,
+                    'skipped_count': 0,
+                    'errors': errors + [error_msg]
+                }
 
         except Exception as e:
             db.session.rollback()
