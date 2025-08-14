@@ -5,12 +5,26 @@
 
 /* ===== MEDICAL TERM HIGHLIGHTING ===== */
 .medical-term {
-  background-color: rgba(13, 110, 253, 0.1);
-  color: var(--hp-primary, #0d6efd);
-  padding: 0.125rem 0.25rem;
+  background: linear-gradient(
+    135deg,
+    rgba(13, 110, 253, 0.1) 0%,
+    rgba(13, 110, 253, 0.2) 100%
+  );
+  border-bottom: 1px solid rgba(13, 110, 253, 0.3);
+  cursor: help;
+  transition: all 0.3s ease;
   border-radius: 0.25rem;
-  font-weight: 500;
-  border: 1px solid rgba(13, 110, 253, 0.3);
+  padding: 0.125rem 0.25rem;
+  margin: 0 0.125rem;
+}
+
+/* Hide medical term highlighting on screening types page */
+body[data-page="screening-types"] .medical-term {
+  background: none;
+  border-bottom: none;
+  cursor: default;
+  padding: 0;
+  margin: 0;
 }
 
 /* Remove medical term styling in conditions display */
@@ -448,23 +462,23 @@
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 0.75rem;
   }
-  
+
   .lab-result {
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .lab-result-reference {
     text-align: left;
     margin-top: 0.5rem;
     min-width: auto;
   }
-  
+
   .medical-document-preview {
     font-size: 0.8em;
     max-height: 200px;
   }
-  
+
   .medical-tooltip .tooltip-text {
     width: 250px;
     margin-left: -125px;
@@ -475,15 +489,15 @@
   .vitals-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .vital-sign-value {
     font-size: 1.5em;
   }
-  
+
   .medication-item {
     padding: 0.75rem;
   }
-  
+
   .medical-hierarchy {
     border-left-width: 2px;
     padding-left: 0.75rem;
@@ -507,7 +521,7 @@
   .vital-sign {
     border-width: 2px;
   }
-  
+
   .medical-search-highlight,
   .medical-fuzzy-match {
     background-color: #ffff00;
@@ -526,15 +540,15 @@
     color: black !important;
     border: 1px solid #666 !important;
   }
-  
+
   .medical-tooltip .tooltip-text {
     display: none !important;
   }
-  
+
   .vitals-grid {
     display: block;
   }
-  
+
   .vital-sign {
     display: inline-block;
     width: 45%;

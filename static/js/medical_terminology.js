@@ -3,9 +3,16 @@
 // Handles medical term highlighting, tooltips, and terminology assistance
 
 document.addEventListener('DOMContentLoaded', function() {
-    initializeMedicalTerminology();
-    initializeConfidenceIndicators();
-    initializeMedicalTooltips();
+    // Only initialize if explicitly requested via data attribute
+    if (document.body.hasAttribute('data-enable-medical-highlighting')) {
+        initializeMedicalTerminology();
+        initializeConfidenceIndicators();
+        initializeMedicalTooltips();
+    } else {
+        // Initialize only autocomplete and helpers, skip highlighting
+        initializeMedicalAutocomplete();
+        initializeKeywordHelpers();
+    }
 });
 
 // Initialize medical terminology features
