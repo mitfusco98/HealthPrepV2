@@ -1105,15 +1105,29 @@ class ScreeningPreset(db.Model):
                     screening_name = screening_name.strip()
                     logger.info(f"Processing screening type: '{screening_name}' for org {target_org_id}")
                     
-                    # Check if screening type already exists within the organization
-                    # NOTE: For variants, the full name should be unique (e.g., "Colonoscopy - Standard" vs "Colonoscopy - High-Risk")
+                    # Check if EXACT screening type already exists (same name AND same criteria)
+                    # For variants, we need to allow multiple screening types with same name but different criteria
+                    keywords_json = json.dumps(st_data.get('keywords', []))
+                    trigger_conditions_json = json.dumps(st_data.get('trigger_conditions', []))
+                    eligible_genders = st_data.get('eligible_genders') or st_data.get('gender_criteria', 'both')
+                    min_age = get_age_value(st_data, ['min_age', 'age_min'])
+                    max_age = get_age_value(st_data, ['max_age', 'age_max'])
+                    frequency_years = get_frequency_years(st_data)
+                    
+                    # Check for exact match: same name AND same criteria (for variant support)
                     existing = ScreeningType.query.filter_by(
                         name=screening_name,
-                        org_id=target_org_id
+                        org_id=target_org_id,
+                        keywords=keywords_json,
+                        eligible_genders=eligible_genders,
+                        min_age=min_age,
+                        max_age=max_age,
+                        frequency_years=frequency_years,
+                        trigger_conditions=trigger_conditions_json
                     ).first()
 
                     if existing and not overwrite_existing:
-                        logger.info(f"Skipping existing screening type: '{screening_name}'")
+                        logger.info(f"Skipping exact duplicate screening type: '{screening_name}' (same name and criteria)")
                         skipped_count += 1
                         continue
 
@@ -1154,29 +1168,39 @@ class ScreeningPreset(db.Model):
                         return None
 
                     if existing and overwrite_existing:
-                        # Update existing screening type
-                        logger.info(f"Updating existing screening type: '{screening_name}'")
-                        existing.keywords = json.dumps(st_data.get('keywords', []))
-                        existing.eligible_genders = st_data.get('eligible_genders') or st_data.get('gender_criteria', 'both')
-                        existing.min_age = get_age_value(st_data, ['min_age', 'age_min'])
-                        existing.max_age = get_age_value(st_data, ['max_age', 'age_max'])
-                        existing.frequency_years = get_frequency_years(st_data)
-                        existing.trigger_conditions = json.dumps(st_data.get('trigger_conditions', []))
+                        # Update existing screening type (exact match found)
+                        logger.info(f"Updating exact duplicate screening type: '{screening_name}'")
+                        existing.keywords = keywords_json
+                        existing.eligible_genders = eligible_genders
+                        existing.min_age = min_age
+                        existing.max_age = max_age
+                        existing.frequency_years = frequency_years
+                        existing.trigger_conditions = trigger_conditions_json
                         existing.is_active = st_data.get('is_active', True)
                         existing.updated_at = datetime.utcnow()
                         updated_count += 1
                     else:
-                        # Create new screening type in target organization
-                        logger.info(f"Creating new screening type: '{screening_name}' for org {target_org_id}")
+                        # Create new screening type in target organization (variant support enabled)
+                        # Check if this is a variant (same name, different criteria exists)
+                        variant_check = ScreeningType.query.filter_by(
+                            name=screening_name,
+                            org_id=target_org_id
+                        ).first()
+                        
+                        if variant_check:
+                            logger.info(f"Creating VARIANT of '{screening_name}' for org {target_org_id} (different criteria)")
+                        else:
+                            logger.info(f"Creating new screening type: '{screening_name}' for org {target_org_id}")
+                            
                         new_st = ScreeningType()
                         new_st.name = screening_name
                         new_st.org_id = target_org_id  # CRITICAL: Set organization ID
-                        new_st.keywords = json.dumps(st_data.get('keywords', []))
-                        new_st.eligible_genders = st_data.get('eligible_genders') or st_data.get('gender_criteria', 'both')
-                        new_st.min_age = get_age_value(st_data, ['min_age', 'age_min'])
-                        new_st.max_age = get_age_value(st_data, ['max_age', 'age_max'])
-                        new_st.frequency_years = get_frequency_years(st_data)
-                        new_st.trigger_conditions = json.dumps(st_data.get('trigger_conditions', []))
+                        new_st.keywords = keywords_json
+                        new_st.eligible_genders = eligible_genders
+                        new_st.min_age = min_age
+                        new_st.max_age = max_age
+                        new_st.frequency_years = frequency_years
+                        new_st.trigger_conditions = trigger_conditions_json
                         new_st.is_active = st_data.get('is_active', True)
                         new_st.created_by = created_by
                         new_st.created_at = datetime.utcnow()
