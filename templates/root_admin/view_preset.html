@@ -337,9 +337,11 @@
                                 {% if st.trigger_conditions %}
                                 <div class="mb-3">
                                     <strong>Trigger Conditions ({{ st.trigger_conditions|length }}):</strong><br>
-                                    {% for condition in st.trigger_conditions %}
-                                        <span class="condition-tag">{{ condition }}</span>
-                                    {% endfor %}
+                                    <div class="condition-tags">
+                                        {% for condition in st.trigger_conditions %}
+                                            <span class="badge bg-warning text-dark me-1 mb-1" style="font-size: 0.75rem;">{{ condition }}</span>
+                                        {% endfor %}
+                                    </div>
                                 </div>
                                 {% endif %}
                             </div>
