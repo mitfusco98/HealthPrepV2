@@ -307,15 +307,15 @@
                                                     </td>
                                                     <td>
                                                         <div class="btn-group btn-group-sm" role="group">
-                                                            <!-- Apply to Organization -->
-                                                            <button class="btn btn-outline-success" onclick="applyPreset({{ preset.id }}, '{{ preset.name|e }}')" title="Apply to Organization">
-                                                                <i class="fas fa-play"></i> Apply
-                                                            </button>
-
                                                             <!-- View Preset Details -->
                                                             <button class="btn btn-outline-info" onclick="viewPresetDetails({{ preset.id }}, '{{ preset.name }}')" title="View Preset Details">
                                                                 <i class="fas fa-eye"></i> View
                                                             </button>
+                                                            
+                                                            <!-- Navigate to Main Presets for Apply -->
+                                                            <a href="{{ url_for('admin.view_presets') }}" class="btn btn-outline-primary" title="Go to Presets Management">
+                                                                <i class="fas fa-cogs"></i> Manage
+                                                            </a>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -989,30 +989,7 @@ function importToTypes(presetId, presetName) {
         });
 }
 
-// Function to handle the 'Apply Preset' action from the dashboard
-function applyPreset(presetId, presetName) {
-    currentPresetId = presetId;
-    currentPresetName = presetName;
-
-    // We need to check for conflicts before showing the modal for direct apply
-    fetch(`/admin/presets/${presetId}/check-conflicts`)
-        .then(response => response.json())
-        .then(conflicts => {
-            if (conflicts.has_conflicts && conflicts.modified_types && conflicts.modified_types.length > 0) {
-                // Show conflict warning modal
-                showConflictWarning(conflicts);
-            } else {
-                // If no conflicts, directly apply
-                performApplyPreset(false); // No force overwrite needed if no conflicts
-            }
-        })
-        .catch(error => {
-            console.error('Error checking conflicts:', error);
-            // If there's an error checking conflicts, we might want to default to showing the modal or handling it gracefully
-            // For now, we'll assume no conflict and proceed, or show a generic error
-            showToast('Could not verify conflicts. Please try again or use the full presets page.', 'danger');
-        });
-}
+// Dashboard apply functionality has been consolidated to /admin/presets only
 
 
 function showConflictWarning(conflicts) {
@@ -1058,45 +1035,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    if (confirmApplyBtn) {
-        confirmApplyBtn.addEventListener('click', function() {
-            const forceOverwrite = document.getElementById('forceOverwriteDashboard').checked;
-            applyPresetDashboard(forceOverwrite); // This refers to the direct "Apply Preset" flow
-        });
-    }
+    // Dashboard apply functionality removed - consolidated to main presets page
 });
 
-// This function is called from the "Apply" button in the presets table
-function applyPresetDashboard(forceOverwrite = false) {
-    if (!currentPresetId) return;
-
-    const form = document.createElement('form');
-    form.method = 'POST';
-    // Dashboard uses its own apply route that redirects back to dashboard
-    form.action = `/admin/dashboard/presets/${currentPresetId}/apply-to-organization`; 
-
-    // Add CSRF token - get from meta tag
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    if (csrfToken) {
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = 'csrf_token';
-        csrfInput.value = csrfToken;
-        form.appendChild(csrfInput);
-    }
-
-    // Add force overwrite flag if requested
-    if (forceOverwrite) {
-        const overwriteInput = document.createElement('input');
-        overwriteInput.type = 'hidden';
-        overwriteInput.name = 'force_overwrite';
-        overwriteInput.value = 'true';
-        form.appendChild(overwriteInput);
-    }
-
-    document.body.appendChild(form);
-    form.submit();
-}
+// Dashboard apply functionality has been removed - use main presets page instead
 
 // Quick actions
 function loadAllPresets() {

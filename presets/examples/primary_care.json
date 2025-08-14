@@ -1,150 +1,133 @@
 {
-  "name": "Primary Care Screening Package",
-  "description": "Common screening types for primary care practices",
-  "created_at": "2025-01-01T00:00:00Z",
+  "name": "Primary Care Preventive Screening Package",
+  "description": "Comprehensive primary care preventive screenings with both population-based and condition-specific variants",
+  "specialty": "Primary Care",
+  "created_at": "2025-01-14T00:00:00Z",
   "screening_types": [
     {
-      "name": "Annual Physical Exam",
-      "description": "Comprehensive annual physical examination",
-      "keywords": ["annual physical", "wellness exam", "physical exam", "checkup"],
+      "name": "Blood Pressure Monitoring",
+      "description": "Standard blood pressure screening for hypertension detection",
+      "keywords": [
+        "blood pressure",
+        "bp check",
+        "hypertension screening",
+        "systolic",
+        "diastolic"
+      ],
       "min_age": 18,
       "max_age": null,
-      "gender_restriction": null,
-      "frequency_value": 1,
-      "frequency_unit": "years",
-      "trigger_conditions": [],
-      "is_active": true
-    },
-    {
-      "name": "Mammogram",
-      "description": "Breast cancer screening mammography",
-      "keywords": ["mammogram", "mammography", "breast imaging", "breast screening"],
-      "min_age": 40,
-      "max_age": 74,
-      "gender_restriction": "female",
-      "frequency_value": 1,
-      "frequency_unit": "years",
-      "trigger_conditions": [],
-      "is_active": true
-    },
-    {
-      "name": "Colonoscopy",
-      "description": "Colorectal cancer screening colonoscopy",
-      "keywords": ["colonoscopy", "colon screening", "colo screening", "colorectal screening"],
-      "min_age": 45,
-      "max_age": 75,
-      "gender_restriction": null,
-      "frequency_value": 10,
-      "frequency_unit": "years",
-      "trigger_conditions": [],
-      "is_active": true
-    },
-    {
-      "name": "Pap Smear",
-      "description": "Cervical cancer screening",
-      "keywords": ["pap smear", "pap test", "cervical screening", "cytology"],
-      "min_age": 21,
-      "max_age": 65,
-      "gender_restriction": "female",
-      "frequency_value": 3,
-      "frequency_unit": "years",
-      "trigger_conditions": [],
-      "is_active": true
-    },
-    {
-      "name": "A1C Test",
-      "description": "Hemoglobin A1C diabetes monitoring",
-      "keywords": ["a1c", "hemoglobin a1c", "hba1c", "glycohemoglobin"],
-      "min_age": 18,
-      "max_age": null,
-      "gender_restriction": null,
-      "frequency_value": 6,
-      "frequency_unit": "months",
-      "trigger_conditions": ["diabetes"],
-      "is_active": true
-    },
-    {
-      "name": "A1C Test (Non-Diabetic)",
-      "description": "Hemoglobin A1C screening for non-diabetics",
-      "keywords": ["a1c", "hemoglobin a1c", "hba1c", "glycohemoglobin"],
-      "min_age": 45,
-      "max_age": null,
-      "gender_restriction": null,
-      "frequency_value": 3,
-      "frequency_unit": "years",
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
       "trigger_conditions": [],
       "is_active": true
     },
     {
       "name": "Lipid Panel",
-      "description": "Cholesterol and lipid screening",
-      "keywords": ["lipid panel", "cholesterol", "lipids", "lipid profile"],
+      "description": "Standard cholesterol and lipid screening",
+      "keywords": [
+        "lipid panel",
+        "cholesterol",
+        "lipids",
+        "ldl",
+        "hdl",
+        "triglycerides"
+      ],
       "min_age": 20,
       "max_age": null,
-      "gender_restriction": null,
-      "frequency_value": 5,
-      "frequency_unit": "years",
+      "eligible_genders": "both",
+      "frequency_years": 5.0,
       "trigger_conditions": [],
       "is_active": true
     },
     {
-      "name": "Bone Density Scan",
-      "description": "Osteoporosis screening DEXA scan",
-      "keywords": ["dexa", "dxa", "bone density", "bone scan", "osteoporosis screening"],
-      "min_age": 65,
+      "name": "A1C Test",
+      "description": "Diabetes screening for general population",
+      "keywords": [
+        "a1c",
+        "hba1c",
+        "diabetes screening",
+        "glucose",
+        "hemoglobin a1c"
+      ],
+      "min_age": 35,
       "max_age": null,
-      "gender_restriction": "female",
-      "frequency_value": 2,
-      "frequency_unit": "years",
+      "eligible_genders": "both",
+      "frequency_years": 3.0,
       "trigger_conditions": [],
       "is_active": true
     },
     {
-      "name": "Blood Pressure Check",
-      "description": "Regular blood pressure monitoring",
-      "keywords": ["blood pressure", "bp check", "hypertension screening"],
+      "name": "Immunization Review",
+      "description": "Routine immunization status review and updates",
+      "keywords": [
+        "immunizations",
+        "vaccines",
+        "vaccination status",
+        "immune status"
+      ],
       "min_age": 18,
       "max_age": null,
-      "gender_restriction": null,
-      "frequency_value": 1,
-      "frequency_unit": "years",
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
       "trigger_conditions": [],
       "is_active": true
     },
     {
-      "name": "Blood Pressure Check (Hypertensive)",
-      "description": "Frequent blood pressure monitoring for hypertensive patients",
-      "keywords": ["blood pressure", "bp check", "hypertension monitoring"],
+      "name": "Blood Pressure Monitoring - Hypertensive",
+      "description": "Frequent monitoring for diagnosed hypertensive patients",
+      "keywords": [
+        "blood pressure",
+        "bp check",
+        "hypertension monitoring"
+      ],
       "min_age": 18,
       "max_age": null,
-      "gender_restriction": null,
-      "frequency_value": 3,
-      "frequency_unit": "months",
-      "trigger_conditions": ["hypertension"],
+      "eligible_genders": "both",
+      "frequency_years": 0.25,
+      "trigger_conditions": [
+        "hypertension",
+        "high blood pressure"
+      ],
       "is_active": true
     },
     {
-      "name": "Eye Exam",
-      "description": "Comprehensive eye examination",
-      "keywords": ["eye exam", "ophthalmology", "vision screening", "eye screening"],
+      "name": "A1C Test - Diabetic",
+      "description": "Frequent A1C monitoring for diabetic patients",
+      "keywords": [
+        "a1c",
+        "hba1c",
+        "diabetes monitoring",
+        "glucose control"
+      ],
       "min_age": 18,
       "max_age": null,
-      "gender_restriction": null,
-      "frequency_value": 2,
-      "frequency_unit": "years",
-      "trigger_conditions": [],
+      "eligible_genders": "both",
+      "frequency_years": 0.25,
+      "trigger_conditions": [
+        "diabetes mellitus type 1",
+        "diabetes mellitus type 2",
+        "prediabetes"
+      ],
       "is_active": true
     },
     {
-      "name": "Diabetic Eye Exam",
-      "description": "Annual diabetic retinopathy screening",
-      "keywords": ["diabetic eye exam", "retinal screening", "fundoscopy", "retinopathy screening"],
+      "name": "Lipid Panel - High Risk",
+      "description": "Frequent lipid monitoring for cardiovascular risk patients",
+      "keywords": [
+        "lipid panel",
+        "cholesterol",
+        "lipids",
+        "cardiovascular risk"
+      ],
       "min_age": 18,
       "max_age": null,
-      "gender_restriction": null,
-      "frequency_value": 1,
-      "frequency_unit": "years",
-      "trigger_conditions": ["diabetes"],
+      "eligible_genders": "both",
+      "frequency_years": 1.0,
+      "trigger_conditions": [
+        "diabetes",
+        "coronary artery disease",
+        "familial hypercholesterolemia"
+      ],
       "is_active": true
     }
   ]

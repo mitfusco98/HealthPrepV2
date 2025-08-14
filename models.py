@@ -1060,7 +1060,7 @@ class ScreeningPreset(db.Model):
                 'error': f'Could not verify conflicts: {str(e)}'
             }
 
-    def import_to_screening_types(self, overwrite_existing=False, created_by=None):
+    def import_to_screening_types(self, overwrite_existing=False, replace_entire_set=False, created_by=None):
         """Import this preset's screening types to the database"""
         imported_count = 0
         updated_count = 0
@@ -1093,6 +1093,25 @@ class ScreeningPreset(db.Model):
                     'skipped_count': 0,
                     'errors': ['No screening types found in preset']
                 }
+            
+            # If replace_entire_set is True, delete all existing screening types first
+            if replace_entire_set:
+                try:
+                    existing_types = ScreeningType.query.filter_by(org_id=target_org_id).all()
+                    deleted_count = len(existing_types)
+                    for existing_type in existing_types:
+                        db.session.delete(existing_type)
+                    logger.info(f"Deleted {deleted_count} existing screening types for complete replacement")
+                except Exception as e:
+                    logger.error(f"Error deleting existing screening types for replacement: {str(e)}")
+                    return {
+                        'success': False,
+                        'error': f'Failed to clear existing screening types: {str(e)}',
+                        'imported_count': 0,
+                        'updated_count': 0,
+                        'skipped_count': 0,
+                        'errors': [f'Failed to clear existing screening types: {str(e)}']
+                    }
             
             # Helper function to safely convert frequency data
             def get_frequency_years(data):
@@ -1151,8 +1170,12 @@ class ScreeningPreset(db.Model):
                     max_age = get_age_value(st_data, ['max_age', 'age_max'])
                     frequency_years = get_frequency_years(st_data)
                     
-                    # Check for exact match: same name AND same criteria (for variant support)
-                    existing = ScreeningType.query.filter_by(
+                    # When replace_entire_set is True, skip duplicate checking since we cleared everything
+                    if replace_entire_set:
+                        existing = None
+                    else:
+                        # Check for exact match: same name AND same criteria (for variant support)
+                        existing = ScreeningType.query.filter_by(
                         name=screening_name,
                         org_id=target_org_id,
                         keywords=keywords_json,

@@ -234,13 +234,35 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <div class="modal-body">
                     <p>Are you sure you want to apply the preset "<span id="applyPresetName"></span>" to your organization?</p>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="forceOverwrite" name="force_overwrite" value="true">
-                        <label class="form-check-label" for="forceOverwrite">
-                            Force overwrite existing screening types
-                        </label>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Application Modes:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li><strong>Add/Update:</strong> Adds new screening types and optionally updates existing ones</li>
+                            <li><strong>Replace Entirely:</strong> Replaces your entire screening type set with this preset</li>
+                        </ul>
                     </div>
-                    <small class="text-muted">If unchecked, existing screening types with the same name will be skipped.</small>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="replaceEntireSet" name="replace_entire_set" value="true">
+                        <label class="form-check-label" for="replaceEntireSet">
+                            <strong>Replace entire screening type set</strong>
+                        </label>
+                        <small class="form-text text-muted d-block">
+                            This will delete all your current screening types and replace them entirely with this preset.
+                        </small>
+                    </div>
+                    
+                    <div id="addUpdateOptions">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="forceOverwrite" name="force_overwrite" value="true">
+                            <label class="form-check-label" for="forceOverwrite">
+                                Force overwrite existing screening types
+                            </label>
+                        </div>
+                        <small class="text-muted">If unchecked, existing screening types with the same name will be skipped.</small>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -323,8 +345,34 @@
 function applyPreset(presetId, presetName) {
     document.getElementById('applyPresetName').textContent = presetName;
     document.getElementById('applyPresetForm').action = '/admin/presets/' + presetId + '/apply-to-organization';
+    
+    // Reset form state
+    document.getElementById('replaceEntireSet').checked = false;
+    document.getElementById('forceOverwrite').checked = false;
+    toggleApplicationMode(); // Show/hide relevant options
+    
     new bootstrap.Modal(document.getElementById('applyPresetModal')).show();
 }
+
+function toggleApplicationMode() {
+    const replaceEntireSet = document.getElementById('replaceEntireSet');
+    const addUpdateOptions = document.getElementById('addUpdateOptions');
+    
+    if (replaceEntireSet.checked) {
+        addUpdateOptions.style.display = 'none';
+        document.getElementById('forceOverwrite').checked = false; // Reset overwrite when replacing
+    } else {
+        addUpdateOptions.style.display = 'block';
+    }
+}
+
+// Add event listener for replacement mode toggle
+document.addEventListener('DOMContentLoaded', function() {
+    const replaceCheckbox = document.getElementById('replaceEntireSet');
+    if (replaceCheckbox) {
+        replaceCheckbox.addEventListener('change', toggleApplicationMode);
+    }
+});
 
 function deletePreset(presetId) {
     if (confirm('Are you sure you want to delete this preset?')) {
