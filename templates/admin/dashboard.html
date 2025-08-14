@@ -1072,8 +1072,8 @@ function applyPresetDashboard(forceOverwrite = false) {
 
     const form = document.createElement('form');
     form.method = 'POST';
-    // This URL applies the preset to the organization's screening types
-    form.action = `/admin/presets/${currentPresetId}/apply-to-organization`; 
+    // Dashboard uses its own apply route that redirects back to dashboard
+    form.action = `/admin/dashboard/presets/${currentPresetId}/apply-to-organization`; 
 
     // Add CSRF token - get from meta tag
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');

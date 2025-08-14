@@ -1103,14 +1103,17 @@ class ScreeningPreset(db.Model):
                         continue
                     
                     screening_name = screening_name.strip()
+                    logger.info(f"Processing screening type: '{screening_name}' for org {target_org_id}")
                     
                     # Check if screening type already exists within the organization
+                    # NOTE: For variants, the full name should be unique (e.g., "Colonoscopy - Standard" vs "Colonoscopy - High-Risk")
                     existing = ScreeningType.query.filter_by(
                         name=screening_name,
                         org_id=target_org_id
                     ).first()
 
                     if existing and not overwrite_existing:
+                        logger.info(f"Skipping existing screening type: '{screening_name}'")
                         skipped_count += 1
                         continue
 
@@ -1152,6 +1155,7 @@ class ScreeningPreset(db.Model):
 
                     if existing and overwrite_existing:
                         # Update existing screening type
+                        logger.info(f"Updating existing screening type: '{screening_name}'")
                         existing.keywords = json.dumps(st_data.get('keywords', []))
                         existing.eligible_genders = st_data.get('eligible_genders') or st_data.get('gender_criteria', 'both')
                         existing.min_age = get_age_value(st_data, ['min_age', 'age_min'])
@@ -1163,6 +1167,7 @@ class ScreeningPreset(db.Model):
                         updated_count += 1
                     else:
                         # Create new screening type in target organization
+                        logger.info(f"Creating new screening type: '{screening_name}' for org {target_org_id}")
                         new_st = ScreeningType()
                         new_st.name = screening_name
                         new_st.org_id = target_org_id  # CRITICAL: Set organization ID

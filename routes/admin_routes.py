@@ -1717,6 +1717,94 @@ def apply_preset_to_organization(preset_id):
         flash(f'Error applying preset: {str(e)}', 'error')
         return redirect(url_for('admin.view_presets'))
 
+
+@admin_bp.route('/dashboard/presets/<int:preset_id>/apply-to-organization', methods=['POST'])
+@login_required
+@admin_required
+def dashboard_apply_preset_to_organization(preset_id):
+    """Apply preset to organization from dashboard (same logic as regular apply but different redirect)"""
+    try:
+        preset = ScreeningPreset.query.filter_by(
+            id=preset_id
+        ).filter(
+            (ScreeningPreset.org_id == current_user.org_id) | 
+            (ScreeningPreset.preset_scope == 'global')
+        ).first_or_404()
+        
+        overwrite_requested = request.form.get('force_overwrite') == 'true'
+        
+        # Check how many screening types currently exist in the organization
+        existing_count = ScreeningType.query.filter_by(org_id=current_user.org_id).count()
+        preset_count = len(preset.get_screening_types())
+        
+        # Use the improved import method with enhanced logging
+        result = preset.import_to_screening_types(
+            overwrite_existing=overwrite_requested,
+            created_by=current_user.id
+        )
+        
+        if result['success']:
+            imported_count = result['imported_count']
+            updated_count = result['updated_count']
+            skipped_count = result['skipped_count']
+            
+            if imported_count > 0 or updated_count > 0:
+                message_parts = []
+                if imported_count > 0:
+                    message_parts.append(f"{imported_count} screening types imported")
+                if updated_count > 0:
+                    message_parts.append(f"{updated_count} screening types updated")
+                if skipped_count > 0:
+                    message_parts.append(f"{skipped_count} screening types skipped (already exist)")
+                
+                success_message = f'Successfully applied preset "{preset.name}" to organization: ' + ', '.join(message_parts)
+                
+                # Special message for empty organizations
+                if existing_count == 0 and imported_count > 0:
+                    success_message = f'Successfully populated your organization with {imported_count} screening types from preset "{preset.name}". Your organization is now ready to use!'
+                
+                # Log the action
+                log_admin_event(
+                    event_type='dashboard_apply_preset_to_organization',
+                    user_id=current_user.id,
+                    org_id=current_user.org_id,
+                    ip=request.remote_addr,
+                    data={
+                        'preset_name': preset.name,
+                        'preset_id': preset.id,
+                        'imported_count': imported_count,
+                        'updated_count': updated_count,
+                        'skipped_count': skipped_count,
+                        'overwrite_requested': overwrite_requested,
+                        'existing_screening_types': existing_count,
+                        'preset_screening_types': preset_count
+                    }
+                )
+                
+                flash(success_message, 'success')
+            else:
+                if result['errors']:
+                    flash(f'Failed to apply preset "{preset.name}": ' + '; '.join(result['errors']), 'error')
+                else:
+                    if existing_count == 0:
+                        flash(f'Warning: No screening types were imported from preset "{preset.name}". This may indicate a data format issue.', 'warning')
+                    else:
+                        flash(f'No changes made - all screening types already exist. Use "Force Overwrite" to update existing types.', 'info')
+        else:
+            error_message = f'Failed to apply preset "{preset.name}": {result.get("error", "Unknown error")}'
+            if result.get('errors'):
+                error_message += ' Details: ' + '; '.join(result['errors'])
+            flash(error_message, 'error')
+            
+        # Dashboard redirects back to dashboard instead of presets list
+        return redirect(url_for('admin.dashboard_presets'))
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error applying preset to organization from dashboard: {str(e)}")
+        flash(f'Error applying preset: {str(e)}', 'error')
+        return redirect(url_for('admin.dashboard_presets'))
+
 @admin_bp.route('/presets/<int:preset_id>/check-conflicts', methods=['GET'])
 @login_required
 @admin_required
