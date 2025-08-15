@@ -8,26 +8,41 @@ from datetime import datetime, timedelta
 import logging
 
 class FHIRClient:
-    """Client for connecting to FHIR-based EMR systems"""
+    """Client for connecting to Epic FHIR API following Epic's query patterns"""
     
-    def __init__(self):
-        self.base_url = os.environ.get('FHIR_BASE_URL', 'https://sandbox.epic.com/interconnect-fhir-oauth/api/FHIR/R4/')
-        self.client_id = os.environ.get('FHIR_CLIENT_ID', 'default_client_id')
-        self.client_secret = os.environ.get('FHIR_CLIENT_SECRET', 'default_secret')
+    def __init__(self, organization_config=None):
+        # Epic sandbox URL as per blueprint
+        self.base_url = 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
+        self.client_id = 'default_client_id'
+        self.client_secret = 'default_secret'
+        
+        # Override with organization-specific config if provided
+        if organization_config:
+            self.base_url = organization_config.get('epic_fhir_url', self.base_url)
+            self.client_id = organization_config.get('epic_client_id', self.client_id)
+            self.client_secret = organization_config.get('epic_client_secret', self.client_secret)
+        
+        # Use environment variables as fallback
+        self.base_url = os.environ.get('FHIR_BASE_URL', self.base_url)
+        self.client_id = os.environ.get('FHIR_CLIENT_ID', self.client_id)
+        self.client_secret = os.environ.get('FHIR_CLIENT_SECRET', self.client_secret)
+        
         self.access_token = None
         self.token_expires = None
         self.logger = logging.getLogger(__name__)
     
     def authenticate(self):
-        """Authenticate with FHIR server using client credentials"""
+        """Authenticate with Epic FHIR using SMART on FHIR OAuth2"""
         try:
+            # Epic's OAuth2 token endpoint for SMART on FHIR
             auth_url = f"{self.base_url.rstrip('/')}/oauth2/token"
             
             data = {
                 'grant_type': 'client_credentials',
                 'client_id': self.client_id,
                 'client_secret': self.client_secret,
-                'scope': 'system/Patient.read system/DocumentReference.read system/DiagnosticReport.read'
+                # Epic FHIR scopes for screening data access (as per blueprint)
+                'scope': 'patient/*.read user/*.read'
             }
             
             response = requests.post(auth_url, data=data)
@@ -38,11 +53,11 @@ class FHIRClient:
             expires_in = token_data.get('expires_in', 3600)
             self.token_expires = datetime.now() + timedelta(seconds=expires_in)
             
-            self.logger.info("Successfully authenticated with FHIR server")
+            self.logger.info("Successfully authenticated with Epic FHIR server")
             return True
             
         except Exception as e:
-            self.logger.error(f"FHIR authentication failed: {str(e)}")
+            self.logger.error(f"Epic FHIR authentication failed: {str(e)}")
             return False
     
     def _get_headers(self):
@@ -70,8 +85,12 @@ class FHIRClient:
             self.logger.error(f"Error retrieving patient {patient_id}: {str(e)}")
             return None
     
-    def search_patients(self, given_name=None, family_name=None, identifier=None):
-        """Search for patients using FHIR search parameters"""
+    def search_patients(self, given_name=None, family_name=None, birthdate=None, identifier=None):
+        """
+        Search for patients using Epic FHIR search patterns
+        Example: GET [base]/Patient?family=Lin&given=Derrick&birthdate=1973-06-03
+        Epic requires minimal set of identifiers (name + DOB, MRN, or SSN)
+        """
         try:
             url = f"{self.base_url}Patient"
             params = {}
@@ -80,6 +99,8 @@ class FHIRClient:
                 params['given'] = given_name
             if family_name:
                 params['family'] = family_name
+            if birthdate:
+                params['birthdate'] = birthdate
             if identifier:
                 params['identifier'] = identifier
             
@@ -92,15 +113,34 @@ class FHIRClient:
             self.logger.error(f"Error searching patients: {str(e)}")
             return None
     
-    def get_document_references(self, patient_id, date_from=None, date_to=None):
-        """Get document references for a patient"""
+    def get_patient_by_name_and_dob(self, family_name, given_name, birthdate):
+        """
+        Get patient using Epic's recommended search pattern with name and DOB
+        Example: Derrick Lin, born 1973-06-03 (Epic sandbox test patient)
+        """
+        return self.search_patients(
+            given_name=given_name,
+            family_name=family_name, 
+            birthdate=birthdate
+        )
+    
+    def get_document_references(self, patient_id, document_type=None, date_from=None, date_to=None):
+        """
+        Get clinical documents using Epic FHIR DocumentReference
+        Query: GET [base]/DocumentReference?patient={patient_id}
+        Returns: PDFs, consult notes, colonoscopy reports, DXA scans, etc.
+        Implements "minimum necessary" principle with filtering
+        """
         try:
             url = f"{self.base_url}DocumentReference"
             params = {
                 'patient': patient_id,
-                '_sort': '-date'
+                '_sort': '-date',  # Most recent first
+                '_count': '50'     # Limit results for "minimum necessary"
             }
             
+            if document_type:
+                params['type'] = document_type
             if date_from:
                 params['date'] = f"ge{date_from.isoformat()}"
             if date_to:
@@ -141,19 +181,25 @@ class FHIRClient:
             self.logger.error(f"Error retrieving diagnostic reports for patient {patient_id}: {str(e)}")
             return None
     
-    def get_observations(self, patient_id, code=None, category=None, date_from=None):
-        """Get observations (lab results) for a patient"""
+    def get_observations(self, patient_id, code=None, category='laboratory', date_from=None):
+        """
+        Get lab results and observations using Epic FHIR
+        Query: GET [base]/Observation?patient={patient_id}&category=laboratory
+        Returns: Lab test results (HbA1c, lipid panel, etc.) with LOINC codes, values, dates
+        Used to check if results are within required timeframe for screening
+        """
         try:
             url = f"{self.base_url}Observation"
             params = {
                 'patient': patient_id,
-                '_sort': '-date'
+                '_sort': '-date',
+                '_count': '100'  # Reasonable limit for observations
             }
             
             if code:
                 params['code'] = code
             if category:
-                params['category'] = category
+                params['category'] = category  # Default to 'laboratory' per Epic pattern
             if date_from:
                 params['date'] = f"ge{date_from.isoformat()}"
             
@@ -166,14 +212,25 @@ class FHIRClient:
             self.logger.error(f"Error retrieving observations for patient {patient_id}: {str(e)}")
             return None
     
-    def get_conditions(self, patient_id):
-        """Get active conditions for a patient"""
+    def get_conditions(self, patient_id, clinical_status=None, code=None):
+        """
+        Get patient's conditions (problem list) using Epic FHIR
+        Query: GET [base]/Condition?patient={patient_id}
+        Returns: Active/past conditions like Diabetes, Hyperlipidemia
+        Used for identifying trigger conditions that affect screening criteria
+        """
         try:
             url = f"{self.base_url}Condition"
             params = {
                 'patient': patient_id,
-                'clinical-status': 'active'
+                '_sort': '-onset-date',
+                '_count': '100'  # Reasonable limit for conditions
             }
+            
+            if clinical_status:
+                params['clinical-status'] = clinical_status
+            if code:
+                params['code'] = code
             
             response = requests.get(url, headers=self._get_headers(), params=params)
             response.raise_for_status()
@@ -218,3 +275,96 @@ class FHIRClient:
         }
         
         return sync_data
+    
+    def get_encounters(self, patient_id, status=None, date_from=None, date_to=None):
+        """
+        Get patient encounters (visits/appointments) using Epic FHIR
+        Query: GET [base]/Encounter?patient={patient_id}
+        Returns: Clinic visits, hospital admissions with dates and types
+        Used to identify upcoming encounters for prep sheet context
+        """
+        try:
+            url = f"{self.base_url}Encounter"
+            params = {
+                'patient': patient_id,
+                '_sort': '-date',
+                '_count': '50'  # Recent encounters only
+            }
+            
+            if status:
+                params['status'] = status
+            if date_from:
+                params['date'] = f"ge{date_from.isoformat()}"
+            if date_to:
+                if 'date' in params:
+                    params['date'] += f"&date=le{date_to.isoformat()}"
+                else:
+                    params['date'] = f"le{date_to.isoformat()}"
+            
+            response = requests.get(url, headers=self._get_headers(), params=params)
+            response.raise_for_status()
+            
+            return response.json()
+            
+        except Exception as e:
+            self.logger.error(f"Error retrieving encounters for patient {patient_id}: {str(e)}")
+            return None
+    
+    def get_epic_screening_data_sequence(self, patient_id):
+        """
+        Execute Epic's recommended data retrieval sequence for screening
+        As per blueprint: Patient → Condition → Observation → DocumentReference → Encounter
+        Implements "minimum necessary" principle with focused queries
+        """
+        try:
+            screening_data = {}
+            
+            # 1. Get Patient record (demographics)
+            self.logger.info(f"Fetching patient demographics for {patient_id}")
+            screening_data['patient'] = self.get_patient(patient_id)
+            
+            # 2. Get Conditions (problem list for trigger conditions)
+            self.logger.info(f"Fetching conditions for {patient_id}")
+            screening_data['conditions'] = self.get_conditions(patient_id)
+            
+            # 3. Get Observations (lab results for screening status)
+            self.logger.info(f"Fetching lab observations for {patient_id}")
+            screening_data['lab_results'] = self.get_observations(patient_id, category='laboratory')
+            
+            # 4. Get DocumentReference (clinical documents)
+            self.logger.info(f"Fetching clinical documents for {patient_id}")
+            screening_data['documents'] = self.get_document_references(patient_id)
+            
+            # 5. Get Encounters (visit context)
+            self.logger.info(f"Fetching encounters for {patient_id}")
+            screening_data['encounters'] = self.get_encounters(patient_id)
+            
+            return screening_data
+            
+        except Exception as e:
+            self.logger.error(f"Error in Epic screening data sequence: {str(e)}")
+            return None
+    
+    def sync_patient_data_epic_sequence(self, patient_mrn):
+        """
+        Sync patient data using Epic FHIR patterns with MRN lookup
+        Implements Epic's recommended query sequence for comprehensive data retrieval
+        """
+        try:
+            # Search for patient by MRN (Epic requires minimal identifiers)
+            patient_bundle = self.search_patients(identifier=patient_mrn)
+            
+            if not patient_bundle or not patient_bundle.get('entry'):
+                self.logger.warning(f"Patient not found with MRN: {patient_mrn}")
+                return None
+            
+            # Get patient ID from search results
+            patient_resource = patient_bundle['entry'][0]['resource']
+            patient_id = patient_resource['id']
+            
+            # Execute Epic's screening data sequence
+            return self.get_epic_screening_data_sequence(patient_id)
+            
+        except Exception as e:
+            self.logger.error(f"Error syncing patient data: {str(e)}")
+            return None

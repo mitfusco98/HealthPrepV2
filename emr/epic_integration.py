@@ -15,12 +15,14 @@ class EpicScreeningIntegration:
     
     def __init__(self, organization_id: int):
         self.organization_id = organization_id
-        self.fhir_client = FHIRClient()
         self.mapper = FHIRResourceMapper()
         self.logger = logging.getLogger(__name__)
         
         # Load organization's Epic configuration
-        self._load_epic_config()
+        epic_config = self._load_epic_config()
+        
+        # Initialize FHIR client with organization-specific config
+        self.fhir_client = FHIRClient(epic_config)
     
     def _load_epic_config(self):
         """Load Epic FHIR configuration for the organization"""
@@ -28,11 +30,15 @@ class EpicScreeningIntegration:
         
         org = Organization.query.get(self.organization_id)
         if org and org.epic_client_id:
-            self.fhir_client.client_id = org.epic_client_id
-            self.fhir_client.base_url = org.epic_fhir_url or self.fhir_client.base_url
             self.epic_environment = org.epic_environment
+            return {
+                'epic_client_id': org.epic_client_id,
+                'epic_client_secret': org.epic_client_secret,
+                'epic_fhir_url': org.epic_fhir_url or 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
+            }
         else:
             self.logger.warning(f"No Epic configuration found for organization {self.organization_id}")
+            return None
     
     def get_screening_relevant_data(self, patient_mrn: str, screening_types: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
@@ -50,25 +56,15 @@ class EpicScreeningIntegration:
             if not self.fhir_client.authenticate():
                 raise Exception("Failed to authenticate with Epic FHIR")
             
-            # Get patient resource
-            patient_data = self._get_patient_by_mrn(patient_mrn)
-            if not patient_data:
-                raise Exception(f"Patient not found: {patient_mrn}")
+            # Use Epic's recommended data retrieval sequence
+            # This implements the blueprint pattern: Patient → Condition → Observation → DocumentReference → Encounter
+            epic_data = self.fhir_client.sync_patient_data_epic_sequence(patient_mrn)
             
-            patient_id = patient_data['id']
+            if not epic_data:
+                raise Exception(f"No data retrieved for patient: {patient_mrn}")
             
-            # Collect all unique FHIR search criteria from screening types
-            aggregated_criteria = self._aggregate_screening_criteria(screening_types)
-            
-            # Execute Epic queries for each resource type
-            epic_data = {
-                'patient': patient_data,
-                'conditions': self._get_conditions_for_screening(patient_id, aggregated_criteria['conditions']),
-                'observations': self._get_observations_for_screening(patient_id, aggregated_criteria['observations']),
-                'documents': self._get_documents_for_screening(patient_id, aggregated_criteria['documents']),
-                'encounters': self._get_recent_encounters(patient_id),
-                'screening_context': self._build_screening_context(screening_types, patient_data)
-            }
+            # Add screening context analysis
+            epic_data['screening_context'] = self._build_screening_context(screening_types, epic_data.get('patient', {}))
             
             return epic_data
             
