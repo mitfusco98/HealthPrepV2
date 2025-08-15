@@ -15,6 +15,7 @@ class MedicalConditionsDB:
     
     def _load_medical_conditions(self) -> Dict[str, List[str]]:
         """Load comprehensive medical conditions database with FHIR codes"""
+        # Enhanced with standardized codes for Epic FHIR interoperability
         return {
             'diabetes': [
                 'diabetes mellitus', 'type 1 diabetes', 'type 2 diabetes', 
@@ -243,6 +244,59 @@ class MedicalConditionsDB:
                     variants.append(variant)
         
         return variants
+    
+    def get_fhir_codes_for_condition(self, condition_name: str) -> Dict[str, List[str]]:
+        """Get FHIR-compatible codes (ICD-10, SNOMED CT) for a condition"""
+        condition_mapping = {
+            'diabetes': {
+                'icd10': ['E11.9', 'E10.9', 'E08.9', 'E09.9', 'E13.9'],
+                'snomed': ['44054006', '46635009', '73211009'],
+                'epic_search_terms': ['Diabetes mellitus', 'Type 2 diabetes', 'Type 1 diabetes']
+            },
+            'hypertension': {
+                'icd10': ['I10', 'I11.9', 'I12.9', 'I13.10', 'I15.9'],
+                'snomed': ['38341003', '59621000'],
+                'epic_search_terms': ['Essential hypertension', 'High blood pressure', 'HTN']
+            },
+            'cardiovascular': {
+                'icd10': ['I25.9', 'I50.9', 'I48.91', 'Z87.891'],
+                'snomed': ['53741008', '84114007', '49436004'],
+                'epic_search_terms': ['Coronary artery disease', 'Heart failure', 'Atrial fibrillation']
+            },
+            'hyperlipidemia': {
+                'icd10': ['E78.5', 'E78.0', 'E78.1', 'E78.2'],
+                'snomed': ['55822004', '267434000'],
+                'epic_search_terms': ['Hyperlipidemia', 'High cholesterol', 'Dyslipidemia']
+            },
+            'obesity': {
+                'icd10': ['E66.9', 'E66.01', 'E66.02', 'Z68.3'],
+                'snomed': ['414915002', '408512008'],
+                'epic_search_terms': ['Obesity', 'Morbid obesity', 'BMI > 30']
+            },
+            'smoking': {
+                'icd10': ['Z87.891', 'F17.210', 'F17.220'],
+                'snomed': ['8517006', '365980008'],
+                'epic_search_terms': ['History of tobacco use', 'Tobacco use disorder', 'Smoking']
+            },
+            'family_history_cancer': {
+                'icd10': ['Z80.9', 'Z80.0', 'Z80.1', 'Z80.2', 'Z80.3'],
+                'snomed': ['275937001', '266892002'],
+                'epic_search_terms': ['Family history of malignant neoplasm', 'Family history of cancer']
+            }
+        }
+        
+        # Find matching condition
+        condition_lower = condition_name.lower()
+        for category, conditions in self.conditions.items():
+            if any(cond.lower() in condition_lower for cond in conditions):
+                return condition_mapping.get(category, {})
+        
+        return {}
+    
+    def get_epic_search_terms(self, condition_name: str) -> List[str]:
+        """Get Epic-specific search terms for a condition"""
+        codes = self.get_fhir_codes_for_condition(condition_name)
+        return codes.get('epic_search_terms', [])
 
 # Global instance
 medical_conditions_db = MedicalConditionsDB()

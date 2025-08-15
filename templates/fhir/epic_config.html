@@ -1,0 +1,352 @@
+{% extends "base_admin.html" %}
+
+{% block title %}Epic FHIR Configuration | {{ config.APP_NAME }}{% endblock %}
+
+{% block head %}
+<style>
+.config-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+}
+
+.status-indicator.connected {
+    background-color: #28a745;
+}
+
+.status-indicator.disconnected {
+    background-color: #dc3545;
+}
+
+.status-indicator.unknown {
+    background-color: #6c757d;
+}
+
+.epic-logo {
+    max-height: 40px;
+    margin-right: 10px;
+}
+
+.environment-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.environment-badge.sandbox {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.environment-badge.production {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #b8daff;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">Epic FHIR Configuration</h1>
+                <div class="btn-group">
+                    <button class="btn btn-outline-primary" onclick="testConnection()">
+                        <i class="fa fa-plug"></i> Test Connection
+                    </button>
+                    <a href="{{ url_for('fhir.screening_mapping') }}" class="btn btn-primary">
+                        <i class="fa fa-arrow-left"></i> Back to Mapping
+                    </a>
+                </div>
+            </div>
+
+            <!-- Connection Status -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card config-card">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-md-8">
+                                    <div class="d-flex align-items-center">
+                                        <span class="status-indicator {% if epic_config.has_credentials %}connected{% else %}disconnected{% endif %}"></span>
+                                        <div>
+                                            <h5 class="mb-1">Epic FHIR Connection Status</h5>
+                                            <p class="mb-0 text-muted">
+                                                {% if epic_config.has_credentials %}
+                                                    <span class="text-success">Configured</span> - Ready for FHIR integration
+                                                {% else %}
+                                                    <span class="text-danger">Not Configured</span> - Epic credentials required
+                                                {% endif %}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 text-right">
+                                    <span class="environment-badge {{ epic_config.environment }}">
+                                        {{ epic_config.environment.title() }} Environment
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configuration Form -->
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Epic FHIR Credentials</h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="POST" action="{{ url_for('fhir.update_epic_config') }}">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="epic_client_id">Epic Client ID</label>
+                                            <input type="text" class="form-control" id="epic_client_id" 
+                                                   name="epic_client_id" value="{{ organization.epic_client_id or '' }}"
+                                                   placeholder="Enter Epic Client ID">
+                                            <small class="form-text text-muted">
+                                                Provided by Epic MyChart team during app registration
+                                            </small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="epic_environment">Environment</label>
+                                            <select class="form-control" id="epic_environment" name="epic_environment">
+                                                <option value="sandbox" {% if organization.epic_environment == 'sandbox' %}selected{% endif %}>
+                                                    Sandbox (Testing)
+                                                </option>
+                                                <option value="production" {% if organization.epic_environment == 'production' %}selected{% endif %}>
+                                                    Production (Live)
+                                                </option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="epic_fhir_url">Epic FHIR Base URL</label>
+                                    <input type="url" class="form-control" id="epic_fhir_url" 
+                                           name="epic_fhir_url" value="{{ organization.epic_fhir_url or '' }}"
+                                           placeholder="https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/">
+                                    <small class="form-text text-muted">
+                                        FHIR R4 endpoint URL provided by Epic
+                                    </small>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="epic_client_secret">Epic Client Secret</label>
+                                    <input type="password" class="form-control" id="epic_client_secret" 
+                                           name="epic_client_secret" placeholder="Enter client secret (leave blank to keep current)">
+                                    <small class="form-text text-muted">
+                                        Secure key provided by Epic (stored encrypted)
+                                    </small>
+                                </div>
+
+                                <div class="form-group">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fa fa-save"></i> Save Configuration
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary ml-2" onclick="testConnection()">
+                                        <i class="fa fa-plug"></i> Test Connection
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <!-- Epic Integration Guide -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">Epic Integration Guide</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <h6 class="text-primary">Required FHIR Scopes:</h6>
+                                <ul class="list-unstyled">
+                                    <li><code>patient/*.read</code></li>
+                                    <li><code>user/*.read</code></li>
+                                </ul>
+                            </div>
+
+                            <div class="mb-3">
+                                <h6 class="text-primary">Required Resources:</h6>
+                                <ul class="list-unstyled">
+                                    <li><i class="fa fa-check text-success"></i> Patient</li>
+                                    <li><i class="fa fa-check text-success"></i> Condition</li>
+                                    <li><i class="fa fa-check text-success"></i> Observation</li>
+                                    <li><i class="fa fa-check text-success"></i> DocumentReference</li>
+                                    <li><i class="fa fa-check text-success"></i> Encounter</li>
+                                </ul>
+                            </div>
+
+                            <div class="mb-3">
+                                <h6 class="text-primary">Setup Steps:</h6>
+                                <ol class="small">
+                                    <li>Register with Epic MyChart</li>
+                                    <li>Obtain Client ID and Secret</li>
+                                    <li>Configure FHIR endpoint URL</li>
+                                    <li>Test connection</li>
+                                    <li>Generate screening mappings</li>
+                                </ol>
+                            </div>
+
+                            <div class="alert alert-warning">
+                                <small>
+                                    <i class="fa fa-exclamation-triangle"></i>
+                                    <strong>Note:</strong> Production credentials require Epic approval and certification.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Current Configuration -->
+                    {% if epic_config.has_credentials %}
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">Current Configuration</h6>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>Client ID:</strong></td>
+                                    <td><code>{{ epic_config.client_id[:8] }}...</code></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Environment:</strong></td>
+                                    <td>
+                                        <span class="environment-badge {{ epic_config.environment }}">
+                                            {{ epic_config.environment.title() }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>FHIR URL:</strong></td>
+                                    <td><small>{{ epic_config.fhir_url or 'Default' }}</small></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Connection Test Modal -->
+<div class="modal fade" id="connectionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Epic Connection Test</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="connectionResult">
+                    <div class="text-center py-3">
+                        <i class="fa fa-spinner fa-spin fa-2x"></i>
+                        <p class="mt-2">Testing Epic FHIR connection...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function testConnection() {
+    $('#connectionModal').modal('show');
+    
+    $.post('/fhir/test-epic-connection', {}, function(response) {
+        let html = '';
+        
+        if (response.success) {
+            html = `
+                <div class="alert alert-success">
+                    <i class="fa fa-check-circle"></i>
+                    <strong>Connection Successful!</strong><br>
+                    ${response.message}
+                </div>
+                <table class="table table-sm">
+                    <tr><td><strong>Epic URL:</strong></td><td>${response.epic_url}</td></tr>
+                    <tr><td><strong>Environment:</strong></td><td>${response.environment}</td></tr>
+                </table>
+            `;
+        } else {
+            html = `
+                <div class="alert alert-danger">
+                    <i class="fa fa-exclamation-triangle"></i>
+                    <strong>Connection Failed</strong><br>
+                    ${response.error}
+                </div>
+                <div class="alert alert-info">
+                    <small>
+                        <i class="fa fa-info-circle"></i>
+                        <strong>Troubleshooting:</strong><br>
+                        • Verify Client ID and Secret are correct<br>
+                        • Check FHIR endpoint URL<br>
+                        • Ensure Epic credentials are active<br>
+                        • Contact Epic support if issues persist
+                    </small>
+                </div>
+            `;
+        }
+        
+        $('#connectionResult').html(html);
+    }).fail(function() {
+        $('#connectionResult').html(`
+            <div class="alert alert-danger">
+                <i class="fa fa-exclamation-triangle"></i>
+                <strong>Network Error</strong><br>
+                Unable to test connection. Please try again.
+            </div>
+        `);
+    });
+}
+
+// Auto-test connection if credentials are configured
+$(document).ready(function() {
+    {% if epic_config.has_credentials %}
+    // Auto-test connection after 1 second delay
+    setTimeout(function() {
+        $.post('/fhir/test-epic-connection', {}, function(response) {
+            if (response.success) {
+                $('body').prepend(`
+                    <div class="alert alert-success alert-dismissible fade show" style="margin-bottom: 0;">
+                        <i class="fa fa-check-circle"></i>
+                        Epic FHIR connection verified successfully
+                        <button type="button" class="close" data-dismiss="alert">
+                            <span>&times;</span>
+                        </button>
+                    </div>
+                `);
+            }
+        });
+    }, 1000);
+    {% endif %}
+});
+</script>
+{% endblock %}

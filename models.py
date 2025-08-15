@@ -308,6 +308,13 @@ class ScreeningType(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # User who created this screening type
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # FHIR Mapping Fields for Epic Interoperability
+    fhir_search_params = db.Column(db.Text)  # JSON string of FHIR search parameters
+    epic_query_context = db.Column(db.Text)  # JSON string of Epic-specific query context
+    fhir_condition_codes = db.Column(db.Text)  # JSON string of standardized condition codes (ICD-10/SNOMED CT)
+    fhir_observation_codes = db.Column(db.Text)  # JSON string of standardized observation codes (LOINC)
+    fhir_document_types = db.Column(db.Text)  # JSON string of FHIR document type mappings
 
     # Relationships
     organization = db.relationship('Organization', backref='screening_types')
@@ -440,6 +447,67 @@ class ScreeningType(db.Model):
         ).group_by(cls.name).order_by(cls.name).all()
 
         return [(name, int(count), bool(all_active)) for name, count, all_active in results]
+    
+    def generate_fhir_mappings(self):
+        """Generate and store FHIR mappings for this screening type"""
+        from utils.fhir_mapping import ScreeningTypeFHIREnhancer
+        
+        enhancer = ScreeningTypeFHIREnhancer()
+        screening_data = {
+            'name': self.name,
+            'keywords': self.keywords_list,
+            'trigger_conditions': self.trigger_conditions_list,
+            'eligible_genders': self.eligible_genders,
+            'min_age': self.min_age,
+            'max_age': self.max_age,
+            'frequency_years': self.frequency_years
+        }
+        
+        enhanced_data = enhancer.add_fhir_mapping_to_screening_type(screening_data)
+        
+        # Update FHIR mapping fields
+        self.fhir_search_params = enhanced_data.get('fhir_search_params')
+        self.epic_query_context = enhanced_data.get('epic_query_context')
+        self.fhir_condition_codes = enhanced_data.get('fhir_condition_codes')
+        self.fhir_observation_codes = enhanced_data.get('fhir_observation_codes')
+        
+        return enhanced_data
+    
+    def get_fhir_search_params(self):
+        """Get parsed FHIR search parameters"""
+        if not self.fhir_search_params:
+            return {}
+        try:
+            return json.loads(self.fhir_search_params)
+        except:
+            return {}
+    
+    def get_epic_query_context(self):
+        """Get parsed Epic query context"""
+        if not self.epic_query_context:
+            return {}
+        try:
+            return json.loads(self.epic_query_context)
+        except:
+            return {}
+    
+    def get_fhir_condition_codes(self):
+        """Get standardized condition codes for FHIR queries"""
+        if not self.fhir_condition_codes:
+            return []
+        try:
+            return json.loads(self.fhir_condition_codes)
+        except:
+            return []
+    
+    def get_fhir_observation_codes(self):
+        """Get standardized observation codes for FHIR queries"""
+        if not self.fhir_observation_codes:
+            return []
+        try:
+            return json.loads(self.fhir_observation_codes)
+        except:
+            return []
 
     def sync_status_to_variants(self):
         """Sync the is_active status to all other variants of the same base name"""

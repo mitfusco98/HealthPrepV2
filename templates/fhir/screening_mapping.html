@@ -1,0 +1,368 @@
+{% extends "base_admin.html" %}
+
+{% block title %}FHIR Screening Mapping | {{ config.APP_NAME }}{% endblock %}
+
+{% block head %}
+<style>
+.mapping-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    transition: box-shadow 0.2s;
+}
+
+.mapping-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.mapping-status {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+}
+
+.mapping-status.mapped {
+    background-color: #28a745;
+}
+
+.mapping-status.unmapped {
+    background-color: #dc3545;
+}
+
+.progress-ring {
+    transform: rotate(-90deg);
+}
+
+.progress-ring-circle {
+    stroke-dasharray: 251.2;
+    stroke-dashoffset: 251.2;
+    transition: stroke-dashoffset 0.35s;
+}
+
+.fhir-code-badge {
+    background-color: #007bff;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    margin: 2px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">Epic FHIR Screening Mapping</h1>
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="generateAllMappings()">
+                        <i class="fa fa-refresh"></i> Generate All Mappings
+                    </button>
+                    <a href="{{ url_for('fhir.epic_config') }}" class="btn btn-outline-secondary">
+                        <i class="fa fa-cog"></i> Epic Configuration
+                    </a>
+                </div>
+            </div>
+
+            <!-- Mapping Statistics -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card border-primary">
+                        <div class="card-body text-center">
+                            <h4 class="text-primary">{{ mapping_stats.total_screenings }}</h4>
+                            <p class="mb-0 text-muted">Total Screening Types</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-success">
+                        <div class="card-body text-center">
+                            <h4 class="text-success">{{ mapping_stats.mapped_screenings }}</h4>
+                            <p class="mb-0 text-muted">FHIR Mapped</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-info">
+                        <div class="card-body text-center">
+                            <h4 class="text-info">{{ mapping_stats.mapping_percentage }}%</h4>
+                            <p class="mb-0 text-muted">Coverage</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-warning">
+                        <div class="card-body text-center">
+                            <div class="position-relative d-inline-block">
+                                <svg class="progress-ring" width="60" height="60">
+                                    <circle class="progress-ring-circle" stroke="#ffc107" stroke-width="4" 
+                                            fill="transparent" r="26" cx="30" cy="30" 
+                                            style="stroke-dashoffset: {{ 251.2 - (251.2 * mapping_stats.mapping_percentage / 100) }}"/>
+                                </svg>
+                                <div class="position-absolute" style="top: 50%; left: 50%; transform: translate(-50%, -50%);">
+                                    <small class="text-warning font-weight-bold">{{ mapping_stats.mapping_percentage }}%</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Screening Types List -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Screening Types and FHIR Mappings</h5>
+                </div>
+                <div class="card-body">
+                    {% if screening_types %}
+                        {% for screening_type in screening_types %}
+                        <div class="mapping-card">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-md-6">
+                                        <div class="d-flex align-items-center">
+                                            <span class="mapping-status {{ 'mapped' if screening_type.fhir_search_params else 'unmapped' }}"></span>
+                                            <div>
+                                                <h6 class="mb-1">{{ screening_type.name }}</h6>
+                                                <small class="text-muted">
+                                                    {{ screening_type.frequency_display }} | 
+                                                    {% if screening_type.min_age %}{{ screening_type.min_age }}+{% endif %}
+                                                    {% if screening_type.max_age %} (max {{ screening_type.max_age }}){% endif %}
+                                                    {% if screening_type.eligible_genders != 'both' %} | {{ screening_type.eligible_genders.upper() }}{% endif %}
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        {% if screening_type.trigger_conditions_list %}
+                                            <small class="text-info">
+                                                <strong>Trigger Conditions:</strong><br>
+                                                {% for condition in screening_type.trigger_conditions_list[:3] %}
+                                                    {{ condition }}{% if not loop.last %}, {% endif %}
+                                                {% endfor %}
+                                                {% if screening_type.trigger_conditions_list|length > 3 %}
+                                                    <span class="text-muted">+ {{ screening_type.trigger_conditions_list|length - 3 }} more</span>
+                                                {% endif %}
+                                            </small>
+                                        {% endif %}
+                                        
+                                        {% if screening_type.get_fhir_condition_codes() %}
+                                            <div class="mt-2">
+                                                {% for code in screening_type.get_fhir_condition_codes()[:3] %}
+                                                    <span class="fhir-code-badge">{{ code }}</span>
+                                                {% endfor %}
+                                                {% if screening_type.get_fhir_condition_codes()|length > 3 %}
+                                                    <small class="text-muted">+{{ screening_type.get_fhir_condition_codes()|length - 3 }}</small>
+                                                {% endif %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-2 text-right">
+                                        <div class="btn-group-vertical btn-group-sm">
+                                            <button class="btn btn-outline-primary btn-sm" 
+                                                    onclick="viewMapping({{ screening_type.id }})">
+                                                <i class="fa fa-eye"></i> View
+                                            </button>
+                                            <button class="btn btn-outline-success btn-sm" 
+                                                    onclick="generateMapping({{ screening_type.id }})">
+                                                <i class="fa fa-refresh"></i> Generate
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fa fa-search fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">No Screening Types Found</h5>
+                            <p class="text-muted">Create some screening types to start FHIR mapping.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Mapping Detail Modal -->
+<div class="modal fade" id="mappingModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">FHIR Mapping Details</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="mappingContent">
+                    <div class="text-center py-3">
+                        <i class="fa fa-spinner fa-spin fa-2x"></i>
+                        <p class="mt-2">Loading mapping details...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function generateAllMappings() {
+    if (!confirm('Generate FHIR mappings for all screening types? This may take a moment.')) {
+        return;
+    }
+    
+    $.post('/fhir/generate-mappings', {}, function(response) {
+        if (response.success) {
+            showAlert('success', response.message);
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showAlert('error', response.error || 'Failed to generate mappings');
+        }
+    }).fail(function() {
+        showAlert('error', 'Network error occurred');
+    });
+}
+
+function generateMapping(screeningTypeId) {
+    $.post('/fhir/generate-mappings', {
+        screening_type_ids: [screeningTypeId]
+    }, function(response) {
+        if (response.success) {
+            showAlert('success', 'FHIR mapping generated successfully');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showAlert('error', response.error || 'Failed to generate mapping');
+        }
+    }).fail(function() {
+        showAlert('error', 'Network error occurred');
+    });
+}
+
+function viewMapping(screeningTypeId) {
+    $('#mappingModal').modal('show');
+    
+    $.get(`/fhir/screening-type/${screeningTypeId}/mapping`, function(response) {
+        if (response.success !== false) {
+            displayMappingDetails(response);
+        } else {
+            $('#mappingContent').html(`
+                <div class="alert alert-danger">
+                    <i class="fa fa-exclamation-triangle"></i>
+                    Error loading mapping: ${response.error || 'Unknown error'}
+                </div>
+            `);
+        }
+    }).fail(function() {
+        $('#mappingContent').html(`
+            <div class="alert alert-danger">
+                <i class="fa fa-exclamation-triangle"></i>
+                Network error occurred while loading mapping details.
+            </div>
+        `);
+    });
+}
+
+function displayMappingDetails(data) {
+    const st = data.screening_type;
+    const mappings = data.fhir_mappings;
+    
+    let html = `
+        <div class="row">
+            <div class="col-md-6">
+                <h6>Screening Type Details</h6>
+                <table class="table table-sm">
+                    <tr><td><strong>Name:</strong></td><td>${st.name}</td></tr>
+                    <tr><td><strong>Frequency:</strong></td><td>Every ${st.frequency_years} year(s)</td></tr>
+                    <tr><td><strong>Age Range:</strong></td><td>${st.min_age || 'No min'} - ${st.max_age || 'No max'}</td></tr>
+                    <tr><td><strong>Gender:</strong></td><td>${st.eligible_genders}</td></tr>
+                </table>
+                
+                <h6>Keywords</h6>
+                <div class="mb-3">
+    `;
+    
+    if (st.keywords && st.keywords.length > 0) {
+        st.keywords.forEach(keyword => {
+            html += `<span class="badge badge-secondary mr-1">${keyword}</span>`;
+        });
+    } else {
+        html += '<em class="text-muted">No keywords defined</em>';
+    }
+    
+    html += `
+                </div>
+                
+                <h6>Trigger Conditions</h6>
+                <div class="mb-3">
+    `;
+    
+    if (st.trigger_conditions && st.trigger_conditions.length > 0) {
+        st.trigger_conditions.forEach(condition => {
+            html += `<span class="badge badge-info mr-1">${condition}</span>`;
+        });
+    } else {
+        html += '<em class="text-muted">No trigger conditions</em>';
+    }
+    
+    html += `
+                </div>
+            </div>
+            <div class="col-md-6">
+                <h6>FHIR Search Parameters</h6>
+                <pre class="bg-light p-2 small" style="max-height: 200px; overflow-y: auto;">${JSON.stringify(mappings.search_params, null, 2)}</pre>
+                
+                <h6>Epic Query Context</h6>
+                <pre class="bg-light p-2 small" style="max-height: 150px; overflow-y: auto;">${JSON.stringify(mappings.epic_context, null, 2)}</pre>
+            </div>
+        </div>
+    `;
+    
+    if (mappings.condition_codes && mappings.condition_codes.length > 0) {
+        html += `
+            <div class="row mt-3">
+                <div class="col-12">
+                    <h6>FHIR Condition Codes</h6>
+                    <div>
+        `;
+        mappings.condition_codes.forEach(code => {
+            html += `<span class="fhir-code-badge">${code}</span>`;
+        });
+        html += `
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    $('#mappingContent').html(html);
+}
+
+function showAlert(type, message) {
+    const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+    const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle';
+    
+    $('body').prepend(`
+        <div class="alert ${alertClass} alert-dismissible fade show position-fixed" 
+             style="top: 20px; right: 20px; z-index: 9999; min-width: 300px;">
+            <i class="fa ${icon}"></i> ${message}
+            <button type="button" class="close" data-dismiss="alert">
+                <span>&times;</span>
+            </button>
+        </div>
+    `);
+    
+    setTimeout(() => {
+        $('.alert').alert('close');
+    }, 5000);
+}
+</script>
+{% endblock %}
