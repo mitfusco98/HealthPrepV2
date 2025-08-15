@@ -221,18 +221,20 @@ def test_epic_connection():
     try:
         integration = EpicScreeningIntegration(current_user.org_id)
         
-        # Test authentication
-        if integration.fhir_client.authenticate():
+        # Test if we can generate authorization URL (validates client config)
+        try:
+            auth_url, state = integration.fhir_client.get_authorization_url()
             return jsonify({
                 'success': True,
-                'message': 'Successfully connected to Epic FHIR',
+                'message': 'Epic FHIR configuration is valid. Use "Connect to Epic" for OAuth2 authentication.',
                 'epic_url': integration.fhir_client.base_url,
-                'environment': integration.epic_environment
+                'environment': integration.epic_environment,
+                'note': 'Configuration validated - OAuth2 authentication required for data access'
             })
-        else:
+        except Exception as config_error:
             return jsonify({
                 'success': False,
-                'error': 'Failed to authenticate with Epic FHIR'
+                'error': f'Invalid Epic configuration: {str(config_error)}'
             })
         
     except Exception as e:

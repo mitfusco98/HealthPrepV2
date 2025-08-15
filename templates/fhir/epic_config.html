@@ -78,14 +78,14 @@
                     <div class="card config-card">
                         <div class="card-body">
                             <div class="row align-items-center">
-                                <div class="col-md-8">
+                                <div class="col-md-6">
                                     <div class="d-flex align-items-center">
                                         <span class="status-indicator {% if epic_config.has_credentials %}connected{% else %}disconnected{% endif %}"></span>
                                         <div>
-                                            <h5 class="mb-1">Epic FHIR Connection Status</h5>
+                                            <h5 class="mb-1">Epic FHIR Configuration</h5>
                                             <p class="mb-0 text-muted">
                                                 {% if epic_config.has_credentials %}
-                                                    <span class="text-success">Configured</span> - Ready for FHIR integration
+                                                    <span class="text-success">Configured</span> - Ready for SMART on FHIR authentication
                                                 {% else %}
                                                     <span class="text-danger">Not Configured</span> - Epic credentials required
                                                 {% endif %}
@@ -93,7 +93,15 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-md-4 text-right">
+                                <div class="col-md-3">
+                                    <div id="oauth-status" class="text-center">
+                                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                            <span class="sr-only">Loading...</span>
+                                        </div>
+                                        <small class="d-block text-muted">Checking OAuth status...</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 text-right">
                                     <span class="environment-badge {{ epic_config.environment }}">
                                         {{ epic_config.environment.title() }} Environment
                                     </span>
@@ -166,6 +174,11 @@
                                     <button type="button" class="btn btn-outline-secondary ml-2" onclick="testConnection()">
                                         <i class="fa fa-plug"></i> Test Connection
                                     </button>
+                                    {% if epic_config.has_credentials %}
+                                    <a href="{{ url_for('oauth.epic_authorize') }}" class="btn btn-success ml-2">
+                                        <i class="fa fa-sign-in"></i> Connect to Epic
+                                    </a>
+                                    {% endif %}
                                 </div>
                             </form>
                         </div>
@@ -327,8 +340,10 @@ function testConnection() {
     });
 }
 
-// Auto-test connection if credentials are configured
+// Check OAuth status and auto-test connection
 $(document).ready(function() {
+    checkOAuthStatus();
+    
     {% if epic_config.has_credentials %}
     // Auto-test connection after 1 second delay
     setTimeout(function() {
@@ -348,5 +363,75 @@ $(document).ready(function() {
     }, 1000);
     {% endif %}
 });
+
+function checkOAuthStatus() {
+    $.get('/fhir/epic-status', function(response) {
+        let statusHtml = '';
+        
+        if (response.connected) {
+            const expired = response.expired;
+            const statusText = expired ? 'Token Expired' : 'Connected';
+            const statusClass = expired ? 'text-warning' : 'text-success';
+            const iconClass = expired ? 'fa-exclamation-triangle' : 'fa-check-circle';
+            
+            statusHtml = `
+                <div class="${statusClass}">
+                    <i class="fa ${iconClass}"></i>
+                    <strong>${statusText}</strong>
+                </div>
+                <small class="text-muted">OAuth2 Active</small>
+            `;
+            
+            if (expired) {
+                statusHtml += `
+                    <div class="mt-2">
+                        <a href="{{ url_for('oauth.epic_authorize') }}" class="btn btn-sm btn-warning">
+                            <i class="fa fa-refresh"></i> Reconnect
+                        </a>
+                    </div>
+                `;
+            } else {
+                statusHtml += `
+                    <div class="mt-2">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="disconnectOAuth()">
+                            <i class="fa fa-sign-out"></i> Disconnect
+                        </button>
+                    </div>
+                `;
+            }
+        } else {
+            statusHtml = `
+                <div class="text-muted">
+                    <i class="fa fa-circle-o"></i>
+                    <strong>Not Connected</strong>
+                </div>
+                <small class="text-muted">OAuth2 Required</small>
+            `;
+        }
+        
+        $('#oauth-status').html(statusHtml);
+    }).fail(function() {
+        $('#oauth-status').html(`
+            <div class="text-danger">
+                <i class="fa fa-exclamation-triangle"></i>
+                <strong>Status Error</strong>
+            </div>
+            <small class="text-muted">Unable to check</small>
+        `);
+    });
+}
+
+function disconnectOAuth() {
+    if (!confirm('Disconnect from Epic FHIR? You will need to re-authenticate to access Epic data.')) {
+        return;
+    }
+    
+    $.post('/fhir/epic-disconnect', {}, function() {
+        checkOAuthStatus();
+        showAlert('info', 'Disconnected from Epic FHIR');
+    }).fail(function() {
+        showAlert('error', 'Failed to disconnect from Epic');
+    });
+}
 </script>
 {% endblock %}

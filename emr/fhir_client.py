@@ -1,70 +1,194 @@
 """
 SMART on FHIR API client for EMR integration
+Implements Epic's OAuth2 authentication flow as per SMART on FHIR specification
 """
 import requests
 import json
 import os
+import secrets
+import base64
 from datetime import datetime, timedelta
+from urllib.parse import urlencode, parse_qs, urlparse
 import logging
 
 class FHIRClient:
     """Client for connecting to Epic FHIR API following Epic's query patterns"""
     
-    def __init__(self, organization_config=None):
-        # Epic sandbox URL as per blueprint
+    def __init__(self, organization_config=None, redirect_uri=None):
+        # Epic FHIR endpoints as per SMART on FHIR specification
         self.base_url = 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
+        self.auth_url = 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize'
+        self.token_url = 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token'
+        
         self.client_id = 'default_client_id'
         self.client_secret = 'default_secret'
+        self.redirect_uri = redirect_uri or 'http://localhost:5000/fhir/oauth-callback'
         
         # Override with organization-specific config if provided
         if organization_config:
             self.base_url = organization_config.get('epic_fhir_url', self.base_url)
             self.client_id = organization_config.get('epic_client_id', self.client_id)
             self.client_secret = organization_config.get('epic_client_secret', self.client_secret)
+            
+            # Derive auth and token URLs from base URL
+            base_oauth = self.base_url.replace('/api/FHIR/R4/', '/')
+            self.auth_url = f"{base_oauth}oauth2/authorize"
+            self.token_url = f"{base_oauth}oauth2/token"
         
         # Use environment variables as fallback
         self.base_url = os.environ.get('FHIR_BASE_URL', self.base_url)
         self.client_id = os.environ.get('FHIR_CLIENT_ID', self.client_id)
         self.client_secret = os.environ.get('FHIR_CLIENT_SECRET', self.client_secret)
         
+        # Token management
         self.access_token = None
+        self.refresh_token = None
         self.token_expires = None
+        self.token_scopes = None
+        
+        # SMART on FHIR scopes for Epic integration
+        self.default_scopes = [
+            'openid',
+            'fhirUser',
+            'patient/Patient.read',
+            'patient/Condition.read', 
+            'patient/Observation.read',
+            'patient/DocumentReference.read',
+            'patient/Encounter.read',
+            'user/Patient.read',
+            'user/Condition.read',
+            'user/Observation.read',
+            'user/DocumentReference.read',
+            'user/Encounter.read'
+        ]
+        
         self.logger = logging.getLogger(__name__)
     
-    def authenticate(self):
-        """Authenticate with Epic FHIR using SMART on FHIR OAuth2"""
+    def get_authorization_url(self, state=None, scopes=None):
+        """
+        Generate Epic's authorization URL for SMART on FHIR OAuth2 flow
+        User's browser should be directed to this URL to start authentication
+        """
+        if not state:
+            state = secrets.token_urlsafe(32)
+        
+        if not scopes:
+            scopes = self.default_scopes
+        
+        params = {
+            'response_type': 'code',
+            'client_id': self.client_id,
+            'redirect_uri': self.redirect_uri,
+            'scope': ' '.join(scopes),
+            'aud': self.base_url,  # Epic requires audience parameter
+            'state': state
+        }
+        
+        auth_url = f"{self.auth_url}?{urlencode(params)}"
+        self.logger.info(f"Generated Epic authorization URL for client {self.client_id}")
+        
+        return auth_url, state
+    
+    def exchange_code_for_token(self, authorization_code, state=None):
+        """
+        Exchange authorization code for access token
+        Called from OAuth callback endpoint after user authorizes
+        """
         try:
-            # Epic's OAuth2 token endpoint for SMART on FHIR
-            auth_url = f"{self.base_url.rstrip('/')}/oauth2/token"
-            
             data = {
-                'grant_type': 'client_credentials',
+                'grant_type': 'authorization_code',
+                'code': authorization_code,
+                'redirect_uri': self.redirect_uri,
                 'client_id': self.client_id,
-                'client_secret': self.client_secret,
-                # Epic FHIR scopes for screening data access (as per blueprint)
-                'scope': 'patient/*.read user/*.read'
+                'client_secret': self.client_secret
             }
             
-            response = requests.post(auth_url, data=data)
+            response = requests.post(self.token_url, data=data)
             response.raise_for_status()
             
             token_data = response.json()
+            
+            # Store tokens and metadata
             self.access_token = token_data.get('access_token')
+            self.refresh_token = token_data.get('refresh_token')
+            self.token_scopes = token_data.get('scope', '').split()
+            
             expires_in = token_data.get('expires_in', 3600)
             self.token_expires = datetime.now() + timedelta(seconds=expires_in)
             
-            self.logger.info("Successfully authenticated with Epic FHIR server")
+            self.logger.info("Successfully exchanged authorization code for Epic access token")
+            return token_data
+            
+        except Exception as e:
+            self.logger.error(f"Token exchange failed: {str(e)}")
+            return None
+    
+    def refresh_access_token(self):
+        """
+        Use refresh token to get new access token
+        Called when access token expires
+        """
+        if not self.refresh_token:
+            self.logger.warning("No refresh token available for token refresh")
+            return False
+        
+        try:
+            data = {
+                'grant_type': 'refresh_token',
+                'refresh_token': self.refresh_token,
+                'client_id': self.client_id,
+                'client_secret': self.client_secret
+            }
+            
+            response = requests.post(self.token_url, data=data)
+            response.raise_for_status()
+            
+            token_data = response.json()
+            
+            # Update tokens
+            self.access_token = token_data.get('access_token')
+            if token_data.get('refresh_token'):
+                self.refresh_token = token_data.get('refresh_token')
+            
+            expires_in = token_data.get('expires_in', 3600)
+            self.token_expires = datetime.now() + timedelta(seconds=expires_in)
+            
+            self.logger.info("Successfully refreshed Epic access token")
             return True
             
         except Exception as e:
-            self.logger.error(f"Epic FHIR authentication failed: {str(e)}")
+            self.logger.error(f"Token refresh failed: {str(e)}")
             return False
     
+    def authenticate(self):
+        """
+        Legacy method for backward compatibility
+        For SMART on FHIR, use get_authorization_url() and exchange_code_for_token()
+        """
+        self.logger.warning("Direct authentication not supported in SMART on FHIR flow")
+        self.logger.info("Use get_authorization_url() to start OAuth2 flow")
+        return False
+    
+    def set_tokens(self, access_token, refresh_token=None, expires_in=3600, scopes=None):
+        """
+        Manually set tokens (e.g., from session storage)
+        """
+        self.access_token = access_token
+        self.refresh_token = refresh_token
+        self.token_scopes = scopes or []
+        self.token_expires = datetime.now() + timedelta(seconds=expires_in)
+        
+        self.logger.info("Epic FHIR tokens set successfully")
+    
     def _get_headers(self):
-        """Get headers for FHIR API requests"""
+        """
+        Get headers for FHIR API requests with OAuth2 bearer token
+        Automatically refreshes token if expired
+        """
+        # Check if token is expired and refresh if possible
         if not self.access_token or (self.token_expires and datetime.now() >= self.token_expires):
-            if not self.authenticate():
-                raise Exception("Failed to authenticate with FHIR server")
+            if not self.refresh_access_token():
+                raise Exception("No valid Epic FHIR token available. Please re-authenticate.")
         
         return {
             'Authorization': f'Bearer {self.access_token}',

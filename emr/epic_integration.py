@@ -52,9 +52,10 @@ class EpicScreeningIntegration:
             Dict containing organized Epic data for screening evaluation
         """
         try:
-            # Authenticate with Epic
-            if not self.fhir_client.authenticate():
-                raise Exception("Failed to authenticate with Epic FHIR")
+            # For OAuth2 flow, tokens should already be set by session
+            # Check if client has valid tokens
+            if not self.fhir_client.access_token:
+                raise Exception("No Epic FHIR access token available. Please authenticate first.")
             
             # Use Epic's recommended data retrieval sequence
             # This implements the blueprint pattern: Patient → Condition → Observation → DocumentReference → Encounter
