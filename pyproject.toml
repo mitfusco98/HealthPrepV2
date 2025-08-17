@@ -28,4 +28,7 @@ dependencies = [
     "flask-migrate>=4.1.0",
     "trafilatura>=2.0.0",
     "pyyaml>=6.0.2",
+    "redis>=6.4.0",
+    "rq>=2.5.0",
+    "rq-dashboard>=0.8.5",
 ]

@@ -27,11 +27,27 @@ class Organization(db.Model):
     contact_email = db.Column(db.String(120))
     phone = db.Column(db.String(20))
 
-    # Epic FHIR Configuration
+    # Epic FHIR Configuration - Enhanced for multi-tenant production support
     epic_client_id = db.Column(db.String(100))  # Epic client ID
     epic_client_secret = db.Column(db.String(255))  # Encrypted Epic client secret
-    epic_fhir_url = db.Column(db.String(255))  # Epic FHIR base URL
+    epic_fhir_url = db.Column(db.String(255))  # Epic FHIR base URL (sandbox default)
     epic_environment = db.Column(db.String(20), default='sandbox')  # sandbox, production
+    
+    # Production Epic Configuration (varies per organization)
+    epic_production_base_url = db.Column(db.String(500))  # Production FHIR URL (unique per Epic customer)
+    epic_endpoint_id = db.Column(db.String(100))  # Epic endpoint identifier from open.epic.com
+    epic_organization_id = db.Column(db.String(100))  # Epic organization identifier
+    epic_oauth_url = db.Column(db.String(500))  # Epic OAuth2 authorization URL
+    epic_token_url = db.Column(db.String(500))  # Epic OAuth2 token URL
+    
+    # Rate limiting and batch processing settings
+    fhir_rate_limit_per_hour = db.Column(db.Integer, default=1000)  # FHIR API calls per hour limit
+    max_batch_size = db.Column(db.Integer, default=100)  # Maximum batch size for async processing
+    async_processing_enabled = db.Column(db.Boolean, default=True)  # Enable async background jobs
+    
+    # Audit and compliance settings
+    audit_retention_days = db.Column(db.Integer, default=2555)  # 7 years for HIPAA compliance
+    phi_logging_level = db.Column(db.String(20), default='minimal')  # minimal, standard, detailed
 
     # Organizational Settings
     setup_status = db.Column(db.String(20), default='incomplete')  # incomplete, live, trial, suspended
@@ -78,6 +94,41 @@ class Organization(db.Model):
             'environment': self.epic_environment,
             'has_credentials': bool(self.epic_client_id and self.epic_client_secret)
         }
+    
+    def get_epic_fhir_config(self) -> dict:
+        """Get Epic FHIR configuration for this organization"""
+        if self.epic_environment == 'sandbox':
+            # Sandbox configuration (shared Epic sandbox)
+            return {
+                'client_id': self.epic_client_id,
+                'fhir_url': self.epic_fhir_url or 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/',
+                'oauth_url': self.epic_oauth_url or 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize',
+                'token_url': self.epic_token_url or 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token',
+                'is_sandbox': True
+            }
+        else:
+            # Production configuration (organization-specific Epic instance)
+            return {
+                'client_id': self.epic_client_id,
+                'fhir_url': self.epic_production_base_url,
+                'oauth_url': self.epic_oauth_url,
+                'token_url': self.epic_token_url,
+                'endpoint_id': self.epic_endpoint_id,
+                'organization_id': self.epic_organization_id,
+                'is_sandbox': False
+            }
+    
+    def is_within_rate_limit(self, current_hour_calls: int) -> bool:
+        """Check if organization is within FHIR API rate limits"""
+        return current_hour_calls < self.fhir_rate_limit_per_hour
+    
+    def get_max_batch_size(self) -> int:
+        """Get maximum batch size for async processing"""
+        return min(self.max_batch_size, 500)  # Hard cap at 500 for performance
+    
+    def should_log_phi(self) -> bool:
+        """Check if PHI should be logged based on organization settings"""
+        return self.phi_logging_level != 'none'
 
     def __repr__(self):
         return f'<Organization {self.name}>'
@@ -882,6 +933,164 @@ class FHIRDocument(db.Model):
     
     def __repr__(self):
         return f'<FHIRDocument {self.epic_document_id} - {self.document_type_display or "Unknown Type"}>'
+
+
+class AsyncJob(db.Model):
+    """Model for tracking asynchronous background jobs"""
+    __tablename__ = 'async_jobs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    job_id = db.Column(db.String(100), nullable=False, unique=True)  # RQ job ID
+    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    
+    # Job details
+    job_type = db.Column(db.String(50), nullable=False)  # batch_patient_sync, prep_sheet_generation, etc.
+    status = db.Column(db.String(20), default='queued')  # queued, running, completed, failed, cancelled
+    priority = db.Column(db.String(20), default='normal')  # normal, high
+    
+    # Progress tracking
+    total_items = db.Column(db.Integer, default=0)
+    completed_items = db.Column(db.Integer, default=0)
+    failed_items = db.Column(db.Integer, default=0)
+    progress_percentage = db.Column(db.Float, default=0.0)
+    
+    # Job metadata
+    job_data = db.Column(db.JSON)  # Input parameters and metadata
+    result_data = db.Column(db.JSON)  # Job results and output
+    error_message = db.Column(db.Text)  # Error details if failed
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    started_at = db.Column(db.DateTime)
+    completed_at = db.Column(db.DateTime)
+    
+    # Relationships
+    organization = db.relationship('Organization', backref='async_jobs')
+    user = db.relationship('User', backref='initiated_jobs')
+    
+    @property
+    def duration_seconds(self):
+        """Calculate job duration in seconds"""
+        if self.started_at and self.completed_at:
+            return (self.completed_at - self.started_at).total_seconds()
+        elif self.started_at:
+            return (datetime.utcnow() - self.started_at).total_seconds()
+        return 0
+    
+    @property
+    def is_active(self):
+        """Check if job is currently active"""
+        return self.status in ['queued', 'running']
+    
+    def update_progress(self, completed: int, failed: int = 0, error_message: str = None):
+        """Update job progress"""
+        self.completed_items = completed
+        self.failed_items = failed
+        if self.total_items > 0:
+            self.progress_percentage = (completed + failed) / self.total_items * 100
+        if error_message:
+            self.error_message = error_message
+        db.session.commit()
+    
+    def mark_started(self):
+        """Mark job as started"""
+        self.status = 'running'
+        self.started_at = datetime.utcnow()
+        db.session.commit()
+    
+    def mark_completed(self, result_data: dict = None):
+        """Mark job as completed"""
+        self.status = 'completed'
+        self.completed_at = datetime.utcnow()
+        self.progress_percentage = 100.0
+        if result_data:
+            self.result_data = result_data
+        db.session.commit()
+    
+    def mark_failed(self, error_message: str):
+        """Mark job as failed"""
+        self.status = 'failed'
+        self.completed_at = datetime.utcnow()
+        self.error_message = error_message
+        db.session.commit()
+    
+    def __repr__(self):
+        return f'<AsyncJob {self.job_type} - {self.status}>'
+
+
+class FHIRApiCall(db.Model):
+    """Model for tracking FHIR API calls for rate limiting and audit"""
+    __tablename__ = 'fhir_api_calls'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    
+    # API call details
+    endpoint = db.Column(db.String(200), nullable=False)  # FHIR endpoint called
+    method = db.Column(db.String(10), nullable=False)  # GET, POST, PUT, DELETE
+    resource_type = db.Column(db.String(50))  # Patient, Observation, DocumentReference, etc.
+    resource_id = db.Column(db.String(100))  # Specific resource ID if applicable
+    
+    # Request metadata
+    request_params = db.Column(db.JSON)  # Query parameters
+    response_status = db.Column(db.Integer)  # HTTP response status
+    response_time_ms = db.Column(db.Integer)  # Response time in milliseconds
+    
+    # Patient context (for audit)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'))  # Local patient ID
+    epic_patient_id = db.Column(db.String(100))  # Epic patient ID from API call
+    
+    # Timestamps
+    called_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    
+    # Relationships
+    organization = db.relationship('Organization')
+    user = db.relationship('User')
+    patient = db.relationship('Patient')
+    
+    @classmethod
+    def get_hourly_call_count(cls, org_id: int, hour_offset: int = 0) -> int:
+        """Get FHIR API call count for specific hour"""
+        from sqlalchemy import func
+        
+        target_hour = datetime.utcnow() - timedelta(hours=hour_offset)
+        start_time = target_hour.replace(minute=0, second=0, microsecond=0)
+        end_time = start_time + timedelta(hours=1)
+        
+        return db.session.query(func.count(cls.id)).filter(
+            cls.org_id == org_id,
+            cls.called_at >= start_time,
+            cls.called_at < end_time
+        ).scalar() or 0
+    
+    @classmethod
+    def log_api_call(cls, org_id: int, endpoint: str, method: str, 
+                    user_id: int = None, resource_type: str = None, 
+                    resource_id: str = None, epic_patient_id: str = None,
+                    response_status: int = None, response_time_ms: int = None,
+                    request_params: dict = None):
+        """Log an API call for audit and rate limiting"""
+        api_call = cls(
+            org_id=org_id,
+            user_id=user_id,
+            endpoint=endpoint,
+            method=method,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            epic_patient_id=epic_patient_id,
+            response_status=response_status,
+            response_time_ms=response_time_ms,
+            request_params=request_params
+        )
+        
+        db.session.add(api_call)
+        db.session.commit()
+        return api_call
+    
+    def __repr__(self):
+        return f'<FHIRApiCall {self.method} {self.endpoint}>'
 
 class PatientCondition(db.Model):
     """Patient medical conditions"""
