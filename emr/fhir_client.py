@@ -9,6 +9,7 @@ import secrets
 import base64
 from datetime import datetime, timedelta
 from urllib.parse import urlencode, parse_qs, urlparse
+from typing import Dict, Optional, Any
 import logging
 
 class FHIRClient:
@@ -196,14 +197,54 @@ class FHIRClient:
             'Content-Type': 'application/fhir+json'
         }
     
+    def _api_get_with_retry(self, url: str, params: Dict = None, max_retries: int = 1) -> Optional[Dict]:
+        """
+        Enhanced API GET with 401 retry logic as per Epic blueprint
+        Implements blueprint suggestion for handling token expiration
+        """
+        headers = self._get_headers()
+        
+        for attempt in range(max_retries + 1):
+            try:
+                response = requests.get(url, headers=headers, params=params or {})
+                
+                # Handle 401 Unauthorized specifically (Epic blueprint pattern)
+                if response.status_code == 401:
+                    if attempt < max_retries:
+                        self.logger.info(f"Received 401 Unauthorized, attempting token refresh (attempt {attempt + 1})")
+                        
+                        # Attempt token refresh
+                        if self.refresh_access_token():
+                            # Update headers with new token
+                            headers = self._get_headers()
+                            continue
+                        else:
+                            self.logger.error("Token refresh failed after 401 error")
+                            break
+                    else:
+                        self.logger.error("Max retries reached for 401 error")
+                        break
+                
+                response.raise_for_status()
+                return response.json()
+                
+            except requests.exceptions.RequestException as e:
+                if attempt < max_retries:
+                    self.logger.warning(f"Request failed, retrying (attempt {attempt + 1}): {str(e)}")
+                    continue
+                else:
+                    self.logger.error(f"Request failed after {max_retries + 1} attempts: {str(e)}")
+                    break
+        
+        return None
+    
     def get_patient(self, patient_id):
         """Retrieve patient information from FHIR server"""
         try:
             url = f"{self.base_url}Patient/{patient_id}"
-            response = requests.get(url, headers=self._get_headers())
-            response.raise_for_status()
             
-            return response.json()
+            # Use enhanced retry logic for 401 handling
+            return self._api_get_with_retry(url)
             
         except Exception as e:
             self.logger.error(f"Error retrieving patient {patient_id}: {str(e)}")
@@ -327,10 +368,8 @@ class FHIRClient:
             if date_from:
                 params['date'] = f"ge{date_from.isoformat()}"
             
-            response = requests.get(url, headers=self._get_headers(), params=params)
-            response.raise_for_status()
-            
-            return response.json()
+            # Use enhanced retry logic for 401 handling
+            return self._api_get_with_retry(url, params)
             
         except Exception as e:
             self.logger.error(f"Error retrieving observations for patient {patient_id}: {str(e)}")
@@ -356,10 +395,8 @@ class FHIRClient:
             if code:
                 params['code'] = code
             
-            response = requests.get(url, headers=self._get_headers(), params=params)
-            response.raise_for_status()
-            
-            return response.json()
+            # Use enhanced retry logic for 401 handling
+            return self._api_get_with_retry(url, params)
             
         except Exception as e:
             self.logger.error(f"Error retrieving conditions for patient {patient_id}: {str(e)}")
