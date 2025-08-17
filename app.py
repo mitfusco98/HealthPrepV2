@@ -155,6 +155,7 @@ def register_blueprints(app):
     from routes.fuzzy_detection_routes import fuzzy_bp
     from routes.fhir_routes import fhir_bp
     from routes.oauth_routes import oauth_bp
+    from routes.epic_admin_routes import epic_admin_bp
     from ui.routes import ui_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -167,6 +168,7 @@ def register_blueprints(app):
     app.register_blueprint(fuzzy_bp, url_prefix='/fuzzy')
     app.register_blueprint(fhir_bp, url_prefix='/fhir')
     app.register_blueprint(oauth_bp, url_prefix='/fhir')
+    app.register_blueprint(epic_admin_bp)  # Epic admin routes with /admin/epic prefix
     app.register_blueprint(ui_bp)
 
     # Exempt all API routes from CSRF

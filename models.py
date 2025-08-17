@@ -49,6 +49,14 @@ class Organization(db.Model):
     audit_retention_days = db.Column(db.Integer, default=2555)  # 7 years for HIPAA compliance
     phi_logging_level = db.Column(db.String(20), default='minimal')  # minimal, standard, detailed
 
+    # Epic Connection Status & Retry Logic (per blueprint)
+    is_epic_connected = db.Column(db.Boolean, default=False)  # Current Epic connection status
+    last_epic_sync = db.Column(db.DateTime)  # Last successful Epic data fetch
+    last_epic_error = db.Column(db.Text)  # Last Epic connection/API error for troubleshooting
+    epic_token_expiry = db.Column(db.DateTime)  # Current token expiry for status display
+    connection_retry_count = db.Column(db.Integer, default=0)  # Failed retry attempts counter
+    next_token_check = db.Column(db.DateTime)  # When to check token expiry next
+
     # Organizational Settings
     setup_status = db.Column(db.String(20), default='incomplete')  # incomplete, live, trial, suspended
     custom_presets_enabled = db.Column(db.Boolean, default=True)
@@ -129,6 +137,88 @@ class Organization(db.Model):
     def should_log_phi(self) -> bool:
         """Check if PHI should be logged based on organization settings"""
         return self.phi_logging_level != 'none'
+    
+    # Epic Connection Status Methods (per blueprint)
+    def get_epic_connection_status(self) -> dict:
+        """Get comprehensive Epic connection status for admin display"""
+        status = {
+            'is_connected': self.is_epic_connected,
+            'last_sync': self.last_epic_sync,
+            'last_error': self.last_epic_error,
+            'token_expiry': self.epic_token_expiry,
+            'retry_count': self.connection_retry_count,
+            'status_class': '',
+            'status_message': '',
+            'action_required': False
+        }
+        
+        # Determine visual status indicators
+        if self.is_epic_connected and self.epic_token_expiry:
+            if datetime.utcnow() < self.epic_token_expiry:
+                time_until_expiry = self.epic_token_expiry - datetime.utcnow()
+                if time_until_expiry.total_seconds() < 3600:  # Less than 1 hour
+                    status.update({
+                        'status_class': 'warning',
+                        'status_message': f'⚠️ Connected (expires in {int(time_until_expiry.total_seconds()//60)} min)',
+                        'action_required': True
+                    })
+                else:
+                    status.update({
+                        'status_class': 'success',
+                        'status_message': '✅ Connected to Epic',
+                        'action_required': False
+                    })
+            else:
+                status.update({
+                    'status_class': 'danger',
+                    'status_message': '❌ Token Expired',
+                    'action_required': True
+                })
+        else:
+            status.update({
+                'status_class': 'danger',
+                'status_message': '❌ Not Connected - Action Required',
+                'action_required': True
+            })
+        
+        return status
+    
+    def update_epic_connection_status(self, is_connected: bool, error_message: str = None, token_expiry: datetime = None):
+        """Update Epic connection status after API operations"""
+        self.is_epic_connected = is_connected
+        
+        if is_connected:
+            self.last_epic_sync = datetime.utcnow()
+            self.last_epic_error = None
+            self.connection_retry_count = 0
+            if token_expiry:
+                self.epic_token_expiry = token_expiry
+        else:
+            if error_message:
+                self.last_epic_error = error_message
+            self.connection_retry_count += 1
+        
+        # Schedule next token check
+        if token_expiry:
+            # Check 30 minutes before expiry
+            self.next_token_check = token_expiry - timedelta(minutes=30)
+        else:
+            # Check in 1 hour if no expiry known
+            self.next_token_check = datetime.utcnow() + timedelta(hours=1)
+        
+        db.session.commit()
+    
+    def needs_token_check(self) -> bool:
+        """Check if organization needs token expiry check"""
+        if not self.next_token_check:
+            return True
+        return datetime.utcnow() >= self.next_token_check
+    
+    def clear_epic_connection_error(self):
+        """Clear connection error (for manual retry)"""
+        self.last_epic_error = None
+        self.connection_retry_count = 0
+        db.session.commit()
 
     def __repr__(self):
         return f'<Organization {self.name}>'

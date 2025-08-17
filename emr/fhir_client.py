@@ -15,7 +15,7 @@ import logging
 class FHIRClient:
     """Client for connecting to Epic FHIR API following Epic's query patterns"""
     
-    def __init__(self, organization_config=None, redirect_uri=None):
+    def __init__(self, organization_config=None, redirect_uri=None, organization=None):
         # Epic FHIR endpoints as per SMART on FHIR specification
         self.base_url = 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
         self.auth_url = 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize'
@@ -24,6 +24,9 @@ class FHIRClient:
         self.client_id = 'default_client_id'
         self.client_secret = 'default_secret'
         self.redirect_uri = redirect_uri or 'http://localhost:5000/fhir/oauth-callback'
+        
+        # Store organization reference for connection status updates (per blueprint)
+        self.organization = organization
         
         # Override with organization-specific config if provided
         if organization_config:
@@ -126,14 +129,18 @@ class FHIRClient:
     
     def refresh_access_token(self):
         """
-        Use refresh token to get new access token
-        Called when access token expires
+        Use refresh token to get new access token (Enhanced per blueprint)
+        Called when access token expires with comprehensive error handling
         """
         if not self.refresh_token:
-            self.logger.warning("No refresh token available for token refresh")
+            error_msg = "No refresh token available for token refresh"
+            self.logger.warning(error_msg)
+            self._update_organization_status(False, error_msg)
             return False
         
         try:
+            self.logger.info(f"Attempting token refresh for organization {getattr(self.organization, 'name', 'unknown')}")
+            
             data = {
                 'grant_type': 'refresh_token',
                 'refresh_token': self.refresh_token,
@@ -154,12 +161,38 @@ class FHIRClient:
             expires_in = token_data.get('expires_in', 3600)
             self.token_expires = datetime.now() + timedelta(seconds=expires_in)
             
-            self.logger.info("Successfully refreshed Epic access token")
+            # Update organization connection status (success)
+            self._update_organization_status(True, None, self.token_expires)
+            
+            self.logger.info(f"Successfully refreshed Epic access token, expires in {expires_in} seconds")
             return True
             
-        except Exception as e:
-            self.logger.error(f"Token refresh failed: {str(e)}")
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 401:
+                error_msg = "Refresh token expired or invalid - full re-authentication required"
+            else:
+                error_msg = f"HTTP {e.response.status_code} error during token refresh: {str(e)}"
+            self.logger.error(error_msg)
+            self._update_organization_status(False, error_msg)
             return False
+            
+        except Exception as e:
+            error_msg = f"Token refresh failed: {str(e)}"
+            self.logger.error(error_msg)
+            self._update_organization_status(False, error_msg)
+            return False
+    
+    def _update_organization_status(self, is_connected: bool, error_message: str = None, token_expiry: datetime = None):
+        """Update organization Epic connection status (per blueprint)"""
+        if self.organization:
+            try:
+                self.organization.update_epic_connection_status(
+                    is_connected=is_connected,
+                    error_message=error_message,
+                    token_expiry=token_expiry
+                )
+            except Exception as e:
+                self.logger.error(f"Failed to update organization connection status: {str(e)}")
     
     def authenticate(self):
         """
@@ -199,13 +232,23 @@ class FHIRClient:
     
     def _api_get_with_retry(self, url: str, params: Dict = None, max_retries: int = 1) -> Optional[Dict]:
         """
-        Enhanced API GET with 401 retry logic as per Epic blueprint
-        Implements blueprint suggestion for handling token expiration
+        Enhanced API GET with comprehensive error handling (per blueprint)
+        Implements blueprint suggestion for connection status tracking
         """
-        headers = self._get_headers()
+        last_error = None
         
         for attempt in range(max_retries + 1):
             try:
+                # Check token before request
+                if not self.access_token or (self.token_expires and datetime.now() >= self.token_expires):
+                    if not self.refresh_access_token():
+                        error_msg = "No valid Epic FHIR token available. Please re-authenticate."
+                        self._update_organization_status(False, error_msg)
+                        return None
+                
+                headers = self._get_headers()
+                
+                self.logger.debug(f"Making Epic API request to {url} (attempt {attempt + 1})")
                 response = requests.get(url, headers=headers, params=params or {})
                 
                 # Handle 401 Unauthorized specifically (Epic blueprint pattern)
@@ -215,27 +258,55 @@ class FHIRClient:
                         
                         # Attempt token refresh
                         if self.refresh_access_token():
-                            # Update headers with new token
-                            headers = self._get_headers()
+                            # Headers will be updated in next iteration
                             continue
                         else:
-                            self.logger.error("Token refresh failed after 401 error")
-                            break
+                            error_msg = "Token refresh failed after 401 error"
+                            self.logger.error(error_msg)
+                            self._update_organization_status(False, error_msg)
+                            return None
                     else:
-                        self.logger.error("Max retries reached for 401 error")
-                        break
+                        error_msg = "Max retries reached for 401 error - re-authentication required"
+                        self.logger.error(error_msg)
+                        self._update_organization_status(False, error_msg)
+                        return None
                 
                 response.raise_for_status()
+                
+                # Success - update organization status
+                self._update_organization_status(True, None, self.token_expires)
+                
                 return response.json()
                 
-            except requests.exceptions.RequestException as e:
-                if attempt < max_retries:
-                    self.logger.warning(f"Request failed, retrying (attempt {attempt + 1}): {str(e)}")
-                    continue
-                else:
-                    self.logger.error(f"Request failed after {max_retries + 1} attempts: {str(e)}")
+            except requests.exceptions.HTTPError as e:
+                last_error = f"HTTP {e.response.status_code} error: {str(e)}"
+                if e.response.status_code >= 500:  # Server errors - retry
+                    if attempt < max_retries:
+                        self.logger.warning(f"Server error, retrying (attempt {attempt + 1}): {last_error}")
+                        continue
+                else:  # Client errors - don't retry
+                    self.logger.error(f"Client error, not retrying: {last_error}")
                     break
+                    
+            except requests.exceptions.ConnectionError as e:
+                last_error = f"Connection error: {str(e)}"
+                if attempt < max_retries:
+                    self.logger.warning(f"Connection failed, retrying (attempt {attempt + 1}): {last_error}")
+                    continue
+                    
+            except requests.exceptions.RequestException as e:
+                last_error = f"Request error: {str(e)}"
+                if attempt < max_retries:
+                    self.logger.warning(f"Request failed, retrying (attempt {attempt + 1}): {last_error}")
+                    continue
+                    
+            except Exception as e:
+                last_error = f"Unexpected error: {str(e)}"
+                self.logger.error(f"Unexpected error during Epic API call: {last_error}")
+                break
         
+        # All attempts failed - update organization status
+        self._update_organization_status(False, last_error)
         return None
     
     def get_patient(self, patient_id):

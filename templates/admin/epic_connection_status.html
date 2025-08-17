@@ -1,0 +1,201 @@
+<!-- Epic Connection Status Component (per blueprint) -->
+<div class="card mt-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="bi bi-cloud-arrow-up-fill"></i>
+            Epic FHIR Connection Status
+        </h5>
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="checkConnectionStatus()">
+                <i class="bi bi-arrow-clockwise"></i> Refresh Status
+            </button>
+            {% if epic_status.action_required %}
+            <a href="{{ url_for('fhir.epic_authorize', org_id=current_user.org_id) }}" 
+               class="btn btn-warning btn-sm">
+                <i class="bi bi-key-fill"></i> Re-authenticate
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-8">
+                <!-- Connection Status Display -->
+                <div class="alert alert-{{ epic_status.status_class }} d-flex align-items-center" role="alert">
+                    <div class="flex-grow-1">
+                        <strong>{{ epic_status.status_message }}</strong>
+                        {% if epic_status.last_error %}
+                        <div class="small mt-1">
+                            <strong>Last Error:</strong> {{ epic_status.last_error }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% if epic_status.action_required %}
+                    <div class="ms-3">
+                        <i class="bi bi-exclamation-triangle-fill fs-4"></i>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Connection Details -->
+                <div class="row mt-3">
+                    <div class="col-sm-6">
+                        <small class="text-muted">Last Sync:</small><br>
+                        <span class="fw-medium">
+                            {% if epic_status.last_sync %}
+                                {{ epic_status.last_sync.strftime('%Y-%m-%d %H:%M:%S') }}
+                            {% else %}
+                                Never
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="col-sm-6">
+                        <small class="text-muted">Token Expires:</small><br>
+                        <span class="fw-medium">
+                            {% if epic_status.token_expiry %}
+                                {{ epic_status.token_expiry.strftime('%Y-%m-%d %H:%M:%S') }}
+                            {% else %}
+                                Unknown
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+                
+                {% if epic_status.retry_count > 0 %}
+                <div class="row mt-2">
+                    <div class="col-12">
+                        <small class="text-muted">Failed Attempts:</small>
+                        <span class="badge bg-secondary">{{ epic_status.retry_count }}</span>
+                        {% if epic_status.retry_count >= 3 %}
+                            <small class="text-warning ms-2">
+                                <i class="bi bi-exclamation-circle"></i> High retry count - check credentials
+                            </small>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="col-md-4">
+                <!-- Quick Actions -->
+                <div class="d-grid gap-2">
+                    {% if not epic_status.is_connected %}
+                    <a href="{{ url_for('fhir.epic_config', org_id=current_user.org_id) }}" 
+                       class="btn btn-primary btn-sm">
+                        <i class="bi bi-gear"></i> Configure Epic
+                    </a>
+                    {% endif %}
+                    
+                    <button type="button" class="btn btn-info btn-sm" onclick="testConnection()">
+                        <i class="bi bi-wifi"></i> Test Connection
+                    </button>
+                    
+                    {% if epic_status.last_error %}
+                    <button type="button" class="btn btn-outline-warning btn-sm" onclick="clearError()">
+                        <i class="bi bi-x-circle"></i> Clear Error
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Epic Environment Info -->
+        {% if organization.epic_environment %}
+        <hr class="my-3">
+        <div class="row">
+            <div class="col-sm-4">
+                <small class="text-muted">Environment:</small><br>
+                <span class="badge bg-{% if organization.epic_environment == 'production' %}success{% else %}info{% endif %}">
+                    {{ organization.epic_environment.title() }}
+                </span>
+            </div>
+            <div class="col-sm-8">
+                <small class="text-muted">FHIR Endpoint:</small><br>
+                <code class="small">{{ organization.epic_fhir_url or organization.epic_production_base_url or 'Not configured' }}</code>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function checkConnectionStatus() {
+    const btn = event.target.closest('button');
+    const originalContent = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-arrow-clockwise spin"></i> Checking...';
+    
+    fetch(`/admin/epic/check-connection/${currentUserId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                showToast('Error checking connection: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Failed to check connection', 'error');
+            console.error('Connection check error:', error);
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        });
+}
+
+function testConnection() {
+    const btn = event.target.closest('button');
+    const originalContent = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-wifi spin"></i> Testing...';
+    
+    fetch(`/admin/epic/test-connection/${currentUserId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Epic connection test successful', 'success');
+            } else {
+                showToast('Connection test failed: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Connection test failed', 'error');
+            console.error('Connection test error:', error);
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        });
+}
+
+function clearError() {
+    fetch(`/admin/epic/clear-error/${currentUserId}`, { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                showToast('Failed to clear error', 'error');
+            }
+        })
+        .catch(error => {
+            showToast('Failed to clear error', 'error');
+            console.error('Clear error failed:', error);
+        });
+}
+
+// Add CSS for spin animation
+const style = document.createElement('style');
+style.textContent = `
+    .spin {
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+`;
+document.head.appendChild(style);
+</script>
