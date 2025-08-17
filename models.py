@@ -259,21 +259,27 @@ class Patient(db.Model):
     # Multi-tenancy
     org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
 
-    # Epic integration
-    epic_patient_id = db.Column(db.String(100))  # Epic patient ID for FHIR sync
+    # Epic FHIR integration fields
+    epic_patient_id = db.Column(db.String(100))  # Epic Patient.id from FHIR
+    fhir_patient_resource = db.Column(db.Text)  # Full FHIR Patient resource (JSON)
+    last_fhir_sync = db.Column(db.DateTime)  # Last time data was synced from Epic
+    fhir_version_id = db.Column(db.String(50))  # FHIR resource version for change detection
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Unique MRN within organization
+    # Unique MRN within organization and indexing for FHIR sync
     __table_args__ = (
         db.UniqueConstraint('mrn', 'org_id', name='unique_mrn_per_org'),
+        db.Index('idx_patient_epic_id', 'epic_patient_id'),
+        db.Index('idx_patient_fhir_sync', 'last_fhir_sync'),
     )
 
     # Relationships
     organization = db.relationship('Organization', backref='patients')
     screenings = db.relationship('Screening', backref='patient', lazy=True, cascade='all, delete-orphan')
     documents = db.relationship('Document', backref='patient', lazy=True, cascade='all, delete-orphan')
+    fhir_documents = db.relationship('FHIRDocument', backref='patient', lazy=True, cascade='all, delete-orphan')
     conditions = db.relationship('PatientCondition', backref='patient', lazy=True, cascade='all, delete-orphan')
     appointments = db.relationship('Appointment', backref='patient', lazy=True, cascade='all, delete-orphan')
 
@@ -288,8 +294,55 @@ class Patient(db.Model):
         """Get patient's full name - compatibility property"""
         return self.name
 
+    def update_from_fhir(self, fhir_patient_resource):
+        """Update patient data from FHIR Patient resource"""
+        import json
+        
+        if isinstance(fhir_patient_resource, dict):
+            self.fhir_patient_resource = json.dumps(fhir_patient_resource)
+            
+            # Update basic demographics from FHIR if available
+            if 'name' in fhir_patient_resource and fhir_patient_resource['name']:
+                name_data = fhir_patient_resource['name'][0]
+                if 'given' in name_data and 'family' in name_data:
+                    self.name = f"{' '.join(name_data['given'])} {name_data['family']}"
+            
+            if 'gender' in fhir_patient_resource:
+                gender_map = {'male': 'M', 'female': 'F', 'other': 'Other'}
+                self.gender = gender_map.get(fhir_patient_resource['gender'], 'Other')
+            
+            if 'birthDate' in fhir_patient_resource:
+                try:
+                    birth_date = datetime.strptime(fhir_patient_resource['birthDate'], '%Y-%m-%d').date()
+                    self.date_of_birth = birth_date
+                except ValueError:
+                    pass
+            
+            # Update contact information
+            if 'telecom' in fhir_patient_resource:
+                for contact in fhir_patient_resource['telecom']:
+                    if contact.get('system') == 'phone':
+                        self.phone = contact.get('value')
+                    elif contact.get('system') == 'email':
+                        self.email = contact.get('value')
+            
+            # Update version tracking
+            if 'meta' in fhir_patient_resource and 'versionId' in fhir_patient_resource['meta']:
+                self.fhir_version_id = fhir_patient_resource['meta']['versionId']
+        
+        self.last_fhir_sync = datetime.utcnow()
+    
+    def needs_fhir_sync(self, sync_interval_hours=24):
+        """Check if patient data needs to be synced from FHIR"""
+        if not self.last_fhir_sync:
+            return True
+        
+        sync_threshold = datetime.utcnow() - timedelta(hours=sync_interval_hours)
+        return self.last_fhir_sync < sync_threshold
+    
     def __repr__(self):
-        return f'<Patient {self.name} ({self.mrn})>'
+        epic_info = f" [Epic: {self.epic_patient_id}]" if self.epic_patient_id else ""
+        return f'<Patient {self.name} ({self.mrn}){epic_info}>'
 
 class ScreeningType(db.Model):
     """Screening type configuration with organization scope"""
@@ -624,6 +677,14 @@ class ScreeningType(db.Model):
             return f'<ScreeningType {self.name} ({self.variant_name})>'
         return f'<ScreeningType {self.name}>'
 
+
+# Association table for FHIR documents and screenings  
+screening_fhir_documents = db.Table('screening_fhir_documents',
+    db.Column('screening_id', db.Integer, db.ForeignKey('screening.id'), primary_key=True),
+    db.Column('fhir_document_id', db.Integer, db.ForeignKey('fhir_documents.id'), primary_key=True)
+)
+
+
 class Screening(db.Model):
     """Patient screening record with organization scope"""
     __tablename__ = 'screening'
@@ -641,6 +702,7 @@ class Screening(db.Model):
 
     # Relationships
     organization = db.relationship('Organization', backref='screenings')
+    fhir_documents = db.relationship('FHIRDocument', secondary=screening_fhir_documents, back_populates='screenings')
 
     @property
     def matched_documents_list(self):
@@ -677,6 +739,149 @@ class Document(db.Model):
 
     def __repr__(self):
         return f'<Document {self.filename}>'
+
+
+class FHIRDocument(db.Model):
+    """FHIR DocumentReference model for Epic integration"""
+    __tablename__ = 'fhir_documents'
+
+    id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
+    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
+    
+    # FHIR DocumentReference fields
+    epic_document_id = db.Column(db.String(100), nullable=False)  # Epic DocumentReference.id
+    fhir_document_reference = db.Column(db.Text)  # Full FHIR DocumentReference resource (JSON)
+    document_type_code = db.Column(db.String(50))  # LOINC code for document type
+    document_type_display = db.Column(db.String(200))  # Human readable document type
+    
+    # Document metadata
+    title = db.Column(db.String(300))
+    description = db.Column(db.Text)
+    creation_date = db.Column(db.DateTime)  # When document was created in Epic
+    author_name = db.Column(db.String(200))  # Document author from Epic
+    
+    # Content handling
+    content_url = db.Column(db.Text)  # Epic Binary resource URL for document content
+    content_type = db.Column(db.String(100))  # MIME type (application/pdf, text/plain, etc.)
+    content_size = db.Column(db.Integer)  # Size in bytes
+    content_hash = db.Column(db.String(64))  # SHA-256 hash of content for change detection
+    
+    # Local processing status
+    is_processed = db.Column(db.Boolean, default=False)  # Has been processed by screening engine
+    processing_status = db.Column(db.String(50), default='pending')  # pending, processing, completed, failed
+    processing_error = db.Column(db.Text)  # Error message if processing failed
+    ocr_text = db.Column(db.Text)  # Extracted text content from OCR
+    relevance_score = db.Column(db.Float)  # Relevance score for screening (0.0-1.0)
+    
+    # System fields
+    last_accessed = db.Column(db.DateTime)  # Last time document was accessed from Epic
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    organization = db.relationship('Organization', backref='fhir_documents')
+    screenings = db.relationship('Screening', secondary=screening_fhir_documents, back_populates='fhir_documents')
+    
+    # Indexes for performance
+    __table_args__ = (
+        db.Index('idx_fhir_doc_epic_id', 'epic_document_id'),
+        db.Index('idx_fhir_doc_patient', 'patient_id'),
+        db.Index('idx_fhir_doc_type', 'document_type_code'),
+        db.Index('idx_fhir_doc_processing', 'processing_status'),
+        db.UniqueConstraint('epic_document_id', 'org_id', name='unique_epic_doc_per_org'),
+    )
+    
+    def update_from_fhir(self, fhir_document_reference):
+        """Update document metadata from FHIR DocumentReference resource"""
+        import json
+        from hashlib import sha256
+        
+        if isinstance(fhir_document_reference, dict):
+            self.fhir_document_reference = json.dumps(fhir_document_reference)
+            
+            # Extract document type information
+            if 'type' in fhir_document_reference and 'coding' in fhir_document_reference['type']:
+                type_coding = fhir_document_reference['type']['coding'][0]
+                self.document_type_code = type_coding.get('code')
+                self.document_type_display = type_coding.get('display')
+            
+            # Extract title and description
+            self.title = fhir_document_reference.get('description')
+            
+            # Extract creation date
+            if 'date' in fhir_document_reference:
+                try:
+                    self.creation_date = datetime.fromisoformat(fhir_document_reference['date'].replace('Z', '+00:00'))
+                except (ValueError, AttributeError):
+                    pass
+            
+            # Extract author information
+            if 'author' in fhir_document_reference and fhir_document_reference['author']:
+                author = fhir_document_reference['author'][0]
+                if 'display' in author:
+                    self.author_name = author['display']
+            
+            # Extract content information
+            if 'content' in fhir_document_reference and fhir_document_reference['content']:
+                content = fhir_document_reference['content'][0]
+                attachment = content.get('attachment', {})
+                
+                self.content_url = attachment.get('url')
+                self.content_type = attachment.get('contentType')
+                self.content_size = attachment.get('size')
+                
+                # Generate content hash if data is available
+                if 'data' in attachment:
+                    import base64
+                    content_bytes = base64.b64decode(attachment['data'])
+                    self.content_hash = sha256(content_bytes).hexdigest()
+        
+        self.updated_at = datetime.utcnow()
+    
+    def is_relevant_for_screening(self, screening_type):
+        """Check if document is relevant for a specific screening type"""
+        if not screening_type or not self.document_type_code:
+            return False
+        
+        # Get FHIR document type mappings for screening type
+        try:
+            doc_type_mappings = screening_type.get_fhir_document_type_mappings()
+            if not doc_type_mappings:
+                return False
+            
+            # Check if document type matches any mapping
+            return self.document_type_code in doc_type_mappings
+        except AttributeError:
+            # Fallback: simple keyword matching if method doesn't exist
+            if hasattr(screening_type, 'keywords_list') and screening_type.keywords_list:
+                return any(keyword.lower() in (self.document_type_display or '').lower() 
+                          for keyword in screening_type.keywords_list)
+            return False
+    
+    def mark_processed(self, status='completed', error=None, ocr_text=None, relevance_score=None):
+        """Mark document as processed with results"""
+        self.is_processed = True
+        self.processing_status = status
+        self.processing_error = error
+        if ocr_text:
+            self.ocr_text = ocr_text
+        if relevance_score is not None:
+            self.relevance_score = relevance_score
+        self.updated_at = datetime.utcnow()
+    
+    @property
+    def is_pdf(self):
+        """Check if document is a PDF"""
+        return self.content_type == 'application/pdf'
+    
+    @property
+    def display_name(self):
+        """Get display name for document"""
+        return self.title or f"Document {self.epic_document_id}"
+    
+    def __repr__(self):
+        return f'<FHIRDocument {self.epic_document_id} - {self.document_type_display or "Unknown Type"}>'
 
 class PatientCondition(db.Model):
     """Patient medical conditions"""

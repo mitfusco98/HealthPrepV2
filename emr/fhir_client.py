@@ -492,3 +492,60 @@ class FHIRClient:
         except Exception as e:
             self.logger.error(f"Error syncing patient data: {str(e)}")
             return None
+    
+    def get_document_content(self, content_url):
+        """Download document content from Epic Binary resource"""
+        try:
+            # Handle both absolute URLs and relative URLs
+            if not content_url.startswith('http'):
+                content_url = f"{self.base_url.rstrip('/')}/{content_url.lstrip('/')}"
+            
+            response = requests.get(content_url, headers=self._get_headers())
+            response.raise_for_status()
+            
+            self.logger.info(f"Downloaded document content from {content_url}")
+            return response.content
+            
+        except Exception as e:
+            self.logger.error(f"Error downloading document content from {content_url}: {str(e)}")
+            return None
+    
+    def create_document_reference(self, document_reference_data):
+        """Create a new DocumentReference in Epic (write prep sheet back)"""
+        try:
+            url = f"{self.base_url}DocumentReference"
+            
+            headers = self._get_headers()
+            headers['Content-Type'] = 'application/fhir+json'
+            
+            response = requests.post(url, headers=headers, json=document_reference_data)
+            response.raise_for_status()
+            
+            result = response.json()
+            self.logger.info(f"Successfully created DocumentReference: {result.get('id')}")
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error creating DocumentReference: {str(e)}")
+            if hasattr(e, 'response') and e.response:
+                self.logger.error(f"Response content: {e.response.text}")
+            return None
+    
+    def update_document_reference(self, document_id, document_reference_data):
+        """Update an existing DocumentReference in Epic"""
+        try:
+            url = f"{self.base_url}DocumentReference/{document_id}"
+            
+            headers = self._get_headers()
+            headers['Content-Type'] = 'application/fhir+json'
+            
+            response = requests.put(url, headers=headers, json=document_reference_data)
+            response.raise_for_status()
+            
+            result = response.json()
+            self.logger.info(f"Successfully updated DocumentReference: {document_id}")
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error updating DocumentReference {document_id}: {str(e)}")
+            return None
