@@ -411,9 +411,10 @@
                             <i class="fas fa-flask me-1"></i>
                             Test PHI Filter
                         </a>
-                        <button class="btn btn-outline-secondary active">Today</button>
-                        <button class="btn btn-outline-secondary">Week</button>
-                        <button class="btn btn-outline-secondary">Month</button>
+                        <a href="{{ url_for('admin.dashboard', tab='analytics') }}" class="btn btn-outline-info">
+                            <i class="fas fa-chart-line me-1"></i>
+                            View Analytics
+                        </a>
                     </div>
                 </div>
 
@@ -440,133 +441,41 @@
                     </div>
                 </div>
 
-                <div class="row">
-                    <div class="col-lg-3 col-md-6 mb-4">
-                        <div class="card text-center">
+                <!-- PHI Quick Summary Stats -->
+                <div class="row mb-4">
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="card text-center border-info">
                             <div class="card-body">
-                                <i class="fas fa-file-medical fa-2x text-info mb-3"></i>
-                                <h4 class="mb-1">{{ phi_stats.documents_processed if phi_stats else '0' }}</h4>
-                                <p class="text-muted mb-0">Documents Processed</p>
+                                <i class="fas fa-file-medical fa-2x text-info mb-2"></i>
+                                <h5 class="mb-1">{{ phi_stats.documents_processed if phi_stats else '0' }}</h5>
+                                <small class="text-muted">Documents Today</small>
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-3 col-md-6 mb-4">
-                        <div class="card text-center">
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="card text-center border-success">
                             <div class="card-body">
-                                <i class="fas fa-shield-alt fa-2x text-success mb-3"></i>
-                                <h4 class="mb-1">{{ phi_stats.phi_items_redacted if phi_stats else '0' }}</h4>
-                                <p class="text-muted mb-0">PHI Items Redacted</p>
+                                <i class="fas fa-shield-alt fa-2x text-success mb-2"></i>
+                                <h5 class="mb-1">{{ phi_stats.phi_items_redacted if phi_stats else '0' }}</h5>
+                                <small class="text-muted">PHI Items Redacted</small>
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-3 col-md-6 mb-4">
-                        <div class="card text-center">
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="card text-center border-warning">
                             <div class="card-body">
-                                <i class="fas fa-percentage fa-2x text-warning mb-3"></i>
-                                <h4 class="mb-1">{{ phi_stats.detection_accuracy if phi_stats else '0.0' }}%</h4>
-                                <p class="text-muted mb-0">Detection Accuracy</p>
+                                <i class="fas fa-percentage fa-2x text-warning mb-2"></i>
+                                <h5 class="mb-1">{{ phi_stats.detection_accuracy if phi_stats else '0.0' }}%</h5>
+                                <small class="text-muted">Detection Rate</small>
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-3 col-md-6 mb-4">
-                        <div class="card text-center">
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="card text-center border-primary">
                             <div class="card-body">
-                                <i class="fas fa-clock fa-2x text-danger mb-3"></i>
-                                <h4 class="mb-1">{{ phi_stats.avg_processing_time if phi_stats else '0.0' }}s</h4>
-                                <p class="text-muted mb-0">Avg Processing Time</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-lg-8">
-                        <div class="card">
-                            <div class="card-header">
-                                <h6 class="mb-0">
-                                    <i class="fas fa-chart-line me-2"></i>
-                                    PHI Detection Trends
-                                </h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="chart-container">
-                                    <canvas id="phiTrendsChart"></canvas>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-4">
-                        <div class="card">
-                            <div class="card-header">
-                                <h6 class="mb-0">
-                                    <i class="fas fa-list me-2"></i>
-                                    Detection Breakdown
-                                </h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="mb-3">
-                                    <div class="d-flex justify-content-between">
-                                        <span>Social Security Numbers</span>
-                                        <span class="badge bg-primary">{{ phi_breakdown.ssn_count if phi_breakdown else '0' }}</span>
-                                    </div>
-                                </div>
-                                <div class="mb-3">
-                                    <div class="d-flex justify-content-between">
-                                        <span>Phone Numbers</span>
-                                        <span class="badge bg-success">{{ phi_breakdown.phone_count if phi_breakdown else '0' }}</span>
-                                    </div>
-                                </div>
-                                <div class="mb-3">
-                                    <div class="d-flex justify-content-between">
-                                        <span>Email Addresses</span>
-                                        <span class="badge bg-info">{{ phi_breakdown.email_count if phi_breakdown else '0' }}</span>
-                                    </div>
-                                </div>
-                                <div class="mb-3">
-                                    <div class="d-flex justify-content-between">
-                                        <span>Medical Record Numbers</span>
-                                        <span class="badge bg-warning">{{ phi_breakdown.mrn_count if phi_breakdown else '0' }}</span>
-                                    </div>
-                                </div>
-                                <div class="mb-3">
-                                    <div class="d-flex justify-content-between">
-                                        <span>Names</span>
-                                        <span class="badge bg-secondary">{{ phi_breakdown.name_count if phi_breakdown else '0' }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Additional Charts Row -->
-                <div class="row mt-4">
-                    <div class="col-lg-6">
-                        <div class="card">
-                            <div class="card-header">
-                                <h6 class="mb-0">
-                                    <i class="fas fa-chart-pie me-2"></i>
-                                    PHI Type Distribution
-                                </h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="chart-container chart-small">
-                                    <canvas id="phiTypeChart"></canvas>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-6">
-                        <div class="card">
-                            <div class="card-header">
-                                <h6 class="mb-0">
-                                    <i class="fas fa-chart-bar me-2"></i>
-                                    Processing Efficiency
-                                </h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="chart-container chart-small">
-                                    <canvas id="efficiencyChart"></canvas>
-                                </div>
+                                <i class="fas fa-clock fa-2x text-primary mb-2"></i>
+                                <h5 class="mb-1">{{ phi_stats.avg_processing_time if phi_stats else '0.0' }}s</h5>
+                                <small class="text-muted">Avg Process Time</small>
                             </div>
                         </div>
                     </div>
@@ -633,17 +542,133 @@
                 </div>
             </div>
 
-            <!-- Customer Analytics Tab -->
+            <!-- Analytics Tab -->
             <div class="tab-pane fade {{ 'show active' if active_tab == 'analytics' else '' }}" id="nav-analytics" role="tabpanel" aria-labelledby="nav-analytics-tab">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h5 class="mb-0">
                         <i class="fas fa-chart-bar me-2"></i>
-                        Customer Value Analytics
+                        System Analytics & Performance
                     </h5>
                     <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-secondary active" data-period="monthly">Monthly</button>
-                        <button class="btn btn-outline-secondary" data-period="quarterly">Quarterly</button>
-                        <button class="btn btn-outline-secondary" data-period="yearly">Yearly</button>
+                        <button class="btn btn-outline-secondary active" data-period="today">Today</button>
+                        <button class="btn btn-outline-secondary" data-period="week">Week</button>
+                        <button class="btn btn-outline-secondary" data-period="month">Month</button>
+                        <button class="btn btn-outline-secondary" data-period="quarter">Quarter</button>
+                    </div>
+                </div>
+
+                <!-- PHI Analytics Section -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-primary">
+                            <i class="fas fa-user-shield me-2"></i>
+                            PHI Redaction Analytics
+                        </h6>
+                    </div>
+                </div>
+
+                <!-- PHI Detection Stats -->
+                <div class="row mb-4">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-chart-line me-2"></i>
+                                    PHI Detection Trends
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container">
+                                    <canvas id="phiTrendsChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-list me-2"></i>
+                                    Detection Breakdown
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Social Security Numbers</span>
+                                        <span class="badge bg-primary">{{ phi_breakdown.ssn_count if phi_breakdown else '0' }}</span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Phone Numbers</span>
+                                        <span class="badge bg-success">{{ phi_breakdown.phone_count if phi_breakdown else '0' }}</span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Email Addresses</span>
+                                        <span class="badge bg-info">{{ phi_breakdown.email_count if phi_breakdown else '0' }}</span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Medical Record Numbers</span>
+                                        <span class="badge bg-warning">{{ phi_breakdown.mrn_count if phi_breakdown else '0' }}</span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Names</span>
+                                        <span class="badge bg-secondary">{{ phi_breakdown.name_count if phi_breakdown else '0' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PHI Type Distribution and Processing Efficiency -->
+                <div class="row mb-4">
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-chart-pie me-2"></i>
+                                    PHI Type Distribution
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container chart-small">
+                                    <canvas id="phiTypeChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-chart-bar me-2"></i>
+                                    PHI Processing Efficiency
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container chart-small">
+                                    <canvas id="efficiencyChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Customer Value Analytics Section -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-success">
+                            <i class="fas fa-dollar-sign me-2"></i>
+                            Customer Value Analytics
+                        </h6>
                     </div>
                 </div>
                 <!-- Key Value Metrics -->
