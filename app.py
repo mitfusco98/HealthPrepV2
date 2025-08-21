@@ -29,7 +29,7 @@ migrate = Migrate()
 def create_app():
     """Create and configure Flask application"""
     app = Flask(__name__)
-    
+
     # Add proxy fix for proper URL generation behind reverse proxy
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
@@ -77,29 +77,29 @@ def create_app():
     def check_user_role_redirect():
         from flask_login import current_user
         from flask import request, redirect, url_for
-        
+
         # Skip for static files, auth routes, and API routes
         if (request.endpoint and 
             (request.endpoint.startswith('static') or 
              request.endpoint.startswith('auth.') or
              request.endpoint.startswith('api.'))):
             return
-        
+
         # If user is authenticated and trying to access wrong dashboard
         if current_user.is_authenticated:
             current_endpoint = request.endpoint
-            
+
             # Root admin trying to access regular admin dashboard (but not root admin dashboard)
             if (current_user.is_root_admin_user() and 
                 current_endpoint and current_endpoint.startswith('admin.') and
                 not current_endpoint.startswith('root_admin.')):
                 return redirect(url_for('root_admin.dashboard'))
-            
+
             # Regular admin trying to access root admin dashboard  
             elif (current_user.is_admin_user() and not current_user.is_root_admin_user() and
                   current_endpoint and current_endpoint.startswith('root_admin.')):
                 return redirect(url_for('admin.dashboard'))
-            
+
             # Regular user trying to access admin areas
             elif (not current_user.is_admin_user() and not current_user.is_root_admin_user() and
                   current_endpoint and (current_endpoint.startswith('admin.') or current_endpoint.startswith('root_admin.'))):
@@ -126,11 +126,11 @@ def create_app():
     def index():
         from flask_login import current_user
         from flask import session
-        
+
         if current_user.is_authenticated:
             # Clear any cached redirect to ensure proper role-based routing
             session.pop('_flashes', None)
-            
+
             # Redirect based on user role with explicit priority
             if current_user.is_root_admin_user():
                 return redirect(url_for('root_admin.dashboard'))
@@ -147,18 +147,22 @@ def register_blueprints(app):
     """Register all blueprints"""
     from routes.auth_routes import auth_bp
     from routes.admin_routes import admin_bp
-    from routes.root_admin_routes import root_admin_bp
     from routes.screening_routes import screening_bp
     from routes.prep_sheet_routes import prep_sheet_bp
+    from routes.document_routes import documents_bp
+    from routes.main_routes import main_bp
     from routes.api_routes import api_bp
-    from routes.emr_sync_routes import emr_sync_bp
-    from routes.fuzzy_detection_routes import fuzzy_bp
     from routes.fhir_routes import fhir_bp
+    from routes.ocr_routes import ocr_bp
+    from routes.root_admin_routes import root_admin_bp
+    from routes.emr_sync_routes import emr_sync_bp
     from routes.oauth_routes import oauth_bp
+    from routes.fuzzy_detection_routes import fuzzy_bp
     from routes.epic_admin_routes import epic_admin_bp
-    from routes.phi_test_routes import phi_test_bp
     from routes.epic_registration_routes import epic_registration_bp
-    from ui.routes import ui_bp
+    from routes.phi_test_routes import phi_test_bp
+    from routes.async_routes import async_bp
+
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(admin_bp, url_prefix='/admin')
@@ -171,9 +175,9 @@ def register_blueprints(app):
     app.register_blueprint(fhir_bp, url_prefix='/fhir')
     app.register_blueprint(oauth_bp, url_prefix='/fhir')
     app.register_blueprint(epic_admin_bp)  # Epic admin routes with /admin/epic prefix
-    app.register_blueprint(phi_test_bp)    # PHI testing routes with /admin/dashboard/phi prefix
     app.register_blueprint(epic_registration_bp)  # Epic registration management routes
-    app.register_blueprint(ui_bp)
+    app.register_blueprint(phi_test_bp)    # PHI testing routes with /admin/dashboard/phi prefix
+    app.register_blueprint(async_bp)
 
     # Exempt all API routes from CSRF
     csrf.exempt(api_bp)

@@ -1,4 +1,4 @@
-{% extends "base_admin.html" %}
+{% extends "admin/base_admin.html" %}
 
 {% block title %}Epic App Registration - {{ super() }}{% endblock %}
 
@@ -67,7 +67,7 @@
                             </h6>
                         </div>
                         <div class="card-body">
-                            <form action="{{ url_for('admin.update_epic_registration') }}" method="POST">
+                            <form action="{{ url_for('epic_registration.update_epic_registration') }}" method="POST">
                                 {{ csrf_token() }}
                                 
                                 <div class="row mb-3">
