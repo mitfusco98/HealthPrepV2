@@ -56,6 +56,12 @@ class Organization(db.Model):
     epic_token_expiry = db.Column(db.DateTime)  # Current token expiry for status display
     connection_retry_count = db.Column(db.Integer, default=0)  # Failed retry attempts counter
     next_token_check = db.Column(db.DateTime)  # When to check token expiry next
+    
+    # Epic App Registration Fields
+    epic_app_name = db.Column(db.String(200))  # Epic app name for registration
+    epic_app_description = db.Column(db.Text)  # Epic app description
+    epic_registration_status = db.Column(db.String(50), default='not_started')  # not_started, in_progress, pending_approval, approved, active
+    epic_registration_date = db.Column(db.DateTime)  # When Epic registration was completed
 
     # Organizational Settings
     setup_status = db.Column(db.String(20), default='incomplete')  # incomplete, live, trial, suspended
