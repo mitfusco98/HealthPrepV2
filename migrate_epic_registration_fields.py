@@ -18,9 +18,14 @@ def migrate_epic_registration_fields():
     
     with app.app_context():
         try:
-            # Check if epic_app_name column exists
-            result = db.session.execute(text("PRAGMA table_info(organizations)"))
-            columns = [row[1] for row in result.fetchall()]
+            # Check if columns exist using PostgreSQL information_schema
+            column_check_query = text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'organizations'
+            """)
+            result = db.session.execute(column_check_query)
+            columns = [row[0] for row in result.fetchall()]
             
             if 'epic_app_name' not in columns:
                 print("Adding epic_app_name column...")
@@ -36,7 +41,7 @@ def migrate_epic_registration_fields():
             
             if 'epic_registration_date' not in columns:
                 print("Adding epic_registration_date column...")
-                db.session.execute(text("ALTER TABLE organizations ADD COLUMN epic_registration_date DATETIME"))
+                db.session.execute(text("ALTER TABLE organizations ADD COLUMN epic_registration_date TIMESTAMP"))
             
             # Update existing organizations to have default registration status
             db.session.execute(text("UPDATE organizations SET epic_registration_status = 'not_started' WHERE epic_registration_status IS NULL"))
