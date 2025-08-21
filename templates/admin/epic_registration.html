@@ -1,0 +1,404 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Epic Registration - HealthPrep Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+.epic-progress {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 10px;
+    padding: 1rem;
+    color: white;
+    margin-bottom: 2rem;
+}
+
+.registration-step {
+    padding: 1.5rem;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+}
+
+.registration-step.active {
+    border-color: #0d6efd;
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+.registration-step.completed {
+    border-color: #198754;
+    background-color: rgba(25, 135, 84, 0.05);
+}
+
+.step-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+}
+
+.step-icon.pending {
+    background-color: #6c757d;
+    color: white;
+}
+
+.step-icon.active {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.step-icon.completed {
+    background-color: #198754;
+    color: white;
+}
+
+.scope-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    margin: 0.25rem;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-family: 'Courier New', monospace;
+}
+
+.connection-status {
+    padding: 1rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+}
+
+.connection-status.unknown {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+}
+
+.connection-status.success {
+    background-color: #d1e7dd;
+    border: 1px solid #badbcc;
+    color: #0f5132;
+}
+
+.connection-status.error {
+    background-color: #f8d7da;
+    border: 1px solid #f5c2c7;
+    color: #842029;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>
+                <i class="fas fa-hospital me-2"></i>
+                Epic SMART on FHIR Registration
+            </h2>
+            <p class="text-muted mb-0">Configure your organization's Epic EMR integration</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Registration Progress -->
+    <div class="epic-progress">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="mb-1">Registration Progress</h5>
+                <p class="mb-0">Organization: {{ organization.name }}</p>
+            </div>
+            <div class="text-end">
+                <div class="h3 mb-0">{{ progress_percentage }}%</div>
+                <small>Complete</small>
+            </div>
+        </div>
+        <div class="progress mt-3" style="height: 8px;">
+            <div class="progress-bar bg-light" role="progressbar" style="width: {{ progress_percentage }}%"></div>
+        </div>
+    </div>
+
+    <!-- Registration Steps -->
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Step 1: App Information -->
+            <div class="registration-step {{ 'completed' if registration_status in ['approved', 'active'] else ('active' if registration_status in ['not_started', 'in_progress'] else 'pending') }}">
+                <div class="d-flex align-items-start">
+                    <div class="step-icon {{ 'completed' if registration_status in ['approved', 'active'] else ('active' if registration_status in ['not_started', 'in_progress'] else 'pending') }}">
+                        {% if registration_status in ['approved', 'active'] %}
+                            <i class="fas fa-check"></i>
+                        {% else %}
+                            <span>1</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex-grow-1">
+                        <h5>App Information</h5>
+                        <p class="text-muted">Configure your Epic app details and credentials</p>
+                        
+                        <form id="appInfoForm">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">App Name</label>
+                                    <input type="text" class="form-control" id="epicAppName" 
+                                           value="{{ organization.epic_app_name or '' }}" 
+                                           placeholder="HealthPrep Integration">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Client ID</label>
+                                    <input type="text" class="form-control" id="epicClientId" 
+                                           value="{{ organization.epic_client_id or '' }}" 
+                                           placeholder="Your Epic Client ID">
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">App Description</label>
+                                <textarea class="form-control" id="epicAppDescription" rows="3" 
+                                          placeholder="Medical screening preparation system with FHIR integration">{{ organization.epic_app_description or '' }}</textarea>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Client Secret</label>
+                                    <input type="password" class="form-control" id="epicClientSecret" 
+                                           value="{{ organization.epic_client_secret or '' }}" 
+                                           placeholder="Your Epic Client Secret">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">FHIR Base URL</label>
+                                    <input type="url" class="form-control" id="epicFhirUrl" 
+                                           value="{{ organization.epic_fhir_url or '' }}" 
+                                           placeholder="https://fhir.epic.com/interconnect-fhir-oauth">
+                                </div>
+                            </div>
+                            
+                            <button type="button" class="btn btn-primary" onclick="saveAppInfo()">
+                                <i class="fas fa-save me-1"></i> Save App Information
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Required Scopes -->
+            <div class="registration-step {{ 'completed' if registration_status == 'active' else ('active' if registration_status in ['pending_approval', 'approved'] else 'pending') }}">
+                <div class="d-flex align-items-start">
+                    <div class="step-icon {{ 'completed' if registration_status == 'active' else ('active' if registration_status in ['pending_approval', 'approved'] else 'pending') }}">
+                        {% if registration_status == 'active' %}
+                            <i class="fas fa-check"></i>
+                        {% else %}
+                            <span>2</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex-grow-1">
+                        <h5>Required FHIR Scopes</h5>
+                        <p class="text-muted">These scopes will be requested during Epic registration</p>
+                        
+                        <div class="mb-3">
+                            {% for scope in epic_scopes %}
+                                <span class="scope-badge">{{ scope }}</span>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-1"></i>
+                            <strong>Note:</strong> These scopes enable HealthPrep to read patient data and write prep sheet documents back to Epic.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Connection Testing -->
+            <div class="registration-step {{ 'completed' if registration_status == 'active' else ('active' if registration_status == 'approved' else 'pending') }}">
+                <div class="d-flex align-items-start">
+                    <div class="step-icon {{ 'completed' if registration_status == 'active' else ('active' if registration_status == 'approved' else 'pending') }}">
+                        {% if registration_status == 'active' %}
+                            <i class="fas fa-check"></i>
+                        {% else %}
+                            <span>3</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex-grow-1">
+                        <h5>Connection Testing</h5>
+                        <p class="text-muted">Test your Epic FHIR connection</p>
+                        
+                        <button type="button" class="btn btn-outline-primary" onclick="testEpicConnection()" id="testConnectionBtn">
+                            <i class="fas fa-plug me-1"></i> Test Connection
+                        </button>
+                        
+                        <div id="connectionResult" class="connection-status unknown" style="display: none;">
+                            <div id="connectionMessage"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Registration Status Sidebar -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Registration Status
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>Current Status:</strong>
+                        <span class="badge bg-{{ 'success' if registration_status == 'active' else ('warning' if registration_status in ['pending_approval', 'approved'] else 'secondary') }} ms-2">
+                            {{ registration_status.replace('_', ' ').title() }}
+                        </span>
+                    </div>
+
+                    {% if organization.epic_registration_date %}
+                    <div class="mb-3">
+                        <strong>Registration Date:</strong><br>
+                        <small class="text-muted">{{ organization.epic_registration_date.strftime('%B %d, %Y') }}</small>
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <strong>Next Steps:</strong>
+                        <ul class="list-unstyled mt-2">
+                            {% if registration_status == 'not_started' %}
+                                <li><i class="fas fa-arrow-right text-primary me-1"></i> Fill in app information</li>
+                                <li><i class="fas fa-clock text-muted me-1"></i> Submit to Epic for approval</li>
+                                <li><i class="fas fa-clock text-muted me-1"></i> Test connection</li>
+                            {% elif registration_status == 'in_progress' %}
+                                <li><i class="fas fa-check text-success me-1"></i> App information completed</li>
+                                <li><i class="fas fa-arrow-right text-primary me-1"></i> Submit to Epic for approval</li>
+                                <li><i class="fas fa-clock text-muted me-1"></i> Test connection</li>
+                            {% elif registration_status == 'pending_approval' %}
+                                <li><i class="fas fa-check text-success me-1"></i> Submitted to Epic</li>
+                                <li><i class="fas fa-clock text-warning me-1"></i> Awaiting Epic approval</li>
+                                <li><i class="fas fa-clock text-muted me-1"></i> Test connection</li>
+                            {% elif registration_status == 'approved' %}
+                                <li><i class="fas fa-check text-success me-1"></i> Epic approval received</li>
+                                <li><i class="fas fa-arrow-right text-primary me-1"></i> Test connection</li>
+                                <li><i class="fas fa-clock text-muted me-1"></i> Activate integration</li>
+                            {% elif registration_status == 'active' %}
+                                <li><i class="fas fa-check text-success me-1"></i> Epic integration active</li>
+                                <li><i class="fas fa-check text-success me-1"></i> Ready for production use</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+
+                    {% if registration_status != 'active' %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        <strong>Important:</strong> Epic registration can take 1-2 business days for approval.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Epic Resources -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-external-link-alt me-1"></i>
+                        Epic Resources
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <a href="https://fhir.epic.com/Documentation" target="_blank" class="list-group-item list-group-item-action">
+                            <i class="fas fa-book me-2"></i>
+                            Epic FHIR Documentation
+                        </a>
+                        <a href="https://fhir.epic.com/Sandbox" target="_blank" class="list-group-item list-group-item-action">
+                            <i class="fas fa-flask me-2"></i>
+                            Epic FHIR Sandbox
+                        </a>
+                        <a href="https://galaxy.epic.com/Vendors" target="_blank" class="list-group-item list-group-item-action">
+                            <i class="fas fa-store me-2"></i>
+                            Epic App Orchard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function saveAppInfo() {
+    const data = {
+        epic_app_name: document.getElementById('epicAppName').value,
+        epic_app_description: document.getElementById('epicAppDescription').value,
+        epic_client_id: document.getElementById('epicClientId').value,
+        epic_client_secret: document.getElementById('epicClientSecret').value,
+        epic_fhir_url: document.getElementById('epicFhirUrl').value,
+        epic_registration_status: 'in_progress'
+    };
+
+    fetch('{{ url_for("epic_registration.update_epic_registration") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Epic app information saved successfully!');
+            location.reload();
+        } else {
+            alert('Error saving app information: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error saving app information');
+    });
+}
+
+function testEpicConnection() {
+    const btn = document.getElementById('testConnectionBtn');
+    const result = document.getElementById('connectionResult');
+    const message = document.getElementById('connectionMessage');
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Testing...';
+    
+    fetch('{{ url_for("epic_registration.test_epic_connection") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        result.style.display = 'block';
+        if (data.success) {
+            result.className = 'connection-status success';
+            message.innerHTML = '<i class="fas fa-check-circle me-1"></i>' + data.message;
+        } else {
+            result.className = 'connection-status error';
+            message.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>' + data.error;
+        }
+    })
+    .catch(error => {
+        result.style.display = 'block';
+        result.className = 'connection-status error';
+        message.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>Connection test failed';
+        console.error('Error:', error);
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-plug me-1"></i> Test Connection';
+    });
+}
+</script>
+{% endblock %}
