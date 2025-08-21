@@ -71,7 +71,7 @@ class PHIFilter:
             return text
         
         settings = self._get_filter_settings()
-        if not settings.filter_enabled:
+        if not settings.enabled:
             return text
         
         filtered_text = text

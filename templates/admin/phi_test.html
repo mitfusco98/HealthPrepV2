@@ -1,0 +1,561 @@
+{% extends "base_admin.html" %}
+
+{% block title %}PHI Filter Testing - HealthPrep Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">PHI Filter Testing</h1>
+            <p class="text-muted">Test and validate PHI redaction for HIPAA compliance</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.dashboard', tab='phi') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>
+                Back to PHI Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Current Settings Summary -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cog me-2"></i>
+                        Current PHI Filter Settings
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <strong>Status:</strong>
+                            <span class="badge bg-{{ 'success' if phi_settings.enabled else 'danger' }} ms-2">
+                                {{ 'Enabled' if phi_settings.enabled else 'Disabled' }}
+                            </span>
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Filter Names:</strong>
+                            <span class="badge bg-{{ 'success' if phi_settings.filter_names else 'secondary' }} ms-2">
+                                {{ 'Enabled' if phi_settings.filter_names else 'Disabled' }}
+                            </span>
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Filter SSN:</strong>
+                            <span class="badge bg-{{ 'success' if phi_settings.filter_ssn else 'secondary' }} ms-2">
+                                {{ 'Enabled' if phi_settings.filter_ssn else 'Disabled' }}
+                            </span>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-sm btn-outline-primary" onclick="showSettingsModal()">
+                                <i class="fas fa-edit me-1"></i>
+                                Adjust Settings
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Test Interface -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-flask me-2"></i>
+                        PHI Filter Test
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Input Section -->
+                    <div class="mb-4">
+                        <label for="testInput" class="form-label">
+                            <strong>Test Input</strong>
+                            <small class="text-muted">(Enter text containing potential PHI)</small>
+                        </label>
+                        <textarea id="testInput" 
+                                class="form-control" 
+                                rows="4" 
+                                placeholder="Enter text to test PHI filtering...&#10;&#10;Example:&#10;Patient: John Doe&#10;SSN: 123-45-6789&#10;Address: 123 Main St, Anytown, CA 90210&#10;Phone: (555) 123-4567"></textarea>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="mb-4">
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-primary" onclick="processPHITest()">
+                                <i class="fas fa-filter me-1"></i>
+                                Process Text
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="clearTest()">
+                                <i class="fas fa-broom me-1"></i>
+                                Clear
+                            </button>
+                            <button type="button" class="btn btn-outline-info" onclick="runBatchTest()">
+                                <i class="fas fa-tasks me-1"></i>
+                                Run Batch Test
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Results Section -->
+                    <div id="resultsSection" style="display: none;">
+                        <hr>
+                        <h6>Results</h6>
+                        
+                        <!-- Before/After Comparison -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label text-danger">
+                                    <strong>Original Text</strong>
+                                </label>
+                                <div id="originalText" class="border p-3 bg-light rounded"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-success">
+                                    <strong>Filtered Text</strong>
+                                </label>
+                                <div id="filteredText" class="border p-3 bg-light rounded"></div>
+                            </div>
+                        </div>
+
+                        <!-- Detection Analysis -->
+                        <div id="analysisSection">
+                            <h6>Detection Analysis</h6>
+                            <div id="detectionStats" class="mb-3"></div>
+                            <div id="detectionList"></div>
+                        </div>
+                    </div>
+
+                    <!-- Batch Test Results -->
+                    <div id="batchResultsSection" style="display: none;">
+                        <hr>
+                        <h6>Batch Test Results</h6>
+                        <div id="batchSummary" class="mb-3"></div>
+                        <div id="batchDetails"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Samples & Quick Actions -->
+        <div class="col-lg-4">
+            <!-- Quick Test Samples -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-list me-2"></i>
+                        Quick Test Samples
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% for sample in test_samples %}
+                    <div class="mb-3">
+                        <h6 class="text-primary">{{ sample.name }}</h6>
+                        {% for example in sample.examples %}
+                        <div class="border rounded p-2 mb-2 bg-light">
+                            <small class="font-monospace">{{ example }}</small>
+                            <button class="btn btn-sm btn-outline-primary float-end" 
+                                    onclick="loadSample('{{ example|replace("'", "\\'") }}')">
+                                <i class="fas fa-arrow-left"></i>
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Testing Guidelines -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Testing Guidelines
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <small class="text-muted">
+                        <p><strong>PHI Types to Test:</strong></p>
+                        <ul class="mb-3">
+                            <li>Social Security Numbers</li>
+                            <li>Names and Personal Identifiers</li>
+                            <li>Addresses</li>
+                            <li>Phone Numbers</li>
+                            <li>Email Addresses</li>
+                            <li>Dates (DOB, appointments)</li>
+                            <li>Medical Record Numbers</li>
+                        </ul>
+                        
+                        <p><strong>Best Practices:</strong></p>
+                        <ul class="mb-0">
+                            <li>Test various formats of the same data type</li>
+                            <li>Include mixed content scenarios</li>
+                            <li>Verify edge cases and false positives</li>
+                            <li>Document any unexpected results</li>
+                        </ul>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal fade" id="settingsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">PHI Filter Settings</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="settingsForm">
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="phiEnabled" 
+                                   {{ 'checked' if phi_settings.enabled else '' }}>
+                            <label class="form-check-label" for="phiEnabled">
+                                Enable PHI Filtering
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Filter Types</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="filterSSN" 
+                                   {{ 'checked' if phi_settings.filter_ssn else '' }}>
+                            <label class="form-check-label" for="filterSSN">
+                                Filter Social Security Numbers
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="filterPhone" 
+                                   {{ 'checked' if phi_settings.filter_phone else '' }}>
+                            <label class="form-check-label" for="filterPhone">
+                                Filter Phone Numbers
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="filterNames" 
+                                   {{ 'checked' if phi_settings.filter_names else '' }}>
+                            <label class="form-check-label" for="filterNames">
+                                Filter Names
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="filterAddresses" 
+                                   {{ 'checked' if phi_settings.filter_addresses else '' }}>
+                            <label class="form-check-label" for="filterAddresses">
+                                Filter Addresses
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="updateSettings()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function loadSample(text) {
+    document.getElementById('testInput').value = text;
+}
+
+function clearTest() {
+    document.getElementById('testInput').value = '';
+    document.getElementById('resultsSection').style.display = 'none';
+    document.getElementById('batchResultsSection').style.display = 'none';
+}
+
+function processPHITest() {
+    const input = document.getElementById('testInput').value.trim();
+    
+    if (!input) {
+        showToast('Please enter some text to test', 'warning');
+        return;
+    }
+    
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Processing...';
+    
+    fetch('/admin/dashboard/phi/process', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken()
+        },
+        body: JSON.stringify({
+            input: input
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayResults(data);
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        showToast('Request failed: ' + error.message, 'error');
+        console.error('PHI test error:', error);
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+}
+
+function displayResults(data) {
+    // Show results section
+    document.getElementById('resultsSection').style.display = 'block';
+    document.getElementById('batchResultsSection').style.display = 'none';
+    
+    // Display original and filtered text
+    document.getElementById('originalText').innerHTML = escapeHtml(data.original);
+    document.getElementById('filteredText').innerHTML = escapeHtml(data.filtered);
+    
+    // Display statistics
+    const stats = data.analysis.stats;
+    document.getElementById('detectionStats').innerHTML = `
+        <div class="row">
+            <div class="col-md-4">
+                <div class="text-center">
+                    <div class="h4 text-primary">${data.analysis.detections.length}</div>
+                    <small class="text-muted">PHI Detections</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center">
+                    <div class="h4 text-warning">${stats.redacted_characters}</div>
+                    <small class="text-muted">Characters Redacted</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center">
+                    <div class="h4 text-info">${stats.redaction_percentage}%</div>
+                    <small class="text-muted">Redaction Rate</small>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Display detection details
+    if (data.analysis.detections.length > 0) {
+        let detectionHtml = '<div class="table-responsive"><table class="table table-sm table-striped">';
+        detectionHtml += '<thead><tr><th>Original</th><th>Replacement</th><th>PHI Type</th><th>Position</th></tr></thead><tbody>';
+        
+        data.analysis.detections.forEach(detection => {
+            detectionHtml += `
+                <tr>
+                    <td><code class="text-danger">${escapeHtml(detection.original)}</code></td>
+                    <td><code class="text-success">${escapeHtml(detection.replacement)}</code></td>
+                    <td><span class="badge bg-secondary">${detection.phi_type}</span></td>
+                    <td>${detection.position}</td>
+                </tr>
+            `;
+        });
+        
+        detectionHtml += '</tbody></table></div>';
+        document.getElementById('detectionList').innerHTML = detectionHtml;
+    } else {
+        document.getElementById('detectionList').innerHTML = '<div class="alert alert-info">No PHI detected in the input text.</div>';
+    }
+}
+
+function runBatchTest() {
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Running...';
+    
+    fetch('/admin/dashboard/phi/batch-test', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken()
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayBatchResults(data);
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        showToast('Batch test failed: ' + error.message, 'error');
+        console.error('Batch test error:', error);
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+}
+
+function displayBatchResults(data) {
+    // Show batch results section
+    document.getElementById('batchResultsSection').style.display = 'block';
+    document.getElementById('resultsSection').style.display = 'none';
+    
+    // Display summary
+    const summary = data.summary;
+    document.getElementById('batchSummary').innerHTML = `
+        <div class="row">
+            <div class="col-md-4">
+                <div class="text-center">
+                    <div class="h4 text-primary">${summary.total_tests}</div>
+                    <small class="text-muted">Test Cases</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center">
+                    <div class="h4 text-warning">${summary.total_detections}</div>
+                    <small class="text-muted">Total Detections</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center">
+                    <div class="h4 text-info">${summary.average_detections.toFixed(1)}</div>
+                    <small class="text-muted">Avg per Test</small>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Display detailed results
+    let detailsHtml = '';
+    data.results.forEach(result => {
+        detailsHtml += `
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        Test Case ${result.test_id}
+                        <span class="badge bg-info ms-2">${result.detections} detections</span>
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small class="text-muted">Original:</small>
+                            <div class="border p-2 bg-light rounded"><small>${escapeHtml(result.original)}</small></div>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted">Filtered:</small>
+                            <div class="border p-2 bg-light rounded"><small>${escapeHtml(result.filtered)}</small></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    document.getElementById('batchDetails').innerHTML = detailsHtml;
+}
+
+function showSettingsModal() {
+    new bootstrap.Modal(document.getElementById('settingsModal')).show();
+}
+
+// Removed updateThresholdDisplay as we're using checkboxes instead of threshold slider
+
+function updateSettings() {
+    const enabled = document.getElementById('phiEnabled').checked;
+    const filterSSN = document.getElementById('filterSSN').checked;
+    const filterPhone = document.getElementById('filterPhone').checked;
+    const filterNames = document.getElementById('filterNames').checked;
+    const filterAddresses = document.getElementById('filterAddresses').checked;
+    
+    fetch('/admin/dashboard/phi/update-settings', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCSRFToken()
+        },
+        body: JSON.stringify({
+            enabled: enabled,
+            filter_ssn: filterSSN,
+            filter_phone: filterPhone,
+            filter_names: filterNames,
+            filter_addresses: filterAddresses
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Settings updated successfully', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('settingsModal')).hide();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        showToast('Update failed: ' + error.message, 'error');
+        console.error('Settings update error:', error);
+    });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function getCSRFToken() {
+    return document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || '';
+}
+
+function showToast(message, type = 'info') {
+    // Simple toast implementation - you can enhance this
+    const toastHtml = `
+        <div class="toast align-items-center text-white bg-${type === 'error' ? 'danger' : type} border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    `;
+    
+    // Add to toast container or create one
+    let container = document.getElementById('toastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(container);
+    }
+    
+    container.innerHTML = toastHtml;
+    const toast = new bootstrap.Toast(container.querySelector('.toast'));
+    toast.show();
+}
+</script>
+
+<style>
+.font-monospace {
+    font-family: 'Courier New', monospace !important;
+}
+
+#originalText, #filteredText {
+    min-height: 60px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.table code {
+    font-size: 0.875em;
+}
+</style>
+{% endblock %}
