@@ -61,6 +61,11 @@
                     <span class="d-none d-md-inline">PHI Filter</span>
                     <span class="d-md-none">PHI</span>
                 </a>
+                <a class="nav-link flex-fill text-center small {{ 'active' if active_tab == 'epic' else '' }}" href="{{ url_for('epic_registration.epic_registration') }}" style="min-width: 0; padding: 0.5rem 0.25rem;">
+                    <i class="fas fa-hospital me-1"></i>
+                    <span class="d-none d-md-inline">Epic Registration</span>
+                    <span class="d-md-none">Epic</span>
+                </a>
                 <a class="nav-link flex-fill text-center small {{ 'active' if active_tab == 'analytics' else '' }}" href="{{ url_for('admin.dashboard_analytics') }}" style="min-width: 0; padding: 0.5rem 0.25rem;">
                     <i class="fas fa-chart-bar me-1"></i>
                     <span class="d-none d-md-inline">Customer Analytics</span>
