@@ -1,0 +1,46 @@
+[2025-08-21 21:17:38 +0000] [3102] [ERROR] Exception in worker process
+Traceback (most recent call last):
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/gunicorn/arbiter.py", line 608, in spawn_worker
+    worker.init_process()
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/gunicorn/workers/base.py", line 135, in init_process
+    self.load_wsgi()
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/gunicorn/workers/base.py", line 147, in load_wsgi
+    self.wsgi = self.app.wsgi()
+                ^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/gunicorn/app/base.py", line 66, in wsgi
+    self.callable = self.load()
+                    ^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/gunicorn/app/wsgiapp.py", line 57, in load
+    return self.load_wsgiapp()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/gunicorn/app/wsgiapp.py", line 47, in load_wsgiapp
+    return util.import_app(self.app_uri)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/gunicorn/util.py", line 370, in import_app
+    mod = importlib.import_module(module)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/nix/store/7d088dip86hlzri9sk0h78b63yfmx0a0-python3-3.11.13/lib/python3.11/importlib/__init__.py", line 126, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1204, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 940, in exec_module
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "/home/runner/workspace/main.py", line 14, in <module>
+    app = create_app()
+          ^^^^^^^^^^^^
+  File "/home/runner/workspace/app.py", line 109, in create_app
+    register_blueprints(app)
+  File "/home/runner/workspace/app.py", line 164, in register_blueprints
+    from routes.async_routes import async_bp
+  File "/home/runner/workspace/routes/async_routes.py", line 12, in <module>
+    from services.async_processing import get_async_processing_service
+  File "/home/runner/workspace/services/async_processing.py", line 13, in <module>
+    from rq import Queue, Worker, Job
+ImportError: cannot import name 'Job' from 'rq' (/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/rq/__init__.py)
+[2025-08-21 21:17:38 +0000] [3102] [INFO] Worker exiting (pid: 3102)
+[2025-08-21 21:17:38 +0000] [3079] [ERROR] Worker (pid:3102) exited with code 3
+[2025-08-21 21:17:38 +0000] [3079] [ERROR] Shutting down: Master
+[2025-08-21 21:17:38 +0000] [3079] [ERROR] Reason: Worker failed to boot.
