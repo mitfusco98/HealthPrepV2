@@ -157,6 +157,7 @@ def register_blueprints(app):
     from routes.oauth_routes import oauth_bp
     from routes.epic_admin_routes import epic_admin_bp
     from routes.phi_test_routes import phi_test_bp
+    from routes.epic_registration_routes import epic_registration_bp
     from ui.routes import ui_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -171,6 +172,7 @@ def register_blueprints(app):
     app.register_blueprint(oauth_bp, url_prefix='/fhir')
     app.register_blueprint(epic_admin_bp)  # Epic admin routes with /admin/epic prefix
     app.register_blueprint(phi_test_bp)    # PHI testing routes with /admin/dashboard/phi prefix
+    app.register_blueprint(epic_registration_bp)  # Epic registration management routes
     app.register_blueprint(ui_bp)
 
     # Exempt all API routes from CSRF

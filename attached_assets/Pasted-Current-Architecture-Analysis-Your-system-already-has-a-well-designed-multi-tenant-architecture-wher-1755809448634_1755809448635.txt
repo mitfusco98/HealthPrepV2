@@ -1,0 +1,35 @@
+Current Architecture Analysis
+Your system already has a well-designed multi-tenant architecture where:
+
+Each organization manages its own Epic credentials - This is evident from the Organization model having Epic-specific fields (epic_client_id, epic_client_secret, epic_fhir_url)
+
+Organization admins handle their own integrations - The existing FHIR routes in routes/fhir_routes.py show that organization admins can configure Epic settings
+
+Epic credentials are organization-scoped - The services/epic_fhir_service.py and emr/epic_integration.py services work with organization-specific configurations
+
+Recommended Approach
+Organization-level Epic registration with root admin oversight:
+
+Primary Interface: Organization Admin Dashboard
+Organization admins should register their own Epic apps
+They know their specific Epic environment (sandbox vs production)
+They have the clinical context for required scopes
+They can manage their own OAuth redirect URIs
+Root Admin Role: Oversight & Support
+Monitor Epic connection status across organizations
+Provide guidance and templates for Epic registration
+Troubleshoot connection issues
+Manage global Epic-related settings
+Implementation Strategy
+The current architecture already supports this - you just need to enhance the existing Epic configuration interface in the organization admin dashboard to include:
+
+Epic App Registration Guidance - Step-by-step instructions
+Scope Management - Predefined scope sets based on HealthPrep needs
+Connection Testing - Validation tools for Epic credentials
+Status Monitoring - Connection health checks
+The root admin dashboard should have an Epic Overview section showing:
+
+Which organizations have Epic configured
+Connection status across all organizations
+Organizations needing attention
+This approach maintains the multi-tenant design principle while providing appropriate administrative oversight. Each clinic/organization can manage their own Epic integration independently, which is essential for Epic's app registration process since each organization will have their own Epic instance and specific requirements.

@@ -1,0 +1,349 @@
+{% extends "base_admin.html" %}
+
+{% block title %}Epic App Registration - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4>
+                    <i class="fas fa-hospital me-2"></i>
+                    Epic App Registration Management
+                </h4>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
+                        <li class="breadcrumb-item active">Epic Registration</li>
+                    </ol>
+                </nav>
+            </div>
+
+            <!-- Registration Status Overview -->
+            <div class="row mb-4">
+                <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="card border-{% if current_user.organization.epic_registration_status == 'approved' %}success{% elif current_user.organization.epic_registration_status == 'pending' %}warning{% elif current_user.organization.epic_registration_status == 'rejected' %}danger{% else %}secondary{% endif %}">
+                        <div class="card-body text-center">
+                            <i class="fas fa-{% if current_user.organization.epic_registration_status == 'approved' %}check-circle{% elif current_user.organization.epic_registration_status == 'pending' %}clock{% elif current_user.organization.epic_registration_status == 'rejected' %}times-circle{% else %}question-circle{% endif %} fa-2x mb-3"></i>
+                            <h5>Registration Status</h5>
+                            <span class="badge bg-{% if current_user.organization.epic_registration_status == 'approved' %}success{% elif current_user.organization.epic_registration_status == 'pending' %}warning{% elif current_user.organization.epic_registration_status == 'rejected' %}danger{% else %}secondary{% endif %} fs-6">
+                                {{ current_user.organization.epic_registration_status.replace('_', ' ').title() }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="card border-info">
+                        <div class="card-body text-center">
+                            <i class="fas fa-calendar fa-2x text-info mb-3"></i>
+                            <h5>Registration Date</h5>
+                            <small class="text-muted">
+                                {{ current_user.organization.epic_registration_date.strftime('%B %d, %Y') if current_user.organization.epic_registration_date else 'Not registered' }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="card border-primary">
+                        <div class="card-body text-center">
+                            <i class="fas fa-key fa-2x text-primary mb-3"></i>
+                            <h5>Epic Environment</h5>
+                            <span class="badge bg-{% if current_user.organization.epic_environment == 'production' %}success{% else %}info{% endif %} fs-6">
+                                {{ current_user.organization.epic_environment.title() }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Registration Form -->
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="fas fa-edit me-2"></i>
+                                Epic App Registration Details
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <form action="{{ url_for('admin.update_epic_registration') }}" method="POST">
+                                {{ csrf_token() }}
+                                
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="epicAppName" class="form-label">App Name *</label>
+                                        <input type="text" class="form-control" id="epicAppName" name="epic_app_name" 
+                                               value="{{ current_user.organization.epic_app_name or '' }}" 
+                                               placeholder="HealthPrep Medical Screening">
+                                        <small class="form-text text-muted">Name displayed in Epic's app directory</small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="epicClientId" class="form-label">Client ID</label>
+                                        <input type="text" class="form-control" id="epicClientId" name="epic_client_id" 
+                                               value="{{ current_user.organization.epic_client_id or '' }}" 
+                                               placeholder="Provided by Epic after registration">
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="epicAppDescription" class="form-label">App Description *</label>
+                                    <textarea class="form-control" id="epicAppDescription" name="epic_app_description" rows="3" 
+                                              placeholder="Brief description of HealthPrep's functionality for Epic users">{{ current_user.organization.epic_app_description or '' }}</textarea>
+                                    <small class="form-text text-muted">Describe how HealthPrep helps clinicians with patient preparation</small>
+                                </div>
+
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="epicEnvironment" class="form-label">Epic Environment</label>
+                                        <select class="form-select" id="epicEnvironment" name="epic_environment">
+                                            <option value="sandbox" {{ 'selected' if current_user.organization.epic_environment == 'sandbox' else '' }}>Sandbox (Testing)</option>
+                                            <option value="production" {{ 'selected' if current_user.organization.epic_environment == 'production' else '' }}>Production</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="epicRegistrationStatus" class="form-label">Registration Status</label>
+                                        <select class="form-select" id="epicRegistrationStatus" name="epic_registration_status">
+                                            <option value="not_started" {{ 'selected' if current_user.organization.epic_registration_status == 'not_started' else '' }}>Not Started</option>
+                                            <option value="pending" {{ 'selected' if current_user.organization.epic_registration_status == 'pending' else '' }}>Pending Approval</option>
+                                            <option value="approved" {{ 'selected' if current_user.organization.epic_registration_status == 'approved' else '' }}>Approved</option>
+                                            <option value="rejected" {{ 'selected' if current_user.organization.epic_registration_status == 'rejected' else '' }}>Rejected</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="epicRedirectUris" class="form-label">Redirect URIs</label>
+                                    <textarea class="form-control" id="epicRedirectUris" name="epic_redirect_uris" rows="2" 
+                                              placeholder="https://yourdomain.com/fhir/epic-callback&#10;https://yourdomain.replit.app/fhir/epic-callback">{{ current_user.organization.epic_redirect_uris or '' }}</textarea>
+                                    <small class="form-text text-muted">One URI per line. Must match exactly with Epic registration.</small>
+                                </div>
+
+                                <div class="d-flex justify-content-between">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-save me-1"></i>
+                                        Update Registration
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info" onclick="testEpicConnection()">
+                                        <i class="fas fa-vial me-1"></i>
+                                        Test Connection
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Epic Registration Guide -->
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Epic Registration Steps
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="timeline">
+                                <div class="timeline-item">
+                                    <div class="timeline-marker bg-primary"></div>
+                                    <div class="timeline-content">
+                                        <h6 class="timeline-title">1. Visit open.epic.com</h6>
+                                        <p class="small text-muted">Create developer account and access Epic's developer portal</p>
+                                    </div>
+                                </div>
+                                <div class="timeline-item">
+                                    <div class="timeline-marker bg-info"></div>
+                                    <div class="timeline-content">
+                                        <h6 class="timeline-title">2. Create FHIR App</h6>
+                                        <p class="small text-muted">Register as "Provider-facing standalone app" with required scopes</p>
+                                    </div>
+                                </div>
+                                <div class="timeline-item">
+                                    <div class="timeline-marker bg-warning"></div>
+                                    <div class="timeline-content">
+                                        <h6 class="timeline-title">3. Configure Scopes</h6>
+                                        <p class="small text-muted">Request patient read/write permissions and DocumentReference access</p>
+                                    </div>
+                                </div>
+                                <div class="timeline-item">
+                                    <div class="timeline-marker bg-success"></div>
+                                    <div class="timeline-content">
+                                        <h6 class="timeline-title">4. Update Settings</h6>
+                                        <p class="small text-muted">Enter Client ID and redirect URIs in the form above</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Required Scopes -->
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="fas fa-key me-2"></i>
+                                Required Epic Scopes
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="scope-list">
+                                <div class="scope-item mb-2">
+                                    <small class="badge bg-primary me-2">READ</small>
+                                    <code class="small">patient/Patient.read</code>
+                                </div>
+                                <div class="scope-item mb-2">
+                                    <small class="badge bg-primary me-2">READ</small>
+                                    <code class="small">patient/Condition.read</code>
+                                </div>
+                                <div class="scope-item mb-2">
+                                    <small class="badge bg-primary me-2">READ</small>
+                                    <code class="small">patient/Observation.read</code>
+                                </div>
+                                <div class="scope-item mb-2">
+                                    <small class="badge bg-success me-2">WRITE</small>
+                                    <code class="small">patient/DocumentReference.write</code>
+                                </div>
+                                <div class="scope-item mb-2">
+                                    <small class="badge bg-info me-2">AUTH</small>
+                                    <code class="small">openid fhirUser</code>
+                                </div>
+                                <div class="scope-item mb-2">
+                                    <small class="badge bg-warning me-2">TOKEN</small>
+                                    <code class="small">offline_access</code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Connection Status -->
+            {% if current_user.organization.epic_client_id %}
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="fas fa-plug me-2"></i>
+                                Epic Connection Status
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            {% set epic_status = current_user.organization.get_epic_connection_status() %}
+                            <div class="row align-items-center">
+                                <div class="col-md-8">
+                                    <div class="d-flex align-items-center">
+                                        <span class="badge bg-{{ epic_status.status_class }} me-3 fs-6">
+                                            {{ epic_status.status_message }}
+                                        </span>
+                                        {% if epic_status.last_sync %}
+                                        <small class="text-muted">
+                                            Last sync: {{ epic_status.last_sync.strftime('%Y-%m-%d %H:%M UTC') }}
+                                        </small>
+                                        {% endif %}
+                                    </div>
+                                    {% if epic_status.last_error %}
+                                    <div class="mt-2">
+                                        <small class="text-danger">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>
+                                            {{ epic_status.last_error }}
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <a href="{{ url_for('fhir.epic_authorize') }}" class="btn btn-primary">
+                                        <i class="fas fa-link me-1"></i>
+                                        {% if epic_status.is_connected %}Re-authorize{% else %}Connect to Epic{% endif %}
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+/* Timeline styles */
+.timeline {
+    position: relative;
+    padding-left: 20px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #dee2e6;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -15px;
+    top: 2px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    z-index: 1;
+}
+
+.timeline-content {
+    margin-left: 15px;
+}
+
+.timeline-title {
+    margin-bottom: 5px;
+    font-size: 0.9rem;
+}
+
+/* Scope list styles */
+.scope-item {
+    display: flex;
+    align-items: center;
+}
+
+.scope-item code {
+    background: #f8f9fa;
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid #e9ecef;
+}
+</style>
+
+<script>
+function testEpicConnection() {
+    // Test Epic connection functionality
+    fetch('{{ url_for("admin.test_epic_connection") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name="csrf_token"]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Epic connection test successful!');
+        } else {
+            alert('❌ Epic connection test failed: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('❌ Error testing connection: ' + error.message);
+    });
+}
+</script>
+{% endblock %}

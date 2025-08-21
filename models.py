@@ -33,6 +33,14 @@ class Organization(db.Model):
     epic_fhir_url = db.Column(db.String(255))  # Epic FHIR base URL (sandbox default)
     epic_environment = db.Column(db.String(20), default='sandbox')  # sandbox, production
     
+    # Epic App Registration Status - New fields for registration workflow
+    epic_app_name = db.Column(db.String(200))  # App name registered with Epic
+    epic_app_description = db.Column(db.Text)  # App description for Epic registration
+    epic_registration_status = db.Column(db.String(50), default='not_started')  # not_started, pending, approved, rejected
+    epic_registration_date = db.Column(db.DateTime)  # When app was registered with Epic
+    epic_approved_scopes = db.Column(db.Text)  # JSON list of approved scopes from Epic
+    epic_redirect_uris = db.Column(db.Text)  # JSON list of approved redirect URIs
+    
     # Production Epic Configuration (varies per organization)
     epic_production_base_url = db.Column(db.String(500))  # Production FHIR URL (unique per Epic customer)
     epic_endpoint_id = db.Column(db.String(100))  # Epic endpoint identifier from open.epic.com

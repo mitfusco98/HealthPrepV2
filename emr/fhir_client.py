@@ -50,7 +50,7 @@ class FHIRClient:
         self.token_expires = None
         self.token_scopes = None
         
-        # SMART on FHIR scopes for Epic integration
+        # SMART on FHIR scopes for Epic integration - Updated for app registration requirements
         self.default_scopes = [
             'openid',
             'fhirUser',
@@ -58,12 +58,15 @@ class FHIRClient:
             'patient/Condition.read', 
             'patient/Observation.read',
             'patient/DocumentReference.read',
+            'patient/DocumentReference.write',  # Required for writing prep sheets back to Epic
             'patient/Encounter.read',
             'user/Patient.read',
             'user/Condition.read',
             'user/Observation.read',
             'user/DocumentReference.read',
-            'user/Encounter.read'
+            'user/DocumentReference.write',  # User-level write access
+            'user/Encounter.read',
+            'offline_access'  # Required for refresh tokens in Epic
         ]
         
         self.logger = logging.getLogger(__name__)
@@ -135,7 +138,7 @@ class FHIRClient:
         if not self.refresh_token:
             error_msg = "No refresh token available for token refresh"
             self.logger.warning(error_msg)
-            self._update_organization_status(False, error_msg)
+            self._update_organization_status(False, error_msg, datetime.now())
             return False
         
         try:
@@ -162,7 +165,7 @@ class FHIRClient:
             self.token_expires = datetime.now() + timedelta(seconds=expires_in)
             
             # Update organization connection status (success)
-            self._update_organization_status(True, None, self.token_expires)
+            self._update_organization_status(True, "", self.token_expires or datetime.now() + timedelta(seconds=3600))
             
             self.logger.info(f"Successfully refreshed Epic access token, expires in {expires_in} seconds")
             return True
@@ -173,13 +176,13 @@ class FHIRClient:
             else:
                 error_msg = f"HTTP {e.response.status_code} error during token refresh: {str(e)}"
             self.logger.error(error_msg)
-            self._update_organization_status(False, error_msg)
+            self._update_organization_status(False, error_msg, datetime.now())
             return False
             
         except Exception as e:
             error_msg = f"Token refresh failed: {str(e)}"
             self.logger.error(error_msg)
-            self._update_organization_status(False, error_msg)
+            self._update_organization_status(False, error_msg, datetime.now())
             return False
     
     def _update_organization_status(self, is_connected: bool, error_message: str = None, token_expiry: datetime = None):
@@ -263,18 +266,18 @@ class FHIRClient:
                         else:
                             error_msg = "Token refresh failed after 401 error"
                             self.logger.error(error_msg)
-                            self._update_organization_status(False, error_msg)
+                            self._update_organization_status(False, error_msg, datetime.now())
                             return None
                     else:
                         error_msg = "Max retries reached for 401 error - re-authentication required"
                         self.logger.error(error_msg)
-                        self._update_organization_status(False, error_msg)
+                        self._update_organization_status(False, error_msg, datetime.now())
                         return None
                 
                 response.raise_for_status()
                 
                 # Success - update organization status
-                self._update_organization_status(True, None, self.token_expires)
+                self._update_organization_status(True, "", self.token_expires or datetime.now() + timedelta(hours=1))
                 
                 return response.json()
                 
@@ -306,7 +309,7 @@ class FHIRClient:
                 break
         
         # All attempts failed - update organization status
-        self._update_organization_status(False, last_error)
+        self._update_organization_status(False, last_error or "Request failed", datetime.now())
         return None
     
     def get_patient(self, patient_id):
