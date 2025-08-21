@@ -154,10 +154,19 @@
                     </h6>
                     <div class="list-group list-group-flush">
                         <a href="{{ url_for('admin.dashboard_phi') }}" class="list-group-item list-group-item-action bg-transparent text-light">
-                            <i class="fas fa-user-secret me-2"></i>PHI Filters
+                            <i class="fas fa-user-secret me-2"></i>PHI Filter
                         </a>
                         <a href="{{ url_for('admin.logs') }}" class="list-group-item list-group-item-action bg-transparent text-light">
                             <i class="fas fa-history me-2"></i>Audit Trail
+                        </a>
+                    </div>
+                    
+                    <h6 class="text-muted mb-3 mt-4">
+                        <i class="fas fa-exchange-alt me-1"></i>Integrations
+                    </h6>
+                    <div class="list-group list-group-flush">
+                        <a href="{{ url_for('epic_registration.epic_registration') }}" class="list-group-item list-group-item-action bg-transparent text-light">
+                            <i class="fas fa-hospital me-2"></i>Epic Registration
                         </a>
                     </div>
                 </div>
