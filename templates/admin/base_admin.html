@@ -7,19 +7,19 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-
+    
     <title>{% block title %}HealthPrep Admin - System Administration{% endblock %}</title>
-
+    
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-
+    
     <!-- Custom CSS -->
     <link href="{{ url_for('static', filename='css/custom.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/medical_terminology_ui.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/loading-states.css') }}" rel="stylesheet">
-
+    
     <!-- Admin-specific styles -->
     <style>
     .admin-nav {
@@ -49,7 +49,7 @@
         border-radius: 10px;
     }
     </style>
-
+    
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -60,11 +60,11 @@
                 <i class="fas fa-shield-alt me-2"></i>HealthPrep Admin
                 <span class="admin-badge ms-2">Admin</span>
             </a>
-
+            
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
-
+            
             <div class="collapse navbar-collapse" id="adminNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
@@ -88,7 +88,7 @@
                         </a>
                     </li>
                 </ul>
-
+                
                 <ul class="navbar-nav">
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('index') }}">
@@ -148,30 +148,21 @@
                             <i class="fas fa-folder-open me-2"></i>Documents
                         </a>
                     </div>
-
+                    
                     <h6 class="text-muted mb-3 mt-4">
                         <i class="fas fa-shield-alt me-1"></i>Security
                     </h6>
                     <div class="list-group list-group-flush">
                         <a href="{{ url_for('admin.dashboard_phi') }}" class="list-group-item list-group-item-action bg-transparent text-light">
-                            <i class="fas fa-user-secret me-2"></i>PHI Filter
+                            <i class="fas fa-user-secret me-2"></i>PHI Filters
                         </a>
                         <a href="{{ url_for('admin.logs') }}" class="list-group-item list-group-item-action bg-transparent text-light">
                             <i class="fas fa-history me-2"></i>Audit Trail
                         </a>
                     </div>
-
-                    <h6 class="text-muted mb-3 mt-4">
-                        <i class="fas fa-plug me-1"></i>Integrations
-                    </h6>
-                    <div class="list-group list-group-flush">
-                        <a href="{{ url_for('epic_registration.epic_registration') }}" class="list-group-item list-group-item-action bg-transparent text-light">
-                            <i class="fas fa-hospital me-2"></i>Epic Registration
-                        </a>
-                    </div>
                 </div>
             </div>
-
+            
             <!-- Main Content -->
             <div class="col-lg-10">
                 <div class="admin-content">
@@ -212,7 +203,7 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
+    
     <!-- Admin JS -->
     <script>
         // Admin-specific JavaScript
@@ -241,7 +232,7 @@
         // Export functionality
         function exportData(endpoint, filename) {
             showLoading('Exporting data...');
-
+            
             fetch(endpoint)
                 .then(response => response.json())
                 .then(data => {
@@ -272,7 +263,7 @@
                     bsAlert.close();
                 }, 7000);
             });
-
+            
             // Highlight active nav item
             const currentPath = window.location.pathname;
             const navItems = document.querySelectorAll('.navbar-nav .nav-link, .list-group-item');
@@ -283,7 +274,8 @@
             });
         });
     </script>
-
+    
     {% block extra_js %}{% endblock %}
 </body>
 </html>
+
