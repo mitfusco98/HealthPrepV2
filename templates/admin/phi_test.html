@@ -77,7 +77,7 @@
                             <small class="text-muted">(Enter text containing potential PHI)</small>
                         </label>
                         <textarea id="testInput" 
-                                class="form-control" 
+                                class="form-control bg-dark text-light border-secondary" 
                                 rows="4" 
                                 placeholder="Enter text to test PHI filtering...&#10;&#10;Example:&#10;Patient: John Doe&#10;SSN: 123-45-6789&#10;Address: 123 Main St, Anytown, CA 90210&#10;Phone: (555) 123-4567"></textarea>
                     </div>
@@ -111,13 +111,13 @@
                                 <label class="form-label text-danger">
                                     <strong>Original Text</strong>
                                 </label>
-                                <div id="originalText" class="border p-3 bg-light rounded"></div>
+                                <div id="originalText" class="border border-secondary p-3 bg-dark text-light rounded"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label text-success">
                                     <strong>Filtered Text</strong>
                                 </label>
-                                <div id="filteredText" class="border p-3 bg-light rounded"></div>
+                                <div id="filteredText" class="border border-secondary p-3 bg-dark text-light rounded"></div>
                             </div>
                         </div>
 
@@ -155,9 +155,9 @@
                     <div class="mb-3">
                         <h6 class="text-primary">{{ sample.name }}</h6>
                         {% for example in sample.examples %}
-                        <div class="border rounded p-2 mb-2 bg-light">
-                            <small class="font-monospace">{{ example }}</small>
-                            <button class="btn btn-sm btn-outline-primary float-end" 
+                        <div class="border border-secondary rounded p-2 mb-2 bg-dark text-light">
+                            <small class="font-monospace text-light">{{ example }}</small>
+                            <button class="btn btn-sm btn-outline-light float-end" 
                                     onclick="loadSample('{{ example|replace("'", "\\'") }}')">
                                 <i class="fas fa-arrow-left"></i>
                             </button>
@@ -552,10 +552,27 @@ function showToast(message, type = 'info') {
     min-height: 60px;
     white-space: pre-wrap;
     word-wrap: break-word;
+    background-color: var(--bs-dark) !important;
+    color: var(--bs-light) !important;
+    border-color: var(--bs-secondary) !important;
 }
 
 .table code {
     font-size: 0.875em;
+}
+
+/* Dark theme enhancements */
+.bg-light {
+    background-color: var(--bs-dark) !important;
+    color: var(--bs-light) !important;
+}
+
+.text-muted {
+    color: var(--bs-secondary) !important;
+}
+
+.form-control::placeholder {
+    color: var(--bs-secondary) !important;
 }
 </style>
 {% endblock %}
