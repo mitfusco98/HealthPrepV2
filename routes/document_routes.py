@@ -18,6 +18,7 @@ from app import db
 logger = logging.getLogger(__name__)
 
 document_bp = Blueprint('documents', __name__)
+documents_bp = document_bp  # Alias for compatibility
 
 # Configure upload settings
 UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
