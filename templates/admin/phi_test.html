@@ -48,10 +48,7 @@
                             </span>
                         </div>
                         <div class="col-md-3">
-                            <button class="btn btn-sm btn-outline-primary" onclick="showSettingsModal()">
-                                <i class="fas fa-edit me-1"></i>
-                                Adjust Settings
-                            </button>
+                            <small class="text-muted">Settings managed via admin dashboard</small>
                         </div>
                     </div>
                 </div>
@@ -203,66 +200,7 @@
     </div>
 </div>
 
-<!-- Settings Modal -->
-<div class="modal fade" id="settingsModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">PHI Filter Settings</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="settingsForm">
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="phiEnabled" 
-                                   {{ 'checked' if phi_settings.enabled else '' }}>
-                            <label class="form-check-label" for="phiEnabled">
-                                Enable PHI Filtering
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Filter Types</label>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="filterSSN" 
-                                   {{ 'checked' if phi_settings.filter_ssn else '' }}>
-                            <label class="form-check-label" for="filterSSN">
-                                Filter Social Security Numbers
-                            </label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="filterPhone" 
-                                   {{ 'checked' if phi_settings.filter_phone else '' }}>
-                            <label class="form-check-label" for="filterPhone">
-                                Filter Phone Numbers
-                            </label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="filterNames" 
-                                   {{ 'checked' if phi_settings.filter_names else '' }}>
-                            <label class="form-check-label" for="filterNames">
-                                Filter Names
-                            </label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="filterAddresses" 
-                                   {{ 'checked' if phi_settings.filter_addresses else '' }}>
-                            <label class="form-check-label" for="filterAddresses">
-                                Filter Addresses
-                            </label>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="updateSettings()">Save Changes</button>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Settings Modal removed - settings managed via main admin dashboard -->
 
 <script>
 function loadSample(text) {
@@ -464,48 +402,7 @@ function displayBatchResults(data) {
     document.getElementById('batchDetails').innerHTML = detailsHtml;
 }
 
-function showSettingsModal() {
-    new bootstrap.Modal(document.getElementById('settingsModal')).show();
-}
-
-// Removed updateThresholdDisplay as we're using checkboxes instead of threshold slider
-
-function updateSettings() {
-    const enabled = document.getElementById('phiEnabled').checked;
-    const filterSSN = document.getElementById('filterSSN').checked;
-    const filterPhone = document.getElementById('filterPhone').checked;
-    const filterNames = document.getElementById('filterNames').checked;
-    const filterAddresses = document.getElementById('filterAddresses').checked;
-    
-    fetch('/admin/dashboard/phi/update-settings', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCSRFToken()
-        },
-        body: JSON.stringify({
-            enabled: enabled,
-            filter_ssn: filterSSN,
-            filter_phone: filterPhone,
-            filter_names: filterNames,
-            filter_addresses: filterAddresses
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showToast('Settings updated successfully', 'success');
-            bootstrap.Modal.getInstance(document.getElementById('settingsModal')).hide();
-            setTimeout(() => location.reload(), 1000);
-        } else {
-            showToast('Error: ' + data.error, 'error');
-        }
-    })
-    .catch(error => {
-        showToast('Update failed: ' + error.message, 'error');
-        console.error('Settings update error:', error);
-    });
-}
+// Settings modal and functions removed - settings managed via main admin dashboard
 
 function escapeHtml(text) {
     const div = document.createElement('div');

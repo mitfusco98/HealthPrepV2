@@ -126,10 +126,12 @@ def process_test():
         
         # Log the test activity
         log_admin_event(
-            current_user.id,
             'phi_test',
-            f'PHI filter test performed',
-            {'input_length': len(test_input), 'redactions': len(analysis['detections'])}
+            current_user.id,
+            current_user.org_id,
+            request.remote_addr,
+            data={'input_length': len(test_input), 'redactions': len(analysis['detections'])},
+            action_details='PHI filter test performed'
         )
         
         return jsonify({
@@ -188,10 +190,12 @@ def batch_test():
         
         # Log batch test
         log_admin_event(
-            current_user.id,
             'phi_batch_test',
-            f'PHI filter batch test completed',
-            {'test_cases': len(test_cases), 'total_detections': total_detections}
+            current_user.id,
+            current_user.org_id,
+            request.remote_addr,
+            data={'test_cases': len(test_cases), 'total_detections': total_detections},
+            action_details='PHI filter batch test completed'
         )
         
         return jsonify({
@@ -240,10 +244,12 @@ def update_test_settings():
         
         # Log settings update
         log_admin_event(
-            current_user.id,
             'phi_settings_update',
-            f'PHI filter settings updated from test interface',
-            data
+            current_user.id,
+            current_user.org_id,
+            request.remote_addr,
+            data=data,
+            action_details='PHI filter settings updated from test interface'
         )
         
         return jsonify({'success': True, 'message': 'Settings updated successfully'})
