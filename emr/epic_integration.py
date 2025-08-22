@@ -23,6 +23,9 @@ class EpicScreeningIntegration:
         
         # Initialize FHIR client with organization-specific config
         self.fhir_client = FHIRClient(epic_config)
+        
+        # Load and set organization-level tokens
+        self._load_organization_tokens()
     
     def _load_epic_config(self):
         """Load Epic FHIR configuration for the organization"""
@@ -40,6 +43,37 @@ class EpicScreeningIntegration:
             self.logger.warning(f"No Epic configuration found for organization {self.organization_id}")
             return None
     
+    def _load_organization_tokens(self):
+        """Load Epic tokens from organization's credentials"""
+        try:
+            from models import EpicCredentials
+            
+            epic_creds = EpicCredentials.query.filter_by(org_id=self.organization_id).first()
+            
+            if epic_creds and epic_creds.access_token:
+                # Check if token is not expired
+                if not (epic_creds.token_expires_at and datetime.now() >= epic_creds.token_expires_at):
+                    # Set tokens in FHIR client
+                    expires_in = int((epic_creds.token_expires_at - datetime.now()).total_seconds()) if epic_creds.token_expires_at else 3600
+                    
+                    self.fhir_client.set_tokens(
+                        access_token=epic_creds.access_token,
+                        refresh_token=epic_creds.refresh_token,
+                        expires_in=expires_in,
+                        scopes=epic_creds.token_scopes.split() if epic_creds.token_scopes else []
+                    )
+                    
+                    self.logger.info(f"Loaded Epic tokens for organization {self.organization_id}")
+                    return True
+                else:
+                    self.logger.warning(f"Epic tokens expired for organization {self.organization_id}")
+            else:
+                self.logger.info(f"No Epic tokens found for organization {self.organization_id}")
+        except Exception as e:
+            self.logger.error(f"Error loading Epic tokens for organization {self.organization_id}: {str(e)}")
+        
+        return False
+    
     def get_screening_relevant_data(self, patient_mrn: str, screening_types: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Retrieve Epic data relevant for specific screening types for a patient
@@ -52,10 +86,10 @@ class EpicScreeningIntegration:
             Dict containing organized Epic data for screening evaluation
         """
         try:
-            # For OAuth2 flow, tokens should already be set by session
-            # Check if client has valid tokens
+            # Ensure tokens are loaded from organization credentials
             if not self.fhir_client.access_token:
-                raise Exception("No Epic FHIR access token available. Please authenticate first.")
+                if not self._load_organization_tokens():
+                    raise Exception("No Epic FHIR access token available. Please complete organization authentication first.")
             
             # Use Epic's recommended data retrieval sequence
             # This implements the blueprint pattern: Patient → Condition → Observation → DocumentReference → Encounter

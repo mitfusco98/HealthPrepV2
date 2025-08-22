@@ -119,21 +119,51 @@ def epic_callback():
             flash('Failed to exchange authorization code for access token', 'error')
             return redirect(url_for('fhir.epic_config'))
         
-        # Store tokens in session (secure server-side storage)
+        # Store tokens at organization level for all users to access
+        from models import EpicCredentials
+        from app import db
+        
+        # Calculate token expiry
+        token_expires_at = datetime.now() + timedelta(seconds=token_data.get('expires_in', 3600))
+        
+        # Create or update Epic credentials for the organization
+        epic_creds = EpicCredentials.query.filter_by(org_id=org.id).first()
+        if not epic_creds:
+            epic_creds = EpicCredentials(org_id=org.id)
+            db.session.add(epic_creds)
+        
+        # Update token data
+        epic_creds.access_token = token_data.get('access_token')
+        epic_creds.refresh_token = token_data.get('refresh_token')
+        epic_creds.token_expires_at = token_expires_at
+        epic_creds.token_scopes = ' '.join(token_data.get('scope', '').split())
+        epic_creds.patient_id = token_data.get('patient')
+        epic_creds.updated_at = datetime.now()
+        
+        # Update organization connection status
+        org.is_epic_connected = True
+        org.epic_token_expiry = token_expires_at
+        org.last_epic_sync = datetime.now()
+        org.last_epic_error = None
+        org.connection_retry_count = 0
+        
+        db.session.commit()
+        
+        # Also store in session for immediate admin access
         session['epic_access_token'] = token_data.get('access_token')
         session['epic_refresh_token'] = token_data.get('refresh_token')
-        session['epic_token_expires'] = (datetime.now() + timedelta(seconds=token_data.get('expires_in', 3600))).isoformat()
+        session['epic_token_expires'] = token_expires_at.isoformat()
         session['epic_token_scopes'] = token_data.get('scope', '').split()
-        session['epic_patient_id'] = token_data.get('patient')  # If patient-specific token
+        session['epic_patient_id'] = token_data.get('patient')
         
         # Clean up OAuth state
         session.pop('epic_oauth_state', None)
         session.pop('epic_auth_timestamp', None)
         
         logger.info(f"Epic OAuth flow completed successfully for organization {org.id}")
-        flash('Successfully connected to Epic FHIR!', 'success')
+        flash('Successfully connected to Epic FHIR! All users in your organization can now sync with Epic.', 'success')
         
-        return redirect(url_for('fhir.screening_mapping'))
+        return redirect(url_for('epic_registration.epic_registration'))
         
     except Exception as e:
         logger.error(f"Error handling Epic OAuth callback: {str(e)}")
@@ -187,11 +217,26 @@ def epic_status():
             'patient_id': None
         }
         
-        access_token = session.get('epic_access_token')
-        if access_token:
+        # Check organization-level tokens first, then fall back to session
+        from models import EpicCredentials
+        org = current_user.organization
+        epic_creds = EpicCredentials.query.filter_by(org_id=org.id).first() if org else None
+        
+        if epic_creds and epic_creds.access_token:
             status['connected'] = True
-            status['expires_at'] = session.get('epic_token_expires')
-            status['scopes'] = session.get('epic_token_scopes', [])
+            status['expires_at'] = epic_creds.token_expires_at.isoformat() if epic_creds.token_expires_at else None
+            status['scopes'] = epic_creds.token_scopes.split() if epic_creds.token_scopes else []
+            status['patient_id'] = epic_creds.patient_id
+            status['expired'] = epic_creds.is_expired if hasattr(epic_creds, 'is_expired') else (
+                epic_creds.token_expires_at and datetime.now() >= epic_creds.token_expires_at
+            )
+        else:
+            # Fall back to session-based tokens (for backward compatibility)
+            access_token = session.get('epic_access_token')
+            if access_token:
+                status['connected'] = True
+                status['expires_at'] = session.get('epic_token_expires')
+                status['scopes'] = session.get('epic_token_scopes', [])
             status['patient_id'] = session.get('epic_patient_id')
             
             # Check if token is expired

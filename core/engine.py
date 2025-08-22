@@ -131,10 +131,21 @@ class ScreeningEngine:
     def _initialize_epic_integration(self):
         """Initialize Epic integration if available"""
         try:
-            # Only initialize if user is logged in and has organization
+            # Only initialize if user is logged in and has organization with Epic connection
             if current_user and current_user.is_authenticated and hasattr(current_user, 'org_id'):
-                self.epic_integration = EpicScreeningIntegration(current_user.org_id)
-                self.logger.info(f"Epic integration initialized for organization {current_user.org_id}")
+                from models import EpicCredentials
+                org = current_user.organization
+                
+                # Check if organization has Epic credentials
+                epic_creds = EpicCredentials.query.filter_by(org_id=current_user.org_id).first()
+                if epic_creds and epic_creds.access_token and not (
+                    epic_creds.token_expires_at and datetime.now() >= epic_creds.token_expires_at
+                ):
+                    self.epic_integration = EpicScreeningIntegration(current_user.org_id)
+                    self.logger.info(f"Epic integration initialized for organization {current_user.org_id}")
+                else:
+                    self.logger.info(f"No valid Epic credentials found for organization {current_user.org_id}")
+                    self.epic_integration = None
         except Exception as e:
             self.logger.warning(f"Could not initialize Epic integration: {str(e)}")
             self.epic_integration = None
