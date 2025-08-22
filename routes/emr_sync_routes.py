@@ -53,6 +53,12 @@ def trigger_sync():
             flash('EMR endpoint is required', 'error')
             return redirect(url_for('emr_sync.emr_dashboard'))
         
+        # Check if Epic OAuth is authenticated
+        from routes.oauth_routes import get_epic_fhir_client
+        if not get_epic_fhir_client():
+            flash('Epic FHIR not authenticated. Please authenticate with Epic first.', 'warning')
+            return redirect(url_for('oauth.epic_authorize'))
+        
         # Configure sync
         sync_config = {
             'mode': sync_mode,
