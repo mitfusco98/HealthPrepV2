@@ -158,12 +158,13 @@ def refresh_screenings():
         patient_id = request.form.get('patient_id', type=int)
 
         if patient_id:
-            result = engine.process_patient_screenings(patient_id, refresh_all=True)
-            flash(f'Refreshed screenings for patient. Processed: {result["processed_screenings"]}', 'success')
+            updated_count = engine.refresh_patient_screenings(patient_id)
+            flash(f'Refreshed screenings for patient. Updated: {updated_count} screenings', 'success')
             return redirect(url_for('main.patient_detail', patient_id=patient_id))
         else:
-            result = engine.refresh_all_screenings()
-            flash(f'Refreshed all screenings. Processed {result["total_screenings"]} screenings for {result["processed_patients"]} patients', 'success')
+            updated_count = engine.refresh_all_screenings()
+            patients_count = Patient.query.count()
+            flash(f'Refreshed all screenings. Updated {updated_count} screenings for {patients_count} patients', 'success')
             return redirect(url_for('main.dashboard'))
 
     except Exception as e:

@@ -6,8 +6,10 @@ from models import Patient, ScreeningType, Screening, Document
 from .matcher import DocumentMatcher
 from .criteria import EligibilityCriteria
 from .fuzzy_detection import FuzzyDetectionEngine
+from emr.epic_integration import EpicScreeningIntegration
 from datetime import datetime, date
 import logging
+from flask_login import current_user
 
 class ScreeningEngine:
     """Main screening engine that coordinates all screening operations"""
@@ -17,12 +19,16 @@ class ScreeningEngine:
         self.criteria = EligibilityCriteria()
         self.fuzzy_engine = FuzzyDetectionEngine()
         self.logger = logging.getLogger(__name__)
+        self.epic_integration = None
     
     def refresh_all_screenings(self):
-        """Refresh all patient screenings based on current criteria"""
+        """Refresh all patient screenings based on current criteria and sync with Epic if available"""
         updated_count = 0
         
         try:
+            # Initialize Epic integration if user is authenticated and has access
+            self._initialize_epic_integration()
+            
             patients = Patient.query.all()
             
             for patient in patients:
@@ -39,20 +45,30 @@ class ScreeningEngine:
         return updated_count
     
     def refresh_patient_screenings(self, patient_id):
-        """Refresh screenings for a specific patient"""
+        """Refresh screenings for a specific patient and sync with Epic if available"""
         patient = Patient.query.get(patient_id)
         if not patient:
             return 0
         
         updated_count = 0
-        screening_types = ScreeningType.query.filter_by(is_active=True).all()
         
-        for screening_type in screening_types:
-            if self.criteria.is_patient_eligible(patient, screening_type):
-                screening = self._get_or_create_screening(patient, screening_type)
-                if self._update_screening_status(screening):
-                    updated_count += 1
-        
+        try:
+            # Sync with Epic if integration is available
+            if self.epic_integration and patient.mrn:
+                self._sync_patient_with_epic(patient)
+            
+            screening_types = ScreeningType.query.filter_by(is_active=True).all()
+            
+            for screening_type in screening_types:
+                if self.criteria.is_patient_eligible(patient, screening_type):
+                    screening = self._get_or_create_screening(patient, screening_type)
+                    if self._update_screening_status(screening):
+                        updated_count += 1
+                        
+        except Exception as e:
+            self.logger.error(f"Error refreshing patient {patient_id} screenings: {str(e)}")
+            # Continue with local refresh even if Epic sync fails
+            
         return updated_count
     
     def process_new_document(self, document_id):
@@ -111,6 +127,101 @@ class ScreeningEngine:
                 return True
         
         return False
+    
+    def _initialize_epic_integration(self):
+        """Initialize Epic integration if available"""
+        try:
+            # Only initialize if user is logged in and has organization
+            if current_user and current_user.is_authenticated and hasattr(current_user, 'org_id'):
+                self.epic_integration = EpicScreeningIntegration(current_user.org_id)
+                self.logger.info(f"Epic integration initialized for organization {current_user.org_id}")
+        except Exception as e:
+            self.logger.warning(f"Could not initialize Epic integration: {str(e)}")
+            self.epic_integration = None
+    
+    def _sync_patient_with_epic(self, patient):
+        """Sync patient data with Epic FHIR"""
+        try:
+            if not self.epic_integration:
+                return
+            
+            # Get screening types to determine what data to fetch
+            screening_types = ScreeningType.query.filter_by(is_active=True).all()
+            screening_data = [{
+                'name': st.name,
+                'fhir_mappings': st.fhir_mappings or {}
+            } for st in screening_types]
+            
+            # Fetch Epic data for this patient
+            epic_data = self.epic_integration.get_screening_relevant_data(
+                patient.mrn, screening_data
+            )
+            
+            if epic_data and epic_data.get('success'):
+                # Process the Epic data and create/update documents
+                self._process_epic_documents(patient, epic_data)
+                self.logger.info(f"Successfully synced Epic data for patient {patient.mrn}")
+            else:
+                self.logger.warning(f"No Epic data retrieved for patient {patient.mrn}")
+                
+        except Exception as e:
+            self.logger.error(f"Error syncing patient {patient.mrn} with Epic: {str(e)}")
+    
+    def _process_epic_documents(self, patient, epic_data):
+        """Process Epic FHIR documents and create database records"""
+        try:
+            from models import FHIRDocument
+            
+            # Process conditions
+            conditions = epic_data.get('conditions', [])
+            for condition in conditions:
+                self._create_fhir_document(patient, condition, 'Condition')
+            
+            # Process observations  
+            observations = epic_data.get('observations', [])
+            for observation in observations:
+                self._create_fhir_document(patient, observation, 'Observation')
+            
+            # Process document references
+            documents = epic_data.get('documents', [])
+            for document in documents:
+                self._create_fhir_document(patient, document, 'DocumentReference')
+                
+        except Exception as e:
+            self.logger.error(f"Error processing Epic documents for patient {patient.id}: {str(e)}")
+    
+    def _create_fhir_document(self, patient, fhir_resource, resource_type):
+        """Create or update FHIR document record"""
+        try:
+            from models import FHIRDocument
+            
+            # Check if document already exists
+            fhir_id = fhir_resource.get('id')
+            existing_doc = FHIRDocument.query.filter_by(
+                patient_id=patient.id,
+                fhir_id=fhir_id,
+                resource_type=resource_type
+            ).first()
+            
+            if not existing_doc:
+                # Create new FHIR document
+                fhir_doc = FHIRDocument(
+                    patient_id=patient.id,
+                    fhir_id=fhir_id,
+                    resource_type=resource_type,
+                    resource_data=fhir_resource,
+                    last_updated=datetime.utcnow()
+                )
+                db.session.add(fhir_doc)
+                self.logger.debug(f"Created new FHIR {resource_type} document for patient {patient.id}")
+            else:
+                # Update existing document
+                existing_doc.resource_data = fhir_resource
+                existing_doc.last_updated = datetime.utcnow()
+                self.logger.debug(f"Updated FHIR {resource_type} document for patient {patient.id}")
+                
+        except Exception as e:
+            self.logger.error(f"Error creating/updating FHIR document: {str(e)}")
     
     def _update_screening_from_document(self, screening, document, confidence):
         """Update a specific screening based on a document match"""

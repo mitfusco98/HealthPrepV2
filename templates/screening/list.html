@@ -321,9 +321,10 @@ function refreshScreenings(event, tab) {
         fetch('/api/refresh-screenings', {
             method: 'POST',
             headers: {
-                'X-CSRFToken': window.csrf_token,
+                'X-CSRFToken': csrf_token(),
                 'Content-Type': 'application/json'
-            }
+            },
+            body: JSON.stringify({})
         })
         .then(response => response.json())
         .then(data => {

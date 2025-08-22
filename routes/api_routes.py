@@ -154,40 +154,45 @@ def refresh_screenings():
         if patient_ids:
             # Refresh specific patients
             results = []
+            total_updated = 0
             for patient_id in patient_ids:
-                # Simple refresh without process_patient_screenings method for now
-                results.append({'patient_id': patient_id, 'status': 'refreshed'})
+                try:
+                    updated_count = engine.refresh_patient_screenings(patient_id)
+                    total_updated += updated_count
+                    results.append({'patient_id': patient_id, 'status': 'refreshed', 'updated_count': updated_count})
+                except Exception as e:
+                    logger.error(f"Error refreshing screenings for patient {patient_id}: {str(e)}")
+                    results.append({'patient_id': patient_id, 'status': 'error', 'error': str(e)})
 
             return jsonify({
                 'success': True,
-                'message': f'Refreshed screenings for {len(patient_ids)} patients',
+                'message': f'Refreshed screenings for {len(patient_ids)} patients. Updated {total_updated} screenings.',
                 'results': results
             })
 
         elif screening_type_ids:
             # Selective refresh for specific screening types
             # For now, process all patients as we don't have selective_refresh implemented
-            results = []
-            patients = Patient.query.all()
-            for patient in patients:
-                # Simple refresh without selective method for now
-                results.append({'patient_id': patient.id, 'status': 'refreshed'})
+            total_updated = engine.refresh_all_screenings()
+            patients_count = Patient.query.count()
 
             return jsonify({
                 'success': True,
-                'message': f'Refreshed screenings for {len(results)} patients',
-                'results': results
+                'message': f'Refreshed screenings for {patients_count} patients. Updated {total_updated} screenings.',
+                'total_screenings': total_updated,
+                'processed_patients': patients_count
             })
 
         else:
-            # Full refresh - simplified for now
-            patients = Patient.query.all()
-            result = {'processed': len(patients), 'status': 'completed'}
+            # Full refresh
+            total_updated = engine.refresh_all_screenings()
+            patients_count = Patient.query.count()
 
             return jsonify({
                 'success': True,
-                'message': f'Refreshed screenings for {len(patients)} patients',
-                'result': result
+                'message': f'Refreshed screenings for {patients_count} patients. Updated {total_updated} screenings.',
+                'total_screenings': total_updated,
+                'processed_patients': patients_count
             })
 
     except Exception as e:

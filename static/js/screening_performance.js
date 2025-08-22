@@ -396,13 +396,13 @@ class ScreeningPerformance {
     setupTooltipOptimization() {
         // Use event delegation for tooltips
         document.addEventListener('mouseenter', (e) => {
-            if (e.target.matches('[data-bs-toggle="tooltip"]')) {
+            if (e.target && e.target.matches && e.target.matches('[data-bs-toggle="tooltip"]')) {
                 this.showTooltip(e.target);
             }
         }, true);
 
         document.addEventListener('mouseleave', (e) => {
-            if (e.target.matches('[data-bs-toggle="tooltip"]')) {
+            if (e.target && e.target.matches && e.target.matches('[data-bs-toggle="tooltip"]')) {
                 this.hideTooltip(e.target);
             }
         }, true);
