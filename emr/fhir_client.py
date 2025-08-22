@@ -107,7 +107,26 @@ class FHIRClient:
                 'client_secret': self.client_secret
             }
             
+            # Debug logging for token exchange
+            self.logger.info(f"Token exchange request:")
+            self.logger.info(f"  - URL: {self.token_url}")
+            self.logger.info(f"  - client_id: {self.client_id}")
+            self.logger.info(f"  - redirect_uri: {self.redirect_uri}")
+            self.logger.info(f"  - grant_type: authorization_code")
+            self.logger.info(f"  - code: {'<present>' if authorization_code else 'None'}")
+            
             response = requests.post(self.token_url, data=data)
+            
+            # Log response details for debugging
+            self.logger.info(f"Token exchange response:")
+            self.logger.info(f"  - status_code: {response.status_code}")
+            self.logger.info(f"  - headers: {dict(response.headers)}")
+            
+            if response.status_code != 200:
+                self.logger.error(f"Token exchange failed with status {response.status_code}")
+                self.logger.error(f"Response body: {response.text}")
+                return None
+            
             response.raise_for_status()
             
             token_data = response.json()
@@ -123,6 +142,11 @@ class FHIRClient:
             self.logger.info("Successfully exchanged authorization code for Epic access token")
             return token_data
             
+        except requests.exceptions.HTTPError as e:
+            self.logger.error(f"HTTP error during token exchange: {str(e)}")
+            if hasattr(e, 'response') and e.response:
+                self.logger.error(f"Response content: {e.response.text}")
+            return None
         except Exception as e:
             self.logger.error(f"Token exchange failed: {str(e)}")
             return None

@@ -52,6 +52,11 @@ def epic_authorize():
         redirect_uri = url_for('oauth.epic_callback', _external=True)
         fhir_client = FHIRClient(epic_config, redirect_uri)
         
+        # Debug logging for OAuth flow
+        logger.info(f"OAuth redirect URI: {redirect_uri}")
+        logger.info(f"Epic client ID: {org.epic_client_id}")
+        logger.info(f"Epic auth URL: {fhir_client.auth_url}")
+        
         # Generate authorization URL
         auth_url, state = fhir_client.get_authorization_url()
         
@@ -79,22 +84,32 @@ def epic_callback():
         code = request.args.get('code')
         state = request.args.get('state')
         error = request.args.get('error')
+        error_description = request.args.get('error_description')
+        
+        # Debug logging for callback parameters
+        logger.info(f"Epic OAuth callback received:")
+        logger.info(f"  - code: {'<present>' if code else 'None'}")
+        logger.info(f"  - state: {'<present>' if state else 'None'}")
+        logger.info(f"  - error: {error}")
+        logger.info(f"  - error_description: {error_description}")
+        logger.info(f"  - all args: {dict(request.args)}")
         
         if error:
-            logger.error(f"Epic OAuth error: {error}")
+            logger.error(f"Epic OAuth error: {error} - {error_description}")
             flash(f'Epic authorization failed: {error}', 'error')
-            return redirect(url_for('fhir.epic_config'))
+            return redirect(url_for('epic_registration.epic_registration'))
         
         if not code:
+            logger.error("No authorization code received from Epic OAuth callback")
             flash('No authorization code received from Epic', 'error')
-            return redirect(url_for('fhir.epic_config'))
+            return redirect(url_for('epic_registration.epic_registration'))
         
         # Validate state parameter
         stored_state = session.get('epic_oauth_state')
         if not stored_state or stored_state != state:
-            logger.error("Invalid OAuth state parameter")
+            logger.error(f"Invalid OAuth state parameter - stored: {stored_state}, received: {state}")
             flash('Invalid authorization state. Please try again.', 'error')
-            return redirect(url_for('fhir.epic_config'))
+            return redirect(url_for('epic_registration.epic_registration'))
         
         # Check if user is still logged in
         if not current_user.is_authenticated:
@@ -112,12 +127,18 @@ def epic_callback():
         redirect_uri = url_for('oauth.epic_callback', _external=True)
         fhir_client = FHIRClient(epic_config, redirect_uri)
         
+        # Debug logging for callback token exchange
+        logger.info(f"Token exchange - redirect URI: {redirect_uri}")
+        logger.info(f"Token exchange - client ID: {org.epic_client_id}")
+        logger.info(f"Token exchange - token URL: {fhir_client.token_url}")
+        
         # Exchange code for tokens
         token_data = fhir_client.exchange_code_for_token(code, state)
         
         if not token_data:
+            logger.error("Token exchange failed - no token data returned")
             flash('Failed to exchange authorization code for access token', 'error')
-            return redirect(url_for('fhir.epic_config'))
+            return redirect(url_for('epic_registration.epic_registration'))
         
         # Store tokens at organization level for all users to access
         from models import EpicCredentials
@@ -166,9 +187,9 @@ def epic_callback():
         return redirect(url_for('epic_registration.epic_registration'))
         
     except Exception as e:
-        logger.error(f"Error handling Epic OAuth callback: {str(e)}")
+        logger.error(f"Error handling Epic OAuth callback: {str(e)}", exc_info=True)
         flash('Failed to complete Epic authorization. Please try again.', 'error')
-        return redirect(url_for('fhir.epic_config'))
+        return redirect(url_for('epic_registration.epic_registration'))
 
 
 @oauth_bp.route('/epic-disconnect', methods=['POST'])
