@@ -225,12 +225,43 @@
                         <h5>Connection Testing</h5>
                         <p class="text-muted">Test your Epic FHIR connection</p>
                         
-                        <button type="button" class="btn btn-outline-primary" onclick="testEpicConnection()" id="testConnectionBtn">
-                            <i class="fas fa-plug me-1"></i> Test Connection
-                        </button>
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-outline-primary me-2" onclick="testEpicConnection()" id="testConnectionBtn">
+                                <i class="fas fa-plug me-1"></i> Test Connection
+                            </button>
+                            
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                    <i class="fas fa-key me-1"></i> OAuth Actions
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li>
+                                        <a class="dropdown-item" href="{{ url_for('oauth.epic_authorize') }}" target="_blank">
+                                            <i class="fas fa-sign-in-alt me-2"></i> Start Authorization
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="javascript:void(0)" onclick="checkOAuthStatus()">
+                                            <i class="fas fa-info-circle me-2"></i> Check Status
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item text-muted" href="{{ url_for('oauth.epic_callback') }}">
+                                            <i class="fas fa-link me-2"></i> Callback URL
+                                            <small class="d-block text-muted">For Epic registration</small>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
                         
                         <div id="connectionResult" class="connection-status unknown" style="display: none;">
                             <div id="connectionMessage"></div>
+                        </div>
+                        
+                        <div id="oauthStatusResult" class="connection-status unknown mt-3" style="display: none;">
+                            <div id="oauthStatusMessage"></div>
                         </div>
                     </div>
                 </div>
@@ -392,6 +423,50 @@ function testEpicConnection() {
     .finally(() => {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-plug me-1"></i> Test Connection';
+    });
+}
+
+function checkOAuthStatus() {
+    const result = document.getElementById('oauthStatusResult');
+    const message = document.getElementById('oauthStatusMessage');
+    
+    message.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Checking OAuth status...';
+    result.className = 'connection-status unknown';
+    result.style.display = 'block';
+    
+    fetch('{{ url_for("oauth.epic_status") }}', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            result.className = 'connection-status error';
+            message.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>Error: ' + data.error;
+        } else if (data.connected) {
+            result.className = 'connection-status success';
+            const expiredText = data.expired ? ' <span class="text-warning">(Token Expired)</span>' : '';
+            const scopes = data.scopes && data.scopes.length > 0 ? data.scopes.join(', ') : 'None';
+            message.innerHTML = `
+                <i class="fas fa-check-circle me-1"></i>
+                <strong>OAuth Status: Connected${expiredText}</strong><br>
+                <small>
+                    <strong>Scopes:</strong> ${scopes}<br>
+                    ${data.expires_at ? '<strong>Expires:</strong> ' + new Date(data.expires_at).toLocaleString() : ''}
+                    ${data.patient_id ? '<br><strong>Patient ID:</strong> ' + data.patient_id : ''}
+                </small>
+            `;
+        } else {
+            result.className = 'connection-status error';
+            message.innerHTML = '<i class="fas fa-times-circle me-1"></i><strong>OAuth Status: Not Connected</strong><br><small>Please complete the authorization flow first.</small>';
+        }
+    })
+    .catch(error => {
+        result.className = 'connection-status error';
+        message.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>Failed to check OAuth status';
+        console.error('Error:', error);
     });
 }
 </script>
