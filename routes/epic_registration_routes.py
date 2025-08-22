@@ -75,10 +75,6 @@ def update_epic_registration():
             return jsonify({'success': False, 'error': 'No data provided'})
         
         # Update Epic registration fields
-        if 'epic_app_name' in data:
-            organization.epic_app_name = data['epic_app_name']
-        if 'epic_app_description' in data:
-            organization.epic_app_description = data['epic_app_description']
         if 'epic_client_id' in data:
             organization.epic_client_id = data['epic_client_id']
         if 'epic_client_secret' in data:

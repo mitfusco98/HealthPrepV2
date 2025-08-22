@@ -145,40 +145,34 @@
                         <p class="text-muted">Configure your Epic app details and credentials</p>
                         
                         <form id="appInfoForm">
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">App Name</label>
-                                    <input type="text" class="form-control" id="epicAppName" 
-                                           value="{{ organization.epic_app_name or '' }}" 
-                                           placeholder="HealthPrep Integration">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Client ID</label>
-                                    <input type="text" class="form-control" id="epicClientId" 
-                                           value="{{ organization.epic_client_id or '' }}" 
-                                           placeholder="Your Epic Client ID">
-                                </div>
+                            <div class="mb-3">
+                                <label class="form-label">Client ID <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="epicClientId" 
+                                       value="{{ organization.epic_client_id or '' }}" 
+                                       placeholder="Your Epic Client ID" required>
+                                <small class="form-text text-muted">
+                                    Provided by Epic during app registration
+                                </small>
                             </div>
                             
                             <div class="mb-3">
-                                <label class="form-label">App Description</label>
-                                <textarea class="form-control" id="epicAppDescription" rows="3" 
-                                          placeholder="Medical screening preparation system with FHIR integration">{{ organization.epic_app_description or '' }}</textarea>
+                                <label class="form-label">Client Secret <span class="text-danger">*</span></label>
+                                <input type="password" class="form-control" id="epicClientSecret" 
+                                       value="{{ organization.epic_client_secret or '' }}" 
+                                       placeholder="Your Epic Client Secret" required>
+                                <small class="form-text text-muted">
+                                    Provided by Epic during app registration
+                                </small>
                             </div>
                             
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Client Secret</label>
-                                    <input type="password" class="form-control" id="epicClientSecret" 
-                                           value="{{ organization.epic_client_secret or '' }}" 
-                                           placeholder="Your Epic Client Secret">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">FHIR Base URL</label>
-                                    <input type="url" class="form-control" id="epicFhirUrl" 
-                                           value="{{ organization.epic_fhir_url or '' }}" 
-                                           placeholder="https://fhir.epic.com/interconnect-fhir-oauth">
-                                </div>
+                            <div class="mb-3">
+                                <label class="form-label">FHIR Base URL <span class="text-danger">*</span></label>
+                                <input type="url" class="form-control" id="epicFhirUrl" 
+                                       value="{{ organization.epic_fhir_url or '' }}" 
+                                       placeholder="https://fhir.epic.com/interconnect-fhir-oauth" required>
+                                <small class="form-text text-muted">
+                                    Epic FHIR endpoint URL for your organization
+                                </small>
                             </div>
                             
                             <button type="button" class="btn btn-primary" onclick="saveAppInfo()">
@@ -334,8 +328,6 @@
 <script>
 function saveAppInfo() {
     const data = {
-        epic_app_name: document.getElementById('epicAppName').value,
-        epic_app_description: document.getElementById('epicAppDescription').value,
         epic_client_id: document.getElementById('epicClientId').value,
         epic_client_secret: document.getElementById('epicClientSecret').value,
         epic_fhir_url: document.getElementById('epicFhirUrl').value,
