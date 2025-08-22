@@ -41,32 +41,32 @@ def epic_authorize():
         if not org or not org.epic_client_id:
             flash('Epic FHIR configuration not found. Please configure Epic credentials first.', 'error')
             return redirect(url_for('fhir.epic_config'))
-        
+
         # Initialize FHIR client with organization config
         epic_config = {
             'epic_client_id': org.epic_client_id,
             'epic_client_secret': org.epic_client_secret,
             'epic_fhir_url': org.epic_fhir_url or 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
         }
-        
+
         redirect_uri = url_for('oauth.epic_callback', _external=True)
         fhir_client = FHIRClient(epic_config, redirect_uri)
-        
+
         # Debug logging for OAuth flow
         logger.info(f"OAuth redirect URI: {redirect_uri}")
         logger.info(f"Epic client ID: {org.epic_client_id}")
         logger.info(f"Epic auth URL: {fhir_client.auth_url}")
-        
+
         # Generate authorization URL
         auth_url, state = fhir_client.get_authorization_url()
-        
+
         # Store state in session for validation
         session['epic_oauth_state'] = state
         session['epic_auth_timestamp'] = datetime.now().isoformat()
-        
+
         logger.info(f"Starting Epic OAuth flow for organization {org.id}")
         return redirect(auth_url)
-        
+
     except Exception as e:
         logger.error(f"Error starting Epic OAuth flow: {str(e)}")
         flash('Failed to start Epic authorization. Please try again.', 'error')
@@ -85,7 +85,7 @@ def epic_callback():
         state = request.args.get('state')
         error = request.args.get('error')
         error_description = request.args.get('error_description')
-        
+
         # Debug logging for callback parameters
         logger.info(f"Epic OAuth callback received:")
         logger.info(f"  - code: {'<present>' if code else 'None'}")
@@ -93,29 +93,29 @@ def epic_callback():
         logger.info(f"  - error: {error}")
         logger.info(f"  - error_description: {error_description}")
         logger.info(f"  - all args: {dict(request.args)}")
-        
+
         if error:
             logger.error(f"Epic OAuth error: {error} - {error_description}")
             flash(f'Epic authorization failed: {error}', 'error')
             return redirect(url_for('epic_registration.epic_registration'))
-        
+
         if not code:
             logger.error("No authorization code received from Epic OAuth callback")
             flash('No authorization code received from Epic', 'error')
             return redirect(url_for('epic_registration.epic_registration'))
-        
+
         # Validate state parameter
         stored_state = session.get('epic_oauth_state')
         if not stored_state or stored_state != state:
             logger.error(f"Invalid OAuth state parameter - stored: {stored_state}, received: {state}")
             flash('Invalid authorization state. Please try again.', 'error')
             return redirect(url_for('epic_registration.epic_registration'))
-        
+
         # Check if user is still logged in
         if not current_user.is_authenticated:
             flash('Session expired during authorization', 'error')
             return redirect(url_for('auth.login'))
-        
+
         # Get organization config
         org = current_user.organization
         epic_config = {
@@ -123,36 +123,36 @@ def epic_callback():
             'epic_client_secret': org.epic_client_secret,
             'epic_fhir_url': org.epic_fhir_url or 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
         }
-        
+
         redirect_uri = url_for('oauth.epic_callback', _external=True)
         fhir_client = FHIRClient(epic_config, redirect_uri)
-        
+
         # Debug logging for callback token exchange
         logger.info(f"Token exchange - redirect URI: {redirect_uri}")
         logger.info(f"Token exchange - client ID: {org.epic_client_id}")
         logger.info(f"Token exchange - token URL: {fhir_client.token_url}")
-        
+
         # Exchange code for tokens
         token_data = fhir_client.exchange_code_for_token(code, state)
-        
+
         if not token_data:
             logger.error("Token exchange failed - no token data returned")
             flash('Failed to exchange authorization code for access token', 'error')
             return redirect(url_for('epic_registration.epic_registration'))
-        
+
         # Store tokens at organization level for all users to access
         from models import EpicCredentials
         from app import db
-        
+
         # Calculate token expiry
         token_expires_at = datetime.now() + timedelta(seconds=token_data.get('expires_in', 3600))
-        
+
         # Create or update Epic credentials for the organization
         epic_creds = EpicCredentials.query.filter_by(org_id=org.id).first()
         if not epic_creds:
             epic_creds = EpicCredentials(org_id=org.id)
             db.session.add(epic_creds)
-        
+
         # Update token data
         epic_creds.access_token = token_data.get('access_token')
         epic_creds.refresh_token = token_data.get('refresh_token')
@@ -160,32 +160,32 @@ def epic_callback():
         epic_creds.token_scopes = ' '.join(token_data.get('scope', '').split())
         epic_creds.patient_id = token_data.get('patient')
         epic_creds.updated_at = datetime.now()
-        
+
         # Update organization connection status
         org.is_epic_connected = True
         org.epic_token_expiry = token_expires_at
         org.last_epic_sync = datetime.now()
         org.last_epic_error = None
         org.connection_retry_count = 0
-        
+
         db.session.commit()
-        
+
         # Also store in session for immediate admin access
         session['epic_access_token'] = token_data.get('access_token')
         session['epic_refresh_token'] = token_data.get('refresh_token')
         session['epic_token_expires'] = token_expires_at.isoformat()
         session['epic_token_scopes'] = token_data.get('scope', '').split()
         session['epic_patient_id'] = token_data.get('patient')
-        
+
         # Clean up OAuth state
         session.pop('epic_oauth_state', None)
         session.pop('epic_auth_timestamp', None)
-        
+
         logger.info(f"Epic OAuth flow completed successfully for organization {org.id}")
         flash('Successfully connected to Epic FHIR! All users in your organization can now sync with Epic.', 'success')
-        
+
         return redirect(url_for('epic_registration.epic_registration'))
-        
+
     except Exception as e:
         logger.error(f"Error handling Epic OAuth callback: {str(e)}", exc_info=True)
         flash('Failed to complete Epic authorization. Please try again.', 'error')
@@ -209,13 +209,13 @@ def epic_disconnect():
             'epic_token_scopes',
             'epic_patient_id'
         ]
-        
+
         for key in epic_keys:
             session.pop(key, None)
-        
+
         flash('Disconnected from Epic FHIR', 'info')
         return redirect(url_for('fhir.epic_config'))
-        
+
     except Exception as e:
         logger.error(f"Error disconnecting Epic OAuth: {str(e)}")
         flash('Error disconnecting from Epic', 'error')
@@ -237,12 +237,12 @@ def epic_status():
             'scopes': [],
             'patient_id': None
         }
-        
+
         # Check organization-level tokens first, then fall back to session
         from models import EpicCredentials
         org = current_user.organization
         epic_creds = EpicCredentials.query.filter_by(org_id=org.id).first() if org else None
-        
+
         if epic_creds and epic_creds.access_token:
             status['connected'] = True
             status['expires_at'] = epic_creds.token_expires_at.isoformat() if epic_creds.token_expires_at else None
@@ -259,7 +259,7 @@ def epic_status():
                 status['expires_at'] = session.get('epic_token_expires')
                 status['scopes'] = session.get('epic_token_scopes', [])
             status['patient_id'] = session.get('epic_patient_id')
-            
+
             # Check if token is expired
             expires_str = status['expires_at']
             if expires_str:
@@ -267,9 +267,9 @@ def epic_status():
                 status['expired'] = datetime.now() >= expires_at
             else:
                 status['expired'] = True
-        
+
         return jsonify(status)
-        
+
     except Exception as e:
         logger.error(f"Error checking Epic OAuth status: {str(e)}")
         return jsonify({'error': str(e)}), 500
@@ -281,34 +281,34 @@ def get_epic_fhir_client():
     """
     if not current_user.is_authenticated:
         return None
-    
+
     org = current_user.organization
     if not org or not org.epic_client_id:
         return None
-    
+
     access_token = session.get('epic_access_token')
     if not access_token:
         return None
-    
+
     # Initialize client with organization config
     epic_config = {
         'epic_client_id': org.epic_client_id,
         'epic_client_secret': org.epic_client_secret,
         'epic_fhir_url': org.epic_fhir_url or 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
     }
-    
+
     fhir_client = FHIRClient(epic_config)
-    
+
     # Set tokens from session
     refresh_token = session.get('epic_refresh_token')
     expires_str = session.get('epic_token_expires')
     scopes = session.get('epic_token_scopes', [])
-    
+
     expires_in = 3600  # Default
     if expires_str:
         expires_at = datetime.fromisoformat(expires_str)
         expires_in = max(0, int((expires_at - datetime.now()).total_seconds()))
-    
+
     fhir_client.set_tokens(access_token, refresh_token, expires_in, scopes)
-    
+
     return fhir_client
