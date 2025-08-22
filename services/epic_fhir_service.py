@@ -28,7 +28,19 @@ class EpicFHIRService:
         
         if self.organization_id:
             self.organization = Organization.query.get(self.organization_id)
+            
+            # Try to get authenticated client first
             self.fhir_client = get_epic_fhir_client()
+            
+            # If no authenticated client, create basic client with org config
+            if not self.fhir_client and self.organization and self.organization.epic_client_id:
+                from emr.fhir_client import FHIRClient
+                epic_config = {
+                    'epic_client_id': self.organization.epic_client_id,
+                    'epic_client_secret': self.organization.epic_client_secret,
+                    'epic_fhir_url': self.organization.epic_fhir_url or 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
+                }
+                self.fhir_client = FHIRClient(epic_config, organization=self.organization)
     
     def ensure_authenticated(self) -> bool:
         """Ensure FHIR client is authenticated and tokens are valid"""

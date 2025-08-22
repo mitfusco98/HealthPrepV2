@@ -118,13 +118,26 @@ def test_epic_connection():
         try:
             from services.epic_fhir_service import EpicFHIRService
             
+            # Check if Epic is configured first
+            if not organization.epic_client_id:
+                return jsonify({
+                    'success': False,
+                    'error': 'Epic Client ID not configured. Please enter your Epic credentials first.'
+                })
+            
+            if not organization.epic_fhir_url:
+                return jsonify({
+                    'success': False,
+                    'error': 'Epic FHIR URL not configured. Please enter your Epic FHIR Base URL.'
+                })
+            
             # Initialize Epic service
             epic_service = EpicFHIRService(organization.id)
             
             if not epic_service.fhir_client:
                 return jsonify({
                     'success': False,
-                    'error': 'Failed to initialize Epic FHIR client'
+                    'error': 'Failed to initialize Epic FHIR client. Please check your Epic configuration and try again.'
                 })
             
             # Test basic connection (without full OAuth for now)
