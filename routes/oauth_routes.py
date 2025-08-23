@@ -42,6 +42,43 @@ def epic_authorize_debug():
 
         # Initialize FHIR client with organization config
         epic_config = {
+            'epic_client_id': org.epic_client_id,
+            'epic_client_secret': org.epic_client_secret,
+            'epic_fhir_url': org.epic_fhir_url or 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
+        }
+
+        redirect_uri = url_for('oauth.epic_callback', _external=True)
+        if redirect_uri.startswith('http://'):
+            redirect_uri = redirect_uri.replace('http://', 'https://')
+
+        fhir_client = FHIRClient(epic_config, redirect_uri)
+
+        # Generate authorization URL
+        auth_url, state = fhir_client.get_authorization_url()
+
+        return f"""
+        <h1>Epic OAuth Debug</h1>
+        <h3>Configuration:</h3>
+        <ul>
+            <li><strong>Client ID:</strong> {org.epic_client_id}</li>
+            <li><strong>Redirect URI:</strong> {redirect_uri}</li>
+            <li><strong>Auth URL:</strong> {fhir_client.auth_url}</li>
+            <li><strong>Token URL:</strong> {fhir_client.token_url}</li>
+            <li><strong>Base URL:</strong> {fhir_client.base_url}</li>
+        </ul>
+        <h3>Generated Authorization URL:</h3>
+        <p><a href="{auth_url}" target="_blank">{auth_url}</a></p>
+        <h3>Next Steps:</h3>
+        <ol>
+            <li>Copy the authorization URL above</li>
+            <li>Paste it in a new browser tab</li>
+            <li>Check what Epic returns</li>
+            <li>Verify your app is approved in Epic App Orchard</li>
+        </ol>
+        """
+
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 
 @oauth_bp.route('/epic-oauth-debug')
@@ -109,45 +146,6 @@ def epic_oauth_debug():
         </ul>
         
         <p><a href="{auth_url}" target="_blank">Test Authorization URL</a></p>
-        """
-
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-
-            'epic_client_id': org.epic_client_id,
-            'epic_client_secret': org.epic_client_secret,
-            'epic_fhir_url': org.epic_fhir_url or 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
-        }
-
-        redirect_uri = url_for('oauth.epic_callback', _external=True)
-        if redirect_uri.startswith('http://'):
-            redirect_uri = redirect_uri.replace('http://', 'https://')
-
-        fhir_client = FHIRClient(epic_config, redirect_uri)
-
-        # Generate authorization URL
-        auth_url, state = fhir_client.get_authorization_url()
-
-        return f"""
-        <h1>Epic OAuth Debug</h1>
-        <h3>Configuration:</h3>
-        <ul>
-            <li><strong>Client ID:</strong> {org.epic_client_id}</li>
-            <li><strong>Redirect URI:</strong> {redirect_uri}</li>
-            <li><strong>Auth URL:</strong> {fhir_client.auth_url}</li>
-            <li><strong>Token URL:</strong> {fhir_client.token_url}</li>
-            <li><strong>Base URL:</strong> {fhir_client.base_url}</li>
-        </ul>
-        <h3>Generated Authorization URL:</h3>
-        <p><a href="{auth_url}" target="_blank">{auth_url}</a></p>
-        <h3>Next Steps:</h3>
-        <ol>
-            <li>Copy the authorization URL above</li>
-            <li>Paste it in a new browser tab</li>
-            <li>Check what Epic returns</li>
-            <li>Verify your app is approved in Epic App Orchard</li>
-        </ol>
         """
 
     except Exception as e:
