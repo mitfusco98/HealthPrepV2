@@ -14,36 +14,68 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 import os
+from typing import Dict, List, Union
 
 # Create blueprint
 epic_public_bp = Blueprint('epic_public', __name__)
 
-def generate_rsa_keypair():
-    """Generate RSA keypair for JWT signing"""
+def b64u(b: bytes) -> str:
+    """Base64url encode bytes without padding"""
+    return base64.urlsafe_b64encode(b).decode().rstrip("=")
+
+def jwk_from_pem(pem: bytes, kid: str) -> Dict:
+    """Convert PEM private key to JWK public key format"""
+    try:
+        private_key = serialization.load_pem_private_key(pem, password=None)
+        
+        # Ensure we have an RSA key
+        if not isinstance(private_key, rsa.RSAPrivateKey):
+            raise ValueError(f"Expected RSA private key, got {type(private_key)}")
+        
+        public_key = private_key.public_key()
+        pub_numbers = public_key.public_numbers()
+        
+        n = pub_numbers.n.to_bytes((pub_numbers.n.bit_length() + 7)//8, "big")
+        e = pub_numbers.e.to_bytes((pub_numbers.e.bit_length() + 7)//8, "big")
+        
+        return {"kty": "RSA", "alg": "RS256", "use": "sig", "kid": kid, "n": b64u(n), "e": b64u(e)}
+    except Exception as e:
+        raise ValueError(f"Failed to convert PEM to JWK: {e}")
+
+def collect_keys(prefix: str) -> List[Dict]:
+    """
+    Load 1+ keys from env vars for easy rotation.
+    Example secrets you set in Replit:
+      NP_KEY_2025_08_A  -> contents of PEM (-----BEGIN RSA PRIVATE KEY----- ...)
+      NP_KEY_2025_09_A  -> next key during rotation (optional)
+      P_KEY_2025_08_A   -> prod key
+    """
+    keys: List[Dict] = []
+    for name, val in os.environ.items():
+        if name.startswith(prefix) and val.strip():
+            kid = name.replace(prefix, "").lstrip("_") or name
+            try:
+                keys.append(jwk_from_pem(val.encode(), kid=kid))
+            except Exception as e:
+                # Log error but continue with other keys
+                print(f"Error processing key {name}: {e}")
+    # Stable order helps caches
+    keys.sort(key=lambda k: k["kid"])
+    return keys
+
+def generate_fallback_key() -> rsa.RSAPrivateKey:
+    """Generate a fallback RSA keypair when no env keys are available"""
     private_key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=2048,
         backend=default_backend()
     )
     
-    public_key = private_key.public_key()
-    
-    # Serialize keys
-    private_pem = private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption()
-    )
-    
-    public_pem = public_key.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo
-    )
-    
-    return private_pem, public_pem, public_key
+    return private_key
 
-def get_jwk_from_public_key(public_key):
-    """Convert RSA public key to JWK format"""
+def get_jwk_from_fallback_key(private_key: rsa.RSAPrivateKey, kid: str = "fallback") -> Dict:
+    """Convert RSA private key to JWK public key format for fallback"""
+    public_key = private_key.public_key()
     public_numbers = public_key.public_numbers()
     
     # Convert to JWK format
@@ -56,12 +88,72 @@ def get_jwk_from_public_key(public_key):
         "kty": "RSA",
         "use": "sig",
         "alg": "RS256",
-        "kid": "healthprep-epic-key-1",
+        "kid": kid,
         "n": int_to_base64url(public_numbers.n),
         "e": int_to_base64url(public_numbers.e)
     }
     
     return jwk
+
+def create_client_assertion(client_id: str, token_url: str, environment: str = "nonprod") -> str:
+    """
+    Create a client assertion JWT for private_key_jwt authentication
+    
+    Args:
+        client_id: The Epic client ID
+        token_url: The Epic token endpoint URL
+        environment: "nonprod" or "prod" to determine which key to use
+    
+    Returns:
+        Signed JWT client assertion
+    """
+    import time
+    import uuid
+    
+    # Determine which key prefix to use
+    key_prefix = "NP_KEY" if environment == "nonprod" else "P_KEY"
+    
+    # Find the first available key
+    private_key_pem = None
+    kid = None
+    
+    for name, val in os.environ.items():
+        if name.startswith(key_prefix) and val.strip():
+            private_key_pem = val.encode()
+            kid = name.replace(key_prefix, "").lstrip("_") or name
+            break
+    
+    if not private_key_pem:
+        # Generate fallback key
+        fallback_key = generate_fallback_key()
+        private_key_pem = fallback_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+        kid = f"{environment}-fallback"
+    
+    # Create JWT payload
+    now = int(time.time())
+    payload = {
+        "iss": client_id,
+        "sub": client_id,
+        "aud": token_url,
+        "jti": str(uuid.uuid4()),
+        "exp": now + 300,  # 5 minutes
+        "iat": now,
+        "nbf": now
+    }
+    
+    # Sign the JWT
+    client_assertion = jwt.encode(
+        payload,
+        private_key_pem,
+        algorithm="RS256",
+        headers={"kid": kid}
+    )
+    
+    return client_assertion
 
 @epic_public_bp.route('/.well-known/smart-configuration')
 def smart_configuration():
@@ -240,24 +332,26 @@ def epic_documentation():
                                 current_date=datetime.now().strftime('%Y-%m-%d'),
                                 redirect_uri=redirect_uri)
 
-@epic_public_bp.route('/epic/jwks/non-production')
-def non_production_jwks():
+@epic_public_bp.route('/nonprod/.well-known/jwks.json')
+def nonprod_jwks():
     """
     Non-Production JWK Set URL for Epic App Orchard
     Provides public keys for JWT verification in sandbox/testing
     """
     try:
-        # Generate or retrieve sandbox keypair
-        private_key, public_key, rsa_public_key = generate_rsa_keypair()
+        keys = collect_keys("NP_KEY")
         
-        jwk = get_jwk_from_public_key(rsa_public_key)
+        # If no environment keys found, generate a fallback
+        if not keys:
+            fallback_key = generate_fallback_key()
+            fallback_jwk = get_jwk_from_fallback_key(fallback_key, "nonprod-fallback")
+            keys = [fallback_jwk]
         
-        jwks = {
-            "keys": [jwk]
-        }
+        jwks = {"keys": keys}
         
         response = jsonify(jwks)
         response.headers['Cache-Control'] = 'public, max-age=3600'  # Cache for 1 hour
+        response.headers['Content-Type'] = 'application/json'
         return response
         
     except Exception as e:
@@ -266,25 +360,26 @@ def non_production_jwks():
             "message": str(e)
         }), 500
 
-@epic_public_bp.route('/epic/jwks/production')
-def production_jwks():
+@epic_public_bp.route('/.well-known/jwks.json')
+def prod_jwks():
     """
     Production JWK Set URL for Epic App Orchard
     Provides public keys for JWT verification in production
     """
     try:
-        # In production, you would load from secure storage
-        # For now, generate a stable keypair
-        private_key, public_key, rsa_public_key = generate_rsa_keypair()
+        keys = collect_keys("P_KEY")
         
-        jwk = get_jwk_from_public_key(rsa_public_key)
+        # If no environment keys found, generate a fallback
+        if not keys:
+            fallback_key = generate_fallback_key()
+            fallback_jwk = get_jwk_from_fallback_key(fallback_key, "prod-fallback")
+            keys = [fallback_jwk]
         
-        jwks = {
-            "keys": [jwk]
-        }
+        jwks = {"keys": keys}
         
         response = jsonify(jwks)
-        response.headers['Cache-Control'] = 'public, max-age=86400'  # Cache for 24 hours
+        response.headers['Cache-Control'] = 'public, max-age=86400'  # Cache for 24 hours (~29h in original)
+        response.headers['Content-Type'] = 'application/json'
         return response
         
     except Exception as e:
