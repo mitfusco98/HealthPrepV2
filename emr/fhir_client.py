@@ -8,7 +8,7 @@ import os
 import secrets
 import base64
 from datetime import datetime, timedelta
-from urllib.parse import urlencode, parse_qs, urlparse
+from urllib.parse import urlencode, parse_qs, urlparse, quote
 from typing import Dict, Optional, Any
 import logging
 
@@ -88,8 +88,14 @@ class FHIRClient:
             'state': state
         }
         
-        auth_url = f"{self.auth_url}?{urlencode(params)}"
-        self.logger.info(f"Generated Epic authorization URL for client {self.client_id}")
+        # Epic is very strict about parameter encoding
+        auth_url = f"{self.auth_url}?{urlencode(params, quote_via=urlencode)}"
+        
+        # Debug logging for Epic OAuth parameters
+        self.logger.info(f"Epic OAuth Parameters:")
+        for key, value in params.items():
+            self.logger.info(f"  {key}: {value}")
+        self.logger.info(f"Generated Epic authorization URL: {auth_url}")
         
         return auth_url, state
     

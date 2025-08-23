@@ -42,6 +42,79 @@ def epic_authorize_debug():
 
         # Initialize FHIR client with organization config
         epic_config = {
+
+
+@oauth_bp.route('/epic-oauth-debug')
+@login_required
+@require_admin
+def epic_oauth_debug():
+    """
+    Debug Epic OAuth parameters without redirecting
+    """
+    try:
+        org = current_user.organization
+        if not org or not org.epic_client_id:
+            return "Epic FHIR configuration not found. Please configure Epic credentials first."
+
+        epic_config = {
+            'epic_client_id': org.epic_client_id,
+            'epic_client_secret': org.epic_client_secret,
+            'epic_fhir_url': org.epic_fhir_url or 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
+        }
+
+        redirect_uri = url_for('oauth.epic_callback', _external=True)
+        if redirect_uri.startswith('http://'):
+            redirect_uri = redirect_uri.replace('http://', 'https://')
+
+        fhir_client = FHIRClient(epic_config, redirect_uri)
+        auth_url, state = fhir_client.get_authorization_url()
+
+        # Parse the URL to show individual parameters
+        from urllib.parse import urlparse, parse_qs
+        parsed_url = urlparse(auth_url)
+        query_params = parse_qs(parsed_url.query)
+
+        return f"""
+        <h1>Epic OAuth Debug - Parameter Analysis</h1>
+        <h3>Base Authorization URL:</h3>
+        <p><code>{fhir_client.auth_url}</code></p>
+        
+        <h3>Parameters Being Sent:</h3>
+        <table border="1" cellpadding="5">
+            <tr><th>Parameter</th><th>Value</th><th>Status</th></tr>
+            <tr><td>response_type</td><td>{query_params.get('response_type', ['Missing'])[0]}</td><td>{'✓' if query_params.get('response_type') == ['code'] else '✗'}</td></tr>
+            <tr><td>client_id</td><td>{org.epic_client_id}</td><td>{'✓' if org.epic_client_id else '✗'}</td></tr>
+            <tr><td>redirect_uri</td><td>{redirect_uri}</td><td>✓</td></tr>
+            <tr><td>scope</td><td>{query_params.get('scope', ['Missing'])[0]}</td><td>✓</td></tr>
+            <tr><td>aud (audience)</td><td>{query_params.get('aud', ['Missing'])[0]}</td><td>{'✓' if query_params.get('aud') else '✗'}</td></tr>
+            <tr><td>state</td><td>{state[:16]}...</td><td>✓</td></tr>
+        </table>
+        
+        <h3>Full Authorization URL:</h3>
+        <p><textarea rows="3" cols="100">{auth_url}</textarea></p>
+        
+        <h3>Epic Registration Verification:</h3>
+        <ul>
+            <li><strong>Client ID:</strong> {org.epic_client_id}</li>
+            <li><strong>Expected Redirect URI:</strong> {redirect_uri}</li>
+            <li><strong>Epic Base URL:</strong> {fhir_client.base_url}</li>
+        </ul>
+        
+        <h3>Common Epic OAuth Issues:</h3>
+        <ul>
+            <li>❓ Redirect URI must be EXACTLY registered in Epic App Orchard (case-sensitive)</li>
+            <li>❓ Client ID must be approved by Epic (can take 1-2 business days)</li>
+            <li>❓ App must be in "Active" status in Epic App Orchard</li>
+            <li>❓ Scopes must match what's registered in Epic</li>
+        </ul>
+        
+        <p><a href="{auth_url}" target="_blank">Test Authorization URL</a></p>
+        """
+
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+
             'epic_client_id': org.epic_client_id,
             'epic_client_secret': org.epic_client_secret,
             'epic_fhir_url': org.epic_fhir_url or 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
