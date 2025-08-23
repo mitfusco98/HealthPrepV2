@@ -2,7 +2,7 @@ modules = ["python-3.11", "web", "nodejs-20", "postgresql-16"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["freetype", "gumbo", "harfbuzz", "jbig2dec", "lcms2", "libGL", "libGLU", "libimagequant", "libjpeg", "libjpeg_turbo", "libtiff", "libwebp", "libxcrypt", "libyaml", "mupdf", "openjpeg", "openssl", "poppler_utils", "postgresql", "swig", "tcl", "tesseract", "tk", "xcbuild", "zlib"]
+packages = ["cargo", "freetype", "gumbo", "harfbuzz", "jbig2dec", "lcms2", "libGL", "libGLU", "libiconv", "libimagequant", "libjpeg", "libjpeg_turbo", "libtiff", "libwebp", "libxcrypt", "libyaml", "mupdf", "openjpeg", "openssl", "pkg-config", "poppler_utils", "postgresql", "rustc", "swig", "tcl", "tesseract", "tk", "xcbuild", "zlib"]
 
 [deployment]
 deploymentTarget = "autoscale"
