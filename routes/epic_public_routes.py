@@ -361,6 +361,54 @@ def nonprod_jwks():
         }), 500
 
 @epic_public_bp.route('/.well-known/jwks.json')
+def collect_keys(prefix: str) -> List[Dict]:
+    """Collect and convert environment keys to JWK format"""
+    keys = []
+    
+    for name, value in os.environ.items():
+        if name.startswith(prefix) and value.strip():
+            try:
+                # Extract kid from environment variable name
+                # P_KEY_2025_08_A -> 2025_08_A
+                kid = name[len(prefix)+1:] if name.startswith(prefix + "_") else name[len(prefix):]
+                
+                # Convert PEM to JWK
+                pem_bytes = value.strip().encode('utf-8')
+                jwk = jwk_from_pem(pem_bytes, kid)
+                keys.append(jwk)
+                
+            except Exception as e:
+                print(f"Error processing key {name}: {e}")
+                continue
+    
+    return keys
+
+def generate_fallback_key() -> rsa.RSAPrivateKey:
+    """Generate a fallback RSA key"""
+    return rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+        backend=default_backend()
+    )
+
+def get_jwk_from_fallback_key(private_key: rsa.RSAPrivateKey, kid: str) -> Dict:
+    """Convert fallback private key to JWK format"""
+    public_key = private_key.public_key()
+    pub_numbers = public_key.public_numbers()
+    
+    n = pub_numbers.n.to_bytes((pub_numbers.n.bit_length() + 7)//8, "big")
+    e = pub_numbers.e.to_bytes((pub_numbers.e.bit_length() + 7)//8, "big")
+    
+    return {
+        "kty": "RSA",
+        "alg": "RS256", 
+        "use": "sig",
+        "kid": kid,
+        "n": b64u(n),
+        "e": b64u(e)
+    }
+
+@epic_public_bp.route('/.well-known/jwks.json')
 def prod_jwks():
     """
     Production JWK Set URL for Epic App Orchard
@@ -378,7 +426,7 @@ def prod_jwks():
         jwks = {"keys": keys}
         
         response = jsonify(jwks)
-        response.headers['Cache-Control'] = 'public, max-age=86400'  # Cache for 24 hours (~29h in original)
+        response.headers['Cache-Control'] = 'public, max-age=86400'  # Cache for 24 hours
         response.headers['Content-Type'] = 'application/json'
         return response
         
@@ -388,7 +436,160 @@ def prod_jwks():
             "message": str(e)
         }), 500
 
+@epic_public_bp.route('/nonprod/.well-known/jwks.json')
+def nonprod_jwks():
+    """
+    Non-Production JWK Set URL for Epic App Orchard
+    Provides public keys for JWT verification in non-production
+    """
+    try:
+        keys = collect_keys("NP_KEY")
+        
+        # If no environment keys found, generate a fallback
+        if not keys:
+            fallback_key = generate_fallback_key()
+            fallback_jwk = get_jwk_from_fallback_key(fallback_key, "nonprod-fallback")
+            keys = [fallback_jwk]
+        
+        jwks = {"keys": keys}
+        
+        response = jsonify(jwks)
+        response.headers['Cache-Control'] = 'public, max-age=86400'  # Cache for 24 hours
+        response.headers['Content-Type'] = 'application/json'
+        return response
+        
+    except Exception as e:
+        return jsonify({
+            "error": "Unable to generate JWKS",
+            "message": str(e)
+        }), 500
+
+def get_private_key_for_environment(environment: str = "nonprod") -> Union[rsa.RSAPrivateKey, None]:
+    """Get the appropriate private key for JWT signing"""
+    prefix = "NP_KEY" if environment == "nonprod" else "P_KEY"
+    
+    # Find first available key with the prefix
+    for name, value in os.environ.items():
+        if name.startswith(prefix) and value.strip():
+            try:
+                pem_bytes = value.strip().encode('utf-8')
+                private_key = serialization.load_pem_private_key(
+                    pem_bytes, 
+                    password=None,
+                    backend=default_backend()
+                )
+                return private_key
+            except Exception as e:
+                print(f"Error loading key {name}: {e}")
+                continue
+    
+    # Return fallback key if no environment keys found
+    return generate_fallback_key()
+
+def get_kid_for_environment(environment: str = "nonprod") -> str:
+    """Get the appropriate key ID for JWT signing"""
+    prefix = "NP_KEY" if environment == "nonprod" else "P_KEY"
+    
+    # Find first available key with the prefix
+    for name, value in os.environ.items():
+        if name.startswith(prefix) and value.strip():
+            # Extract kid from environment variable name
+            return name[len(prefix)+1:] if name.startswith(prefix + "_") else name[len(prefix):]
+    
+    # Return fallback kid if no environment keys found
+    return f"{environment}-fallback"
+
+def create_client_assertion(client_id: str, token_url: str, environment: str = "nonprod") -> str:
+    """
+    Create a JWT client assertion for Epic OAuth
+    
+    Args:
+        client_id: Epic client ID
+        token_url: Epic token endpoint URL
+        environment: "nonprod" or "prod"
+    
+    Returns:
+        JWT client assertion string
+    """
+    try:
+        # Get private key and kid for the environment
+        private_key = get_private_key_for_environment(environment)
+        kid = get_kid_for_environment(environment)
+        
+        # Create JWT claims
+        now = datetime.utcnow()
+        claims = {
+            "iss": client_id,  # Issuer (your client ID)
+            "sub": client_id,  # Subject (your client ID)
+            "aud": token_url,  # Audience (Epic's token endpoint)
+            "jti": f"{client_id}-{int(now.timestamp())}-{os.urandom(8).hex()}",  # Unique JWT ID
+            "exp": int((now + timedelta(minutes=5)).timestamp()),  # Expires in 5 minutes
+            "iat": int(now.timestamp()),  # Issued at
+            "nbf": int(now.timestamp())   # Not before
+        }
+        
+        # Create JWT header
+        headers = {
+            "alg": "RS256",
+            "typ": "JWT",
+            "kid": kid
+        }
+        
+        # Sign the JWT
+        token = jwt.encode(
+            claims,
+            private_key,
+            algorithm="RS256",
+            headers=headers
+        )
+        
+        return token
+        
+    except Exception as e:
+        raise ValueError(f"Failed to create client assertion: {e}")
+
 @epic_public_bp.route('/epic/app-info')
+def epic_app_info():
+    """
+    Epic App Information Endpoint
+    Provides app metadata for Epic App Orchard
+    """
+    app_info = {
+        "name": "HealthPrep Medical Screening System",
+        "description": "AI-powered medical screening and preparation system with Epic FHIR integration",
+        "version": "2.0.0",
+        "fhir_version": "R4",
+        "smart_capabilities": [
+            "launch-ehr",
+            "client-public",
+            "client-confidential-asymmetric",
+            "context-ehr-patient",
+            "sso-openid-connect"
+        ],
+        "supported_scopes": [
+            "openid",
+            "fhirUser",
+            "patient/Patient.read",
+            "patient/Observation.read",
+            "patient/Condition.read", 
+            "patient/MedicationRequest.read",
+            "patient/DocumentReference.read",
+            "patient/DocumentReference.write",
+            "offline_access"
+        ],
+        "jwks_uri": {
+            "production": "https://your-repl-url/.well-known/jwks.json",
+            "nonprod": "https://your-repl-url/nonprod/.well-known/jwks.json"
+        },
+        "contact": {
+            "name": "HealthPrep Support",
+            "email": "support@healthprep.app"
+        }
+    }
+    
+    response = jsonify(app_info)
+    response.headers['Content-Type'] = 'application/json'
+    return response
 def app_info():
     """
     Application information endpoint for Epic App Orchard
