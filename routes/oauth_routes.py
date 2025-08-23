@@ -430,6 +430,46 @@ def epic_callback_test():
     """
 
 
+@oauth_bp.route('/epic-flow-status')
+def epic_flow_status():
+    """
+    Debug endpoint to check OAuth flow session status
+    """
+    try:
+        session_info = {
+            'epic_oauth_state': session.get('epic_oauth_state', 'None'),
+            'epic_auth_timestamp': session.get('epic_auth_timestamp', 'None'),
+            'epic_access_token': 'Present' if session.get('epic_access_token') else 'None',
+            'epic_refresh_token': 'Present' if session.get('epic_refresh_token') else 'None',
+            'epic_token_expires': session.get('epic_token_expires', 'None'),
+            'epic_patient_id': session.get('epic_patient_id', 'None'),
+            'user_authenticated': current_user.is_authenticated if hasattr(current_user, 'is_authenticated') else 'Unknown'
+        }
+        
+        return f"""
+        <h1>Epic OAuth Flow Status</h1>
+        <h3>Session Information:</h3>
+        <table border="1" cellpadding="5">
+            <tr><th>Session Key</th><th>Value</th></tr>
+            {''.join(f'<tr><td>{key}</td><td>{value}</td></tr>' for key, value in session_info.items())}
+        </table>
+        
+        <h3>Available OAuth Routes:</h3>
+        <ul>
+            <li><a href="{url_for('oauth.epic_authorize_debug')}">/oauth/epic-authorize-debug</a> - Debug authorization URL</li>
+            <li><a href="{url_for('oauth.epic_oauth_debug')}">/oauth/epic-oauth-debug</a> - Debug OAuth parameters</li>
+            <li><a href="{url_for('oauth.epic_authorize')}">/oauth/epic-authorize</a> - Start OAuth flow</li>
+            <li><a href="{url_for('oauth.epic_callback_test')}">/oauth/epic-callback-test</a> - Test callback accessibility</li>
+            <li><a href="{url_for('oauth.epic_status')}">/oauth/epic-status</a> - Check connection status (JSON)</li>
+        </ul>
+        
+        <p><strong>Time:</strong> {datetime.now().isoformat()}</p>
+        """
+        
+    except Exception as e:
+        return f"Error checking OAuth flow status: {str(e)}"
+
+
 def get_epic_fhir_client():
     """
     Helper function to get configured FHIR client with current session tokens

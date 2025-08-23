@@ -170,7 +170,7 @@ def register_blueprints(app):
     app.register_blueprint(emr_sync_bp, url_prefix='/emr')
     app.register_blueprint(fuzzy_bp, url_prefix='/fuzzy')
     app.register_blueprint(fhir_bp, url_prefix='/fhir')
-    app.register_blueprint(oauth_bp, url_prefix='/fhir')
+    app.register_blueprint(oauth_bp, url_prefix='/oauth')
     app.register_blueprint(epic_admin_bp)  # Epic admin routes with /admin/epic prefix
     app.register_blueprint(epic_registration_bp)
     app.register_blueprint(epic_public_bp)  # Epic registration routes
