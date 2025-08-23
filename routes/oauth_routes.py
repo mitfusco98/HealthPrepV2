@@ -27,6 +27,60 @@ oauth_bp = Blueprint('oauth', __name__)
 logger = logging.getLogger(__name__)
 
 
+@oauth_bp.route('/epic-authorize-debug')
+@login_required
+@require_admin
+def epic_authorize_debug():
+    """
+    Debug endpoint to show Epic authorization URL without redirecting
+    """
+    try:
+        # Get organization's Epic configuration
+        org = current_user.organization
+        if not org or not org.epic_client_id:
+            return "Epic FHIR configuration not found. Please configure Epic credentials first."
+
+        # Initialize FHIR client with organization config
+        epic_config = {
+            'epic_client_id': org.epic_client_id,
+            'epic_client_secret': org.epic_client_secret,
+            'epic_fhir_url': org.epic_fhir_url or 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
+        }
+
+        redirect_uri = url_for('oauth.epic_callback', _external=True)
+        if redirect_uri.startswith('http://'):
+            redirect_uri = redirect_uri.replace('http://', 'https://')
+
+        fhir_client = FHIRClient(epic_config, redirect_uri)
+
+        # Generate authorization URL
+        auth_url, state = fhir_client.get_authorization_url()
+
+        return f"""
+        <h1>Epic OAuth Debug</h1>
+        <h3>Configuration:</h3>
+        <ul>
+            <li><strong>Client ID:</strong> {org.epic_client_id}</li>
+            <li><strong>Redirect URI:</strong> {redirect_uri}</li>
+            <li><strong>Auth URL:</strong> {fhir_client.auth_url}</li>
+            <li><strong>Token URL:</strong> {fhir_client.token_url}</li>
+            <li><strong>Base URL:</strong> {fhir_client.base_url}</li>
+        </ul>
+        <h3>Generated Authorization URL:</h3>
+        <p><a href="{auth_url}" target="_blank">{auth_url}</a></p>
+        <h3>Next Steps:</h3>
+        <ol>
+            <li>Copy the authorization URL above</li>
+            <li>Paste it in a new browser tab</li>
+            <li>Check what Epic returns</li>
+            <li>Verify your app is approved in Epic App Orchard</li>
+        </ol>
+        """
+
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+
 @oauth_bp.route('/epic-authorize')
 @login_required
 @require_admin
@@ -86,13 +140,20 @@ def epic_callback():
         error = request.args.get('error')
         error_description = request.args.get('error_description')
 
-        # Debug logging for callback parameters
-        logger.info(f"Epic OAuth callback received:")
+        # Comprehensive debug logging for callback
+        logger.info(f"=== Epic OAuth Callback Debug ===")
+        logger.info(f"Request URL: {request.url}")
+        logger.info(f"Request method: {request.method}")
+        logger.info(f"Request headers: {dict(request.headers)}")
+        logger.info(f"Query parameters received:")
         logger.info(f"  - code: {'<present>' if code else 'None'}")
         logger.info(f"  - state: {'<present>' if state else 'None'}")
         logger.info(f"  - error: {error}")
         logger.info(f"  - error_description: {error_description}")
-        logger.info(f"  - all args: {dict(request.args)}")
+        logger.info(f"  - all query args: {dict(request.args)}")
+        logger.info(f"Session state: {session.get('epic_oauth_state', 'None')}")
+        logger.info(f"Session user: {current_user.is_authenticated if hasattr(current_user, 'is_authenticated') else 'Unknown'}")
+        logger.info(f"================================")
 
         if error:
             logger.error(f"Epic OAuth error: {error} - {error_description}")
@@ -273,6 +334,29 @@ def epic_status():
     except Exception as e:
         logger.error(f"Error checking Epic OAuth status: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+
+@oauth_bp.route('/epic-callback-test')
+def epic_callback_test():
+    """
+    Test endpoint to verify redirect URI is accessible
+    Visit this URL to confirm Epic can reach your callback
+    """
+    return f"""
+    <h1>Epic Callback Test</h1>
+    <p><strong>✅ SUCCESS:</strong> This URL is accessible!</p>
+    <p><strong>Callback URL:</strong> {request.url.replace('/epic-callback-test', '/epic-callback')}</p>
+    <p><strong>Your redirect URI should be:</strong> {url_for('oauth.epic_callback', _external=True)}</p>
+    <p><strong>Time:</strong> {datetime.now().isoformat()}</p>
+    <hr>
+    <h3>Epic Registration Checklist:</h3>
+    <ul>
+        <li>✅ App registered in Epic App Orchard</li>
+        <li>❓ Redirect URI exactly matches: <code>{url_for('oauth.epic_callback', _external=True)}</code></li>
+        <li>❓ App approved by Epic (can take 1-2 business days)</li>
+        <li>❓ Client ID and Secret are correct</li>
+    </ul>
+    """
 
 
 def get_epic_fhir_client():
