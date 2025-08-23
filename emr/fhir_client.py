@@ -89,7 +89,7 @@ class FHIRClient:
         }
         
         # Epic is very strict about parameter encoding
-        auth_url = f"{self.auth_url}?{urlencode(params, quote_via=urlencode)}"
+        auth_url = f"{self.auth_url}?{urlencode(params)}"
         
         # Debug logging for Epic OAuth parameters
         self.logger.info(f"Epic OAuth Parameters:")
