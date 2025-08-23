@@ -115,7 +115,7 @@ def epic_oauth_debug():
         <h1>Epic OAuth Debug - Parameter Analysis</h1>
         <h3>Base Authorization URL:</h3>
         <p><code>{fhir_client.auth_url}</code></p>
-        
+
         <h3>Parameters Being Sent:</h3>
         <table border="1" cellpadding="5">
             <tr><th>Parameter</th><th>Value</th><th>Status</th></tr>
@@ -126,17 +126,17 @@ def epic_oauth_debug():
             <tr><td>aud (audience)</td><td>{query_params.get('aud', ['Missing'])[0]}</td><td>{'✓' if query_params.get('aud') else '✗'}</td></tr>
             <tr><td>state</td><td>{state[:16]}...</td><td>✓</td></tr>
         </table>
-        
+
         <h3>Full Authorization URL:</h3>
         <p><textarea rows="3" cols="100">{auth_url}</textarea></p>
-        
+
         <h3>Epic Registration Verification:</h3>
         <ul>
             <li><strong>Client ID:</strong> {org.epic_client_id}</li>
             <li><strong>Expected Redirect URI:</strong> {redirect_uri}</li>
             <li><strong>Epic Base URL:</strong> {fhir_client.base_url}</li>
         </ul>
-        
+
         <h3>Common Epic OAuth Issues:</h3>
         <ul>
             <li>❓ Redirect URI must be EXACTLY registered in Epic App Orchard (case-sensitive)</li>
@@ -144,7 +144,7 @@ def epic_oauth_debug():
             <li>❓ App must be in "Active" status in Epic App Orchard</li>
             <li>❓ Scopes must match what's registered in Epic</li>
         </ul>
-        
+
         <p><a href="{auth_url}" target="_blank">Test Authorization URL</a></p>
         """
 

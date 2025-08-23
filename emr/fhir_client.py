@@ -23,7 +23,7 @@ class FHIRClient:
         
         self.client_id = 'default_client_id'
         self.client_secret = 'default_secret'
-        self.redirect_uri = redirect_uri or 'http://localhost:5000/fhir/oauth-callback'
+        self.redirect_uri = redirect_uri or 'http://localhost:5000/oauth/epic-callback'
         
         # Store organization reference for connection status updates (per blueprint)
         self.organization = organization
