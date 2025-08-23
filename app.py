@@ -157,7 +157,7 @@ def register_blueprints(app):
     from routes.oauth_routes import oauth_bp
     from routes.epic_admin_routes import epic_admin_bp
     from routes.epic_registration_routes import epic_registration_bp
-from routes.epic_public_routes import epic_public_bp
+    from routes.epic_public_routes import epic_public_bp
     from routes.phi_test_routes import phi_test_bp
     from ui.routes import ui_bp
 
