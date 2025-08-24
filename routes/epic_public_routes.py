@@ -408,6 +408,24 @@ def prod_jwks():
             "message": str(e)
         }), 500
 
+@epic_public_bp.route('/epic/jwks/production')
+def legacy_production_jwks():
+    """
+    Legacy Production JWK Set URL - redirects to new standard endpoint
+    Maintained for backward compatibility with Epic registrations
+    """
+    from flask import redirect
+    return redirect('/.well-known/jwks.json', code=301)
+
+@epic_public_bp.route('/epic/jwks/non-production')
+def legacy_nonprod_jwks():
+    """
+    Legacy Non-Production JWK Set URL - redirects to new standard endpoint
+    Maintained for backward compatibility with Epic registrations
+    """
+    from flask import redirect
+    return redirect('/nonprod/.well-known/jwks.json', code=301)
+
 @epic_public_bp.route('/epic/app-info')
 def epic_app_info():
     """
