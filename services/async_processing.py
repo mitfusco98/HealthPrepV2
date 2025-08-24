@@ -10,7 +10,8 @@ import json
 
 from flask import current_app
 from redis import Redis
-from rq import Queue, Worker, Job
+from rq import Queue, Worker
+from rq.job import Job
 from rq.job import JobStatus
 
 logger = logging.getLogger(__name__)
