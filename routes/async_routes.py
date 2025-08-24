@@ -11,7 +11,7 @@ import json
 from models import db, Patient, Organization, ScreeningType, AsyncJob
 from services.async_processing import get_async_processing_service
 from services.enhanced_audit_logging import log_fhir_access, audit_logger
-from utils.auth_utils import admin_required
+from routes.auth_routes import admin_required
 
 async_bp = Blueprint('async', __name__, url_prefix='/async')
 
