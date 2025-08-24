@@ -21,19 +21,25 @@ class HIPAAAuditLogger:
     Enhanced audit logging service for HIPAA compliance
     Logs all FHIR operations and patient data access with appropriate PHI protection
     """
-    
+
     def __init__(self):
+        # Create a dedicated logger for HIPAA audit events
         self.logger = logging.getLogger('hipaa_audit')
-        # Configure separate audit log file
-        if not self.logger.handlers:
-            handler = logging.FileHandler('logs/hipaa_audit.log')
-            formatter = logging.Formatter(
-                '%(asctime)s - %(levelname)s - ORG:%(org_id)s - USER:%(user_id)s - %(message)s'
-            )
-            handler.setFormatter(formatter)
-            self.logger.addHandler(handler)
-            self.logger.setLevel(logging.INFO)
-    
+        self.logger.setLevel(logging.INFO)
+
+        # Ensure logs directory exists
+        import os
+        os.makedirs('logs', exist_ok=True)
+
+        # Create file handler with rotation
+        handler = logging.FileHandler('logs/hipaa_audit.log')
+        formatter = logging.Formatter(
+            '%(asctime)s - %(levelname)s - ORG:%(org_id)s - USER:%(user_id)s - %(message)s'
+        )
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
+        self.logger.setLevel(logging.INFO)
+
     def log_fhir_data_access(self, organization_id: int, user_id: int, 
                            action: str, patient_identifier: str = None,
                            resource_type: str = None, resource_count: int = None,
@@ -41,7 +47,7 @@ class HIPAAAuditLogger:
                            additional_data: Dict[str, Any] = None):
         """
         Log FHIR data access events with HIPAA compliance
-        
+
         Args:
             organization_id: Organization ID
             user_id: User who performed the action
@@ -58,7 +64,7 @@ class HIPAAAuditLogger:
             from models import Organization
             org = Organization.query.get(organization_id)
             effective_phi_level = org.phi_logging_level if org else 'minimal'
-            
+
             # Hash sensitive identifiers based on PHI level
             if effective_phi_level == 'minimal':
                 # Hash all patient identifiers
@@ -70,7 +76,7 @@ class HIPAAAuditLogger:
                 patient_hash = patient_identifier
                 epic_patient_hash = epic_patient_id
                 safe_additional_data = additional_data or {}
-            
+
             # Create audit log entry
             audit_data = {
                 'action': action,
@@ -84,7 +90,7 @@ class HIPAAAuditLogger:
                 'session_id': self._get_session_id(),
                 **safe_additional_data
             }
-            
+
             # Log to database
             from models import log_admin_event
             log_admin_event(
@@ -98,7 +104,7 @@ class HIPAAAuditLogger:
                 session_id=self._get_session_id(),
                 user_agent=self._get_user_agent()
             )
-            
+
             # Log to dedicated HIPAA audit log
             self.logger.info(
                 f"FHIR_ACCESS - {action} - Resource: {resource_type} - Count: {resource_count} - Patient: {patient_hash}",
@@ -110,10 +116,10 @@ class HIPAAAuditLogger:
                     'patient_hash': patient_hash
                 }
             )
-            
+
         except Exception as e:
             logger.error(f"Failed to log FHIR data access: {str(e)}")
-    
+
     def log_fhir_api_call(self, organization_id: int, endpoint: str, method: str,
                          user_id: int = None, resource_type: str = None,
                          epic_patient_id: str = None, response_status: int = None,
@@ -133,7 +139,7 @@ class HIPAAAuditLogger:
                 response_time_ms=response_time_ms,
                 request_params=self._sanitize_request_params(request_params)
             )
-            
+
             # Log high-level API call
             self.logger.info(
                 f"FHIR_API_CALL - {method} {endpoint} - Status: {response_status} - Time: {response_time_ms}ms",
@@ -145,13 +151,13 @@ class HIPAAAuditLogger:
                     'status': response_status
                 }
             )
-            
+
             return api_call
-            
+
         except Exception as e:
             logger.error(f"Failed to log FHIR API call: {str(e)}")
             return None
-    
+
     def log_patient_data_export(self, organization_id: int, user_id: int,
                               patient_count: int, export_type: str,
                               screening_types: List[str] = None):
@@ -163,7 +169,7 @@ class HIPAAAuditLogger:
                 'screening_types': screening_types or [],
                 'export_timestamp': datetime.utcnow().isoformat()
             }
-            
+
             from models import log_admin_event
             log_admin_event(
                 event_type='patient_data_export',
@@ -176,7 +182,7 @@ class HIPAAAuditLogger:
                 session_id=self._get_session_id(),
                 user_agent=self._get_user_agent()
             )
-            
+
             self.logger.info(
                 f"PATIENT_EXPORT - Type: {export_type} - Count: {patient_count}",
                 extra={
@@ -186,10 +192,10 @@ class HIPAAAuditLogger:
                     'patient_count': patient_count
                 }
             )
-            
+
         except Exception as e:
             logger.error(f"Failed to log patient data export: {str(e)}")
-    
+
     def log_epic_document_write(self, organization_id: int, user_id: int,
                               patient_identifier: str, epic_document_id: str,
                               document_type: str, content_length: int):
@@ -202,7 +208,7 @@ class HIPAAAuditLogger:
                 'content_length': content_length,
                 'write_timestamp': datetime.utcnow().isoformat()
             }
-            
+
             from models import log_admin_event
             log_admin_event(
                 event_type='epic_document_write',
@@ -215,7 +221,7 @@ class HIPAAAuditLogger:
                 session_id=self._get_session_id(),
                 user_agent=self._get_user_agent()
             )
-            
+
             self.logger.info(
                 f"EPIC_WRITE - Document: {document_type} - Patient: {self._hash_identifier(patient_identifier)} - Epic Doc: {epic_document_id}",
                 extra={
@@ -225,10 +231,10 @@ class HIPAAAuditLogger:
                     'epic_document_id': epic_document_id
                 }
             )
-            
+
         except Exception as e:
             logger.error(f"Failed to log Epic document write: {str(e)}")
-    
+
     def log_async_job_audit(self, organization_id: int, user_id: int,
                           job_type: str, job_id: str, status: str,
                           total_patients: int = None, success_count: int = None,
@@ -244,7 +250,7 @@ class HIPAAAuditLogger:
                 'failure_count': failure_count,
                 'completion_timestamp': datetime.utcnow().isoformat()
             }
-            
+
             from models import log_admin_event
             log_admin_event(
                 event_type=f'async_job_{status}',
@@ -256,7 +262,7 @@ class HIPAAAuditLogger:
                 action_details=f"Async {job_type} job {status}: {success_count}/{total_patients} successful",
                 session_id=self._get_session_id()
             )
-            
+
             self.logger.info(
                 f"ASYNC_JOB - {job_type} - {status} - Success: {success_count}/{total_patients}",
                 extra={
@@ -267,10 +273,10 @@ class HIPAAAuditLogger:
                     'status': status
                 }
             )
-            
+
         except Exception as e:
             logger.error(f"Failed to log async job audit: {str(e)}")
-    
+
     def get_audit_report(self, organization_id: int, start_date: datetime,
                         end_date: datetime, event_types: List[str] = None) -> List[Dict]:
         """Generate audit report for specified time period"""
@@ -280,12 +286,12 @@ class HIPAAAuditLogger:
                 AdminLog.timestamp >= start_date,
                 AdminLog.timestamp <= end_date
             )
-            
+
             if event_types:
                 query = query.filter(AdminLog.event_type.in_(event_types))
-            
+
             logs = query.order_by(AdminLog.timestamp.desc()).all()
-            
+
             audit_report = []
             for log in logs:
                 audit_entry = {
@@ -297,36 +303,36 @@ class HIPAAAuditLogger:
                     'ip_address': log.ip_address,
                     'session_id': log.session_id
                 }
-                
+
                 # Include sanitized data if available
                 if log.data and isinstance(log.data, dict):
                     audit_entry['metadata'] = self._sanitize_audit_data_for_export(log.data)
-                
+
                 audit_report.append(audit_entry)
-            
+
             return audit_report
-            
+
         except Exception as e:
             logger.error(f"Failed to generate audit report: {str(e)}")
             return []
-    
+
     def _hash_identifier(self, identifier: str) -> str:
         """Hash sensitive patient identifiers for audit logging"""
         if not identifier:
             return None
-        
+
         # Use SHA-256 hash with salt for patient identifiers
         salt = "hipaa_audit_salt_2024"  # In production, use environment variable
         return hashlib.sha256(f"{identifier}{salt}".encode()).hexdigest()[:16]
-    
+
     def _sanitize_phi_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Remove or hash PHI from data for minimal logging"""
         if not data:
             return {}
-        
+
         sanitized = {}
         phi_fields = ['mrn', 'name', 'email', 'phone', 'ssn', 'dob', 'address']
-        
+
         for key, value in data.items():
             if any(phi_field in key.lower() for phi_field in phi_fields):
                 if isinstance(value, str):
@@ -335,31 +341,31 @@ class HIPAAAuditLogger:
                     sanitized[f"{key}_present"] = value is not None
             else:
                 sanitized[key] = value
-        
+
         return sanitized
-    
+
     def _sanitize_request_params(self, params: dict) -> dict:
         """Sanitize request parameters for logging"""
         if not params:
             return {}
-        
+
         # Remove sensitive parameters but keep structure for audit
         safe_params = {}
         sensitive_keys = ['access_token', 'refresh_token', 'password', 'secret']
-        
+
         for key, value in params.items():
             if any(sensitive in key.lower() for sensitive in sensitive_keys):
                 safe_params[key] = '***REDACTED***'
             else:
                 safe_params[key] = value
-        
+
         return safe_params
-    
+
     def _sanitize_audit_data_for_export(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Sanitize audit data for external export/reporting"""
         if not isinstance(data, dict):
             return {}
-        
+
         sanitized = {}
         for key, value in data.items():
             if 'token' in key.lower() or 'secret' in key.lower() or 'password' in key.lower():
@@ -368,9 +374,9 @@ class HIPAAAuditLogger:
                 sanitized[key] = self._sanitize_audit_data_for_export(value)
             else:
                 sanitized[key] = value
-        
+
         return sanitized
-    
+
     def _get_client_ip(self) -> str:
         """Get client IP address from request"""
         try:
@@ -379,7 +385,7 @@ class HIPAAAuditLogger:
             return 'unknown'
         except:
             return 'unknown'
-    
+
     def _get_user_agent(self) -> str:
         """Get user agent from request"""
         try:
@@ -388,7 +394,7 @@ class HIPAAAuditLogger:
             return 'unknown'
         except:
             return 'unknown'
-    
+
     def _get_session_id(self) -> str:
         """Get session ID for tracking"""
         try:
