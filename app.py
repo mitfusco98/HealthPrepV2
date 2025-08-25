@@ -29,14 +29,32 @@ migrate = Migrate()
 def create_app():
     """Create and configure Flask application"""
     app = Flask(__name__)
-    
+
     # Add proxy fix for proper URL generation behind reverse proxy
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
     # Configuration
-    app.config['SECRET_KEY'] = os.environ.get('SESSION_SECRET', 'dev-secret-key-change-in-production')
-    # Database configuration - Use PostgreSQL for production
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+
+    # Database configuration with fallback
+    database_url = os.environ.get('DATABASE_URL', 'sqlite:///instance/healthprep.db')
+
+    # If using PostgreSQL, try to connect, but fallback to SQLite if it fails
+    if database_url.startswith('postgresql://') or database_url.startswith('postgres://'):
+        try:
+            # Test if we can resolve the hostname
+            from urllib.parse import urlparse
+            import socket
+            parsed = urlparse(database_url)
+            socket.gethostbyname(parsed.hostname)
+            app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+            print(f"Using PostgreSQL database: {parsed.hostname}")
+        except (socket.gaierror, Exception) as e:
+            print(f"PostgreSQL connection failed ({e}), falling back to SQLite")
+            app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/healthprep.db'
+    else:
+        app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'pool_recycle': 300,
@@ -77,29 +95,29 @@ def create_app():
     def check_user_role_redirect():
         from flask_login import current_user
         from flask import request, redirect, url_for
-        
+
         # Skip for static files, auth routes, and API routes
-        if (request.endpoint and 
-            (request.endpoint.startswith('static') or 
+        if (request.endpoint and
+            (request.endpoint.startswith('static') or
              request.endpoint.startswith('auth.') or
              request.endpoint.startswith('api.'))):
             return
-        
+
         # If user is authenticated and trying to access wrong dashboard
         if current_user.is_authenticated:
             current_endpoint = request.endpoint
-            
+
             # Root admin trying to access regular admin dashboard (but not root admin dashboard)
-            if (current_user.is_root_admin_user() and 
+            if (current_user.is_root_admin_user() and
                 current_endpoint and current_endpoint.startswith('admin.') and
                 not current_endpoint.startswith('root_admin.')):
                 return redirect(url_for('root_admin.dashboard'))
-            
-            # Regular admin trying to access root admin dashboard  
+
+            # Regular admin trying to access root admin dashboard
             elif (current_user.is_admin_user() and not current_user.is_root_admin_user() and
                   current_endpoint and current_endpoint.startswith('root_admin.')):
                 return redirect(url_for('admin.dashboard'))
-            
+
             # Regular user trying to access admin areas
             elif (not current_user.is_admin_user() and not current_user.is_root_admin_user() and
                   current_endpoint and (current_endpoint.startswith('admin.') or current_endpoint.startswith('root_admin.'))):
@@ -126,11 +144,11 @@ def create_app():
     def index():
         from flask_login import current_user
         from flask import session
-        
+
         if current_user.is_authenticated:
             # Clear any cached redirect to ensure proper role-based routing
             session.pop('_flashes', None)
-            
+
             # Redirect based on user role with explicit priority
             if current_user.is_root_admin_user():
                 return redirect(url_for('root_admin.dashboard'))
