@@ -33,9 +33,9 @@ def epic_registration():
         elif registration_status == 'in_progress':
             progress_percentage = 25
         elif registration_status == 'pending_approval':
-            progress_percentage = 50
+            progress_percentage = 60  # Epic is reviewing (1 hour wait)
         elif registration_status == 'approved':
-            progress_percentage = 75
+            progress_percentage = 80
         elif registration_status == 'active':
             progress_percentage = 100
         
