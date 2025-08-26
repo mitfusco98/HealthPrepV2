@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """
 Keep-alive script to ensure server stays active during Epic approval process
@@ -13,7 +12,8 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev"
+# Use your deployment URL instead of development URL
+BASE_URL = "https://health-prep-v-201-mitchfusillo.replit.app"
 
 ENDPOINTS_TO_PING = [
     "/health",
@@ -27,15 +27,15 @@ def ping_endpoints():
         try:
             url = f"{BASE_URL}{endpoint}"
             response = requests.get(url, timeout=10)
-            
+
             if response.status_code == 200:
                 logger.info(f"✅ {endpoint} - Status: {response.status_code}")
             else:
                 logger.warning(f"⚠️  {endpoint} - Status: {response.status_code}")
-                
+
         except requests.exceptions.RequestException as e:
             logger.error(f"❌ {endpoint} - Error: {e}")
-        
+
         time.sleep(2)  # Small delay between requests
 
 def main():
@@ -43,15 +43,15 @@ def main():
     logger.info("🚀 Starting Epic approval keep-alive service")
     logger.info("This will ping your JWKS endpoints every 5 minutes")
     logger.info("Keep this running during Epic App Orchard registration")
-    
+
     try:
         while True:
             logger.info("🔄 Pinging endpoints to keep server active...")
             ping_endpoints()
-            
+
             logger.info("✅ All endpoints pinged - sleeping for 5 minutes")
             time.sleep(300)  # Wait 5 minutes between ping cycles
-            
+
     except KeyboardInterrupt:
         logger.info("🛑 Keep-alive service stopped by user")
     except Exception as e:
