@@ -126,6 +126,13 @@ def create_app():
     # Register blueprints
     register_blueprints(app)
 
+    # Add static file serving for JWKS fallbacks
+    from flask import send_from_directory
+    @app.route('/static/<path:filename>')
+    def static_files(filename):
+        """Serve static files including JWKS fallbacks"""
+        return send_from_directory('static', filename)
+
     # Register error handlers
     register_error_handlers(app)
 

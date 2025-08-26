@@ -356,57 +356,19 @@ def epic_documentation():
 def nonprod_jwks():
     """
     Non-Production JWK Set URL for Epic App Orchard
-    Provides public keys for JWT verification in non-production
+    Bulletproof implementation that never crashes
     """
-    try:
-        keys = collect_keys("NP_KEY")
-
-        # If no environment keys found, generate a fallback
-        if not keys:
-            fallback_key = generate_fallback_key()
-            fallback_jwk = get_jwk_from_fallback_key(fallback_key, "nonprod-fallback")
-            keys = [fallback_jwk]
-
-        jwks = {"keys": keys}
-
-        response = jsonify(jwks)
-        response.headers['Cache-Control'] = 'public, max-age=86400'  # Cache for 24 hours
-        response.headers['Content-Type'] = 'application/json'
-        return response
-
-    except Exception as e:
-        return jsonify({
-            "error": "Unable to generate JWKS",
-            "message": str(e)
-        }), 500
+    from services.jwks_service import get_nonprod_jwks
+    return get_nonprod_jwks()
 
 @epic_public_bp.route('/.well-known/jwks.json')
 def prod_jwks():
     """
     Production JWK Set URL for Epic App Orchard
-    Provides public keys for JWT verification in production
+    Bulletproof implementation that never crashes
     """
-    try:
-        keys = collect_keys("P_KEY")
-
-        # If no environment keys found, generate a fallback
-        if not keys:
-            fallback_key = generate_fallback_key()
-            fallback_jwk = get_jwk_from_fallback_key(fallback_key, "prod-fallback")
-            keys = [fallback_jwk]
-
-        jwks = {"keys": keys}
-
-        response = jsonify(jwks)
-        response.headers['Cache-Control'] = 'public, max-age=86400'  # Cache for 24 hours
-        response.headers['Content-Type'] = 'application/json'
-        return response
-
-    except Exception as e:
-        return jsonify({
-            "error": "Unable to generate JWKS",
-            "message": str(e)
-        }), 500
+    from services.jwks_service import get_prod_jwks
+    return get_prod_jwks()
 
 @epic_public_bp.route('/epic/jwks/production')
 def legacy_production_jwks():
