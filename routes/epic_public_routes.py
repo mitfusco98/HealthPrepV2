@@ -469,6 +469,11 @@ def epic_app_info():
     response.headers['Content-Type'] = 'application/json'
     return response
 
+@epic_public_bp.route('/')
+def root_health():
+    """Root health check for uptime monitoring"""
+    return jsonify({"ok": True})
+
 @epic_public_bp.route('/health')
 def health_check():
     """Health check endpoint for Epic connectivity testing"""
