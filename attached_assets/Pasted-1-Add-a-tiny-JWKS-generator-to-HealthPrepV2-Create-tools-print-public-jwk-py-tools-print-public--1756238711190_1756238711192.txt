@@ -1,0 +1,60 @@
+1) Add a tiny JWKS generator to HealthPrepV2
+Create tools/print_public_jwk.py:
+# tools/print_public_jwk.py
+import json, base64, sys
+from cryptography.hazmat.primitives import serialization
+
+def b64u(b: bytes) -> str:
+    return base64.urlsafe_b64encode(b).decode().rstrip("=")
+
+def main():
+    if sys.stdin.isatty():
+        print("Usage: python tools/print_public_jwk.py <kid> < private_key.pem", file=sys.stderr)
+        sys.exit(1)
+
+    kid = sys.argv[1] if len(sys.argv) > 1 else "new-key"
+    pem = sys.stdin.read().encode()
+
+    key = serialization.load_pem_private_key(pem, password=None)
+    pub = key.public_key().public_numbers()
+    n = pub.n.to_bytes((pub.n.bit_length() + 7)//8, "big")
+    e = pub.e.to_bytes((pub.e.bit_length() + 7)//8, "big")
+
+    jwk = {"kty":"RSA","use":"sig","alg":"RS256","kid":kid,"n":b64u(n),"e":b64u(e)}
+    print(json.dumps(jwk, separators=(",",":")))
+
+if __name__ == "__main__":
+    main()
+Keep this file in the repo. It has no secrets and just turns a PEM into a public JWK.
+Also add cryptography to your dev environment (e.g., your local venv or a requirements-dev.txt).
+2) Create a publish-safe static directory
+Add this structure inside your repo:
+HealthPrepV2/
+  jwks-static/
+    .well-known/
+      jwks.json              # <-- prod public JWKs only
+    nonprod/
+      .well-known/
+        jwks.json            # <-- non-prod public JWKs only
+  tools/
+    print_public_jwk.py
+  .gitignore
+Add these lines to your .gitignore to avoid ever committing private material:
+# NEVER commit private keys
+*.key
+*.pem
+secrets/
+3) Generate the public JWK JSON (first time)
+Assume you have two RSA private keys (do not commit them):
+secrets/prod-current.key
+secrets/nonprod-current.key
+Run:
+# from repo root
+python tools/print_public_jwk.py p-2025-08-a < secrets/prod-current.key > /tmp/prod_jwk.json
+python tools/print_public_jwk.py np-2025-08-a < secrets/nonprod-current.key > /tmp/nonprod_jwk.json
+Now create the two files your static site will serve:
+jwks-static/.well-known/jwks.json
+{"keys":[<paste the contents of /tmp/prod_jwk.json here>]}
+jwks-static/nonprod/.well-known/jwks.json
+{"keys":[<paste the contents of /tmp/nonprod_jwk.json here>]}
+These files contain only public material. Safe to publish.
