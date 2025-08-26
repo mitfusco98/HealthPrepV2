@@ -8,6 +8,7 @@ import json
 import base64
 import sys
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 def b64u(b: bytes) -> str:
     """URL-safe base64 encoding without padding"""
@@ -27,6 +28,11 @@ def main():
         
         # Load private key
         key = serialization.load_pem_private_key(pem_content, password=None)
+        
+        # Ensure we have an RSA key
+        if not isinstance(key, rsa.RSAPrivateKey):
+            raise ValueError(f"Expected RSA private key, got {type(key)}")
+            
         pub = key.public_key().public_numbers()
         
         # Convert to JWK format
