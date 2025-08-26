@@ -13,6 +13,8 @@ from emr.fhir_client import FHIRClient
 from models import db, Organization
 from functools import wraps
 from flask import abort
+from services.smart_discovery import smart_discovery
+from services.jwt_client_auth import JWTClientAuthService
 
 def require_admin(f):
     """Decorator to require admin role"""
@@ -150,6 +152,95 @@ def epic_oauth_debug():
 
     except Exception as e:
         return f"Error: {str(e)}"
+
+
+@oauth_bp.route('/launch')
+def smart_launch():
+    """
+    SMART on FHIR Launch endpoint
+    Handles launch with iss and launch parameters
+    """
+    try:
+        # Get launch parameters
+        iss = request.args.get('iss')
+        launch = request.args.get('launch')
+        
+        logger.info(f"SMART launch initiated - iss: {iss}, launch: {launch}")
+        
+        if not iss:
+            return jsonify({"error": "Missing required parameter 'iss'"}), 400
+        
+        # Fetch SMART configuration
+        try:
+            cfg = smart_discovery.fetch(iss)
+            logger.info(f"Retrieved SMART config from {iss}")
+        except Exception as e:
+            logger.error(f"SMART discovery failed for {iss}: {e}")
+            return jsonify({"error": f"SMART discovery failed: {e}"}), 400
+        
+        # Get organization's Epic configuration
+        if current_user.is_authenticated:
+            org = current_user.organization
+            if not org or not org.epic_client_id:
+                flash('Epic FHIR configuration not found. Please configure Epic credentials first.', 'error')
+                return redirect(url_for('fhir.epic_config'))
+        else:
+            # For public launch, use default config or redirect to login
+            return redirect(url_for('auth.login', next=request.url))
+        
+        # Build authorization URL with SMART launch context
+        redirect_uri = url_for('oauth.epic_callback', _external=True)
+        if redirect_uri.startswith('http://'):
+            redirect_uri = redirect_uri.replace('http://', 'https://')
+        
+        # Generate state parameter
+        state = secrets.token_urlsafe(32)
+        
+        # Store launch context in session
+        session['epic_oauth_state'] = state
+        session['epic_launch_context'] = {
+            'iss': iss,
+            'launch': launch,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        # Build authorization parameters
+        scopes = ['openid', 'fhirUser', 'launch']
+        if launch:
+            scopes.append('launch')  # Required for EHR launch
+        else:
+            scopes.extend(['launch/patient'])  # Standalone launch
+        
+        # Add data access scopes
+        scopes.extend([
+            'patient/Patient.read',
+            'patient/Observation.read',
+            'patient/Condition.read',
+            'patient/DocumentReference.read'
+        ])
+        
+        from urllib.parse import urlencode
+        params = {
+            'response_type': 'code',
+            'client_id': org.epic_client_id,
+            'redirect_uri': redirect_uri,
+            'scope': ' '.join(scopes),
+            'state': state,
+            'aud': iss
+        }
+        
+        # Add launch parameter if provided
+        if launch:
+            params['launch'] = launch
+        
+        auth_url = f"{cfg['authorization_endpoint']}?{urlencode(params)}"
+        
+        logger.info(f"Redirecting to Epic authorization: {auth_url}")
+        return redirect(auth_url)
+        
+    except Exception as e:
+        logger.error(f"Error in SMART launch: {str(e)}")
+        return jsonify({"error": f"Launch failed: {str(e)}"}), 500
 
 
 @oauth_bp.route('/epic-authorize')
