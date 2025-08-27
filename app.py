@@ -46,10 +46,11 @@ def create_app():
             from urllib.parse import urlparse
             import socket
             parsed = urlparse(database_url)
-            socket.gethostbyname(parsed.hostname)
+            if parsed.hostname:
+                socket.gethostbyname(parsed.hostname)
             app.config['SQLALCHEMY_DATABASE_URI'] = database_url
             print(f"Using PostgreSQL database: {parsed.hostname}")
-        except (socket.gaierror, Exception) as e:
+        except Exception as e:
             print(f"PostgreSQL connection failed ({e}), falling back to SQLite")
             app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/healthprep.db'
     else:
@@ -64,7 +65,7 @@ def create_app():
     # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)
-    login_manager.login_view = 'auth.login'
+    login_manager.login_view = 'auth.login'  # type: ignore
     login_manager.login_message = 'Please log in to access this page.'
     csrf.init_app(app)
     configure_csrf_exemptions(app)
@@ -270,7 +271,12 @@ def configure_jinja_filters(app):
     try:
         from markupsafe import Markup
     except ImportError:
-        from jinja2 import Markup
+        try:
+            from jinja2 import Markup  # type: ignore
+        except ImportError:
+            # Fallback for older versions
+            def Markup(s):  # type: ignore
+                return s
     import json
 
     @app.template_filter('tojsonpretty')
