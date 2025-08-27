@@ -55,8 +55,8 @@ class Config:
     SMART_DISCOVERY_CACHE_TIMEOUT = 300  # 5 minutes
     SMART_TOKEN_TIMEOUT = 30  # 30 seconds for token exchange
     
-    # Epic FHIR default endpoints
-    EPIC_SANDBOX_ISS = 'https://fhir.epic.com/interconnect-fhir-oauth'
+    # Epic FHIR default endpoints (must use R4 endpoint for proper SMART discovery)
+    EPIC_SANDBOX_ISS = 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4'
     EPIC_SANDBOX_AUTH_URL = 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize'
     EPIC_SANDBOX_TOKEN_URL = 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token'
     

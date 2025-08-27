@@ -80,8 +80,8 @@ def test_smart_discovery(iss):
 
 def main():
     """Main test function"""
-    # Epic's standard ISS for sandbox/testing
-    epic_iss = "https://fhir.epic.com/interconnect-fhir-oauth"
+    # Epic's correct R4 FHIR ISS for sandbox/testing (must use R4 endpoint for proper discovery)
+    epic_iss = "https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4"
     
     logger.info("SMART Discovery Test")
     logger.info("Testing Epic's SMART on FHIR configuration")
