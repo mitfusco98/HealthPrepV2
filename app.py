@@ -180,6 +180,7 @@ def register_blueprints(app):
     from routes.fuzzy_detection_routes import fuzzy_bp
     from routes.fhir_routes import fhir_bp
     from routes.oauth_routes import oauth_bp
+    from routes.smart_auth import smart_auth_bp
     from routes.epic_admin_routes import epic_admin_bp
     from routes.epic_registration_routes import epic_registration_bp
     from routes.epic_public_routes import epic_public_bp
@@ -196,6 +197,7 @@ def register_blueprints(app):
     app.register_blueprint(fuzzy_bp, url_prefix='/fuzzy')
     app.register_blueprint(fhir_bp, url_prefix='/fhir')
     app.register_blueprint(oauth_bp, url_prefix='/oauth')
+    app.register_blueprint(smart_auth_bp)  # SMART on FHIR auth routes with /smart prefix
     app.register_blueprint(epic_admin_bp)  # Epic admin routes with /admin/epic prefix
     app.register_blueprint(epic_registration_bp)
     app.register_blueprint(epic_public_bp)  # Epic registration routes
@@ -206,6 +208,7 @@ def register_blueprints(app):
     csrf.exempt(api_bp)
     csrf.exempt(emr_sync_bp)  # Exempt EMR webhooks from CSRF
     csrf.exempt(fuzzy_bp)  # Exempt fuzzy detection API from CSRF
+    csrf.exempt(smart_auth_bp)  # Exempt SMART auth from CSRF for OAuth callbacks
 
     # Configure additional CSRF exemptions
     configure_csrf_exemptions(app)

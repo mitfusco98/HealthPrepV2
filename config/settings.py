@@ -44,6 +44,31 @@ class Config:
 
     # Admin configuration
     ADMIN_LOG_RETENTION_DAYS = 365
+    
+    # SMART on FHIR OAuth2 configuration
+    SMART_CLIENT_ID = os.environ.get('NONPROD_CLIENT_ID')
+    SMART_REDIRECT_URI = os.environ.get('REDIRECT_URI', 'http://localhost:5000/smart/callback')
+    SMART_PRIVATE_KEY_PEM = os.environ.get('NONPROD_PRIVATE_KEY_PEM')
+    SMART_PRIVATE_KEY_KID = os.environ.get('NONPROD_PRIVATE_KEY_KID', 'np-2025-08-a')
+    
+    # SMART Discovery settings
+    SMART_DISCOVERY_CACHE_TIMEOUT = 300  # 5 minutes
+    SMART_TOKEN_TIMEOUT = 30  # 30 seconds for token exchange
+    
+    # Epic FHIR default endpoints
+    EPIC_SANDBOX_ISS = 'https://fhir.epic.com/interconnect-fhir-oauth'
+    EPIC_SANDBOX_AUTH_URL = 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize'
+    EPIC_SANDBOX_TOKEN_URL = 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token'
+    
+    # Default SMART scopes
+    SMART_DEFAULT_SCOPES = [
+        'openid', 'profile', 'fhirUser',
+        'patient/Patient.read',
+        'patient/Observation.read',
+        'patient/DocumentReference.read',
+        'patient/Condition.read',
+        'patient/DiagnosticReport.read'
+    ]
 
 class DevelopmentConfig(Config):
     """Development configuration"""
@@ -53,6 +78,11 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     """Production configuration"""
     DEBUG = False
+    
+    # Production SMART configuration
+    SMART_CLIENT_ID = os.environ.get('PROD_CLIENT_ID')
+    SMART_PRIVATE_KEY_PEM = os.environ.get('PROD_PRIVATE_KEY_PEM')
+    SMART_PRIVATE_KEY_KID = os.environ.get('PROD_PRIVATE_KEY_KID', 'p-2025-08-a')
 
 class TestingConfig(Config):
     """Testing configuration"""
