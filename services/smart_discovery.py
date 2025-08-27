@@ -20,12 +20,21 @@ class SMARTDiscoveryService:
         self._cache = {}
         self._cache_timeout = 300  # 5 minutes default cache
         
-        # Epic fallback endpoints (when discovery fails)
+        # Epic endpoints - both working and fallback configurations
         self._epic_fallbacks = {
+            # CORRECT Epic R4 FHIR endpoint (primary sandbox)
+            'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4': {
+                'authorization_endpoint': 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize',
+                'token_endpoint': 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token',
+                'scopes_supported': ['patient/Patient.read', 'patient/Observation.read', 'patient/DocumentReference.read'],
+                'fallback': False  # Should use proper discovery
+            },
+            # Legacy/incorrect ISS (fallback only - returns HTML 404)
             'https://fhir.epic.com/interconnect-fhir-oauth': {
                 'authorization_endpoint': 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize',
                 'token_endpoint': 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token',
-                'scopes_supported': ['patient/Patient.read', 'patient/Observation.read', 'patient/DocumentReference.read']
+                'scopes_supported': ['patient/Patient.read', 'patient/Observation.read', 'patient/DocumentReference.read'],
+                'fallback': True  # This ISS returns 404, requires fallback
             }
         }
     
