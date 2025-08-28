@@ -27,7 +27,8 @@ class EpicSandboxValidator:
     """Validates Epic Sandbox readiness with final sanity checks"""
     
     def __init__(self):
-        self.base_url = os.environ.get('REPLIT_URL', 'https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev')
+        # Use the correct externally hosted JWKS URL
+        self.jwks_base_url = "https://epic-sandbox-link-mitchfusillo.replit.app"
         self.iss = "https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4"
         self.results = []
     
@@ -88,10 +89,11 @@ class EpicSandboxValidator:
             # Get private key and kid
             private_key_pem, kid = JWTClientAuthService.get_private_key_and_kid("nonprod")
             
-            # Get client ID from environment (you'll need to set this)
+            # Get client ID from EPIC_NONPROD_CLIENT_ID environment variable
             client_id = os.environ.get('EPIC_NONPROD_CLIENT_ID')
             if not client_id:
                 logger.error("❌ EPIC_NONPROD_CLIENT_ID environment variable not set")
+                logger.error("   Please set this to your Epic nonprod client ID")
                 return None, None, None
             
             logger.info(f"Using client ID: {client_id}")
@@ -189,12 +191,13 @@ class EpicSandboxValidator:
             return None
     
     def test_jwks_consistency(self, kid: str) -> bool:
-        """Verify kid exists in published JWKS"""
+        """Verify kid exists in published JWKS using correct URL"""
         logger.info(f"\n🔗 JWKS Consistency Check")
         logger.info("=" * 50)
         
         try:
-            jwks_url = f"{self.base_url}/nonprod/.well-known/jwks.json"
+            # Use the correct externally hosted JWKS URL
+            jwks_url = f"{self.jwks_base_url}/nonprod/.well-known/jwks.json"
             logger.info(f"Checking JWKS at: {jwks_url}")
             
             response = requests.get(jwks_url, timeout=10)
@@ -339,6 +342,15 @@ class EpicSandboxValidator:
         else:
             logger.info(f"❌ NOT READY ({passed_count}/{total_count} checks passed)")
             logger.info("❌ Fix issues before Epic Sandbox testing")
+            
+            # Additional troubleshooting info
+            logger.info("\n📋 Troubleshooting Checklist:")
+            logger.info("   1. Verify EPIC_NONPROD_CLIENT_ID is set correctly")
+            logger.info("   2. Check Epic app status at https://fhir.epic.com")
+            logger.info("   3. Ensure app is 'Ready for Sandbox'")
+            logger.info("   4. Wait 60+ minutes for Epic sync after status change")
+            logger.info(f"   5. Verify Epic has your JWKS URL: {self.jwks_base_url}/nonprod/.well-known/jwks.json")
+            
             return False
 
 def main():
@@ -346,10 +358,15 @@ def main():
     validator = EpicSandboxValidator()
     
     # Check if nonprod client ID is set
-    if not os.environ.get('EPIC_NONPROD_CLIENT_ID'):
+    client_id = os.environ.get('EPIC_NONPROD_CLIENT_ID')
+    if not client_id:
         logger.error("❌ Please set EPIC_NONPROD_CLIENT_ID environment variable")
-        logger.error("   This should be your Epic App Orchard non-production client ID")
+        logger.error("   This should be your Epic nonprod client ID from https://fhir.epic.com")
         return False
+    
+    # Show current configuration
+    logger.info(f"Using client ID: {client_id[:12]}...")
+    logger.info(f"Using JWKS URL: {validator.jwks_base_url}/nonprod/.well-known/jwks.json")
     
     return validator.run_full_validation()
 
