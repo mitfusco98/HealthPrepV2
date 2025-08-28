@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """
 Simplified Epic Sandbox Readiness Validator
@@ -19,15 +18,17 @@ def main():
     """Run focused Epic readiness checks"""
     logger.info("🚀 Epic Sandbox Readiness Check")
     logger.info("=" * 50)
-    
+
     # Check 1: Environment variables
-    client_id = os.environ.get('NONPROD_CLIENT_ID')
+    client_id = os.environ.get('EPIC_NONPROD_CLIENT_ID', '').strip()
     if not client_id:
-        logger.error("❌ NONPROD_CLIENT_ID environment variable not set")
+        logger.error("❌ EPIC_NONPROD_CLIENT_ID environment variable not set")
+        logger.info("📋 Set your Epic nonprod client ID:")
+        logger.info("   Go to Secrets tab and add EPIC_NONPROD_CLIENT_ID")
         return False
-    
+
     logger.info(f"✅ Client ID found: {client_id}")
-    
+
     # Check 2: JWKS endpoint accessibility
     jwks_url = "https://epic-sandbox-link-mitchfusillo.replit.app/nonprod/.well-known/jwks.json"
     try:
@@ -39,7 +40,7 @@ def main():
     except Exception as e:
         logger.error(f"❌ JWKS endpoint error: {e}")
         return False
-    
+
     # Check 3: JWT client assertion creation
     try:
         token_url = "https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token"
@@ -52,7 +53,7 @@ def main():
     except Exception as e:
         logger.error(f"❌ JWT creation failed: {e}")
         return False
-    
+
     # Check 4: Key consistency
     try:
         key_consistent = JWTClientAuthService.validate_key_consistency("nonprod")
@@ -64,7 +65,7 @@ def main():
     except Exception as e:
         logger.error(f"❌ Key consistency check failed: {e}")
         return False
-    
+
     # Check 5: Epic token endpoint test (will fail until app is active)
     logger.info("\n🔑 Testing Epic Token Endpoint...")
     try:
@@ -73,14 +74,14 @@ def main():
             'client_assertion_type': 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
             'client_assertion': client_assertion
         }
-        
+
         headers = {
             'Content-Type': 'application/x-www-form-urlencoded',
             'Accept': 'application/json'
         }
-        
+
         response = requests.post(token_url, data=token_data, headers=headers, timeout=30)
-        
+
         if response.status_code == 200:
             logger.info("🎉 SUCCESS: Epic token endpoint working!")
             return True
@@ -98,7 +99,7 @@ def main():
             logger.error(f"❌ Unexpected response: {response.status_code}")
             logger.error(f"Response: {response.text}")
             return False
-            
+
     except Exception as e:
         logger.error(f"❌ Token endpoint test failed: {e}")
         return False
