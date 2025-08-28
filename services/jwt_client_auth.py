@@ -32,6 +32,11 @@ class JWTClientAuthService:
         for env_var in os.environ:
             if env_var.startswith(prefix + "_"):
                 private_key_pem = os.environ[env_var]
+                # Handle potential newline issues in PEM (sanity check from Epic troubleshooting)
+                # Replace \n with actual newlines if stored as single-line env var
+                if '\\n' in private_key_pem and '\n' not in private_key_pem:
+                    private_key_pem = private_key_pem.replace('\\n', '\n')
+                
                 # Extract kid from environment variable name
                 # e.g., NP_KEY_2025_08_A -> kid: "2025_08_A"
                 kid = env_var.replace(prefix + "_", "")
@@ -84,6 +89,15 @@ class JWTClientAuthService:
                 "kid": kid  # Must match kid in JWKS endpoint
             }
             
+            # Debug output for sanity checking (as recommended in Epic troubleshooting)
+            import json
+            logger.info(f"JWT Client Assertion Debug for {client_id}:")
+            logger.info(f"Header:  {json.dumps(headers, separators=(',', ':'))}")
+            logger.info(f"Payload: {json.dumps(claims, separators=(',', ':'))}")
+            logger.info(f"Token URL (aud): {token_url}")
+            logger.info(f"Environment: {environment}")
+            logger.info(f"Key ID (kid): {kid}")
+            
             # Sign JWT
             token = jwt.encode(
                 claims,
@@ -92,7 +106,7 @@ class JWTClientAuthService:
                 headers=headers
             )
             
-            logger.info(f"Created JWT client assertion for {client_id} with kid={kid}")
+            logger.info(f"✅ Created JWT client assertion for {client_id} with kid={kid}")
             return token
             
         except Exception as e:
