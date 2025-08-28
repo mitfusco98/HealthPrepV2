@@ -56,9 +56,9 @@ def setup_instructions():
        NP_KEY_2025_09_A (new non-prod key)
        P_KEY_2025_09_A (new prod key)
     
-    4. Your JWKS URLs for Epic registration:
-       Non-Production: https://your-repl-url/nonprod/.well-known/jwks.json
-       Production: https://your-repl-url/.well-known/jwks.json
+    4. Your JWKS URLs for Epic registration (externally hosted for uptime):
+       Non-Production: https://epic-sandbox-link-mitchfusillo.replit.app/nonprod/.well-known/jwks.json
+       Production: https://epic-sandbox-link-mitchfusillo.replit.app/.well-known/jwks.json
     
     5. When creating client assertions, the system will automatically:
        - Use the first available key from environment variables

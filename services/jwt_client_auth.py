@@ -128,14 +128,13 @@ class JWTClientAuthService:
             # Get current key ID
             _, kid = JWTClientAuthService.get_private_key_and_kid(environment)
             
-            # Check if this kid exists in JWKS endpoint
+            # Check if this kid exists in JWKS endpoint (using externally hosted JWKs)
             import requests
-            base_url = os.environ.get('REPLIT_URL', 'https://localhost:5000')
             
             if environment == "nonprod":
-                jwks_url = f"{base_url}/nonprod/.well-known/jwks.json"
+                jwks_url = "https://epic-sandbox-link-mitchfusillo.replit.app/nonprod/.well-known/jwks.json"
             else:
-                jwks_url = f"{base_url}/.well-known/jwks.json"
+                jwks_url = "https://epic-sandbox-link-mitchfusillo.replit.app/.well-known/jwks.json"
             
             response = requests.get(jwks_url, timeout=5)
             jwks = response.json()

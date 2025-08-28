@@ -15,11 +15,9 @@ def test_jwks_endpoints():
     print("Testing JWKS Endpoints...")
     print("=" * 50)
     
-    base_url = "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev"
-    
-    # Test non-production endpoint
+    # Test non-production endpoint (using externally hosted JWKs)
     try:
-        response = requests.get(f"{base_url}/nonprod/.well-known/jwks.json")
+        response = requests.get("https://epic-sandbox-link-mitchfusillo.replit.app/nonprod/.well-known/jwks.json")
         if response.status_code == 200:
             jwks = response.json()
             print(f"✅ Non-prod JWKS: {len(jwks['keys'])} keys found")
@@ -30,9 +28,9 @@ def test_jwks_endpoints():
     except Exception as e:
         print(f"❌ Non-prod JWKS error: {e}")
     
-    # Test production endpoint
+    # Test production endpoint (using externally hosted JWKs)
     try:
-        response = requests.get(f"{base_url}/.well-known/jwks.json")
+        response = requests.get("https://epic-sandbox-link-mitchfusillo.replit.app/.well-known/jwks.json")
         if response.status_code == 200:
             jwks = response.json()
             print(f"✅ Production JWKS: {len(jwks['keys'])} keys found")
