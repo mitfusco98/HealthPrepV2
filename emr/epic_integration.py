@@ -60,7 +60,7 @@ class EpicScreeningIntegration:
                         access_token=epic_creds.access_token,
                         refresh_token=epic_creds.refresh_token,
                         expires_in=expires_in,
-                        scopes=epic_creds.token_scopes.split() if epic_creds.token_scopes else []
+                        scopes=epic_creds.token_scope.split() if epic_creds.token_scope else []
                     )
                     
                     self.logger.info(f"Loaded Epic tokens for organization {self.organization_id}")

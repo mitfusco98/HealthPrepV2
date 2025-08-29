@@ -236,7 +236,7 @@
                                 </button>
                                 <ul class="dropdown-menu">
                                     <li>
-                                        <a class="dropdown-item" href="{{ url_for('oauth.epic_authorize') }}" target="_blank">
+                                        <a class="dropdown-item" href="#" onclick="startEpicAuthorization(); return false;">
                                             <i class="fas fa-sign-in-alt me-2"></i> Start Authorization
                                         </a>
                                     </li>
@@ -424,6 +424,50 @@ function testEpicConnection() {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-plug me-1"></i> Test Connection';
     });
+}
+
+function startEpicAuthorization() {
+    // Open OAuth flow in a popup window
+    const authUrl = '{{ url_for("oauth.epic_authorize") }}';
+    const popup = window.open(
+        authUrl,
+        'epicOAuth',
+        'width=600,height=700,scrollbars=yes,resizable=yes,status=yes,menubar=no,toolbar=no'
+    );
+    
+    // Monitor the popup for completion
+    const checkClosed = setInterval(() => {
+        if (popup.closed) {
+            clearInterval(checkClosed);
+            // Popup was closed, check if authorization was successful
+            setTimeout(() => {
+                checkOAuthStatus();
+            }, 1000); // Small delay to allow backend processing
+        } else {
+            // Check if the popup has navigated to the registration page (successful auth)
+            try {
+                if (popup.location.href.includes('/admin/epic/registration')) {
+                    clearInterval(checkClosed);
+                    popup.close();
+                    // Authorization successful, refresh status
+                    setTimeout(() => {
+                        checkOAuthStatus();
+                        location.reload(); // Refresh the entire page to show updated status
+                    }, 1000);
+                }
+            } catch (e) {
+                // Cross-origin restriction, ignore
+            }
+        }
+    }, 1000);
+    
+    // Auto-close after 10 minutes if still open
+    setTimeout(() => {
+        if (!popup.closed) {
+            clearInterval(checkClosed);
+            popup.close();
+        }
+    }, 600000);
 }
 
 function checkOAuthStatus() {
