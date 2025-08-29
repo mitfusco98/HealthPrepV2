@@ -258,6 +258,7 @@ def epic_authorize():
         logger.info(f"Current user username: {current_user.username}")
         logger.info(f"Current user org_id: {current_user.org_id}")
         logger.info(f"Current user organization object: {current_user.organization}")
+        logger.info(f"Session epic_org_id: {session.get('epic_org_id', 'None')}")
         if current_user.organization:
             logger.info(f"Organization ID: {current_user.organization.id}")
             logger.info(f"Organization name: {current_user.organization.name}")
@@ -443,11 +444,13 @@ def epic_callback():
         db.session.commit()
 
         # Also store in session for immediate admin access
+        # SECURITY: Store organization ID with session tokens for security isolation
         session['epic_access_token'] = token_data.get('access_token')
         session['epic_refresh_token'] = token_data.get('refresh_token')
         session['epic_token_expires'] = token_expires_at.isoformat()
         session['epic_token_scopes'] = token_data.get('scope', '').split()
         session['epic_patient_id'] = token_data.get('patient')
+        session['epic_org_id'] = org.id  # Track which organization these tokens belong to
 
         # Clean up OAuth state
         session.pop('epic_oauth_state', None)
@@ -479,7 +482,8 @@ def epic_disconnect():
             'epic_refresh_token', 
             'epic_token_expires',
             'epic_token_scopes',
-            'epic_patient_id'
+            'epic_patient_id',
+            'epic_org_id'  # Clear organization tracking too
         ]
 
         for key in epic_keys:
@@ -492,6 +496,50 @@ def epic_disconnect():
         logger.error(f"Error disconnecting Epic OAuth: {str(e)}")
         flash('Error disconnecting from Epic', 'error')
         return redirect(url_for('fhir.epic_config'))
+
+
+@oauth_bp.route('/check-epic-credentials')
+@login_required
+@require_admin
+def check_epic_credentials():
+    """
+    Check if organization has Epic credentials configured (for UI validation)
+    Returns JSON response for AJAX calls
+    """
+    try:
+        org = current_user.organization
+        
+        # SECURITY CHECK: Verify organization consistency
+        if not org or org.id != current_user.org_id:
+            logger.error(f"SECURITY VIOLATION: User {current_user.username} (org {current_user.org_id}) organization mismatch in credentials check")
+            return jsonify({'error': 'Organization security error', 'has_credentials': False}), 403
+        
+        has_credentials = bool(org.epic_client_id and org.epic_client_secret)
+        
+        if not has_credentials:
+            return jsonify({
+                'has_credentials': False,
+                'error': 'Epic FHIR configuration not found. Please configure Epic credentials first.',
+                'missing_fields': []
+            })
+        
+        missing_fields = []
+        if not org.epic_client_id:
+            missing_fields.append('Epic Client ID')
+        if not org.epic_client_secret:
+            missing_fields.append('Epic Client Secret')
+        if not org.epic_fhir_url:
+            missing_fields.append('Epic FHIR Base URL')
+        
+        return jsonify({
+            'has_credentials': len(missing_fields) == 0,
+            'missing_fields': missing_fields,
+            'error': f'Missing required fields: {", ".join(missing_fields)}' if missing_fields else None
+        })
+        
+    except Exception as e:
+        logger.error(f"Error checking Epic credentials: {str(e)}")
+        return jsonify({'error': str(e), 'has_credentials': False}), 500
 
 
 @oauth_bp.route('/epic-status')
@@ -510,10 +558,17 @@ def epic_status():
             'patient_id': None
         }
 
-        # Check organization-level tokens first, then fall back to session
+        # SECURITY: Only check tokens for current user's organization
         from models import EpicCredentials
         org = current_user.organization
-        epic_creds = EpicCredentials.query.filter_by(org_id=org.id).first() if org else None
+        
+        # SECURITY CHECK: Verify organization consistency
+        if not org or org.id != current_user.org_id:
+            logger.error(f"SECURITY VIOLATION: User {current_user.username} (org {current_user.org_id}) organization mismatch in status check")
+            return jsonify({'error': 'Organization security error'}), 403
+        
+        # SECURITY CHECK: Only query credentials for user's specific organization
+        epic_creds = EpicCredentials.query.filter_by(org_id=current_user.org_id).first() if org else None
 
         if epic_creds and epic_creds.access_token:
             status['connected'] = True
@@ -524,20 +579,36 @@ def epic_status():
             )
         else:
             # Fall back to session-based tokens (for backward compatibility)
-            access_token = session.get('epic_access_token')
-            if access_token:
-                status['connected'] = True
-                status['expires_at'] = session.get('epic_token_expires')
-                status['scopes'] = session.get('epic_token_scopes', [])
-            status['patient_id'] = session.get('epic_patient_id')
-
-            # Check if token is expired
-            expires_str = status['expires_at']
-            if expires_str:
-                expires_at = datetime.fromisoformat(expires_str)
-                status['expired'] = datetime.now() >= expires_at
-            else:
+            # SECURITY: Check if session tokens belong to current organization
+            session_org_id = session.get('epic_org_id')  # Should be set during OAuth
+            
+            if session_org_id and session_org_id != current_user.org_id:
+                # Session tokens belong to different organization - clear them
+                logger.warning(f"SECURITY: Clearing cross-organization session tokens for user {current_user.username} (org {current_user.org_id})")
+                epic_keys = ['epic_access_token', 'epic_refresh_token', 'epic_token_expires', 'epic_token_scopes', 'epic_patient_id', 'epic_org_id']
+                for key in epic_keys:
+                    session.pop(key, None)
+                # Return empty status since no valid organization-scoped tokens found
+                status['connected'] = False
                 status['expired'] = True
+            else:
+                access_token = session.get('epic_access_token')
+                if access_token:
+                    status['connected'] = True
+                    status['expires_at'] = session.get('epic_token_expires')
+                    status['scopes'] = session.get('epic_token_scopes', [])
+                    status['patient_id'] = session.get('epic_patient_id')
+
+                    # Check if token is expired
+                    expires_str = status['expires_at']
+                    if expires_str:
+                        expires_at = datetime.fromisoformat(expires_str)
+                        status['expired'] = datetime.now() >= expires_at
+                    else:
+                        status['expired'] = True
+                else:
+                    status['connected'] = False
+                    status['expired'] = True
 
         return jsonify(status)
 

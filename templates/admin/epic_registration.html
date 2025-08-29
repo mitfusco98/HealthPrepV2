@@ -395,63 +395,99 @@ function testEpicConnection() {
 }
 
 function startEpicAuthorization() {
-    // Open OAuth flow in a popup window
-    const authUrl = '{{ url_for("oauth.epic_authorize") }}';
-    const popup = window.open(
-        authUrl,
-        'epicOAuth',
-        'width=600,height=700,scrollbars=yes,resizable=yes,status=yes,menubar=no,toolbar=no'
-    );
+    // First check if Epic credentials are configured
+    const result = document.getElementById('connectionResult');
+    const message = document.getElementById('connectionMessage');
     
-    // Monitor the popup for completion and FHIR access confirmation
-    const checkClosed = setInterval(() => {
-        if (popup.closed) {
-            clearInterval(checkClosed);
-            // Popup was closed, check if authorization was successful
-            setTimeout(() => {
-                checkHyperspaceStatus();
-            }, 1000); // Small delay to allow backend processing
-        } else {
-            // Check if the popup has navigated to the registration page AND verify FHIR access
-            try {
-                if (popup.location.href.includes('/admin/epic/registration')) {
-                    // Popup is on registration page, now verify FHIR access before closing
-                    fetch('{{ url_for("oauth.epic_status") }}', {
-                        method: 'GET',
-                        headers: { 'Content-Type': 'application/json' }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        // Only close popup if FHIR access is confirmed and not expired
-                        if (data.connected && !data.expired) {
-                            clearInterval(checkClosed);
-                            popup.close();
-                            // FHIR authorization confirmed, refresh status
-                            setTimeout(() => {
-                                checkHyperspaceStatus();
-                                location.reload(); // Refresh the entire page to show updated status
-                            }, 1000);
-                        }
-                        // If not connected or expired, keep popup open for user to retry
-                    })
-                    .catch(error => {
-                        console.error('Error checking FHIR status:', error);
-                        // On error, don't close popup - let user handle it manually
-                    });
+    // Show checking message
+    result.style.display = 'block';
+    result.className = 'connection-status unknown';
+    message.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Checking Epic credentials...';
+    
+    fetch('{{ url_for("oauth.check_epic_credentials") }}', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.has_credentials) {
+            // Show error message on the same page instead of opening popup
+            result.className = 'connection-status error';
+            message.innerHTML = `
+                <i class="fas fa-exclamation-circle me-1"></i>
+                <strong>Epic Configuration Required</strong><br>
+                <span>${data.error}</span><br>
+                <small class="mt-2">Please fill in your Epic credentials in the "App Information" section above before attempting authorization.</small>
+            `;
+            return;
+        }
+        
+        // If credentials are configured, proceed with original popup flow
+        const authUrl = '{{ url_for("oauth.epic_authorize") }}';
+        const popup = window.open(
+            authUrl,
+            'epicOAuth',
+            'width=600,height=700,scrollbars=yes,resizable=yes,status=yes,menubar=no,toolbar=no'
+        );
+        
+        // Hide the checking message since popup will handle the flow
+        result.style.display = 'none';
+        
+        // Monitor the popup for completion and FHIR access confirmation
+        const checkClosed = setInterval(() => {
+            if (popup.closed) {
+                clearInterval(checkClosed);
+                // Popup was closed, check if authorization was successful
+                setTimeout(() => {
+                    checkHyperspaceStatus();
+                }, 1000); // Small delay to allow backend processing
+            } else {
+                // Check if the popup has navigated to the registration page AND verify FHIR access
+                try {
+                    if (popup.location.href.includes('/admin/epic/registration')) {
+                        // Popup is on registration page, now verify FHIR access before closing
+                        fetch('{{ url_for("oauth.epic_status") }}', {
+                            method: 'GET',
+                            headers: { 'Content-Type': 'application/json' }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            // Only close popup if FHIR access is confirmed and not expired
+                            if (data.connected && !data.expired) {
+                                clearInterval(checkClosed);
+                                popup.close();
+                                // FHIR authorization confirmed, refresh status
+                                setTimeout(() => {
+                                    checkHyperspaceStatus();
+                                    location.reload(); // Refresh the entire page to show updated status
+                                }, 1000);
+                            }
+                            // If not connected or expired, keep popup open for user to retry
+                        })
+                        .catch(error => {
+                            console.error('Error checking FHIR status:', error);
+                            // On error, don't close popup - let user handle it manually
+                        });
+                    }
+                } catch (e) {
+                    // Cross-origin restriction, ignore
                 }
-            } catch (e) {
-                // Cross-origin restriction, ignore
             }
-        }
-    }, 2000);
-    
-    // Auto-close after 10 minutes if still open
-    setTimeout(() => {
-        if (!popup.closed) {
-            clearInterval(checkClosed);
-            popup.close();
-        }
-    }, 600000);
+        }, 2000);
+        
+        // Auto-close after 10 minutes if still open
+        setTimeout(() => {
+            if (!popup.closed) {
+                clearInterval(checkClosed);
+                popup.close();
+            }
+        }, 600000);
+    })
+    .catch(error => {
+        result.className = 'connection-status error';
+        message.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>Failed to check Epic credentials';
+        console.error('Error:', error);
+    });
 }
 
 function checkHyperspaceStatus() {
