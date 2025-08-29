@@ -252,10 +252,35 @@ def epic_authorize():
     Redirects user to Epic's authorization endpoint
     """
     try:
+        # SECURITY DEBUG: Track user and organization context
+        logger.info(f"=== EPIC OAUTH AUTHORIZE DEBUG ===")
+        logger.info(f"Current user ID: {current_user.id}")
+        logger.info(f"Current user username: {current_user.username}")
+        logger.info(f"Current user org_id: {current_user.org_id}")
+        logger.info(f"Current user organization object: {current_user.organization}")
+        if current_user.organization:
+            logger.info(f"Organization ID: {current_user.organization.id}")
+            logger.info(f"Organization name: {current_user.organization.name}")
+            logger.info(f"Organization epic_client_id: {current_user.organization.epic_client_id}")
+        logger.info(f"================================")
+        
         # Get organization's Epic configuration
         org = current_user.organization
         if not org or not org.epic_client_id:
+            logger.error(f"SECURITY: User {current_user.username} (org {current_user.org_id}) attempted OAuth without Epic credentials")
             flash('Epic FHIR configuration not found. Please configure Epic credentials first.', 'error')
+            return redirect(url_for('fhir.epic_config'))
+        
+        # ADDITIONAL SECURITY CHECK: Verify organization owns Epic credentials
+        if org.id != current_user.org_id:
+            logger.error(f"CRITICAL SECURITY VIOLATION: User {current_user.username} (org {current_user.org_id}) attempting OAuth with different organization {org.id}")
+            flash('Security error: Organization mismatch detected.', 'error')
+            return redirect(url_for('auth.logout'))
+        
+        # ADDITIONAL SECURITY CHECK: Verify Epic credentials are properly configured for THIS specific organization
+        if not org.epic_client_secret:
+            logger.error(f"SECURITY: Organization {org.id} missing Epic client secret")
+            flash('Epic client secret not configured. Please complete Epic configuration.', 'error')
             return redirect(url_for('fhir.epic_config'))
 
         # Initialize FHIR client with organization config
@@ -339,8 +364,33 @@ def epic_callback():
             flash('Session expired during authorization', 'error')
             return redirect(url_for('auth.login'))
 
+        # SECURITY DEBUG: Track user and organization context in callback
+        logger.info(f"=== EPIC OAUTH CALLBACK USER DEBUG ===")
+        logger.info(f"Callback current user ID: {current_user.id}")
+        logger.info(f"Callback current user username: {current_user.username}")
+        logger.info(f"Callback current user org_id: {current_user.org_id}")
+        logger.info(f"Callback current user organization object: {current_user.organization}")
+        if current_user.organization:
+            logger.info(f"Callback Organization ID: {current_user.organization.id}")
+            logger.info(f"Callback Organization name: {current_user.organization.name}")
+            logger.info(f"Callback Organization epic_client_id: {current_user.organization.epic_client_id}")
+        logger.info(f"=======================================")
+
         # Get organization config
         org = current_user.organization
+        
+        # ADDITIONAL SECURITY CHECK: Verify organization consistency in callback
+        if not org or org.id != current_user.org_id:
+            logger.error(f"CRITICAL SECURITY VIOLATION IN CALLBACK: User {current_user.username} (org {current_user.org_id}) with organization mismatch {org.id if org else 'None'}")
+            flash('Security error: Organization mismatch in callback.', 'error')
+            return redirect(url_for('auth.logout'))
+        
+        # SECURITY CHECK: Verify organization has Epic credentials (should not proceed without them)
+        if not org.epic_client_id or not org.epic_client_secret:
+            logger.error(f"CRITICAL SECURITY ERROR: Callback reached for organization {org.id} without proper Epic credentials")
+            flash('Security error: No Epic credentials configured for your organization.', 'error')
+            return redirect(url_for('fhir.epic_config'))
+        
         epic_config = {
             'epic_client_id': org.epic_client_id,
             'epic_client_secret': org.epic_client_secret,
