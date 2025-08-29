@@ -183,10 +183,11 @@
                 </div>
             </div>
 
-            <!-- Step 2: Required Scopes -->
-            <div class="registration-step {{ 'completed' if registration_status == 'active' else ('active' if registration_status in ['pending_approval', 'approved'] else 'pending') }}">
+
+            <!-- Step 2: Connection Testing -->
+            <div class="registration-step {{ 'completed' if registration_status == 'active' else ('active' if registration_status == 'approved' else 'pending') }}">
                 <div class="d-flex align-items-start">
-                    <div class="step-icon {{ 'completed' if registration_status == 'active' else ('active' if registration_status in ['pending_approval', 'approved'] else 'pending') }}">
+                    <div class="step-icon {{ 'completed' if registration_status == 'active' else ('active' if registration_status == 'approved' else 'pending') }}">
                         {% if registration_status == 'active' %}
                             <i class="fas fa-check"></i>
                         {% else %}
@@ -194,66 +195,33 @@
                         {% endif %}
                     </div>
                     <div class="flex-grow-1">
-                        <h5>Required FHIR Scopes</h5>
-                        <p class="text-muted">These scopes will be requested during Epic registration</p>
-                        
-                        <div class="mb-3">
-                            {% for scope in epic_scopes %}
-                                <span class="scope-badge">{{ scope }}</span>
-                            {% endfor %}
-                        </div>
-                        
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle me-1"></i>
-                            <strong>Note:</strong> These scopes enable HealthPrep to read patient data and write prep sheet documents back to Epic.
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Step 3: Connection Testing -->
-            <div class="registration-step {{ 'completed' if registration_status == 'active' else ('active' if registration_status == 'approved' else 'pending') }}">
-                <div class="d-flex align-items-start">
-                    <div class="step-icon {{ 'completed' if registration_status == 'active' else ('active' if registration_status == 'approved' else 'pending') }}">
-                        {% if registration_status == 'active' %}
-                            <i class="fas fa-check"></i>
-                        {% else %}
-                            <span>3</span>
-                        {% endif %}
-                    </div>
-                    <div class="flex-grow-1">
                         <h5>Connection Testing</h5>
-                        <p class="text-muted">Test your Epic FHIR connection</p>
+                        <p class="text-muted">Test your Epic FHIR connection and Epic Hyperspace authorization</p>
+                        
+                        <!-- Epic Hyperspace Authorization Status -->
+                        <div class="alert alert-light border" id="hyperspaceStatus" style="display: none;">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-hospital me-2 text-info"></i>
+                                <div class="flex-grow-1">
+                                    <strong>Epic Hyperspace Authorization</strong>
+                                    <div id="hyperspaceStatusMessage" class="small text-muted">Check authorization status...</div>
+                                </div>
+                                <span id="hyperspaceStatusBadge" class="badge bg-secondary">Unknown</span>
+                            </div>
+                        </div>
                         
                         <div class="mb-3">
                             <button type="button" class="btn btn-outline-primary me-2" onclick="testEpicConnection()" id="testConnectionBtn">
                                 <i class="fas fa-plug me-1"></i> Test Connection
                             </button>
                             
-                            <div class="btn-group" role="group">
-                                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
-                                    <i class="fas fa-key me-1"></i> OAuth Actions
-                                </button>
-                                <ul class="dropdown-menu">
-                                    <li>
-                                        <a class="dropdown-item" href="#" onclick="startEpicAuthorization(); return false;">
-                                            <i class="fas fa-sign-in-alt me-2"></i> Start Authorization
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="javascript:void(0)" onclick="checkOAuthStatus()">
-                                            <i class="fas fa-info-circle me-2"></i> Check Status
-                                        </a>
-                                    </li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li>
-                                        <a class="dropdown-item text-muted" href="{{ url_for('oauth.epic_callback') }}">
-                                            <i class="fas fa-link me-2"></i> Callback URL
-                                            <small class="d-block text-muted">For Epic registration</small>
-                                        </a>
-                                    </li>
-                                </ul>
-                            </div>
+                            <button type="button" class="btn btn-outline-success me-2" onclick="startEpicAuthorization()" id="authorizeBtn">
+                                <i class="fas fa-sign-in-alt me-1"></i> Authorize with Epic
+                            </button>
+                            
+                            <button type="button" class="btn btn-outline-info" onclick="checkHyperspaceStatus()" id="statusBtn">
+                                <i class="fas fa-info-circle me-1"></i> Check Status
+                            </button>
                         </div>
                         
                         <div id="connectionResult" class="connection-status unknown" style="display: none;">
@@ -441,7 +409,7 @@ function startEpicAuthorization() {
             clearInterval(checkClosed);
             // Popup was closed, check if authorization was successful
             setTimeout(() => {
-                checkOAuthStatus();
+                checkHyperspaceStatus();
             }, 1000); // Small delay to allow backend processing
         } else {
             // Check if the popup has navigated to the registration page (successful auth)
@@ -451,7 +419,7 @@ function startEpicAuthorization() {
                     popup.close();
                     // Authorization successful, refresh status
                     setTimeout(() => {
-                        checkOAuthStatus();
+                        checkHyperspaceStatus();
                         location.reload(); // Refresh the entire page to show updated status
                     }, 1000);
                 }
@@ -468,6 +436,62 @@ function startEpicAuthorization() {
             popup.close();
         }
     }, 600000);
+}
+
+function checkHyperspaceStatus() {
+    // Update both OAuth status and Hyperspace authorization indicator
+    checkOAuthStatus();
+    updateHyperspaceIndicator();
+}
+
+function updateHyperspaceIndicator() {
+    const hyperspaceDiv = document.getElementById('hyperspaceStatus');
+    const hyperspaceMessage = document.getElementById('hyperspaceStatusMessage');
+    const hyperspaceBadge = document.getElementById('hyperspaceStatusBadge');
+    
+    hyperspaceDiv.style.display = 'block';
+    hyperspaceMessage.innerHTML = 'Checking Epic Hyperspace authorization...';
+    hyperspaceBadge.className = 'badge bg-secondary';
+    hyperspaceBadge.textContent = 'Checking...';
+    
+    fetch('{{ url_for("oauth.epic_status") }}', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            hyperspaceBadge.className = 'badge bg-danger';
+            hyperspaceBadge.textContent = 'Error';
+            hyperspaceMessage.innerHTML = 'Error checking authorization: ' + data.error;
+        } else if (data.connected && !data.expired) {
+            hyperspaceBadge.className = 'badge bg-success';
+            hyperspaceBadge.textContent = 'Authorized';
+            hyperspaceMessage.innerHTML = `
+                ✅ Epic Hyperspace authorization approved and active<br>
+                <small class="text-muted">
+                    Scopes: ${data.scopes && data.scopes.length > 0 ? data.scopes.join(', ') : 'None'}<br>
+                    ${data.expires_at ? 'Expires: ' + new Date(data.expires_at).toLocaleString() : ''}
+                </small>
+            `;
+        } else if (data.connected && data.expired) {
+            hyperspaceBadge.className = 'badge bg-warning';
+            hyperspaceBadge.textContent = 'Expired';
+            hyperspaceMessage.innerHTML = '⚠️ Epic Hyperspace authorization has expired. Please re-authorize.';
+        } else {
+            hyperspaceBadge.className = 'badge bg-secondary';
+            hyperspaceBadge.textContent = 'Not Authorized';
+            hyperspaceMessage.innerHTML = '❌ Epic Hyperspace authorization not completed. Click "Authorize with Epic" to connect.';
+        }
+    })
+    .catch(error => {
+        hyperspaceBadge.className = 'badge bg-danger';
+        hyperspaceBadge.textContent = 'Error';
+        hyperspaceMessage.innerHTML = 'Failed to check Epic authorization status';
+        console.error('Error:', error);
+    });
 }
 
 function checkOAuthStatus() {

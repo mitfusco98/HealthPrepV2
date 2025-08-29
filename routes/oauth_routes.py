@@ -381,7 +381,6 @@ def epic_callback():
         epic_creds.refresh_token = token_data.get('refresh_token')
         epic_creds.token_expires_at = token_expires_at
         epic_creds.token_scope = ' '.join(token_data.get('scope', '').split())
-        epic_creds.patient_id = token_data.get('patient')
         epic_creds.updated_at = datetime.now()
 
         # Update organization connection status
@@ -470,7 +469,6 @@ def epic_status():
             status['connected'] = True
             status['expires_at'] = epic_creds.token_expires_at.isoformat() if epic_creds.token_expires_at else None
             status['scopes'] = epic_creds.token_scope.split() if epic_creds.token_scope else []
-            status['patient_id'] = epic_creds.patient_id
             status['expired'] = epic_creds.is_expired if hasattr(epic_creds, 'is_expired') else (
                 epic_creds.token_expires_at and datetime.now() >= epic_creds.token_expires_at
             )
