@@ -2,14 +2,14 @@ modules = ["python-3.11", "web", "nodejs-20", "postgresql-16"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["cargo", "freetype", "gumbo", "harfbuzz", "jbig2dec", "lcms2", "libGL", "libGLU", "libiconv", "libimagequant", "libjpeg", "libjpeg_turbo", "libtiff", "libwebp", "libxcrypt", "libyaml", "mupdf", "openjpeg", "openssl", "pkg-config", "poppler_utils", "postgresql", "rustc", "swig", "tcl", "tesseract", "tk", "xcbuild", "zlib", "jq"]
+packages = ["cargo", "freetype", "gumbo", "harfbuzz", "jbig2dec", "jq", "lcms2", "libGL", "libGLU", "libiconv", "libimagequant", "libjpeg", "libjpeg_turbo", "libtiff", "libwebp", "libxcrypt", "libyaml", "mupdf", "openjpeg", "openssl", "pkg-config", "poppler_utils", "postgresql", "rustc", "swig", "tcl", "tesseract", "tk", "xcbuild", "zlib"]
 
 [deployment]
 deploymentTarget = "autoscale"
 run = ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
 
 [workflows]
-runButton = "HealthPrep Server"
+runButton = "HealthPrep Development"
 
 [[workflows.workflow]]
 name = "Flask Dev Server"
@@ -105,6 +105,27 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python keep_alive.py"
+
+[[workflows.workflow]]
+name = "HealthPrep Development"
+author = 42133482
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pkill -f \"python.*main.py\" || true"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pkill -f \"gunicorn.*main:app\" || true"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "sleep 2"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python main.py"
 
 [[ports]]
 localPort = 5000

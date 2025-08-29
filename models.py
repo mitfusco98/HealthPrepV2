@@ -241,7 +241,7 @@ class EpicCredentials(db.Model):
     access_token = db.Column(db.Text)  # Encrypted access token
     refresh_token = db.Column(db.Text)  # Encrypted refresh token
     token_expires_at = db.Column(db.DateTime)
-    token_scope = db.Column(db.String(255))  # FHIR scopes granted
+    token_scope = db.Column(db.Text)  # FHIR scopes granted
 
     # Epic user context (if user-specific tokens)
     epic_user_id = db.Column(db.String(100))  # Epic user ID if token is user-specific

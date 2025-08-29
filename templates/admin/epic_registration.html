@@ -403,7 +403,7 @@ function startEpicAuthorization() {
         'width=600,height=700,scrollbars=yes,resizable=yes,status=yes,menubar=no,toolbar=no'
     );
     
-    // Monitor the popup for completion
+    // Monitor the popup for completion and FHIR access confirmation
     const checkClosed = setInterval(() => {
         if (popup.closed) {
             clearInterval(checkClosed);
@@ -412,22 +412,38 @@ function startEpicAuthorization() {
                 checkHyperspaceStatus();
             }, 1000); // Small delay to allow backend processing
         } else {
-            // Check if the popup has navigated to the registration page (successful auth)
+            // Check if the popup has navigated to the registration page AND verify FHIR access
             try {
                 if (popup.location.href.includes('/admin/epic/registration')) {
-                    clearInterval(checkClosed);
-                    popup.close();
-                    // Authorization successful, refresh status
-                    setTimeout(() => {
-                        checkHyperspaceStatus();
-                        location.reload(); // Refresh the entire page to show updated status
-                    }, 1000);
+                    // Popup is on registration page, now verify FHIR access before closing
+                    fetch('{{ url_for("oauth.epic_status") }}', {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        // Only close popup if FHIR access is confirmed and not expired
+                        if (data.connected && !data.expired) {
+                            clearInterval(checkClosed);
+                            popup.close();
+                            // FHIR authorization confirmed, refresh status
+                            setTimeout(() => {
+                                checkHyperspaceStatus();
+                                location.reload(); // Refresh the entire page to show updated status
+                            }, 1000);
+                        }
+                        // If not connected or expired, keep popup open for user to retry
+                    })
+                    .catch(error => {
+                        console.error('Error checking FHIR status:', error);
+                        // On error, don't close popup - let user handle it manually
+                    });
                 }
             } catch (e) {
                 // Cross-origin restriction, ignore
             }
         }
-    }, 1000);
+    }, 2000);
     
     // Auto-close after 10 minutes if still open
     setTimeout(() => {
