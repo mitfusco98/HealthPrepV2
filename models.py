@@ -9,6 +9,7 @@ import json
 import logging
 from sqlalchemy import event
 from sqlalchemy.ext.hybrid import hybrid_property
+from typing import Optional
 
 # Import db from app module
 from app import db
@@ -189,7 +190,7 @@ class Organization(db.Model):
         
         return status
     
-    def update_epic_connection_status(self, is_connected: bool, error_message: str = None, token_expiry: datetime = None):
+    def update_epic_connection_status(self, is_connected: bool, error_message: Optional[str] = None, token_expiry: Optional[datetime] = None):
         """Update Epic connection status after API operations"""
         self.is_epic_connected = is_connected
         
@@ -1079,7 +1080,7 @@ class AsyncJob(db.Model):
         """Check if job is currently active"""
         return self.status in ['queued', 'running']
     
-    def update_progress(self, completed: int, failed: int = 0, error_message: str = None):
+    def update_progress(self, completed: int, failed: int = 0, error_message: Optional[str] = None):
         """Update job progress"""
         self.completed_items = completed
         self.failed_items = failed
@@ -1095,7 +1096,7 @@ class AsyncJob(db.Model):
         self.started_at = datetime.utcnow()
         db.session.commit()
     
-    def mark_completed(self, result_data: dict = None):
+    def mark_completed(self, result_data: Optional[dict] = None):
         """Mark job as completed"""
         self.status = 'completed'
         self.completed_at = datetime.utcnow()
@@ -1163,10 +1164,10 @@ class FHIRApiCall(db.Model):
     
     @classmethod
     def log_api_call(cls, org_id: int, endpoint: str, method: str, 
-                    user_id: int = None, resource_type: str = None, 
-                    resource_id: str = None, epic_patient_id: str = None,
-                    response_status: int = None, response_time_ms: int = None,
-                    request_params: dict = None):
+                    user_id: Optional[int] = None, resource_type: Optional[str] = None, 
+                    resource_id: Optional[str] = None, epic_patient_id: Optional[str] = None,
+                    response_status: Optional[int] = None, response_time_ms: Optional[int] = None,
+                    request_params: Optional[dict] = None):
         """Log an API call for audit and rate limiting"""
         api_call = cls(
             org_id=org_id,

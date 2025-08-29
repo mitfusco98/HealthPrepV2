@@ -275,7 +275,7 @@ def configure_jinja_filters(app):
             from jinja2 import Markup  # type: ignore
         except ImportError:
             # Fallback for older versions
-            def Markup(s):  # type: ignore
+            def Markup(s):
                 return s
     import json
 
