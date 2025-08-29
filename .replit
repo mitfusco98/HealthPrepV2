@@ -87,15 +87,19 @@ mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
+args = "pkill -f \"python.*main.py\" || true"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
 args = "pkill -f \"gunicorn.*main:app\" || true"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "sleep 2"
+args = "sleep 3"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "gunicorn --bind 0.0.0.0:5000 --workers 1 --timeout 60 --keep-alive 30 --preload --reload main:app"
+args = "python main.py"
 
 [[workflows.workflow]]
 name = "Epic Keep-Alive"
