@@ -578,20 +578,19 @@ def epic_status():
                 epic_creds.token_expires_at and datetime.now() >= epic_creds.token_expires_at
             )
         else:
-            # Fall back to session-based tokens (for backward compatibility)
-            # SECURITY: Check if session tokens belong to current organization
-            session_org_id = session.get('epic_org_id')  # Should be set during OAuth
+            # SECURITY: Always check session token organization before using
+            session_org_id = session.get('epic_org_id')
             
+            # Clear any session tokens that don't belong to current organization
             if session_org_id and session_org_id != current_user.org_id:
-                # Session tokens belong to different organization - clear them
-                logger.warning(f"SECURITY: Clearing cross-organization session tokens for user {current_user.username} (org {current_user.org_id})")
+                logger.warning(f"SECURITY: Clearing cross-organization session tokens for user {current_user.username} (org {current_user.org_id}, session org {session_org_id})")
                 epic_keys = ['epic_access_token', 'epic_refresh_token', 'epic_token_expires', 'epic_token_scopes', 'epic_patient_id', 'epic_org_id']
                 for key in epic_keys:
                     session.pop(key, None)
-                # Return empty status since no valid organization-scoped tokens found
                 status['connected'] = False
                 status['expired'] = True
-            else:
+            elif session_org_id == current_user.org_id:
+                # Session tokens belong to current organization - safe to use
                 access_token = session.get('epic_access_token')
                 if access_token:
                     status['connected'] = True
@@ -609,6 +608,10 @@ def epic_status():
                 else:
                     status['connected'] = False
                     status['expired'] = True
+            else:
+                # No session organization ID or doesn't match - no tokens available
+                status['connected'] = False
+                status['expired'] = True
 
         return jsonify(status)
 
