@@ -309,12 +309,12 @@ function refreshScreenings(event, tab) {
     const button = event.target.closest('button') || event.target.closest('a');
     const originalText = button.innerHTML;
     const confirmMessage = tab === 'types' 
-        ? 'Refresh all automated screenings using the current parsing rules from this tab? This will update document matches immediately.'
-        : 'Refresh screening data? This will update all patient screening statuses based on current documents and criteria.';
+        ? 'Sync all automated screenings from Epic EMR using the current parsing rules? This will fetch latest data and update document matches.'
+        : 'Sync patient data from Epic EMR? This will fetch the latest patient records, conditions, documents, and update all screening statuses.';
 
     if (confirm(confirmMessage)) {
         // Show loading state
-        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Refreshing...';
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Syncing from EMR...';
         button.disabled = true;
 
         // Make refresh request
@@ -334,7 +334,7 @@ function refreshScreenings(event, tab) {
                 alertDiv.className = 'alert alert-success alert-dismissible fade show';
                 alertDiv.innerHTML = `
                     <i class="fas fa-check-circle me-2"></i>
-                    Screening data refreshed successfully!
+                    EMR sync completed successfully!
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 `;
                 
@@ -357,7 +357,7 @@ function refreshScreenings(event, tab) {
             alertDiv.className = 'alert alert-danger alert-dismissible fade show';
             alertDiv.innerHTML = `
                 <i class="fas fa-exclamation-triangle me-2"></i>
-                Error refreshing data: ${error.message}
+                Error syncing EMR data: ${error.message}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             `;
             

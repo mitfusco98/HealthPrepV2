@@ -223,10 +223,12 @@
                 </h5>
             </div>
             <div class="card-body quick-actions text-center">
-                <a href="{{ url_for('ui.patient_list') }}" class="btn btn-success w-100 mb-3">
-                    <i class="fas fa-sync me-2"></i>
-                    Sync EMR Data
-                </a>
+                <form method="POST" action="{{ url_for('emr_sync.sync_emr_data') }}" style="display: inline;" onsubmit="return confirmEMRSync(event)">
+                    <button type="submit" class="btn btn-success w-100 mb-3" id="emr-sync-btn">
+                        <i class="fas fa-sync me-2"></i>
+                        Sync EMR Data
+                    </button>
+                </form>
 
                 <a href="{{ url_for('ui.screening_list') }}" class="btn btn-primary w-100 mb-3">
                     <i class="fas fa-clipboard-list me-2"></i>
@@ -292,5 +294,21 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Dashboard refresh check...');
     }, 300000);
 });
+
+function confirmEMRSync(event) {
+    if (!confirm('Sync all patient data from Epic EMR? This will update patient records, conditions, documents, and screening statuses.')) {
+        event.preventDefault();
+        return false;
+    }
+    
+    // Show loading state
+    const button = document.getElementById('emr-sync-btn');
+    if (button) {
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Syncing...';
+        button.disabled = true;
+    }
+    
+    return true;
+}
 </script>
 {% endblock %}

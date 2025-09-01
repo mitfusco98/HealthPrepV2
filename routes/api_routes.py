@@ -143,56 +143,54 @@ def get_patient_screenings(patient_id):
 @api_bp.route('/refresh-screenings', methods=['POST'])
 @login_required
 def refresh_screenings():
-    """Refresh screenings via API"""
+    """Comprehensive EMR sync via API"""
     try:
+        from services.comprehensive_emr_sync import ComprehensiveEMRSync
+        
         data = request.get_json() or {}
         patient_ids = data.get('patient_ids', [])
-        screening_type_ids = data.get('screening_type_ids', [])
-
-        engine = ScreeningEngine()
-
+        
+        # Initialize comprehensive EMR sync for the user's organization
+        emr_sync = ComprehensiveEMRSync(current_user.org_id)
+        
         if patient_ids:
-            # Refresh specific patients
+            # Sync specific patients from Epic EMR
             results = []
-            total_updated = 0
+            total_synced = 0
             for patient_id in patient_ids:
                 try:
-                    updated_count = engine.refresh_patient_screenings(patient_id)
-                    total_updated += updated_count
-                    results.append({'patient_id': patient_id, 'status': 'refreshed', 'updated_count': updated_count})
+                    # Get patient's Epic ID for sync
+                    patient = Patient.query.get(patient_id)
+                    if patient and patient.epic_patient_id:
+                        sync_result = emr_sync.sync_patient_data(patient.epic_patient_id)
+                        if sync_result.get('success'):
+                            total_synced += 1
+                            results.append({'patient_id': patient_id, 'status': 'synced', 'epic_id': patient.epic_patient_id})
+                        else:
+                            results.append({'patient_id': patient_id, 'status': 'error', 'error': sync_result.get('error', 'Unknown error')})
+                    else:
+                        results.append({'patient_id': patient_id, 'status': 'skipped', 'error': 'No Epic patient ID found'})
                 except Exception as e:
-                    logger.error(f"Error refreshing screenings for patient {patient_id}: {str(e)}")
+                    logger.error(f"Error syncing patient {patient_id} from EMR: {str(e)}")
                     results.append({'patient_id': patient_id, 'status': 'error', 'error': str(e)})
 
             return jsonify({
                 'success': True,
-                'message': f'Refreshed screenings for {len(patient_ids)} patients. Updated {total_updated} screenings.',
-                'results': results
+                'message': f'EMR sync completed for {len(patient_ids)} patients. Successfully synced: {total_synced}',
+                'results': results,
+                'sync_type': 'patient_specific'
             })
-
-        elif screening_type_ids:
-            # Selective refresh for specific screening types
-            # For now, process all patients as we don't have selective_refresh implemented
-            total_updated = engine.refresh_all_screenings()
-            patients_count = Patient.query.count()
-
-            return jsonify({
-                'success': True,
-                'message': f'Refreshed screenings for {patients_count} patients. Updated {total_updated} screenings.',
-                'total_screenings': total_updated,
-                'processed_patients': patients_count
-            })
-
         else:
-            # Full refresh
-            total_updated = engine.refresh_all_screenings()
-            patients_count = Patient.query.count()
-
+            # Full comprehensive EMR sync
+            sync_results = emr_sync.sync_all_patients()
+            
             return jsonify({
-                'success': True,
-                'message': f'Refreshed screenings for {patients_count} patients. Updated {total_updated} screenings.',
-                'total_screenings': total_updated,
-                'processed_patients': patients_count
+                'success': sync_results.get('success', False),
+                'message': sync_results.get('message', 'EMR synchronization completed'),
+                'total_patients': sync_results.get('total_patients', 0),
+                'synced_patients': sync_results.get('synced_patients', 0),
+                'updated_screenings': sync_results.get('updated_screenings', 0),
+                'sync_type': 'comprehensive'
             })
 
     except Exception as e:

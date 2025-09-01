@@ -40,6 +40,32 @@ def emr_dashboard():
         flash('Error loading EMR dashboard', 'error')
         return render_template('error/500.html'), 500
 
+@emr_sync_bp.route('/sync', methods=['POST'])
+@login_required
+@non_admin_required  
+def sync_emr_data():
+    """Comprehensive EMR sync accessible to regular users"""
+    try:
+        from services.comprehensive_emr_sync import ComprehensiveEMRSync
+        
+        # Initialize comprehensive EMR sync for the user's organization
+        emr_sync = ComprehensiveEMRSync(current_user.org_id)
+        
+        # Perform full comprehensive EMR sync
+        sync_results = emr_sync.sync_all_patients()
+        
+        if sync_results.get('success'):
+            flash(f'EMR sync completed successfully! Synced {sync_results.get("synced_patients", 0)} patients, updated {sync_results.get("updated_screenings", 0)} screenings', 'success')
+        else:
+            flash(f'EMR sync failed: {sync_results.get("error", "Unknown error")}', 'error')
+            
+        return redirect(url_for('main.dashboard'))
+        
+    except Exception as e:
+        logger.error(f"Error syncing EMR data: {str(e)}")
+        flash('Error syncing data from EMR', 'error')
+        return redirect(url_for('main.dashboard'))
+
 
 # ============================================================================
 # COMPREHENSIVE EMR SYNC ROUTES (Epic FHIR Integration)

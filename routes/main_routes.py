@@ -150,26 +150,40 @@ def generate_prep_sheet(patient_id):
 @main_bp.route('/refresh-screenings', methods=['POST'])
 @login_required
 def refresh_screenings():
-    """Refresh all screenings"""
+    """Comprehensive EMR sync for all patients"""
     try:
-        engine = ScreeningEngine()
-
-        # Get patient ID if specified, otherwise refresh all
+        from services.comprehensive_emr_sync import ComprehensiveEMRSync
+        
+        # Get patient ID if specified, otherwise sync all
         patient_id = request.form.get('patient_id', type=int)
+        
+        # Initialize comprehensive EMR sync for the user's organization
+        emr_sync = ComprehensiveEMRSync(current_user.org_id)
 
         if patient_id:
-            updated_count = engine.refresh_patient_screenings(patient_id)
-            flash(f'Refreshed screenings for patient. Updated: {updated_count} screenings', 'success')
+            # Sync specific patient from Epic EMR
+            patient = Patient.query.get_or_404(patient_id)
+            if patient.epic_patient_id:
+                sync_result = emr_sync.sync_patient_data(patient.epic_patient_id)
+                if sync_result.get('success'):
+                    flash(f'Successfully synced data from Epic for {patient.name}', 'success')
+                else:
+                    flash(f'EMR sync failed: {sync_result.get("error", "Unknown error")}', 'error')
+            else:
+                flash('Patient has no Epic ID - cannot sync from EMR', 'warning')
             return redirect(url_for('main.patient_detail', patient_id=patient_id))
         else:
-            updated_count = engine.refresh_all_screenings()
-            patients_count = Patient.query.count()
-            flash(f'Refreshed all screenings. Updated {updated_count} screenings for {patients_count} patients', 'success')
+            # Full comprehensive EMR sync
+            sync_results = emr_sync.sync_all_patients()
+            if sync_results.get('success'):
+                flash(f'EMR sync completed. Synced {sync_results.get("synced_patients", 0)} patients, updated {sync_results.get("updated_screenings", 0)} screenings', 'success')
+            else:
+                flash(f'EMR sync failed: {sync_results.get("error", "Unknown error")}', 'error')
             return redirect(url_for('main.dashboard'))
 
     except Exception as e:
-        logger.error(f"Error refreshing screenings: {str(e)}")
-        flash('Error refreshing screenings', 'error')
+        logger.error(f"Error syncing from EMR: {str(e)}")
+        flash('Error syncing data from EMR', 'error')
         return redirect(url_for('main.dashboard'))
 
 @main_bp.route('/api/screening-keywords/<int:screening_type_id>')
