@@ -1,14 +1,18 @@
 """
-EMR Synchronization Routes with Selective Refresh
-Provides API endpoints for EMR sync operations and webhooks
+EMR Synchronization Routes with Comprehensive Epic Integration
+Provides API endpoints for EMR sync operations, Epic FHIR integration, and screening updates
 """
+import json
 import logging
 from flask import Blueprint, request, jsonify, render_template, flash, redirect, url_for
 from flask_login import login_required, current_user
 from routes.auth_routes import non_admin_required
+from routes.oauth_routes import require_admin
 from datetime import datetime
 from emr.sync_manager import EMRSyncManager, EMRChangeListener
-from models import db
+from services.comprehensive_emr_sync import ComprehensiveEMRSync
+from services.emr_screening_integration import EMRScreeningIntegration
+from models import db, Patient, Organization, Screening
 # from admin.admin_logger import AdminLogger  # Import when available
 
 # Create blueprint
@@ -35,6 +39,269 @@ def emr_dashboard():
         logger.error(f"Error loading EMR dashboard: {str(e)}")
         flash('Error loading EMR dashboard', 'error')
         return render_template('error/500.html'), 500
+
+
+# ============================================================================
+# COMPREHENSIVE EMR SYNC ROUTES (Epic FHIR Integration)
+# ============================================================================
+
+@emr_sync_bp.route('/admin/sync')
+@login_required
+@require_admin
+def comprehensive_sync_dashboard():
+    """Comprehensive EMR Sync Dashboard with Epic FHIR Integration"""
+    try:
+        organization = current_user.organization
+        if not organization:
+            flash('Organization not found', 'error')
+            return redirect(url_for('admin.dashboard'))
+        
+        # Check Epic configuration
+        has_epic_config = bool(organization.epic_client_id and organization.epic_client_secret)
+        
+        # Get recent sync statistics
+        recent_patients = Patient.query.filter_by(org_id=current_user.org_id).order_by(
+            Patient.last_fhir_sync.desc().nullslast()
+        ).limit(10).all()
+        
+        # Get sync summary statistics
+        total_patients = Patient.query.filter_by(org_id=current_user.org_id).count()
+        synced_patients = Patient.query.filter_by(org_id=current_user.org_id).filter(
+            Patient.last_fhir_sync.isnot(None)
+        ).count()
+        
+        context = {
+            'organization': organization,
+            'has_epic_config': has_epic_config,
+            'total_patients': total_patients,
+            'synced_patients': synced_patients,
+            'sync_coverage': int((synced_patients / total_patients * 100) if total_patients > 0 else 0),
+            'recent_patients': recent_patients
+        }
+        
+        return render_template('admin/emr_comprehensive_sync.html', **context)
+        
+    except Exception as e:
+        logger.error(f"Error in comprehensive EMR sync dashboard: {str(e)}")
+        flash('Error loading EMR sync dashboard', 'error')
+        return redirect(url_for('admin.dashboard'))
+
+
+@emr_sync_bp.route('/admin/sync/patient', methods=['POST'])
+@login_required
+@require_admin
+def sync_patient_comprehensive():
+    """Sync a specific patient from Epic EMR with comprehensive data retrieval"""
+    try:
+        data = request.get_json()
+        epic_patient_id = data.get('epic_patient_id')
+        
+        if not epic_patient_id:
+            return jsonify({
+                'success': False,
+                'error': 'Epic Patient ID is required'
+            })
+        
+        # Initialize EMR screening integration
+        emr_integration = EMRScreeningIntegration(current_user.org_id)
+        
+        # Perform complete sync and screening processing
+        results = emr_integration.sync_and_process_patient(epic_patient_id)
+        
+        if results['success']:
+            message = f"Successfully synced and processed patient {results.get('patient_name', epic_patient_id)}"
+            logger.info(f"Comprehensive patient sync completed: {message}")
+            
+            return jsonify({
+                'success': True,
+                'message': message,
+                'results': results
+            })
+        else:
+            error_msg = results.get('error', 'Unknown error during sync')
+            logger.error(f"Comprehensive patient sync failed: {error_msg}")
+            
+            return jsonify({
+                'success': False,
+                'error': error_msg
+            })
+            
+    except Exception as e:
+        error_msg = f"Error syncing patient: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        
+        return jsonify({
+            'success': False,
+            'error': error_msg
+        })
+
+
+@emr_sync_bp.route('/admin/sync/batch', methods=['POST'])
+@login_required
+@require_admin
+def sync_batch_comprehensive():
+    """Sync multiple patients from Epic EMR with comprehensive data"""
+    try:
+        data = request.get_json()
+        epic_patient_ids = data.get('patient_ids', [])
+        
+        if not epic_patient_ids:
+            return jsonify({
+                'success': False,
+                'error': 'Patient IDs are required'
+            })
+        
+        # Initialize EMR screening integration
+        emr_integration = EMRScreeningIntegration(current_user.org_id)
+        
+        batch_results = []
+        successful_syncs = 0
+        failed_syncs = 0
+        
+        for epic_patient_id in epic_patient_ids:
+            try:
+                result = emr_integration.sync_and_process_patient(epic_patient_id)
+                batch_results.append(result)
+                
+                if result['success']:
+                    successful_syncs += 1
+                else:
+                    failed_syncs += 1
+                    
+            except Exception as e:
+                failed_syncs += 1
+                batch_results.append({
+                    'success': False,
+                    'epic_patient_id': epic_patient_id,
+                    'error': str(e)
+                })
+        
+        logger.info(f"Comprehensive batch sync completed: {successful_syncs} successful, {failed_syncs} failed")
+        
+        return jsonify({
+            'success': True,
+            'message': f"Batch sync completed: {successful_syncs} successful, {failed_syncs} failed",
+            'summary': {
+                'total_patients': len(epic_patient_ids),
+                'successful_syncs': successful_syncs,
+                'failed_syncs': failed_syncs
+            },
+            'results': batch_results
+        })
+        
+    except Exception as e:
+        error_msg = f"Error in batch sync: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        
+        return jsonify({
+            'success': False,
+            'error': error_msg
+        })
+
+
+@emr_sync_bp.route('/admin/sync/statistics')
+@login_required
+@require_admin
+def get_comprehensive_sync_statistics():
+    """Get comprehensive EMR synchronization statistics"""
+    try:
+        # Get organization statistics
+        organization = current_user.organization
+        
+        # Patient sync statistics
+        total_patients = Patient.query.filter_by(org_id=current_user.org_id).count()
+        synced_patients = Patient.query.filter_by(org_id=current_user.org_id).filter(
+            Patient.last_fhir_sync.isnot(None)
+        ).count()
+        
+        # Recent sync activity
+        from datetime import timedelta
+        recent_syncs = Patient.query.filter_by(org_id=current_user.org_id).filter(
+            Patient.last_fhir_sync >= datetime.now() - timedelta(days=7)
+        ).count()
+        
+        # Screening statistics
+        total_screenings = Screening.query.join(Patient).filter(
+            Patient.org_id == current_user.org_id
+        ).count()
+        
+        due_screenings = Screening.query.join(Patient).filter(
+            Patient.org_id == current_user.org_id,
+            Screening.status == 'due'
+        ).count()
+        
+        statistics = {
+            'patient_sync': {
+                'total_patients': total_patients,
+                'synced_patients': synced_patients,
+                'sync_coverage_percent': int((synced_patients / total_patients * 100) if total_patients > 0 else 0),
+                'recent_syncs_7_days': recent_syncs
+            },
+            'screening_status': {
+                'total_screenings': total_screenings,
+                'due_screenings': due_screenings,
+                'compliance_rate': int(((total_screenings - due_screenings) / total_screenings * 100) if total_screenings > 0 else 0)
+            },
+            'epic_connection': {
+                'configured': bool(organization.epic_client_id),
+                'connected': bool(organization.is_epic_connected),
+                'last_connection': organization.last_epic_sync.isoformat() if organization.last_epic_sync else None
+            }
+        }
+        
+        return jsonify({
+            'success': True,
+            'statistics': statistics
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting comprehensive sync statistics: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+
+@emr_sync_bp.route('/admin/sync/test-connection')
+@login_required
+@require_admin
+def test_comprehensive_emr_connection():
+    """Test Epic FHIR connection for comprehensive EMR sync"""
+    try:
+        organization = current_user.organization
+        
+        if not organization.epic_client_id:
+            return jsonify({
+                'success': False,
+                'error': 'Epic FHIR configuration not found'
+            })
+        
+        # Initialize EMR sync service to test connection
+        emr_sync = ComprehensiveEMRSync(current_user.org_id)
+        
+        # Test authentication
+        if not emr_sync.epic_service.ensure_authenticated():
+            return jsonify({
+                'success': False,
+                'error': 'Epic FHIR authentication failed'
+            })
+        
+        return jsonify({
+            'success': True,
+            'message': 'Epic FHIR connection successful',
+            'connection_details': {
+                'organization': organization.name,
+                'epic_fhir_url': organization.epic_fhir_url,
+                'has_access_token': bool(emr_sync.epic_service.fhir_client.access_token)
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error testing comprehensive EMR connection: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Connection test failed: {str(e)}'
+        })
 
 @emr_sync_bp.route('/sync/trigger', methods=['POST'])
 @login_required

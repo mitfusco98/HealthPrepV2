@@ -424,6 +424,93 @@ class FHIRClient:
             self.logger.error(f"Error retrieving documents for patient {patient_id}: {str(e)}")
             return None
     
+    # Comprehensive EMR Sync Methods
+    def get_patient_conditions(self, patient_id, date_filter=None):
+        """
+        Get patient conditions for comprehensive EMR sync
+        Wrapper around get_conditions with additional filtering
+        """
+        try:
+            return self.get_conditions(patient_id)
+        except Exception as e:
+            self.logger.error(f"Error retrieving patient conditions: {str(e)}")
+            return None
+    
+    def get_patient_observations(self, patient_id, date_filter=None):
+        """
+        Get patient observations for comprehensive EMR sync
+        Wrapper around get_observations with date filtering
+        """
+        try:
+            if date_filter:
+                from datetime import datetime
+                date_obj = datetime.fromisoformat(date_filter.replace('Z', '+00:00'))
+                return self.get_observations(patient_id, date_from=date_obj)
+            else:
+                return self.get_observations(patient_id)
+        except Exception as e:
+            self.logger.error(f"Error retrieving patient observations: {str(e)}")
+            return None
+    
+    def get_patient_documents(self, patient_id, date_filter=None):
+        """
+        Get patient documents for comprehensive EMR sync
+        Wrapper around get_document_references with date filtering
+        """
+        try:
+            if date_filter:
+                from datetime import datetime
+                date_obj = datetime.fromisoformat(date_filter.replace('Z', '+00:00'))
+                return self.get_document_references(patient_id, date_from=date_obj)
+            else:
+                return self.get_document_references(patient_id)
+        except Exception as e:
+            self.logger.error(f"Error retrieving patient documents: {str(e)}")
+            return None
+    
+    def get_patient_encounters(self, patient_id, date_filter=None):
+        """
+        Get patient encounters for comprehensive EMR sync
+        Wrapper around get_encounters with date filtering
+        """
+        try:
+            if date_filter:
+                from datetime import datetime
+                date_obj = datetime.fromisoformat(date_filter.replace('Z', '+00:00'))
+                return self.get_encounters(patient_id, date_from=date_obj)
+            else:
+                return self.get_encounters(patient_id)
+        except Exception as e:
+            self.logger.error(f"Error retrieving patient encounters: {str(e)}")
+            return None
+    
+    def download_binary(self, binary_url):
+        """
+        Download binary content from Epic FHIR Binary resource
+        Used for downloading document attachments
+        """
+        try:
+            # Handle relative URLs by prepending base URL if needed
+            if binary_url.startswith('/'):
+                url = f"{self.base_url.rstrip('/')}{binary_url}"
+            elif binary_url.startswith('http'):
+                url = binary_url
+            else:
+                url = f"{self.base_url}Binary/{binary_url}"
+            
+            # Use retry logic for binary downloads
+            headers = self._get_headers()
+            headers['Accept'] = 'application/octet-stream'  # Request binary content
+            
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            
+            return response.content
+            
+        except Exception as e:
+            self.logger.error(f"Error downloading binary from {binary_url}: {str(e)}")
+            return None
+    
     def get_diagnostic_reports(self, patient_id, category=None, date_from=None):
         """Get diagnostic reports for a patient"""
         try:

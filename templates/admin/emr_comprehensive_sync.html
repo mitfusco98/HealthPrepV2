@@ -1,0 +1,705 @@
+{% extends "base_admin.html" %}
+{% set active_page = "emr_sync" %}
+
+{% block title %}Epic EMR Synchronization{% endblock %}
+
+{% block extra_head %}
+<style>
+    .sync-stats-card {
+        transition: transform 0.2s;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .sync-stats-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .sync-progress {
+        height: 8px;
+        border-radius: 4px;
+        background-color: #e9ecef;
+    }
+    
+    .patient-sync-row {
+        border-left: 4px solid transparent;
+        padding-left: 15px;
+        margin-bottom: 10px;
+    }
+    
+    .patient-sync-row.synced {
+        border-left-color: #28a745;
+        background-color: rgba(40, 167, 69, 0.05);
+    }
+    
+    .patient-sync-row.not-synced {
+        border-left-color: #dc3545;
+        background-color: rgba(220, 53, 69, 0.05);
+    }
+    
+    .sync-actions {
+        position: sticky;
+        top: 20px;
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .screening-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .screening-badge.due {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    .screening-badge.complete {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .screening-badge.due-soon {
+        background-color: #ffc107;
+        color: #000;
+    }
+    
+    .epic-status {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .epic-status.connected {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    
+    .epic-status.disconnected {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+    
+    .epic-status.not-configured {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+    
+    .loading-spinner {
+        display: none;
+    }
+    
+    .loading .loading-spinner {
+        display: inline-block;
+    }
+    
+    .loading .button-text {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-sync-alt text-primary me-2"></i>Epic EMR Synchronization</h2>
+            <p class="text-muted mb-0">Comprehensive patient data synchronization with Epic FHIR</p>
+        </div>
+        
+        <div class="d-flex gap-2">
+            <button id="testConnectionBtn" class="btn btn-outline-info">
+                <i class="fas fa-plug me-1"></i>Test Connection
+            </button>
+            <button id="refreshStatsBtn" class="btn btn-outline-secondary">
+                <i class="fas fa-chart-bar me-1"></i>Refresh Stats
+            </button>
+        </div>
+    </div>
+
+    <!-- Epic Connection Status -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card sync-stats-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-1"><i class="fab fa-epic me-2"></i>Epic FHIR Connection</h6>
+                            <p class="text-muted mb-0">Organization: {{ organization.name }}</p>
+                        </div>
+                        <div>
+                            {% if has_epic_config %}
+                                {% if organization.is_epic_connected %}
+                                    <span class="epic-status connected">
+                                        <i class="fas fa-check-circle me-1"></i>Connected
+                                    </span>
+                                {% else %}
+                                    <span class="epic-status disconnected">
+                                        <i class="fas fa-times-circle me-1"></i>Disconnected
+                                    </span>
+                                {% endif %}
+                            {% else %}
+                                <span class="epic-status not-configured">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>Not Configured
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if not has_epic_config %}
+                        <div class="mt-3">
+                            <div class="alert alert-warning mb-0">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Epic FHIR credentials are not configured. Please configure Epic integration in 
+                                <a href="{{ url_for('epic_admin.epic_admin_dashboard') }}" class="alert-link">Epic Admin Settings</a>.
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sync Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card sync-stats-card text-center">
+                <div class="card-body">
+                    <div class="text-primary mb-2">
+                        <i class="fas fa-users fa-2x"></i>
+                    </div>
+                    <h4 class="mb-1" id="totalPatientsCount">{{ total_patients }}</h4>
+                    <p class="text-muted mb-0">Total Patients</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card sync-stats-card text-center">
+                <div class="card-body">
+                    <div class="text-success mb-2">
+                        <i class="fas fa-sync fa-2x"></i>
+                    </div>
+                    <h4 class="mb-1" id="syncedPatientsCount">{{ synced_patients }}</h4>
+                    <p class="text-muted mb-0">Synced Patients</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card sync-stats-card text-center">
+                <div class="card-body">
+                    <div class="text-info mb-2">
+                        <i class="fas fa-percentage fa-2x"></i>
+                    </div>
+                    <h4 class="mb-1" id="syncCoveragePercent">{{ sync_coverage }}%</h4>
+                    <p class="text-muted mb-0">Sync Coverage</p>
+                    <div class="sync-progress mt-2">
+                        <div class="bg-info" style="height: 8px; border-radius: 4px; width: {{ sync_coverage }}%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card sync-stats-card text-center">
+                <div class="card-body">
+                    <div class="text-warning mb-2">
+                        <i class="fas fa-clock fa-2x"></i>
+                    </div>
+                    <h4 class="mb-1" id="recentSyncsCount">-</h4>
+                    <p class="text-muted mb-0">Recent Syncs (7d)</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Patient List -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="fas fa-list me-2"></i>Recent Patients</h6>
+                    <div class="d-flex gap-2">
+                        <button id="syncAllBtn" class="btn btn-sm btn-success" {{ 'disabled' if not has_epic_config }}>
+                            <span class="loading-spinner spinner-border spinner-border-sm me-1"></span>
+                            <span class="button-text"><i class="fas fa-sync me-1"></i>Sync All</span>
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="loadPatientList()">
+                            <i class="fas fa-refresh"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="patientListContainer">
+                        {% if recent_patients %}
+                            {% for patient in recent_patients %}
+                                <div class="patient-sync-row {{ 'synced' if patient.last_fhir_sync else 'not-synced' }}">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>{{ patient.name }}</strong>
+                                            <span class="text-muted">{{ patient.mrn }}</span>
+                                            {% if patient.epic_patient_id %}
+                                                <span class="badge bg-info">Epic: {{ patient.epic_patient_id }}</span>
+                                            {% endif %}
+                                            
+                                            <div class="mt-1">
+                                                {% if patient.last_fhir_sync %}
+                                                    <small class="text-success">
+                                                        <i class="fas fa-check me-1"></i>
+                                                        Last synced: {{ patient.last_fhir_sync.strftime('%Y-%m-%d %H:%M') }}
+                                                    </small>
+                                                {% else %}
+                                                    <small class="text-danger">
+                                                        <i class="fas fa-exclamation me-1"></i>
+                                                        Never synced
+                                                    </small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="text-end">
+                                            {% if patient.epic_patient_id %}
+                                                <button class="btn btn-sm btn-outline-primary sync-patient-btn" 
+                                                        data-epic-patient-id="{{ patient.epic_patient_id }}"
+                                                        {{ 'disabled' if not has_epic_config }}>
+                                                    <span class="loading-spinner spinner-border spinner-border-sm me-1"></span>
+                                                    <span class="button-text"><i class="fas fa-sync me-1"></i>Sync</span>
+                                                </button>
+                                            {% endif %}
+                                            
+                                            <button class="btn btn-sm btn-outline-info" 
+                                                    onclick="viewPatientDetails({{ patient.id }})">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-users fa-3x mb-3"></i>
+                                <p>No patients found</p>
+                                <p class="small">Add patients to begin EMR synchronization</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sync Actions -->
+        <div class="col-lg-4">
+            <div class="sync-actions">
+                <h6><i class="fas fa-cogs me-2"></i>Sync Actions</h6>
+                
+                <!-- Single Patient Sync -->
+                <div class="mb-4">
+                    <label class="form-label">Sync Single Patient</label>
+                    <div class="input-group">
+                        <input type="text" id="singlePatientId" class="form-control" 
+                               placeholder="Epic Patient ID">
+                        <button id="syncSingleBtn" class="btn btn-primary" 
+                                {{ 'disabled' if not has_epic_config }}>
+                            <span class="loading-spinner spinner-border spinner-border-sm me-1"></span>
+                            <span class="button-text">Sync</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Batch Sync -->
+                <div class="mb-4">
+                    <label class="form-label">Batch Sync</label>
+                    <textarea id="batchPatientIds" class="form-control mb-2" rows="3" 
+                              placeholder="Enter Epic Patient IDs, one per line"></textarea>
+                    <button id="syncBatchBtn" class="btn btn-success w-100" 
+                            {{ 'disabled' if not has_epic_config }}>
+                        <span class="loading-spinner spinner-border spinner-border-sm me-1"></span>
+                        <span class="button-text"><i class="fas fa-users me-1"></i>Batch Sync</span>
+                    </button>
+                </div>
+                
+                <!-- Quick Stats -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Sync Statistics</h6>
+                    </div>
+                    <div class="card-body p-3">
+                        <div id="syncStatistics">
+                            <div class="d-flex justify-content-between">
+                                <span>Total Screenings:</span>
+                                <span id="totalScreenings">-</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>Due Screenings:</span>
+                                <span id="dueScreenings">-</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>Compliance Rate:</span>
+                                <span id="complianceRate">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Patient Details Modal -->
+<div class="modal fade" id="patientDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Patient Sync Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="patientDetailsContent">
+                <!-- Patient details will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Sync Results Modal -->
+<div class="modal fade" id="syncResultsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Sync Results</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="syncResultsContent">
+                <!-- Sync results will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Load initial statistics
+    loadSyncStatistics();
+    
+    // Auto-refresh statistics every 30 seconds
+    setInterval(loadSyncStatistics, 30000);
+    
+    // Event handlers
+    $('#testConnectionBtn').on('click', testConnection);
+    $('#refreshStatsBtn').on('click', loadSyncStatistics);
+    $('#syncSingleBtn').on('click', syncSinglePatient);
+    $('#syncBatchBtn').on('click', syncBatchPatients);
+    $('#syncAllBtn').on('click', syncAllPatients);
+    
+    // Patient sync buttons
+    $(document).on('click', '.sync-patient-btn', function() {
+        const epicPatientId = $(this).data('epic-patient-id');
+        syncPatientById(epicPatientId, $(this));
+    });
+    
+    // Single patient input - sync on Enter
+    $('#singlePatientId').on('keypress', function(e) {
+        if (e.which == 13) {
+            syncSinglePatient();
+        }
+    });
+});
+
+function loadSyncStatistics() {
+    $.get('/emr/admin/sync/statistics')
+        .done(function(data) {
+            if (data.success) {
+                const stats = data.statistics;
+                
+                // Update patient stats
+                $('#totalPatientsCount').text(stats.patient_sync.total_patients);
+                $('#syncedPatientsCount').text(stats.patient_sync.synced_patients);
+                $('#syncCoveragePercent').text(stats.patient_sync.sync_coverage_percent + '%');
+                $('#recentSyncsCount').text(stats.patient_sync.recent_syncs_7_days);
+                
+                // Update progress bar
+                $('.sync-progress .bg-info').css('width', stats.patient_sync.sync_coverage_percent + '%');
+                
+                // Update screening stats
+                $('#totalScreenings').text(stats.screening_status.total_screenings);
+                $('#dueScreenings').text(stats.screening_status.due_screenings);
+                $('#complianceRate').text(stats.screening_status.compliance_rate + '%');
+            }
+        })
+        .fail(function() {
+            console.error('Failed to load sync statistics');
+        });
+}
+
+function testConnection() {
+    const btn = $('#testConnectionBtn');
+    btn.addClass('loading').prop('disabled', true);
+    
+    $.get('/emr/admin/sync/test-connection')
+        .done(function(data) {
+            if (data.success) {
+                showAlert('success', 'Connection Test Successful', data.message);
+            } else {
+                showAlert('danger', 'Connection Test Failed', data.error);
+            }
+        })
+        .fail(function() {
+            showAlert('danger', 'Connection Test Failed', 'Unable to test Epic FHIR connection');
+        })
+        .always(function() {
+            btn.removeClass('loading').prop('disabled', false);
+        });
+}
+
+function syncSinglePatient() {
+    const epicPatientId = $('#singlePatientId').val().trim();
+    
+    if (!epicPatientId) {
+        showAlert('warning', 'Missing Patient ID', 'Please enter an Epic Patient ID');
+        return;
+    }
+    
+    const btn = $('#syncSingleBtn');
+    syncPatientById(epicPatientId, btn);
+}
+
+function syncPatientById(epicPatientId, btn) {
+    btn.addClass('loading').prop('disabled', true);
+    
+    $.ajax({
+        url: '/emr/admin/sync/patient',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ epic_patient_id: epicPatientId }),
+        success: function(data) {
+            if (data.success) {
+                showAlert('success', 'Sync Successful', data.message);
+                showSyncResults(data.results);
+                loadPatientList();
+                loadSyncStatistics();
+            } else {
+                showAlert('danger', 'Sync Failed', data.error);
+            }
+        },
+        error: function() {
+            showAlert('danger', 'Sync Error', 'Unable to sync patient data');
+        },
+        complete: function() {
+            btn.removeClass('loading').prop('disabled', false);
+        }
+    });
+}
+
+function syncBatchPatients() {
+    const patientIds = $('#batchPatientIds').val().trim().split('\n')
+        .map(id => id.trim())
+        .filter(id => id.length > 0);
+    
+    if (patientIds.length === 0) {
+        showAlert('warning', 'Missing Patient IDs', 'Please enter Epic Patient IDs, one per line');
+        return;
+    }
+    
+    const btn = $('#syncBatchBtn');
+    btn.addClass('loading').prop('disabled', true);
+    
+    $.ajax({
+        url: '/emr/admin/sync/batch',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ patient_ids: patientIds }),
+        success: function(data) {
+            if (data.success) {
+                showAlert('success', 'Batch Sync Completed', data.message);
+                showBatchSyncResults(data);
+                loadPatientList();
+                loadSyncStatistics();
+            } else {
+                showAlert('danger', 'Batch Sync Failed', data.error);
+            }
+        },
+        error: function() {
+            showAlert('danger', 'Batch Sync Error', 'Unable to perform batch sync');
+        },
+        complete: function() {
+            btn.removeClass('loading').prop('disabled', false);
+        }
+    });
+}
+
+function syncAllPatients() {
+    // This would sync all patients in the organization
+    // For now, show a confirmation dialog
+    if (!confirm('This will sync all patients in your organization. This may take a while. Continue?')) {
+        return;
+    }
+    
+    showAlert('info', 'Sync All Started', 'This feature is under development. Please use individual or batch sync for now.');
+}
+
+function viewPatientDetails(patientId) {
+    // Load patient sync details
+    $('#patientDetailsContent').html('<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>');
+    $('#patientDetailsModal').modal('show');
+    
+    // This would load detailed patient sync information
+    // For now, show a placeholder
+    setTimeout(function() {
+        $('#patientDetailsContent').html(`
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Patient sync details will be displayed here, including screening status, sync history, and document analysis.
+            </div>
+        `);
+    }, 1000);
+}
+
+function showSyncResults(results) {
+    let content = '<div class="card"><div class="card-body">';
+    content += `<h6>Patient: ${results.patient_name}</h6>`;
+    content += `<p><strong>Epic Patient ID:</strong> ${results.epic_patient_id}</p>`;
+    
+    if (results.sync_summary) {
+        content += '<h6 class="mt-3">Sync Summary:</h6>';
+        content += '<ul class="list-unstyled">';
+        content += `<li><i class="fas fa-heartbeat text-danger me-2"></i>Conditions: ${results.sync_summary.conditions_synced}</li>`;
+        content += `<li><i class="fas fa-flask text-info me-2"></i>Observations: ${results.sync_summary.observations_synced}</li>`;
+        content += `<li><i class="fas fa-file-medical text-warning me-2"></i>Documents: ${results.sync_summary.documents_processed}</li>`;
+        content += `<li><i class="fas fa-calendar text-success me-2"></i>Encounters: ${results.sync_summary.encounters_synced}</li>`;
+        content += '</ul>';
+    }
+    
+    if (results.screening_summary) {
+        content += '<h6 class="mt-3">Screening Updates:</h6>';
+        content += '<ul class="list-unstyled">';
+        content += `<li><i class="fas fa-sync text-primary me-2"></i>Screenings Updated: ${results.screening_summary.screenings_updated}</li>`;
+        content += `<li><i class="fas fa-list text-secondary me-2"></i>Total Screenings: ${results.screening_summary.total_screenings}</li>`;
+        content += `<li><i class="fas fa-user-check text-info me-2"></i>Eligibility Changes: ${results.screening_summary.eligibility_changes}</li>`;
+        content += '</ul>';
+    }
+    
+    if (results.recommendations && results.recommendations.length > 0) {
+        content += '<h6 class="mt-3">Screening Recommendations:</h6>';
+        content += '<div class="table-responsive"><table class="table table-sm">';
+        content += '<thead><tr><th>Screening</th><th>Status</th><th>Action</th></tr></thead><tbody>';
+        
+        results.recommendations.forEach(rec => {
+            let badgeClass = rec.status === 'due' ? 'bg-danger' : 
+                           rec.status === 'due_soon' ? 'bg-warning' : 'bg-success';
+            content += `<tr>`;
+            content += `<td>${rec.screening_name}</td>`;
+            content += `<td><span class="badge ${badgeClass}">${rec.status}</span></td>`;
+            content += `<td>${rec.action}</td>`;
+            content += `</tr>`;
+        });
+        
+        content += '</tbody></table></div>';
+    }
+    
+    content += '</div></div>';
+    
+    $('#syncResultsContent').html(content);
+    $('#syncResultsModal').modal('show');
+}
+
+function showBatchSyncResults(data) {
+    let content = '<div class="row mb-3">';
+    content += `<div class="col-md-4 text-center">`;
+    content += `<div class="card bg-light"><div class="card-body">`;
+    content += `<h5 class="text-primary">${data.summary.total_patients}</h5>`;
+    content += `<p class="mb-0">Total Patients</p>`;
+    content += `</div></div></div>`;
+    
+    content += `<div class="col-md-4 text-center">`;
+    content += `<div class="card bg-light"><div class="card-body">`;
+    content += `<h5 class="text-success">${data.summary.successful_syncs}</h5>`;
+    content += `<p class="mb-0">Successful</p>`;
+    content += `</div></div></div>`;
+    
+    content += `<div class="col-md-4 text-center">`;
+    content += `<div class="card bg-light"><div class="card-body">`;
+    content += `<h5 class="text-danger">${data.summary.failed_syncs}</h5>`;
+    content += `<p class="mb-0">Failed</p>`;
+    content += `</div></div></div>`;
+    content += '</div>';
+    
+    if (data.results && data.results.length > 0) {
+        content += '<h6>Detailed Results:</h6>';
+        content += '<div class="accordion" id="batchResultsAccordion">';
+        
+        data.results.forEach((result, index) => {
+            const statusClass = result.success ? 'text-success' : 'text-danger';
+            const statusIcon = result.success ? 'fa-check' : 'fa-times';
+            
+            content += `<div class="accordion-item">`;
+            content += `<h2 class="accordion-header">`;
+            content += `<button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#result${index}">`;
+            content += `<i class="fas ${statusIcon} ${statusClass} me-2"></i>`;
+            content += `${result.patient_name || result.epic_patient_id} `;
+            content += result.success ? '(Success)' : '(Failed)';
+            content += `</button></h2>`;
+            content += `<div id="result${index}" class="accordion-collapse collapse" data-bs-parent="#batchResultsAccordion">`;
+            content += `<div class="accordion-body">`;
+            
+            if (result.success) {
+                if (result.sync_summary) {
+                    content += `<p><strong>Conditions:</strong> ${result.sync_summary.conditions_synced}, `;
+                    content += `<strong>Observations:</strong> ${result.sync_summary.observations_synced}, `;
+                    content += `<strong>Documents:</strong> ${result.sync_summary.documents_processed}</p>`;
+                }
+                if (result.screening_summary) {
+                    content += `<p><strong>Screenings Updated:</strong> ${result.screening_summary.screenings_updated}</p>`;
+                }
+            } else {
+                content += `<p class="text-danger"><strong>Error:</strong> ${result.error}</p>`;
+            }
+            
+            content += `</div></div></div>`;
+        });
+        
+        content += '</div>';
+    }
+    
+    $('#syncResultsContent').html(content);
+    $('#syncResultsModal').modal('show');
+}
+
+function loadPatientList() {
+    // This would reload the patient list via AJAX
+    // For now, just refresh the page
+    location.reload();
+}
+
+function showAlert(type, title, message) {
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            <strong>${title}:</strong> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    // Remove existing alerts
+    $('.alert').remove();
+    
+    // Add new alert at top of page
+    $('.container-fluid').prepend(alertHtml);
+    
+    // Auto-dismiss after 5 seconds for success/info alerts
+    if (type === 'success' || type === 'info') {
+        setTimeout(function() {
+            $('.alert').fadeOut();
+        }, 5000);
+    }
+}
+</script>
+{% endblock %}
