@@ -78,13 +78,10 @@ def screening_list():
             
             for base_name, variant_count, all_active in base_names_with_counts:
                 if all_active:  # Only include if all variants are active
-                    # Group variants with connecting descriptors (e.g., "Pulmonary Function Test - COPD Monitoring")
-                    base_display_name = _extract_base_screening_name(base_name)
-                    
                     if variant_count > 1:
-                        display_name = f"{base_display_name} [{variant_count} variants]"
+                        display_name = f"{base_name} [{variant_count} variants]"
                     else:
-                        display_name = base_display_name
+                        display_name = base_name
                     
                     screening_type_groups.append({
                         'name': base_name,
@@ -99,12 +96,24 @@ def screening_list():
                 is_active=True
             ).order_by(ScreeningType.name).all()
             
+            # Group fallback screening types by base name
+            base_name_groups = {}
             for st in screening_types:
-                base_display_name = _extract_base_screening_name(st.name)
+                base_name = ScreeningType._extract_base_name(st.name)
+                if base_name not in base_name_groups:
+                    base_name_groups[base_name] = 0
+                base_name_groups[base_name] += 1
+            
+            for base_name, count in base_name_groups.items():
+                if count > 1:
+                    display_name = f"{base_name} [{count} variants]"
+                else:
+                    display_name = base_name
+                    
                 screening_type_groups.append({
-                    'name': st.name,
-                    'display_name': base_display_name,
-                    'variant_count': 1
+                    'name': base_name,
+                    'display_name': display_name,
+                    'variant_count': count
                 })
 
         return render_template('screening/list.html',

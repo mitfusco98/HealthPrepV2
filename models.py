@@ -640,20 +640,58 @@ class ScreeningType(db.Model):
     def get_base_names_with_counts(cls, org_id=None):
         """Get unique base names with their variant counts for a specific organization"""
         from sqlalchemy import func, cast, Integer
-
-        query = db.session.query(
-            cls.name,
-            func.count(cls.id).label('variant_count'),
-            func.min(cast(cls.is_active, Integer)).label('all_active')
-        )
         
-        # Filter by organization if provided
+        # Get all screening types for the organization
+        query = cls.query
         if org_id is not None:
             query = query.filter(cls.org_id == org_id)
         
-        results = query.group_by(cls.name).order_by(cls.name).all()
-
-        return [(name, int(count), bool(all_active)) for name, count, all_active in results]
+        screening_types = query.all()
+        
+        # Group by base name (extracted from full name)
+        base_name_groups = {}
+        
+        for st in screening_types:
+            base_name = cls._extract_base_name(st.name)
+            
+            if base_name not in base_name_groups:
+                base_name_groups[base_name] = {
+                    'variants': [],
+                    'all_active': True
+                }
+            
+            base_name_groups[base_name]['variants'].append(st)
+            
+            # Check if all variants are active
+            if not st.is_active:
+                base_name_groups[base_name]['all_active'] = False
+        
+        # Convert to the expected format
+        results = []
+        for base_name, group_data in sorted(base_name_groups.items()):
+            variant_count = len(group_data['variants'])
+            all_active = group_data['all_active']
+            results.append((base_name, variant_count, all_active))
+        
+        return results
+    
+    @classmethod
+    def _extract_base_name(cls, name):
+        """Extract base screening name from variant name with connecting descriptors"""
+        if not name:
+            return name
+        
+        # Handle connecting descriptors like "Pulmonary Function Test - COPD Monitoring"
+        # Split on common delimiters and take the first part as the base name
+        delimiters = [' - ', ' – ', ' — ', ' (', ':']
+        
+        base_name = name
+        for delimiter in delimiters:
+            if delimiter in name:
+                base_name = name.split(delimiter)[0].strip()
+                break
+        
+        return base_name
     
     def generate_fhir_mappings(self):
         """Generate and store FHIR mappings for this screening type"""
