@@ -162,7 +162,7 @@ def refresh_screenings():
                     # Get patient's Epic ID for sync
                     patient = Patient.query.get(patient_id)
                     if patient and patient.epic_patient_id:
-                        sync_result = emr_sync.sync_patient_data(patient.epic_patient_id)
+                        sync_result = emr_sync.sync_patient_comprehensive(patient.epic_patient_id)
                         if sync_result.get('success'):
                             total_synced += 1
                             results.append({'patient_id': patient_id, 'status': 'synced', 'epic_id': patient.epic_patient_id})
@@ -181,15 +181,40 @@ def refresh_screenings():
                 'sync_type': 'patient_specific'
             })
         else:
-            # Full comprehensive EMR sync
-            sync_results = emr_sync.sync_all_patients()
+            # Full comprehensive EMR sync for all patients with Epic IDs
+            patients = Patient.query.filter_by(org_id=current_user.org_id).filter(
+                Patient.epic_patient_id.isnot(None)
+            ).all()
+            
+            if not patients:
+                return jsonify({
+                    'success': False,
+                    'message': 'No patients with Epic IDs found',
+                    'sync_type': 'comprehensive'
+                })
+            
+            synced_patients = 0
+            total_updated_screenings = 0
+            errors = []
+            
+            for patient in patients:
+                try:
+                    sync_result = emr_sync.sync_patient_comprehensive(patient.epic_patient_id)
+                    if sync_result.get('success'):
+                        synced_patients += 1
+                        total_updated_screenings += sync_result.get('screenings_updated', 0)
+                    else:
+                        errors.append(f"Patient {patient.name}: {sync_result.get('error', 'Unknown error')}")
+                except Exception as e:
+                    errors.append(f"Patient {patient.name}: {str(e)}")
             
             return jsonify({
-                'success': sync_results.get('success', False),
-                'message': sync_results.get('message', 'EMR synchronization completed'),
-                'total_patients': sync_results.get('total_patients', 0),
-                'synced_patients': sync_results.get('synced_patients', 0),
-                'updated_screenings': sync_results.get('updated_screenings', 0),
+                'success': synced_patients > 0,
+                'message': f'EMR sync completed. Synced {synced_patients} patients, updated {total_updated_screenings} screenings' + (f'. {len(errors)} errors occurred.' if errors else ''),
+                'total_patients': len(patients),
+                'synced_patients': synced_patients,
+                'updated_screenings': total_updated_screenings,
+                'errors': errors[:5],  # Limit to first 5 errors
                 'sync_type': 'comprehensive'
             })
 

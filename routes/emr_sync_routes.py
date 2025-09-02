@@ -51,20 +51,46 @@ def sync_emr_data():
         # Initialize comprehensive EMR sync for the user's organization
         emr_sync = ComprehensiveEMRSync(current_user.org_id)
         
-        # Perform full comprehensive EMR sync
-        sync_results = emr_sync.sync_all_patients()
+        # Get all patients for this organization that have Epic patient IDs
+        patients = Patient.query.filter_by(org_id=current_user.org_id).filter(
+            Patient.epic_patient_id.isnot(None)
+        ).all()
         
-        if sync_results.get('success'):
-            flash(f'EMR sync completed successfully! Synced {sync_results.get("synced_patients", 0)} patients, updated {sync_results.get("updated_screenings", 0)} screenings', 'success')
+        if not patients:
+            flash('No patients with Epic IDs found. Please add patients with Epic patient IDs first.', 'warning')
+            return redirect(url_for('ui.dashboard'))
+        
+        # Perform comprehensive EMR sync for all patients
+        synced_patients = 0
+        total_updated_screenings = 0
+        errors = []
+        
+        for patient in patients:
+            try:
+                sync_result = emr_sync.sync_patient_comprehensive(patient.epic_patient_id)
+                if sync_result.get('success'):
+                    synced_patients += 1
+                    total_updated_screenings += sync_result.get('screenings_updated', 0)
+                else:
+                    errors.append(f"Patient {patient.name}: {sync_result.get('error', 'Unknown error')}")
+            except Exception as e:
+                errors.append(f"Patient {patient.name}: {str(e)}")
+        
+        # Show results
+        if synced_patients > 0:
+            message = f'EMR sync completed! Synced {synced_patients} patients, updated {total_updated_screenings} screenings'
+            if errors:
+                message += f'. {len(errors)} patients had errors.'
+            flash(message, 'success')
         else:
-            flash(f'EMR sync failed: {sync_results.get("error", "Unknown error")}', 'error')
+            flash(f'EMR sync failed for all patients. Errors: {"; ".join(errors[:3])}', 'error')
             
-        return redirect(url_for('main.dashboard'))
+        return redirect(url_for('ui.dashboard'))
         
     except Exception as e:
         logger.error(f"Error syncing EMR data: {str(e)}")
         flash('Error syncing data from EMR', 'error')
-        return redirect(url_for('main.dashboard'))
+        return redirect(url_for('ui.dashboard'))
 
 
 # ============================================================================
