@@ -101,36 +101,6 @@ args = "sleep 3"
 task = "shell.exec"
 args = "python main.py"
 
-[[workflows.workflow]]
-name = "Epic Keep-Alive"
-author = 42133482
-mode = "sequential"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python keep_alive.py"
-
-[[workflows.workflow]]
-name = "HealthPrep Development"
-author = 42133482
-mode = "sequential"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pkill -f \"python.*main.py\" || true"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pkill -f \"gunicorn.*main:app\" || true"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "sleep 2"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "python main.py"
-
 [[ports]]
 localPort = 5000
 externalPort = 80
