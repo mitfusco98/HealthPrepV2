@@ -35,13 +35,28 @@ class FHIRParser:
             identifiers = patient_resource.get('identifier', [])
             mrn = None
             
+            # Try to find MRN-type identifier first
             for identifier in identifiers:
-                if identifier.get('type', {}).get('coding', [{}])[0].get('code') == 'MR':
+                type_info = identifier.get('type', {})
+                coding = type_info.get('coding', [{}])
+                if coding and coding[0].get('code') == 'MR':
                     mrn = identifier.get('value')
                     break
             
+            # Fallback to any identifier if no MRN found
             if not mrn and identifiers:
-                mrn = identifiers[0].get('value')
+                for identifier in identifiers:
+                    if identifier.get('value'):
+                        mrn = identifier.get('value')
+                        break
+            
+            # Generate fallback MRN for Epic sandbox patients if still no MRN
+            if not mrn:
+                patient_id = patient_resource.get('id')
+                if patient_id:
+                    mrn = f"EPIC-{patient_id}"
+                else:
+                    mrn = f"EPIC-{datetime.now().strftime('%Y%m%d%H%M%S')}"
             
             # Extract contact information
             telecoms = patient_resource.get('telecom', [])

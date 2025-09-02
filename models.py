@@ -396,7 +396,7 @@ class Patient(db.Model):
     __tablename__ = 'patient'
 
     id = db.Column(db.Integer, primary_key=True)
-    mrn = db.Column(db.String(50), nullable=False)  # Unique within organization
+    mrn = db.Column(db.String(50), nullable=True)  # Unique within organization, nullable for Epic imports
     name = db.Column(db.String(100), nullable=False)
     date_of_birth = db.Column(db.Date, nullable=False)
     gender = db.Column(db.String(10), nullable=False)
@@ -416,9 +416,11 @@ class Patient(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Unique MRN within organization and indexing for FHIR sync
+    # Unique MRN within organization (if MRN exists) and indexing for FHIR sync
     __table_args__ = (
-        db.UniqueConstraint('mrn', 'org_id', name='unique_mrn_per_org'),
+        # Only enforce unique constraint when MRN is not null
+        db.Index('idx_patient_mrn_org', 'mrn', 'org_id', unique=True, 
+                postgresql_where=db.text('mrn IS NOT NULL')),
         db.Index('idx_patient_epic_id', 'epic_patient_id'),
         db.Index('idx_patient_fhir_sync', 'last_fhir_sync'),
     )
