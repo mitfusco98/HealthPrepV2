@@ -712,6 +712,193 @@ class ComprehensiveEMRSync:
         except Exception as e:
             logger.error(f"Error updating screening status: {str(e)}")
     
+    def discover_and_sync_patients(self, sync_options: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        Discover patients from Epic FHIR and perform comprehensive sync.
+        This is the main entry point for testing with Epic sandbox patients.
+        
+        Returns:
+            Dict with discovery and sync results
+        """
+        if not sync_options:
+            sync_options = self._get_default_sync_options()
+        
+        try:
+            logger.info("Starting patient discovery from Epic FHIR")
+            
+            # Ensure we have valid authentication
+            if not self.epic_service.ensure_authenticated():
+                raise Exception("Epic FHIR authentication failed")
+            
+            # Step 1: Discover patients from Epic
+            discovered_patients = self._discover_patients_from_epic()
+            
+            if not discovered_patients:
+                return {
+                    'success': False,
+                    'error': 'No patients discovered from Epic FHIR',
+                    'discovered_patients': 0,
+                    'synced_patients': 0
+                }
+            
+            logger.info(f"Discovered {len(discovered_patients)} patients from Epic")
+            
+            # Step 2: Import/update local patient records
+            imported_patients = []
+            for epic_patient_data in discovered_patients:
+                try:
+                    patient = self._import_or_update_patient(epic_patient_data)
+                    if patient:
+                        imported_patients.append(patient)
+                except Exception as e:
+                    logger.error(f"Error importing patient {epic_patient_data.get('id', 'unknown')}: {str(e)}")
+                    self.sync_stats['errors'].append(f"Import failed for {epic_patient_data.get('id', 'unknown')}: {str(e)}")
+            
+            # Step 3: Run comprehensive sync for imported patients
+            synced_patients = 0
+            total_updated_screenings = 0
+            
+            for patient in imported_patients:
+                try:
+                    sync_result = self.sync_patient_comprehensive(patient.epic_patient_id, sync_options)
+                    if sync_result.get('success'):
+                        synced_patients += 1
+                        total_updated_screenings += sync_result.get('screenings_updated', 0)
+                    else:
+                        self.sync_stats['errors'].append(f"Sync failed for {patient.name}: {sync_result.get('error', 'Unknown error')}")
+                except Exception as e:
+                    logger.error(f"Error syncing patient {patient.epic_patient_id}: {str(e)}")
+                    self.sync_stats['errors'].append(f"Sync failed for {patient.name}: {str(e)}")
+            
+            logger.info(f"Discovery and sync completed: {synced_patients} patients synced, {total_updated_screenings} screenings updated")
+            
+            return {
+                'success': True,
+                'discovered_patients': len(discovered_patients),
+                'imported_patients': len(imported_patients),
+                'synced_patients': synced_patients,
+                'updated_screenings': total_updated_screenings,
+                'errors': self.sync_stats['errors']
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in patient discovery and sync: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'discovered_patients': 0,
+                'synced_patients': 0
+            }
+    
+    def _discover_patients_from_epic(self) -> List[Dict[str, Any]]:
+        """
+        Query Epic FHIR for all available patients.
+        Returns list of patient FHIR resources.
+        """
+        try:
+            # Get FHIR client instance
+            fhir_client = self.epic_service.get_fhir_client()
+            
+            # Query for all patients using Epic's Patient search
+            response = fhir_client.get_patients()
+            
+            if not response.get('success', False):
+                logger.error(f"Failed to discover patients: {response.get('error', 'Unknown error')}")
+                return []
+            
+            # Extract patient resources from FHIR Bundle
+            patients = []
+            bundle = response.get('data', {})
+            
+            if bundle.get('resourceType') == 'Bundle':
+                for entry in bundle.get('entry', []):
+                    resource = entry.get('resource', {})
+                    if resource.get('resourceType') == 'Patient':
+                        patients.append(resource)
+            
+            logger.info(f"Discovered {len(patients)} patients from Epic FHIR")
+            return patients
+            
+        except Exception as e:
+            logger.error(f"Error discovering patients from Epic: {str(e)}")
+            return []
+    
+    def _import_or_update_patient(self, epic_patient_data: Dict[str, Any]) -> Optional[Patient]:
+        """
+        Create or update local Patient record from Epic FHIR data.
+        
+        Args:
+            epic_patient_data: Patient FHIR resource from Epic
+            
+        Returns:
+            Patient instance or None if failed
+        """
+        try:
+            epic_patient_id = epic_patient_data.get('id')
+            if not epic_patient_id:
+                logger.error("Patient data missing ID")
+                return None
+            
+            # Check if patient already exists
+            patient = Patient.query.filter_by(
+                epic_patient_id=epic_patient_id,
+                org_id=self.organization_id
+            ).first()
+            
+            # Extract patient demographics
+            name_data = epic_patient_data.get('name', [{}])[0]
+            given_names = name_data.get('given', ['Unknown'])
+            family_name = name_data.get('family', 'Unknown')
+            
+            full_name = f"{' '.join(given_names)} {family_name}"
+            
+            # Extract other demographic data
+            gender = epic_patient_data.get('gender', 'unknown')
+            birth_date = None
+            if epic_patient_data.get('birthDate'):
+                try:
+                    birth_date = datetime.strptime(epic_patient_data['birthDate'], '%Y-%m-%d').date()
+                except ValueError:
+                    pass
+            
+            # Extract identifiers (MRN, etc.)
+            identifiers = epic_patient_data.get('identifier', [])
+            mrn = None
+            for identifier in identifiers:
+                if identifier.get('type', {}).get('coding', [{}])[0].get('code') == 'MR':
+                    mrn = identifier.get('value')
+                    break
+            
+            if patient:
+                # Update existing patient
+                patient.name = full_name
+                patient.date_of_birth = birth_date
+                patient.gender = gender
+                patient.mrn = mrn
+                patient.last_fhir_sync = datetime.now()
+                logger.info(f"Updated existing patient: {full_name}")
+            else:
+                # Create new patient
+                patient = Patient(
+                    name=full_name,
+                    epic_patient_id=epic_patient_id,
+                    org_id=self.organization_id,
+                    date_of_birth=birth_date,
+                    gender=gender,
+                    mrn=mrn,
+                    last_fhir_sync=datetime.now()
+                )
+                db.session.add(patient)
+                logger.info(f"Created new patient: {full_name}")
+            
+            db.session.commit()
+            return patient
+            
+        except Exception as e:
+            logger.error(f"Error importing/updating patient: {str(e)}")
+            db.session.rollback()
+            return None
+
     def get_sync_statistics(self) -> Dict[str, Any]:
         """Get synchronization statistics"""
         return {

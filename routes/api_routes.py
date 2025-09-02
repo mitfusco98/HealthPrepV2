@@ -181,41 +181,18 @@ def refresh_screenings():
                 'sync_type': 'patient_specific'
             })
         else:
-            # Full comprehensive EMR sync for all patients with Epic IDs
-            patients = Patient.query.filter_by(org_id=current_user.org_id).filter(
-                Patient.epic_patient_id.isnot(None)
-            ).all()
-            
-            if not patients:
-                return jsonify({
-                    'success': False,
-                    'message': 'No patients with Epic IDs found',
-                    'sync_type': 'comprehensive'
-                })
-            
-            synced_patients = 0
-            total_updated_screenings = 0
-            errors = []
-            
-            for patient in patients:
-                try:
-                    sync_result = emr_sync.sync_patient_comprehensive(patient.epic_patient_id)
-                    if sync_result.get('success'):
-                        synced_patients += 1
-                        total_updated_screenings += sync_result.get('screenings_updated', 0)
-                    else:
-                        errors.append(f"Patient {patient.name}: {sync_result.get('error', 'Unknown error')}")
-                except Exception as e:
-                    errors.append(f"Patient {patient.name}: {str(e)}")
+            # Use patient discovery to automatically find and sync Epic sandbox patients
+            sync_results = emr_sync.discover_and_sync_patients()
             
             return jsonify({
-                'success': synced_patients > 0,
-                'message': f'EMR sync completed. Synced {synced_patients} patients, updated {total_updated_screenings} screenings' + (f'. {len(errors)} errors occurred.' if errors else ''),
-                'total_patients': len(patients),
-                'synced_patients': synced_patients,
-                'updated_screenings': total_updated_screenings,
-                'errors': errors[:5],  # Limit to first 5 errors
-                'sync_type': 'comprehensive'
+                'success': sync_results.get('success', False),
+                'message': f'EMR discovery and sync completed. Discovered {sync_results.get("discovered_patients", 0)} patients, synced {sync_results.get("synced_patients", 0)} patients, updated {sync_results.get("updated_screenings", 0)} screenings' + (f'. {len(sync_results.get("errors", []))} errors occurred.' if sync_results.get("errors") else ''),
+                'discovered_patients': sync_results.get('discovered_patients', 0),
+                'imported_patients': sync_results.get('imported_patients', 0),
+                'synced_patients': sync_results.get('synced_patients', 0),
+                'updated_screenings': sync_results.get('updated_screenings', 0),
+                'errors': sync_results.get('errors', [])[:5],  # Limit to first 5 errors
+                'sync_type': 'discovery_and_comprehensive'
             })
 
     except Exception as e:

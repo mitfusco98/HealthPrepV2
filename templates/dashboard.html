@@ -296,7 +296,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function confirmEMRSync(event) {
-    if (!confirm('Sync all patient data from Epic EMR? This will update patient records, conditions, documents, and screening statuses.')) {
+    if (!confirm('Discover and sync patient data from Epic EMR? This will automatically find Epic patients, import them locally, and run comprehensive data sync including conditions, documents, and screening statuses.')) {
         event.preventDefault();
         return false;
     }

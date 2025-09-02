@@ -351,6 +351,48 @@ class FHIRClient:
             self.logger.error(f"Error retrieving patient {patient_id}: {str(e)}")
             return None
     
+    def get_patients(self, count=50):
+        """
+        Retrieve all available patients from Epic FHIR.
+        This is used for patient discovery in sandbox testing.
+        
+        Args:
+            count: Maximum number of patients to retrieve (default 50 for sandbox)
+            
+        Returns:
+            Dict with success status and patient data
+        """
+        try:
+            url = f"{self.base_url}Patient"
+            params = {'_count': count}
+            
+            self.logger.info(f"Discovering patients from Epic FHIR: {url}")
+            
+            # Use enhanced retry logic for 401 handling
+            response_data = self._api_get_with_retry(url, params)
+            
+            if response_data:
+                self.logger.info(f"Successfully retrieved patient data from Epic")
+                return {
+                    'success': True,
+                    'data': response_data
+                }
+            else:
+                error_msg = "Failed to retrieve patients from Epic FHIR"
+                self.logger.error(error_msg)
+                return {
+                    'success': False,
+                    'error': error_msg
+                }
+                
+        except Exception as e:
+            error_msg = f"Error retrieving patients: {str(e)}"
+            self.logger.error(error_msg)
+            return {
+                'success': False,
+                'error': error_msg
+            }
+
     def search_patients(self, given_name=None, family_name=None, birthdate=None, identifier=None):
         """
         Search for patients using Epic FHIR search patterns

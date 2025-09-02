@@ -309,12 +309,12 @@ function refreshScreenings(event, tab) {
     const button = event.target.closest('button') || event.target.closest('a');
     const originalText = button.innerHTML;
     const confirmMessage = tab === 'types' 
-        ? 'Sync all automated screenings from Epic EMR using the current parsing rules? This will fetch latest data and update document matches.'
-        : 'Sync patient data from Epic EMR? This will fetch the latest patient records, conditions, documents, and update all screening statuses.';
+        ? 'Discover and sync automated screenings from Epic EMR using the current parsing rules? This will find Epic patients, import them, and update document matches.'
+        : 'Discover and sync patient data from Epic EMR? This will automatically find Epic patients, import them locally, fetch their medical records, conditions, documents, and update all screening statuses.';
 
     if (confirm(confirmMessage)) {
         // Show loading state
-        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Syncing from EMR...';
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Discovering and syncing from EMR...';
         button.disabled = true;
 
         // Make refresh request
@@ -334,7 +334,7 @@ function refreshScreenings(event, tab) {
                 alertDiv.className = 'alert alert-success alert-dismissible fade show';
                 alertDiv.innerHTML = `
                     <i class="fas fa-check-circle me-2"></i>
-                    EMR sync completed successfully!
+                    Patient discovery and EMR sync completed successfully!
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 `;
                 
@@ -357,7 +357,7 @@ function refreshScreenings(event, tab) {
             alertDiv.className = 'alert alert-danger alert-dismissible fade show';
             alertDiv.innerHTML = `
                 <i class="fas fa-exclamation-triangle me-2"></i>
-                Error syncing EMR data: ${error.message}
+                Error discovering and syncing EMR data: ${error.message}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             `;
             

@@ -173,37 +173,23 @@ def refresh_screenings():
                 flash('Patient has no Epic ID - cannot sync from EMR', 'warning')
             return redirect(url_for('main.patient_detail', patient_id=patient_id))
         else:
-            # Full comprehensive EMR sync for all patients with Epic IDs
-            patients = Patient.query.filter_by(org_id=current_user.org_id).filter(
-                Patient.epic_patient_id.isnot(None)
-            ).all()
+            # Use patient discovery to automatically find and sync Epic sandbox patients
+            sync_results = emr_sync.discover_and_sync_patients()
             
-            if not patients:
-                flash('No patients with Epic IDs found. Please add patients with Epic patient IDs first.', 'warning')
-                return redirect(url_for('ui.dashboard'))
-            
-            synced_patients = 0
-            total_updated_screenings = 0
-            errors = []
-            
-            for patient in patients:
-                try:
-                    sync_result = emr_sync.sync_patient_comprehensive(patient.epic_patient_id)
-                    if sync_result.get('success'):
-                        synced_patients += 1
-                        total_updated_screenings += sync_result.get('screenings_updated', 0)
-                    else:
-                        errors.append(f"Patient {patient.name}: {sync_result.get('error', 'Unknown error')}")
-                except Exception as e:
-                    errors.append(f"Patient {patient.name}: {str(e)}")
-            
-            if synced_patients > 0:
-                message = f'EMR sync completed! Synced {synced_patients} patients, updated {total_updated_screenings} screenings'
+            if sync_results.get('success'):
+                discovered = sync_results.get('discovered_patients', 0)
+                imported = sync_results.get('imported_patients', 0)
+                synced = sync_results.get('synced_patients', 0)
+                updated_screenings = sync_results.get('updated_screenings', 0)
+                errors = sync_results.get('errors', [])
+                
+                message = f'EMR sync completed! Discovered {discovered} patients, imported {imported}, synced {synced} patients, updated {updated_screenings} screenings'
                 if errors:
-                    message += f'. {len(errors)} patients had errors.'
+                    message += f'. {len(errors)} errors occurred.'
                 flash(message, 'success')
             else:
-                flash(f'EMR sync failed for all patients. Errors: {"; ".join(errors[:3])}', 'error')
+                error_msg = sync_results.get('error', 'Unknown error occurred')
+                flash(f'EMR sync failed: {error_msg}', 'error')
             return redirect(url_for('ui.dashboard'))
 
     except Exception as e:
