@@ -847,22 +847,21 @@ class ScreeningType(db.Model):
         }
 
         # Create ScreeningPreset record
-        preset = ScreeningPreset(
-            name=preset_name,
-            description=description,
-            specialty=specialty,
-            org_id=org_id,
-            shared=False,  # Start as organization-specific
-            preset_scope='organization',
-            screening_data=preset_data,
-            preset_metadata={
-                'source_org_id': org_id,
-                'source_screening_type_ids': screening_type_ids,
-                'extracted_at': datetime.utcnow().isoformat(),
-                'extraction_method': 'from_existing_types'
-            },
-            created_by=created_by
-        )
+        preset = ScreeningPreset()
+        preset.name = preset_name
+        preset.description = description
+        preset.specialty = specialty
+        preset.org_id = org_id
+        preset.shared = False  # Start as organization-specific
+        preset.preset_scope = 'organization'
+        preset.screening_data = preset_data
+        preset.preset_metadata = {
+            'source_org_id': org_id,
+            'source_screening_type_ids': screening_type_ids,
+            'extracted_at': datetime.utcnow().isoformat(),
+            'extraction_method': 'from_existing_types'
+        }
+        preset.created_by = created_by
 
         return preset
 
@@ -2093,7 +2092,10 @@ class UniversalType(db.Model):
     @property
     def all_aliases(self):
         """Get all aliases as a list"""
-        return [alias.alias for alias in self.aliases] if self.aliases else []
+        try:
+            return [alias.alias for alias in self.aliases] if self.aliases else []
+        except Exception:
+            return []
 
     def add_alias(self, alias_text, source='system', confidence=1.0):
         """Add an alias for this universal type"""
@@ -2103,12 +2105,11 @@ class UniversalType(db.Model):
         ).first()
 
         if not existing:
-            alias = UniversalTypeAlias(
-                universal_type_id=self.id,
-                alias=alias_text,
-                source=source,
-                confidence=confidence
-            )
+            alias = UniversalTypeAlias()
+            alias.universal_type_id = self.id
+            alias.alias = alias_text
+            alias.source = source
+            alias.confidence = confidence
             db.session.add(alias)
             return alias
         return existing
@@ -2153,12 +2154,19 @@ class ScreeningProtocol(db.Model):
     @property
     def published_variants(self):
         """Get only published variants"""
-        return [v for v in self.variants if v.is_published] if self.variants else []
+        try:
+            variants_list = list(self.variants) if self.variants else []
+            return [v for v in variants_list if v.is_published]
+        except Exception:
+            return []
 
     @property
     def variant_count(self):
         """Total number of variants"""
-        return len(self.variants) if self.variants else 0
+        try:
+            return len(list(self.variants)) if self.variants else 0
+        except Exception:
+            return 0
 
     @property
     def published_count(self):
@@ -2264,12 +2272,16 @@ class TypeLabelAssociation(db.Model):
 
     def promote_to_alias(self, confidence=0.9):
         """Promote this association to a first-class alias"""
-        alias = self.universal_type.add_alias(
-            alias_text=self.label,
-            source='system',
-            confidence=confidence
-        )
-        return alias
+        from sqlalchemy.orm import sessionmaker
+        universal_type = UniversalType.query.get(self.universal_type_id)
+        if universal_type:
+            alias = universal_type.add_alias(
+                alias_text=self.label,
+                source='system',
+                confidence=confidence
+            )
+            return alias
+        return None
 
     def __repr__(self):
         return f'<TypeLabelAssociation {self.label} -> {self.universal_type_id}>'

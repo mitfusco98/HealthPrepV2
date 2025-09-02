@@ -52,7 +52,7 @@ class ComprehensiveEMRSync:
         logger.info(f"Initialized ComprehensiveEMRSync for organization {organization_id}")
     
     def sync_patient_comprehensive(self, epic_patient_id: str, 
-                                 sync_options: Dict[str, Any] = None) -> Dict[str, Any]:
+                                 sync_options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Perform comprehensive patient synchronization following Epic's sequence:
         Patient → Conditions → Observations → Documents → Encounters
@@ -64,7 +64,7 @@ class ComprehensiveEMRSync:
         Returns:
             Dict with sync results and statistics
         """
-        if not sync_options:
+        if sync_options is None:
             sync_options = self._get_default_sync_options()
         
         try:
@@ -189,12 +189,11 @@ class ComprehensiveEMRSync:
                     
                     if not existing_condition:
                         # Create new condition record
-                        new_condition = PatientCondition(
-                            patient_id=patient.id,
-                            condition_name=condition_name,
-                            diagnosis_date=diagnosis_date,
-                            is_active=is_active
-                        )
+                        new_condition = PatientCondition()
+                        new_condition.patient_id = patient.id
+                        new_condition.condition_name = condition_name
+                        new_condition.diagnosis_date = diagnosis_date
+                        new_condition.is_active = is_active
                         db.session.add(new_condition)
                         conditions_synced += 1
                         
