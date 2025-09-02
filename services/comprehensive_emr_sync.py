@@ -792,31 +792,43 @@ class ComprehensiveEMRSync:
     
     def _discover_patients_from_epic(self) -> List[Dict[str, Any]]:
         """
-        Query Epic FHIR for all available patients.
-        Returns list of patient FHIR resources.
+        Retrieve known Epic sandbox test patients.
+        Epic FHIR doesn't allow broad patient queries, so we use known test patient IDs.
         """
         try:
             # Get FHIR client instance
             fhir_client = self.epic_service.get_fhir_client()
             
-            # Query for all patients using Epic's Patient search
-            response = fhir_client.get_patients()
+            # Known Epic sandbox test patient IDs
+            known_patient_ids = [
+                'erXuFYUfucBZaryVksYEcMg3',  # Camila Lopez
+                'eq081-VQEgP8drUUqCWzHfw3',  # Derrick Lin
+                'eAB3mDIBBcyUKviyzrxsnAw3',  # Desiree Powell
+                'eJBJ0FuCdUgPRFYOdBMOjGQx',  # Elijah Davis
+                'eWY1-V1J5NfkwZrqcqcwl7_x',  # Linda Ross
+                'eLZPOqNUgFXgQ_YRgvMJCCUZ',  # Olivia Roberts
+                'eGOLhPUiQr5KKD2v9W3cXwAd',  # Warren McGinnis
+                'eCGMnHhT_sE5tHo4l5PYbp2K',  # Additional test patient
+            ]
             
-            if not response.get('success', False):
-                logger.error(f"Failed to discover patients: {response.get('error', 'Unknown error')}")
-                return []
-            
-            # Extract patient resources from FHIR Bundle
             patients = []
-            bundle = response.get('data', {})
             
-            if bundle.get('resourceType') == 'Bundle':
-                for entry in bundle.get('entry', []):
-                    resource = entry.get('resource', {})
-                    if resource.get('resourceType') == 'Patient':
-                        patients.append(resource)
+            for patient_id in known_patient_ids:
+                try:
+                    logger.info(f"Retrieving patient {patient_id} from Epic")
+                    patient_data = fhir_client.get_patient(patient_id)
+                    
+                    if patient_data:
+                        patients.append(patient_data)
+                        logger.info(f"Successfully retrieved patient {patient_id}")
+                    else:
+                        logger.warning(f"Could not retrieve patient {patient_id}")
+                        
+                except Exception as e:
+                    logger.warning(f"Error retrieving patient {patient_id}: {str(e)}")
+                    continue
             
-            logger.info(f"Discovered {len(patients)} patients from Epic FHIR")
+            logger.info(f"Retrieved {len(patients)} Epic sandbox patients")
             return patients
             
         except Exception as e:

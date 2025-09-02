@@ -353,45 +353,15 @@ class FHIRClient:
     
     def get_patients(self, count=50):
         """
-        Retrieve all available patients from Epic FHIR.
-        This is used for patient discovery in sandbox testing.
-        
-        Args:
-            count: Maximum number of patients to retrieve (default 50 for sandbox)
-            
-        Returns:
-            Dict with success status and patient data
+        Note: Epic FHIR doesn't allow broad patient queries without specific search parameters.
+        This method is deprecated in favor of using known patient IDs.
+        Use get_patient(patient_id) for specific patients instead.
         """
-        try:
-            url = f"{self.base_url}Patient"
-            params = {'_count': count}
-            
-            self.logger.info(f"Discovering patients from Epic FHIR: {url}")
-            
-            # Use enhanced retry logic for 401 handling
-            response_data = self._api_get_with_retry(url, params)
-            
-            if response_data:
-                self.logger.info(f"Successfully retrieved patient data from Epic")
-                return {
-                    'success': True,
-                    'data': response_data
-                }
-            else:
-                error_msg = "Failed to retrieve patients from Epic FHIR"
-                self.logger.error(error_msg)
-                return {
-                    'success': False,
-                    'error': error_msg
-                }
-                
-        except Exception as e:
-            error_msg = f"Error retrieving patients: {str(e)}"
-            self.logger.error(error_msg)
-            return {
-                'success': False,
-                'error': error_msg
-            }
+        self.logger.warning("get_patients() is deprecated - Epic FHIR requires specific patient identifiers")
+        return {
+            'success': False,
+            'error': 'Epic FHIR requires specific patient identifiers - use known patient IDs instead'
+        }
 
     def search_patients(self, given_name=None, family_name=None, birthdate=None, identifier=None):
         """
