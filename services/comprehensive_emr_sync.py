@@ -665,14 +665,14 @@ class ComprehensiveEMRSync:
             recent_documents = FHIRDocument.query.filter_by(
                 patient_id=patient.id
             ).filter(
-                FHIRDocument.document_date >= datetime.now() - timedelta(days=screening_type.frequency_months * 30)
+                FHIRDocument.creation_date >= datetime.now() - timedelta(days=int(screening_type.frequency_years * 365))
             ).all()
             
             for doc in recent_documents:
                 if self._document_contains_screening_evidence(doc, keywords):
                     return {
                         'completed': True,
-                        'last_completed_date': doc.document_date,
+                        'last_completed_date': doc.creation_date,
                         'source': 'document',
                         'document_id': doc.id
                     }
@@ -705,11 +705,41 @@ class ComprehensiveEMRSync:
                                completion_status: Dict[str, Any]):
         """Update screening status for patient"""
         try:
-            # This would update the patient's screening status in the database
-            # Implementation depends on your screening status model
+            from models import Screening, db
+            
+            # Check if screening already exists
+            existing_screening = Screening.query.filter_by(
+                patient_id=patient.id,
+                screening_type_id=screening_type.id
+            ).first()
+            
+            status = 'complete' if completion_status['completed'] else 'due'
+            
+            if existing_screening:
+                # Update existing screening
+                existing_screening.status = status
+                existing_screening.last_completed = completion_status['last_completed_date']
+                existing_screening.updated_at = datetime.now()
+            else:
+                # Create new screening record
+                new_screening = Screening(
+                    patient_id=patient.id,
+                    screening_type_id=screening_type.id,
+                    org_id=patient.org_id,
+                    status=status,
+                    last_completed=completion_status['last_completed_date'],
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
+                )
+                db.session.add(new_screening)
+            
+            # Commit changes
+            db.session.commit()
+            
             logger.info(f"Updating screening status for {patient.epic_patient_id}: "
                        f"{screening_type.name} - {'Completed' if completion_status['completed'] else 'Due'}")
         except Exception as e:
+            db.session.rollback()
             logger.error(f"Error updating screening status: {str(e)}")
     
     def discover_and_sync_patients(self, sync_options: Dict[str, Any] = None) -> Dict[str, Any]:
