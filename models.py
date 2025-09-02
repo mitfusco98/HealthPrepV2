@@ -637,15 +637,21 @@ class ScreeningType(db.Model):
         return cls.query.filter_by(name=base_name).count()
 
     @classmethod
-    def get_base_names_with_counts(cls):
-        """Get all unique base names with their variant counts"""
+    def get_base_names_with_counts(cls, org_id=None):
+        """Get unique base names with their variant counts for a specific organization"""
         from sqlalchemy import func, cast, Integer
 
-        results = db.session.query(
+        query = db.session.query(
             cls.name,
             func.count(cls.id).label('variant_count'),
             func.min(cast(cls.is_active, Integer)).label('all_active')
-        ).group_by(cls.name).order_by(cls.name).all()
+        )
+        
+        # Filter by organization if provided
+        if org_id is not None:
+            query = query.filter(cls.org_id == org_id)
+        
+        results = query.group_by(cls.name).order_by(cls.name).all()
 
         return [(name, int(count), bool(all_active)) for name, count, all_active in results]
     

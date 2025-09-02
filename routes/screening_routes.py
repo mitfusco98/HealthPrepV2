@@ -17,6 +17,23 @@ import json
 
 logger = logging.getLogger(__name__)
 
+def _extract_base_screening_name(name):
+    """Extract base screening name from variant name with connecting descriptors"""
+    if not name:
+        return name
+    
+    # Handle connecting descriptors like "Pulmonary Function Test - COPD Monitoring"
+    # Split on common delimiters and take the first part as the base name
+    delimiters = [' - ', ' – ', ' — ', ' (', ':']
+    
+    base_name = name
+    for delimiter in delimiters:
+        if delimiter in name:
+            base_name = name.split(delimiter)[0].strip()
+            break
+    
+    return base_name
+
 screening_bp = Blueprint('screening', __name__)
 
 @screening_bp.route('/list')
@@ -29,15 +46,17 @@ def screening_list():
         status_filter = request.args.get('status', '', type=str)
         screening_type_filter = request.args.get('screening_type', '', type=str)
 
-        # Main screening list view
-        query = Screening.query.join(Patient).join(ScreeningType)
+        # Main screening list view - FILTER BY ORGANIZATION
+        query = Screening.query.join(Patient).join(ScreeningType).filter(
+            Patient.org_id == current_user.org_id
+        )
 
         # Apply filters
         if patient_filter:
             query = query.filter(
                 db.or_(
-                    Patient.name.contains(patient_filter),
-                    Patient.mrn.contains(patient_filter)
+                    Patient.name.ilike(f'%{patient_filter}%'),
+                    Patient.mrn.ilike(f'%{patient_filter}%')
                 )
             )
 
@@ -49,20 +68,23 @@ def screening_list():
 
         screenings = query.order_by(Patient.name, ScreeningType.name).all()
 
-        # Get filter options
-        patients = Patient.query.order_by(Patient.name).all()
+        # Get filter options - FILTER BY ORGANIZATION
+        patients = Patient.query.filter_by(org_id=current_user.org_id).order_by(Patient.name).all()
         
-        # Get screening types grouped by base name with variant counts
+        # Get screening types grouped by base name with variant counts for current organization
         screening_type_groups = []
         try:
-            base_names_with_counts = ScreeningType.get_base_names_with_counts()
+            base_names_with_counts = ScreeningType.get_base_names_with_counts(org_id=current_user.org_id)
             
             for base_name, variant_count, all_active in base_names_with_counts:
                 if all_active:  # Only include if all variants are active
+                    # Group variants with connecting descriptors (e.g., "Pulmonary Function Test - COPD Monitoring")
+                    base_display_name = _extract_base_screening_name(base_name)
+                    
                     if variant_count > 1:
-                        display_name = f"{base_name} [{variant_count} variants]"
+                        display_name = f"{base_display_name} [{variant_count} variants]"
                     else:
-                        display_name = base_name
+                        display_name = base_display_name
                     
                     screening_type_groups.append({
                         'name': base_name,
@@ -71,12 +93,17 @@ def screening_list():
                     })
         except Exception as e:
             logger.error(f"Error getting screening type groups: {str(e)}")
-            # Fallback to simple list if grouping fails
-            screening_types = ScreeningType.query.filter_by(is_active=True).order_by(ScreeningType.name).all()
+            # Fallback to simple list if grouping fails - FILTER BY ORGANIZATION
+            screening_types = ScreeningType.query.filter_by(
+                org_id=current_user.org_id,
+                is_active=True
+            ).order_by(ScreeningType.name).all()
+            
             for st in screening_types:
+                base_display_name = _extract_base_screening_name(st.name)
                 screening_type_groups.append({
                     'name': st.name,
-                    'display_name': st.display_name,
+                    'display_name': base_display_name,
                     'variant_count': 1
                 })
 
