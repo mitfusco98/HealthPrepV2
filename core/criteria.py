@@ -72,10 +72,10 @@ class EligibilityCriteria:
     
     def _check_gender_eligibility(self, patient, screening_type):
         """Check if patient gender meets screening criteria"""
-        if not screening_type.gender:
+        if not screening_type.eligible_genders or screening_type.eligible_genders == 'both':
             return True
         
-        return patient.gender == screening_type.gender
+        return patient.gender == screening_type.eligible_genders
     
     def _check_trigger_conditions(self, patient, screening_type):
         """Check if patient has required trigger conditions"""
