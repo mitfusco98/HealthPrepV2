@@ -20,6 +20,24 @@ Health-Prep v2 is a real-time medical preparation sheet generation engine design
 - Enhanced create_preset_from_types with user-specific filtering and variant grouping
 - Comprehensive database models for screening catalog management
 
+### Port Conflict Resolution Strategy
+The application implements a **hybrid port conflict resolution system** combining:
+
+1. **Environment-Based Port Configuration**: Application respects `PORT` environment variable for flexible port assignment
+2. **Dynamic Port Cleanup**: Smart process cleanup and automatic port detection
+3. **Intelligent Fallback**: Automatic alternative port discovery when conflicts occur
+
+**Usage Options:**
+- **Standard Mode**: `python main.py` - Basic port handling with fallback
+- **Smart Mode**: `USE_SMART_START=true python main.py` - Advanced conflict resolution
+- **Production Preview**: `python smart_start.py prod` - Gunicorn on port 5001
+- **Direct Smart Start**: `python smart_start.py dev` - Enhanced development server
+
+**Port Configuration:**
+- Development: Port 5000 (fallback to 5001-5009)
+- Production Preview: Port 5001 (fallback to 5002-5100)
+- Custom Port: Set `PORT` environment variable
+
 ### System Architecture
 
 **Backend Structure:**

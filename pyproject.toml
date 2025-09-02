@@ -33,4 +33,5 @@ dependencies = [
     "rq-dashboard>=0.8.5",
     "cryptography>=45.0.6",
     "requests",
+    "psutil>=7.0.0",
 ]
