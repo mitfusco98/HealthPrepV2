@@ -384,6 +384,13 @@ class EpicFHIRService:
         except Exception as e:
             logger.error(f"Error getting screening data for patient {patient.id}: {str(e)}")
             raise
+    
+    def get_fhir_client(self):
+        """
+        Get the FHIR client instance for this service
+        Returns the authenticated FHIR client or None if not available
+        """
+        return self.fhir_client
 
 
 def get_epic_fhir_service(organization_id: int = None) -> EpicFHIRService:
