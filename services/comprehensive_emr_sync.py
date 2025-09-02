@@ -356,7 +356,7 @@ class ComprehensiveEMRSync:
             
             for screening_type in screening_types:
                 # Check eligibility based on demographics and conditions
-                is_eligible = self.screening_engine.check_eligibility(patient, screening_type)
+                is_eligible = self.screening_engine.criteria.is_patient_eligible(patient, screening_type)
                 
                 if is_eligible:
                     # Check completion status based on documents and observations
@@ -804,11 +804,10 @@ class ComprehensiveEMRSync:
                 'erXuFYUfucBZaryVksYEcMg3',  # Camila Lopez
                 'eq081-VQEgP8drUUqCWzHfw3',  # Derrick Lin
                 'eAB3mDIBBcyUKviyzrxsnAw3',  # Desiree Powell
-                'eJBJ0FuCdUgPRFYOdBMOjGQx',  # Elijah Davis
-                'eWY1-V1J5NfkwZrqcqcwl7_x',  # Linda Ross
-                'eLZPOqNUgFXgQ_YRgvMJCCUZ',  # Olivia Roberts
-                'eGOLhPUiQr5KKD2v9W3cXwAd',  # Warren McGinnis
-                'eCGMnHhT_sE5tHo4l5PYbp2K',  # Additional test patient
+                'egqBHVfQlt4Bw3XGXoxVxHg3',  # Elijah Davis (MRN: 203709)
+                'eIXesllypH3M9tAA5WdJftQ3',  # Linda Ross (MRN: 203712)
+                'eh2xYHuzl9nkSFVvV3osUHg3',  # Olivia Roberts (MRN: 203715)
+                'e0w0LEDCYtfckT6N.CkJKCw3',  # Warren McGinnis (MRN: 203710)
             ]
             
             patients = []
