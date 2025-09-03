@@ -31,28 +31,51 @@ class UserViews:
     def dashboard(self):
         """Main user dashboard"""
         try:
-            # Get dashboard statistics
-            from admin.analytics import HealthPrepAnalytics
-            analytics = HealthPrepAnalytics()
+            # Get user-specific statistics with organization filtering
+            total_patients = Patient.query.filter_by(org_id=current_user.org_id).count()
+            
+            # Calculate screening statistics from actual data
+            due_screenings = Screening.query.join(Patient).filter(
+                Patient.org_id == current_user.org_id,
+                Screening.status == 'Due'
+            ).count()
+            
+            due_soon_screenings = Screening.query.join(Patient).filter(
+                Patient.org_id == current_user.org_id,
+                Screening.status == 'Due Soon'
+            ).count()
+            
+            complete_screenings = Screening.query.join(Patient).filter(
+                Patient.org_id == current_user.org_id,
+                Screening.status == 'Complete'
+            ).count()
+            
+            # Count recent documents (from last 30 days)
+            from datetime import datetime, timedelta
+            thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+            recent_documents = Document.query.join(Patient).filter(
+                Patient.org_id == current_user.org_id,
+                Document.created_at >= thirty_days_ago
+            ).count() if hasattr(Document, 'created_at') else 0
 
-            # Get user-specific statistics
             stats = {
-                'total_patients': Patient.query.count(),
-                'due_screenings': 0,  # TODO: Calculate actual due screenings
-                'due_soon_screenings': 0,  # Add for template compatibility
-                'recent_documents': 0,  # TODO: Calculate recent documents
-                'complete_screenings': 0,  # Match template expectation
-                'completed_screenings': 0  # Keep both for compatibility
+                'total_patients': total_patients,
+                'due_screenings': due_screenings,
+                'due_soon_screenings': due_soon_screenings,
+                'recent_documents': recent_documents,
+                'complete_screenings': complete_screenings,
+                'completed_screenings': complete_screenings  # Keep both for compatibility
             }
 
-            # Get recent activity
-            recent_activity = []  # TODO: Get actual recent activity
-            recent_screenings = []  # Add for template compatibility
+            # Get recent screening activity (last 10 screenings)
+            recent_screenings = Screening.query.join(Patient).filter(
+                Patient.org_id == current_user.org_id
+            ).order_by(Screening.updated_at.desc()).limit(10).all()
 
             return render_template('dashboard.html',
                                  stats=stats,
                                  user_stats=stats,
-                                 recent_activity=recent_activity,
+                                 recent_activity=[],
                                  recent_screenings=recent_screenings)
 
         except Exception as e:
@@ -63,8 +86,8 @@ class UserViews:
                 'due_screenings': 0,
                 'due_soon_screenings': 0,
                 'recent_documents': 0,
-                'complete_screenings': 0,  # Match template expectation
-                'completed_screenings': 0  # Keep both for compatibility
+                'complete_screenings': 0,
+                'completed_screenings': 0
             }
             return render_template('dashboard.html',
                                  stats=default_stats,
