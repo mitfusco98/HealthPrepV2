@@ -42,6 +42,9 @@ screening_bp = Blueprint('screening', __name__)
 def screening_list():
     """Main screening list view"""
     try:
+        # logger.info(f"Current user: {current_user.username if current_user.is_authenticated else 'Not authenticated'}")
+        # logger.info(f"Current user org_id: {current_user.org_id if current_user.is_authenticated else 'N/A'}")
+        # logger.info(f"Current user role: {current_user.role if current_user.is_authenticated else 'N/A'}")
         patient_filter = request.args.get('patient', '', type=str)
         status_filter = request.args.get('status', '', type=str)
         screening_type_filter = request.args.get('screening_type', '', type=str)
