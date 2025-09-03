@@ -94,27 +94,29 @@
 }
 
 /* Screening table styling */
-.screening-table {
-    background: #fff;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.table-dark {
+    --bs-table-bg: #212529;
+    --bs-table-color: #fff;
 }
 
-.screening-table th {
-    background: #f8f9fa;
+.table-dark th {
+    background-color: var(--hp-primary) !important;
+    color: white !important;
     font-weight: 600;
-    border-bottom: 2px solid #dee2e6;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
     white-space: nowrap;
+    padding: 0.75rem;
 }
 
-.screening-table td {
+.table-dark td {
     vertical-align: middle;
-    border-bottom: 1px solid #f1f3f4;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    padding: 0.75rem;
 }
 
-.screening-table tbody tr:hover {
-    background-color: #f8f9fa;
+.table-dark tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.1) !important;
 }
 
 .patient-info {
@@ -123,12 +125,12 @@
 
 .patient-info .patient-name {
     font-weight: 600;
-    color: #495057;
+    color: #fff !important;
 }
 
 .patient-info .patient-details {
     font-size: 0.85em;
-    color: #6c757d;
+    color: #adb5bd !important;
 }
 
 .document-badges {
@@ -304,17 +306,17 @@
             <!-- Screening Results -->
             {% if screenings %}
             <div class="table-responsive">
-                <table class="table table-dark table-hover medical-table screening-table">
-                    <thead>
+                <table class="table table-dark table-hover">
+                    <thead class="table-primary">
                         <tr>
-                            <th scope="col" class="sortable" data-column="patient">Patient</th>
-                            <th scope="col" class="sortable" data-column="screening_type">Screening Type</th>
-                            <th scope="col" class="sortable" data-column="status">Status</th>
-                            <th scope="col" class="sortable" data-column="last_completed">Last Completed</th>
-                            <th scope="col" class="sortable" data-column="next_due">Next Due</th>
-                            <th scope="col" class="sortable" data-column="frequency">Frequency</th>
-                            <th scope="col">Documents</th>
-                            <th scope="col">Actions</th>
+                            <th scope="col" class="sortable text-white" data-column="patient">Patient</th>
+                            <th scope="col" class="sortable text-white" data-column="screening_type">Screening Type</th>
+                            <th scope="col" class="sortable text-white" data-column="status">Status</th>
+                            <th scope="col" class="sortable text-white" data-column="last_completed">Last Completed</th>
+                            <th scope="col" class="sortable text-white" data-column="next_due">Next Due</th>
+                            <th scope="col" class="sortable text-white" data-column="frequency">Frequency</th>
+                            <th scope="col" class="text-white">Documents</th>
+                            <th scope="col" class="text-white">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
