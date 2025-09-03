@@ -219,7 +219,7 @@
                     <p class="text-muted">Manage patient screening schedules and compliance tracking</p>
                 </div>
                 <div>
-                    <button class="btn btn-primary" onclick="refreshScreenings(event, 'list')">
+                    <button class="btn btn-medical-primary" onclick="refreshScreenings(event, 'list')">
                         <i class="fas fa-sync-alt me-1"></i>
                         Refresh Data
                     </button>
@@ -252,7 +252,7 @@
 
     <!-- Screening List Content -->
             <!-- Filters -->
-            <div class="filter-section">
+            <div class="medical-card filter-section">
                 <form method="GET" class="row g-3">
                     <div class="col-md-3">
                         <label for="patient" class="form-label">Patient Search</label>
@@ -284,7 +284,7 @@
                     <div class="col-md-3">
                         <label class="form-label">&nbsp;</label>
                         <div class="d-grid">
-                            <button type="submit" class="btn btn-outline-primary">
+                            <button type="submit" class="btn btn-medical-primary">
                                 <i class="fas fa-filter me-1"></i>
                                 Apply Filters
                             </button>
@@ -304,7 +304,7 @@
             <!-- Screening Results -->
             {% if screenings %}
             <div class="table-responsive">
-                <table class="table screening-table">
+                <table class="table table-dark table-hover medical-table screening-table">
                     <thead>
                         <tr>
                             <th scope="col" class="sortable" data-column="patient">Patient</th>
@@ -334,9 +334,23 @@
                             
                             <!-- Status -->
                             <td>
-                                <span class="badge status-{{ screening.status.lower().replace(' ', '-') }}">
-                                    {{ screening.status }}
-                                </span>
+                                {% if screening.status == 'Complete' %}
+                                    <span class="badge screening-status-complete">
+                                        <i class="fas fa-check-circle me-1"></i>{{ screening.status }}
+                                    </span>
+                                {% elif screening.status == 'Due Soon' %}
+                                    <span class="badge screening-status-due-soon">
+                                        <i class="fas fa-clock me-1"></i>{{ screening.status }}
+                                    </span>
+                                {% elif screening.status == 'Due' %}
+                                    <span class="badge screening-status-due">
+                                        <i class="fas fa-exclamation-circle me-1"></i>{{ screening.status }}
+                                    </span>
+                                {% else %}
+                                    <span class="badge screening-status-overdue">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>{{ screening.status }}
+                                    </span>
+                                {% endif %}
                             </td>
                             
                             <!-- Last Completed -->
@@ -377,8 +391,9 @@
                             
                             <!-- Actions -->
                             <td>
-                                <a href="#" class="btn btn-sm btn-primary" onclick="alert('Prep sheet temporarily disabled')" title="Generate Prep Sheet">
-                                    <i class="fas fa-file-medical"></i>
+                                <a href="#" class="btn btn-sm btn-medical-primary" onclick="alert('Prep sheet temporarily disabled')" title="Generate Prep Sheet">
+                                    <i class="fas fa-file-medical me-1"></i>
+                                    Prep
                                 </a>
                             </td>
                         </tr>
