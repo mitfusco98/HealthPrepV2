@@ -134,7 +134,16 @@
 }
 
 .document-badges {
-    max-width: 200px;
+    max-width: 250px;
+}
+
+.documents-list {
+    flex-grow: 1;
+}
+
+.documents-list .badge {
+    margin-right: 2px;
+    margin-bottom: 2px;
 }
 
 .document-badges .badge {
@@ -143,34 +152,54 @@
     margin-bottom: 2px;
 }
 
-/* Responsive design for mobile */
+/* Responsive design for mobile - keep all columns visible */
 @media (max-width: 768px) {
     .screening-table {
-        font-size: 0.85em;
-    }
-    
-    .screening-table th:nth-child(4),
-    .screening-table td:nth-child(4),
-    .screening-table th:nth-child(5),
-    .screening-table td:nth-child(5),
-    .screening-table th:nth-child(6),
-    .screening-table td:nth-child(6) {
-        display: none;
+        font-size: 0.75em;
     }
     
     .patient-info {
-        min-width: 140px;
+        min-width: 120px;
+    }
+    
+    .patient-info .patient-name {
+        font-size: 0.9em;
+    }
+    
+    .patient-info .patient-details {
+        font-size: 0.8em;
+    }
+    
+    .document-badges {
+        max-width: 150px;
+    }
+    
+    .document-badges .badge {
+        font-size: 0.6em;
+    }
+    
+    .btn-sm {
+        padding: 0.1rem 0.3rem;
+        font-size: 0.7em;
+    }
+}
+
+@media (max-width: 576px) {
+    .screening-table {
+        font-size: 0.7em;
+    }
+    
+    .patient-info {
+        min-width: 100px;
     }
     
     .document-badges {
         max-width: 120px;
     }
-}
-
-@media (max-width: 576px) {
-    .screening-table th:nth-child(7),
-    .screening-table td:nth-child(7) {
-        display: none;
+    
+    .documents-list .badge {
+        display: block;
+        margin-bottom: 1px;
     }
 }
 
@@ -313,10 +342,8 @@
                             <th scope="col" class="sortable text-white" data-column="screening_type">Screening Type</th>
                             <th scope="col" class="sortable text-white" data-column="status">Status</th>
                             <th scope="col" class="sortable text-white" data-column="last_completed">Last Completed</th>
-                            <th scope="col" class="sortable text-white" data-column="next_due">Next Due</th>
                             <th scope="col" class="sortable text-white" data-column="frequency">Frequency</th>
-                            <th scope="col" class="text-white">Documents</th>
-                            <th scope="col" class="text-white">Actions</th>
+                            <th scope="col" class="text-white">Matched Documents</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -360,15 +387,6 @@
                                 {{ screening.last_completed.strftime('%m/%d/%Y') if screening.last_completed else 'Never' }}
                             </td>
                             
-                            <!-- Next Due -->
-                            <td>
-                                {% if screening.next_due %}
-                                    {{ screening.next_due.strftime('%m/%d/%Y') }}
-                                {% else %}
-                                    -
-                                {% endif %}
-                            </td>
-                            
                             <!-- Frequency -->
                             <td>
                                 Every {{ screening.screening_type.frequency_number }} {{ screening.screening_type.frequency_unit }}
@@ -376,27 +394,26 @@
                             
                             <!-- Matched Documents -->
                             <td class="document-badges">
-                                {% if screening.document_matches %}
-                                    {% for match in screening.document_matches[:3] %}
-                                    <span class="badge confidence-{{ match.document.confidence_level }}" 
-                                          title="Confidence: {{ (match.match_confidence * 100)|round(1) }}%">
-                                        {{ match.document.filename[:20] }}{% if match.document.filename|length > 20 %}...{% endif %}
-                                    </span>
-                                    {% endfor %}
-                                    {% if screening.document_matches|length > 3 %}
-                                    <div class="text-muted small">+{{ screening.document_matches|length - 3 }} more</div>
-                                    {% endif %}
-                                {% else %}
-                                    <span class="text-muted">No matches</span>
-                                {% endif %}
-                            </td>
-                            
-                            <!-- Actions -->
-                            <td>
-                                <a href="#" class="btn btn-sm btn-medical-primary" onclick="alert('Prep sheet temporarily disabled')" title="Generate Prep Sheet">
-                                    <i class="fas fa-file-medical me-1"></i>
-                                    Prep
-                                </a>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="documents-list">
+                                        {% if screening.document_matches %}
+                                            {% for match in screening.document_matches[:3] %}
+                                            <span class="badge confidence-{{ match.document.confidence_level }}" 
+                                                  title="Confidence: {{ (match.match_confidence * 100)|round(1) }}%">
+                                                {{ match.document.filename[:20] }}{% if match.document.filename|length > 20 %}...{% endif %}
+                                            </span>
+                                            {% endfor %}
+                                            {% if screening.document_matches|length > 3 %}
+                                            <div class="text-muted small">+{{ screening.document_matches|length - 3 }} more</div>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted">No matches</span>
+                                        {% endif %}
+                                    </div>
+                                    <a href="#" class="btn btn-sm btn-medical-primary ms-2" onclick="alert('Prep sheet temporarily disabled')" title="Generate Prep Sheet">
+                                        <i class="fas fa-file-medical"></i>
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -473,18 +490,9 @@ function sortTable(column) {
                 aValue = new Date(aValue);
                 bValue = new Date(bValue);
                 break;
-            case 'next_due':
+            case 'frequency':
                 aValue = a.cells[4].textContent.trim();
                 bValue = b.cells[4].textContent.trim();
-                // Handle "-" value
-                if (aValue === '-') aValue = '12/31/2099';
-                if (bValue === '-') bValue = '12/31/2099';
-                aValue = new Date(aValue);
-                bValue = new Date(bValue);
-                break;
-            case 'frequency':
-                aValue = a.cells[5].textContent.trim();
-                bValue = b.cells[5].textContent.trim();
                 break;
         }
         
