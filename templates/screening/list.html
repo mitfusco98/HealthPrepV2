@@ -93,17 +93,114 @@
     margin-bottom: 1rem;
 }
 
-/* Screening card styling */
-.screening-card {
-    background: linear-gradient(135deg, #343a40 0%, #495057 100%);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+/* Screening table styling */
+.screening-table {
+    background: #fff;
     border-radius: 8px;
-    transition: transform 0.2s ease;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.screening-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+.screening-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    border-bottom: 2px solid #dee2e6;
+    white-space: nowrap;
+}
+
+.screening-table td {
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f3f4;
+}
+
+.screening-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.patient-info {
+    min-width: 180px;
+}
+
+.patient-info .patient-name {
+    font-weight: 600;
+    color: #495057;
+}
+
+.patient-info .patient-details {
+    font-size: 0.85em;
+    color: #6c757d;
+}
+
+.document-badges {
+    max-width: 200px;
+}
+
+.document-badges .badge {
+    font-size: 0.7em;
+    margin-right: 2px;
+    margin-bottom: 2px;
+}
+
+/* Responsive design for mobile */
+@media (max-width: 768px) {
+    .screening-table {
+        font-size: 0.85em;
+    }
+    
+    .screening-table th:nth-child(4),
+    .screening-table td:nth-child(4),
+    .screening-table th:nth-child(5),
+    .screening-table td:nth-child(5),
+    .screening-table th:nth-child(6),
+    .screening-table td:nth-child(6) {
+        display: none;
+    }
+    
+    .patient-info {
+        min-width: 140px;
+    }
+    
+    .document-badges {
+        max-width: 120px;
+    }
+}
+
+@media (max-width: 576px) {
+    .screening-table th:nth-child(7),
+    .screening-table td:nth-child(7) {
+        display: none;
+    }
+}
+
+/* Sortable table headers */
+.sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+}
+
+.sortable:hover {
+    background-color: #e9ecef !important;
+}
+
+.sortable::after {
+    content: '\f0dc';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    position: absolute;
+    right: 8px;
+    opacity: 0.5;
+    font-size: 0.8em;
+}
+
+.sortable.asc::after {
+    content: '\f0de';
+    opacity: 1;
+}
+
+.sortable.desc::after {
+    content: '\f0dd';
+    opacity: 1;
 }
 </style>
 {% endblock %}
@@ -206,69 +303,88 @@
 
             <!-- Screening Results -->
             {% if screenings %}
-            <div class="row">
-                {% for screening in screenings %}
-                <div class="col-md-6 col-lg-4 mb-4">
-                    <div class="screening-card card h-100">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h6 class="mb-0">{{ screening.patient.full_name }}</h6>
-                            <span class="badge status-{{ screening.status.lower().replace(' ', '-') }}">
-                                {{ screening.status }}
-                            </span>
-                        </div>
-                        <div class="card-body">
-                            <h6 class="card-title">{{ screening.screening_type.display_name }}</h6>
-                            <div class="row text-sm">
-                                <div class="col-6">
-                                    <strong>MRN:</strong> {{ screening.patient.mrn }}
+            <div class="table-responsive">
+                <table class="table screening-table">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="sortable" data-column="patient">Patient</th>
+                            <th scope="col" class="sortable" data-column="screening_type">Screening Type</th>
+                            <th scope="col" class="sortable" data-column="status">Status</th>
+                            <th scope="col" class="sortable" data-column="last_completed">Last Completed</th>
+                            <th scope="col" class="sortable" data-column="next_due">Next Due</th>
+                            <th scope="col" class="sortable" data-column="frequency">Frequency</th>
+                            <th scope="col">Documents</th>
+                            <th scope="col">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for screening in screenings %}
+                        <tr>
+                            <!-- Patient Information -->
+                            <td class="patient-info">
+                                <div class="patient-name">{{ screening.patient.full_name }}</div>
+                                <div class="patient-details">
+                                    MRN: {{ screening.patient.mrn }}<br>
+                                    Age: {{ screening.patient.age }}
                                 </div>
-                                <div class="col-6">
-                                    <strong>Age:</strong> {{ screening.patient.age }}
-                                </div>
-                            </div>
-                            <hr>
-                            <div class="mb-2">
-                                <strong>Last Completed:</strong> 
+                            </td>
+                            
+                            <!-- Screening Type -->
+                            <td>{{ screening.screening_type.display_name }}</td>
+                            
+                            <!-- Status -->
+                            <td>
+                                <span class="badge status-{{ screening.status.lower().replace(' ', '-') }}">
+                                    {{ screening.status }}
+                                </span>
+                            </td>
+                            
+                            <!-- Last Completed -->
+                            <td>
                                 {{ screening.last_completed.strftime('%m/%d/%Y') if screening.last_completed else 'Never' }}
-                            </div>
-                            <div class="mb-2">
-                                <strong>Frequency:</strong> 
+                            </td>
+                            
+                            <!-- Next Due -->
+                            <td>
+                                {% if screening.next_due %}
+                                    {{ screening.next_due.strftime('%m/%d/%Y') }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Frequency -->
+                            <td>
                                 Every {{ screening.screening_type.frequency_number }} {{ screening.screening_type.frequency_unit }}
-                            </div>
-                            {% if screening.next_due %}
-                            <div class="mb-3">
-                                <strong>Next Due:</strong> 
-                                {{ screening.next_due.strftime('%m/%d/%Y') }}
-                            </div>
-                            {% endif %}
+                            </td>
                             
                             <!-- Matched Documents -->
-                            {% if screening.document_matches %}
-                            <div class="mb-3">
-                                <strong>Matched Documents:</strong>
-                                <div class="mt-1">
+                            <td class="document-badges">
+                                {% if screening.document_matches %}
                                     {% for match in screening.document_matches[:3] %}
-                                    <span class="badge confidence-{{ match.document.confidence_level }} me-1 mb-1" 
+                                    <span class="badge confidence-{{ match.document.confidence_level }}" 
                                           title="Confidence: {{ (match.match_confidence * 100)|round(1) }}%">
                                         {{ match.document.filename[:20] }}{% if match.document.filename|length > 20 %}...{% endif %}
                                     </span>
                                     {% endfor %}
                                     {% if screening.document_matches|length > 3 %}
-                                    <span class="text-muted small">+{{ screening.document_matches|length - 3 }} more</span>
+                                    <div class="text-muted small">+{{ screening.document_matches|length - 3 }} more</div>
                                     {% endif %}
-                                </div>
-                            </div>
-                            {% endif %}
-                        </div>
-                        <div class="card-footer">
-                            <a href="#" class="btn btn-sm btn-primary" onclick="alert('Prep sheet temporarily disabled')">
-                                <i class="fas fa-file-medical me-1"></i>
-                                Generate Prep Sheet
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
+                                {% else %}
+                                    <span class="text-muted">No matches</span>
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Actions -->
+                            <td>
+                                <a href="#" class="btn btn-sm btn-primary" onclick="alert('Prep sheet temporarily disabled')" title="Generate Prep Sheet">
+                                    <i class="fas fa-file-medical"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
             {% else %}
             <div class="text-center py-5">
@@ -300,6 +416,78 @@
 
 {% block extra_js %}
 <script>
+// Table sorting functionality
+function sortTable(column) {
+    const table = document.querySelector('.screening-table tbody');
+    const rows = Array.from(table.querySelectorAll('tr'));
+    const header = document.querySelector(`[data-column="${column}"]`);
+    const isAsc = header.classList.contains('asc');
+    
+    // Clear all sort indicators
+    document.querySelectorAll('.sortable').forEach(th => {
+        th.classList.remove('asc', 'desc');
+    });
+    
+    // Set new sort indicator
+    header.classList.add(isAsc ? 'desc' : 'asc');
+    
+    rows.sort((a, b) => {
+        let aValue, bValue;
+        
+        switch(column) {
+            case 'patient':
+                aValue = a.querySelector('.patient-name').textContent.trim();
+                bValue = b.querySelector('.patient-name').textContent.trim();
+                break;
+            case 'screening_type':
+                aValue = a.cells[1].textContent.trim();
+                bValue = b.cells[1].textContent.trim();
+                break;
+            case 'status':
+                aValue = a.cells[2].textContent.trim();
+                bValue = b.cells[2].textContent.trim();
+                break;
+            case 'last_completed':
+                aValue = a.cells[3].textContent.trim();
+                bValue = b.cells[3].textContent.trim();
+                // Handle "Never" value
+                if (aValue === 'Never') aValue = '01/01/1900';
+                if (bValue === 'Never') bValue = '01/01/1900';
+                aValue = new Date(aValue);
+                bValue = new Date(bValue);
+                break;
+            case 'next_due':
+                aValue = a.cells[4].textContent.trim();
+                bValue = b.cells[4].textContent.trim();
+                // Handle "-" value
+                if (aValue === '-') aValue = '12/31/2099';
+                if (bValue === '-') bValue = '12/31/2099';
+                aValue = new Date(aValue);
+                bValue = new Date(bValue);
+                break;
+            case 'frequency':
+                aValue = a.cells[5].textContent.trim();
+                bValue = b.cells[5].textContent.trim();
+                break;
+        }
+        
+        if (aValue < bValue) return isAsc ? 1 : -1;
+        if (aValue > bValue) return isAsc ? -1 : 1;
+        return 0;
+    });
+    
+    // Rebuild table
+    rows.forEach(row => table.appendChild(row));
+}
+
+// Add click listeners to sortable headers
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.sortable').forEach(header => {
+        header.addEventListener('click', function() {
+            sortTable(this.dataset.column);
+        });
+    });
+});
 // Enhanced refresh functionality that works across all tabs
 function refreshScreenings(event, tab) {
     // Prevent default link behavior
