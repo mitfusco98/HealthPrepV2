@@ -364,19 +364,19 @@
                             <!-- Status -->
                             <td>
                                 {% if screening.status == 'Complete' %}
-                                    <span class="badge screening-status-complete">
+                                    <span class="badge status-complete">
                                         <i class="fas fa-check-circle me-1"></i>{{ screening.status }}
                                     </span>
                                 {% elif screening.status == 'Due Soon' %}
-                                    <span class="badge screening-status-due-soon">
+                                    <span class="badge status-due-soon">
                                         <i class="fas fa-clock me-1"></i>{{ screening.status }}
                                     </span>
                                 {% elif screening.status == 'Due' %}
-                                    <span class="badge screening-status-due">
+                                    <span class="badge status-due">
                                         <i class="fas fa-exclamation-circle me-1"></i>{{ screening.status }}
                                     </span>
                                 {% else %}
-                                    <span class="badge screening-status-overdue">
+                                    <span class="badge status-due">
                                         <i class="fas fa-exclamation-triangle me-1"></i>{{ screening.status }}
                                     </span>
                                 {% endif %}
