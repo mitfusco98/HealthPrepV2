@@ -197,7 +197,7 @@
                                     {% endif %}
                                 </small>
                             </div>
-                            <span class="badge bg-{{ 'danger' if screening.status == 'Due' else 'warning' if screening.status == 'Due Soon' else 'success' }}">
+                            <span class="badge {{ 'status-due' if screening.status == 'Due' else 'status-due-soon' if screening.status == 'Due Soon' else 'status-complete' }}">
                                 {{ screening.status }}
                             </span>
                         </div>
