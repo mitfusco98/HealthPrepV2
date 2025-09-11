@@ -34,20 +34,20 @@ class UserViews:
             # Get user-specific statistics with organization filtering
             total_patients = Patient.query.filter_by(org_id=current_user.org_id).count()
             
-            # Calculate screening statistics from actual data
+            # Calculate screening statistics from actual data - using lowercase status values to match database
             due_screenings = Screening.query.join(Patient).join(ScreeningType).filter(
                 Patient.org_id == current_user.org_id,
-                Screening.status == 'Due'
+                Screening.status == 'due'
             ).count()
             
             due_soon_screenings = Screening.query.join(Patient).join(ScreeningType).filter(
                 Patient.org_id == current_user.org_id,
-                Screening.status == 'Due Soon'
+                Screening.status == 'due soon'
             ).count()
             
             complete_screenings = Screening.query.join(Patient).join(ScreeningType).filter(
                 Patient.org_id == current_user.org_id,
-                Screening.status == 'Complete'
+                Screening.status == 'complete'
             ).count()
             
             # Count recent documents (from last 30 days)
