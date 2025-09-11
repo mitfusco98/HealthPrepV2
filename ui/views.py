@@ -35,17 +35,17 @@ class UserViews:
             total_patients = Patient.query.filter_by(org_id=current_user.org_id).count()
             
             # Calculate screening statistics from actual data
-            due_screenings = Screening.query.join(Patient).filter(
+            due_screenings = Screening.query.join(Patient).join(ScreeningType).filter(
                 Patient.org_id == current_user.org_id,
                 Screening.status == 'Due'
             ).count()
             
-            due_soon_screenings = Screening.query.join(Patient).filter(
+            due_soon_screenings = Screening.query.join(Patient).join(ScreeningType).filter(
                 Patient.org_id == current_user.org_id,
                 Screening.status == 'Due Soon'
             ).count()
             
-            complete_screenings = Screening.query.join(Patient).filter(
+            complete_screenings = Screening.query.join(Patient).join(ScreeningType).filter(
                 Patient.org_id == current_user.org_id,
                 Screening.status == 'Complete'
             ).count()
@@ -68,7 +68,7 @@ class UserViews:
             }
 
             # Get recent screening activity (last 10 screenings)
-            recent_screenings = Screening.query.join(Patient).filter(
+            recent_screenings = Screening.query.join(Patient).join(ScreeningType).filter(
                 Patient.org_id == current_user.org_id
             ).order_by(Screening.updated_at.desc()).limit(10).all()
 
