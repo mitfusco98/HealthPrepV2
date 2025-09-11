@@ -1,0 +1,134 @@
+{
+  "test_results": {
+    "Test 1: Baseline System State": {
+      "result": {
+        "success": true,
+        "total_screenings": 23,
+        "status_distribution": {
+          "due": 23
+        },
+        "type_distribution": {
+          "Mammogram": 2,
+          "Cervical Cancer Screening": 3,
+          "Immunization Review": 6,
+          "Lipid Panel": 3,
+          "A1C Test": 3
+        },
+        "baseline_established": true
+      },
+      "duration": 0.17009830474853516,
+      "timestamp": "2025-09-11T18:01:26.067480"
+    },
+    "Test 2: Age Criteria Responsiveness": {
+      "result": {
+        "success": false,
+        "error": "This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)\n(psycopg2.errors.NotNullViolation) null value in column \"org_id\" of relation \"screening\" violates not-null constraint\nDETAIL:  Failing row contains (26, 10, 74, null, due, null, null, null, 2025-09-11 18:01:26.463787, 2025-09-11 18:01:26.46379).\n\n[SQL: INSERT INTO screening (patient_id, screening_type_id, org_id, status, last_completed, next_due, matched_documents, created_at, updated_at) VALUES (%(patient_id)s, %(screening_type_id)s, %(org_id)s, %(status)s, %(last_completed)s, %(next_due)s, %(matched_documents)s, %(created_at)s, %(updated_at)s) RETURNING screening.id]\n[parameters: {'patient_id': 10, 'screening_type_id': 74, 'org_id': None, 'status': 'due', 'last_completed': None, 'next_due': None, 'matched_documents': None, 'created_at': datetime.datetime(2025, 9, 11, 18, 1, 26, 463787), 'updated_at': datetime.datetime(2025, 9, 11, 18, 1, 26, 463790)}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj) (Background on this error at: https://sqlalche.me/e/20/7s2a)"
+      },
+      "duration": 0.43924379348754883,
+      "timestamp": "2025-09-11T18:01:26.507715"
+    },
+    "Test 3: Gender Criteria Responsiveness": {
+      "result": {
+        "success": false,
+        "error": "This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)\n(psycopg2.errors.NotNullViolation) null value in column \"org_id\" of relation \"screening\" violates not-null constraint\nDETAIL:  Failing row contains (27, 10, 74, null, due, null, null, null, 2025-09-11 18:01:27.102666, 2025-09-11 18:01:27.102671).\n\n[SQL: INSERT INTO screening (patient_id, screening_type_id, org_id, status, last_completed, next_due, matched_documents, created_at, updated_at) VALUES (%(patient_id)s, %(screening_type_id)s, %(org_id)s, %(status)s, %(last_completed)s, %(next_due)s, %(matched_documents)s, %(created_at)s, %(updated_at)s) RETURNING screening.id]\n[parameters: {'patient_id': 10, 'screening_type_id': 74, 'org_id': None, 'status': 'due', 'last_completed': None, 'next_due': None, 'matched_documents': None, 'created_at': datetime.datetime(2025, 9, 11, 18, 1, 27, 102666), 'updated_at': datetime.datetime(2025, 9, 11, 18, 1, 27, 102671)}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj) (Background on this error at: https://sqlalche.me/e/20/7s2a)"
+      },
+      "duration": 0.6351168155670166,
+      "timestamp": "2025-09-11T18:01:27.143405"
+    },
+    "Test 4: Keyword Changes Responsiveness": {
+      "result": {
+        "success": false,
+        "error": "This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)\n(psycopg2.errors.NotNullViolation) null value in column \"org_id\" of relation \"screening\" violates not-null constraint\nDETAIL:  Failing row contains (28, 10, 74, null, due, null, null, null, 2025-09-11 18:01:27.476528, 2025-09-11 18:01:27.476533).\n\n[SQL: INSERT INTO screening (patient_id, screening_type_id, org_id, status, last_completed, next_due, matched_documents, created_at, updated_at) VALUES (%(patient_id)s, %(screening_type_id)s, %(org_id)s, %(status)s, %(last_completed)s, %(next_due)s, %(matched_documents)s, %(created_at)s, %(updated_at)s) RETURNING screening.id]\n[parameters: {'patient_id': 10, 'screening_type_id': 74, 'org_id': None, 'status': 'due', 'last_completed': None, 'next_due': None, 'matched_documents': None, 'created_at': datetime.datetime(2025, 9, 11, 18, 1, 27, 476528), 'updated_at': datetime.datetime(2025, 9, 11, 18, 1, 27, 476533)}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj) (Background on this error at: https://sqlalche.me/e/20/7s2a)"
+      },
+      "duration": 0.3768301010131836,
+      "timestamp": "2025-09-11T18:01:27.520602"
+    },
+    "Test 5: Activation Status Responsiveness": {
+      "result": {
+        "success": false,
+        "error": "This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)\n(psycopg2.errors.NotNullViolation) null value in column \"org_id\" of relation \"screening\" violates not-null constraint\nDETAIL:  Failing row contains (29, 10, 74, null, due, null, null, null, 2025-09-11 18:01:28.080387, 2025-09-11 18:01:28.080391).\n\n[SQL: INSERT INTO screening (patient_id, screening_type_id, org_id, status, last_completed, next_due, matched_documents, created_at, updated_at) VALUES (%(patient_id)s, %(screening_type_id)s, %(org_id)s, %(status)s, %(last_completed)s, %(next_due)s, %(matched_documents)s, %(created_at)s, %(updated_at)s) RETURNING screening.id]\n[parameters: {'patient_id': 10, 'screening_type_id': 74, 'org_id': None, 'status': 'due', 'last_completed': None, 'next_due': None, 'matched_documents': None, 'created_at': datetime.datetime(2025, 9, 11, 18, 1, 28, 80387), 'updated_at': datetime.datetime(2025, 9, 11, 18, 1, 28, 80391)}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj) (Background on this error at: https://sqlalche.me/e/20/7s2a)"
+      },
+      "duration": 0.6015777587890625,
+      "timestamp": "2025-09-11T18:01:28.122512"
+    },
+    "Test 6: Trigger Condition Responsiveness": {
+      "result": {
+        "success": false,
+        "error": "This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)\n(psycopg2.errors.NotNullViolation) null value in column \"org_id\" of relation \"screening\" violates not-null constraint\nDETAIL:  Failing row contains (30, 10, 74, null, due, null, null, null, 2025-09-11 18:01:28.784819, 2025-09-11 18:01:28.784823).\n\n[SQL: INSERT INTO screening (patient_id, screening_type_id, org_id, status, last_completed, next_due, matched_documents, created_at, updated_at) VALUES (%(patient_id)s, %(screening_type_id)s, %(org_id)s, %(status)s, %(last_completed)s, %(next_due)s, %(matched_documents)s, %(created_at)s, %(updated_at)s) RETURNING screening.id]\n[parameters: {'patient_id': 10, 'screening_type_id': 74, 'org_id': None, 'status': 'due', 'last_completed': None, 'next_due': None, 'matched_documents': None, 'created_at': datetime.datetime(2025, 9, 11, 18, 1, 28, 784819), 'updated_at': datetime.datetime(2025, 9, 11, 18, 1, 28, 784823)}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj) (Background on this error at: https://sqlalche.me/e/20/7s2a)"
+      },
+      "duration": 0.7021074295043945,
+      "timestamp": "2025-09-11T18:01:28.824935"
+    },
+    "Test 7: Frequency Changes Responsiveness": {
+      "result": {
+        "success": false,
+        "error": "'ScreeningType' object has no attribute 'frequency_value'"
+      },
+      "duration": 0.12632012367248535,
+      "timestamp": "2025-09-11T18:01:28.952041"
+    },
+    "Test 8: Dashboard Counter Updates": {
+      "result": {
+        "success": true,
+        "initial_stats": {
+          "total_patients": 7,
+          "due_screenings": 23,
+          "due_soon_screenings": 0,
+          "complete_screenings": 0
+        },
+        "updated_stats": {
+          "total_patients": 7,
+          "due_screenings": 22,
+          "due_soon_screenings": 0,
+          "complete_screenings": 1
+        },
+        "status_change_time": 0.04745364189147949,
+        "stats_changed": true,
+        "dashboard_responsive": true
+      },
+      "duration": 0.5438220500946045,
+      "timestamp": "2025-09-11T18:01:29.496191"
+    },
+    "Test 9: Multi-Tenant Isolation": {
+      "result": {
+        "success": true,
+        "org1_types_before": 9,
+        "org1_types_after": 9,
+        "org2_types_before": 14,
+        "org2_types_after": 14,
+        "isolation_test_time": 0.041027069091796875,
+        "isolation_maintained": true,
+        "org1_unchanged_count": true
+      },
+      "duration": 0.4395112991333008,
+      "timestamp": "2025-09-11T18:01:29.936234"
+    },
+    "Test 10: Engine Refresh Performance": {
+      "result": {
+        "success": false,
+        "error": "This Session's transaction has been rolled back due to a previous exception during flush. To begin a new transaction with this Session, first issue Session.rollback(). Original exception was: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)\n(psycopg2.errors.NotNullViolation) null value in column \"org_id\" of relation \"screening\" violates not-null constraint\nDETAIL:  Failing row contains (31, 10, 74, null, due, null, null, null, 2025-09-11 18:01:30.153815, 2025-09-11 18:01:30.153818).\n\n[SQL: INSERT INTO screening (patient_id, screening_type_id, org_id, status, last_completed, next_due, matched_documents, created_at, updated_at) VALUES (%(patient_id)s, %(screening_type_id)s, %(org_id)s, %(status)s, %(last_completed)s, %(next_due)s, %(matched_documents)s, %(created_at)s, %(updated_at)s) RETURNING screening.id]\n[parameters: {'patient_id': 10, 'screening_type_id': 74, 'org_id': None, 'status': 'due', 'last_completed': None, 'next_due': None, 'matched_documents': None, 'created_at': datetime.datetime(2025, 9, 11, 18, 1, 30, 153815), 'updated_at': datetime.datetime(2025, 9, 11, 18, 1, 30, 153818)}]\n(Background on this error at: https://sqlalche.me/e/20/gkpj) (Background on this error at: https://sqlalche.me/e/20/7s2a)"
+      },
+      "duration": 0.2584116458892822,
+      "timestamp": "2025-09-11T18:01:30.194860"
+    }
+  },
+  "baseline_data": {
+    "organizations": 2,
+    "users": 5,
+    "screening_types": 23,
+    "patients": 7,
+    "screenings": 23,
+    "screening_statuses": {
+      "due": 23
+    }
+  },
+  "summary": {
+    "total_tests": 10,
+    "passed_tests": 3,
+    "failed_tests": 7,
+    "success_rate": 30.0,
+    "total_time": 4.293039321899414,
+    "average_time": 0.4293039321899414
+  },
+  "timestamp": "2025-09-11T18:01:30.203986"
+}
