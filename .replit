@@ -9,7 +9,7 @@ deploymentTarget = "autoscale"
 run = ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
 
 [workflows]
-runButton = "HealthPrep Server"
+runButton = "healthprep-server"
 
 [[workflows.workflow]]
 name = "Flask Dev Server"
@@ -81,7 +81,7 @@ args = "gunicorn --bind 0.0.0.0:5000 --reuse-port --reload main:app"
 waitForPort = 5000
 
 [[workflows.workflow]]
-name = "HealthPrep Server"
+name = "HealthPrep Server 2.0"
 author = 42133482
 mode = "sequential"
 

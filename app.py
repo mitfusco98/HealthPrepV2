@@ -275,8 +275,8 @@ def configure_jinja_filters(app):
             from jinja2 import Markup  # type: ignore
         except ImportError:
             # Fallback for older versions
-            def Markup(s):
-                return str(s)
+            def Markup(object):
+                return str(object)
     import json
 
     @app.template_filter('tojsonpretty')
