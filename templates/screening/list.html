@@ -93,68 +93,154 @@
     margin-bottom: 1rem;
 }
 
-/* Screening table styling */
-.table-dark {
-    --bs-table-bg: #212529;
-    --bs-table-color: #fff;
+/* IMPROVEMENT 1: Reduced font size & optimized spacing for compact layout */
+.screening-table-compact {
+    font-size: 0.85rem;
 }
 
-.table-dark th {
+/* IMPROVEMENT 2: Sticky/Fixed column headers */
+.table-dark thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
     background-color: var(--hp-primary) !important;
     color: white !important;
     font-weight: 600;
     border-bottom: 2px solid rgba(255, 255, 255, 0.2);
     white-space: nowrap;
-    padding: 0.75rem;
+    padding: 0.5rem 0.75rem; /* Reduced padding */
+}
+
+.table-dark {
+    --bs-table-bg: #212529;
+    --bs-table-color: #fff;
 }
 
 .table-dark td {
     vertical-align: middle;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     color: #fff;
-    padding: 0.75rem;
+    padding: 0.5rem 0.75rem; /* Reduced padding */
 }
 
 .table-dark tbody tr:hover {
     background-color: rgba(13, 110, 253, 0.1) !important;
 }
 
-.patient-info {
+/* IMPROVEMENT 3: Optimized column widths */
+.col-patient {
+    width: 200px;
+    min-width: 200px;
+    max-width: 200px;
+}
+
+.col-screening-type {
+    width: 180px;
     min-width: 180px;
+    max-width: 180px;
+}
+
+.col-status {
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+}
+
+.col-last-completed {
+    width: 110px;
+    min-width: 110px;
+    max-width: 110px;
+}
+
+.col-frequency {
+    width: 100px;
+    min-width: 100px;
+    max-width: 100px;
+}
+
+.col-documents {
+    width: auto;
+    min-width: 300px;
+}
+
+.patient-info {
+    width: 100%;
 }
 
 .patient-info .patient-name {
     font-weight: 600;
     color: #fff !important;
+    font-size: 0.9rem;
+    line-height: 1.2;
+    margin-bottom: 0.25rem;
 }
 
 .patient-info .patient-details {
-    font-size: 0.85em;
+    font-size: 0.75rem;
     color: #adb5bd !important;
+    line-height: 1.1;
 }
 
+/* IMPROVEMENT 4: Enhanced document badges with better truncation and stacking */
 .document-badges {
-    max-width: 250px;
+    width: 100%;
 }
 
 .documents-list {
     flex-grow: 1;
+    line-height: 1.3;
 }
 
 .documents-list .badge {
-    margin-right: 2px;
-    margin-bottom: 2px;
+    font-size: 0.65rem;
+    margin: 1px 2px 2px 0;
+    padding: 0.25rem 0.4rem;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: top;
 }
 
-.document-badges .badge {
-    font-size: 0.7em;
-    margin-right: 2px;
-    margin-bottom: 2px;
+.documents-list .badge:hover {
+    max-width: none;
+    white-space: normal;
+    position: relative;
+    z-index: 5;
+}
+
+.document-count-more {
+    font-size: 0.7rem;
+    color: #adb5bd;
+    font-style: italic;
+    margin-top: 2px;
+}
+
+/* Prep sheet button optimization */
+.prep-sheet-btn {
+    padding: 0.25rem 0.4rem;
+    font-size: 0.75rem;
+    line-height: 1;
+}
+
+/* Apply column widths to table body cells */
+.screening-table-compact td:nth-child(1) { width: 200px; max-width: 200px; }
+.screening-table-compact td:nth-child(2) { width: 180px; max-width: 180px; }
+.screening-table-compact td:nth-child(3) { width: 120px; max-width: 120px; }
+.screening-table-compact td:nth-child(4) { width: 110px; max-width: 110px; }
+.screening-table-compact td:nth-child(5) { width: 100px; max-width: 100px; }
+.screening-table-compact td:nth-child(6) { width: auto; min-width: 300px; }
+
+/* Ensure table layout respects column widths */
+.screening-table-compact {
+    table-layout: fixed;
+    width: 100%;
 }
 
 /* Responsive design for mobile - keep all columns visible */
 @media (max-width: 768px) {
-    .screening-table {
+    .screening-table-compact {
         font-size: 0.75em;
     }
     
@@ -185,7 +271,7 @@
 }
 
 @media (max-width: 576px) {
-    .screening-table {
+    .screening-table-compact {
         font-size: 0.7em;
     }
     
@@ -335,15 +421,15 @@
             <!-- Screening Results -->
             {% if screenings %}
             <div class="table-responsive">
-                <table class="table table-dark table-hover">
+                <table class="table table-dark table-hover screening-table-compact">
                     <thead class="table-primary">
                         <tr>
-                            <th scope="col" class="sortable text-white" data-column="patient">Patient</th>
-                            <th scope="col" class="sortable text-white" data-column="screening_type">Screening Type</th>
-                            <th scope="col" class="sortable text-white" data-column="status">Status</th>
-                            <th scope="col" class="sortable text-white" data-column="last_completed">Last Completed</th>
-                            <th scope="col" class="sortable text-white" data-column="frequency">Frequency</th>
-                            <th scope="col" class="text-white">Matched Documents</th>
+                            <th scope="col" class="col-patient sortable text-white" data-column="patient">Patient</th>
+                            <th scope="col" class="col-screening-type sortable text-white" data-column="screening_type">Screening Type</th>
+                            <th scope="col" class="col-status sortable text-white" data-column="status">Status</th>
+                            <th scope="col" class="col-last-completed sortable text-white" data-column="last_completed">Last Completed</th>
+                            <th scope="col" class="col-frequency sortable text-white" data-column="frequency">Frequency</th>
+                            <th scope="col" class="col-documents text-white">Matched Documents</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -394,23 +480,23 @@
                             
                             <!-- Matched Documents -->
                             <td class="document-badges">
-                                <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex justify-content-between align-items-start">
                                     <div class="documents-list">
                                         {% if screening.document_matches %}
-                                            {% for match in screening.document_matches[:3] %}
+                                            {% for match in screening.document_matches[:5] %}
                                             <span class="badge confidence-{{ match.document.confidence_level }}" 
-                                                  title="Confidence: {{ (match.match_confidence * 100)|round(1) }}%">
-                                                {{ match.document.filename[:20] }}{% if match.document.filename|length > 20 %}...{% endif %}
+                                                  title="{{ match.document.filename }} - Confidence: {{ (match.match_confidence * 100)|round(1) }}%">
+                                                {{ match.document.filename[:25] }}{% if match.document.filename|length > 25 %}...{% endif %}
                                             </span>
                                             {% endfor %}
-                                            {% if screening.document_matches|length > 3 %}
-                                            <div class="text-muted small">+{{ screening.document_matches|length - 3 }} more</div>
+                                            {% if screening.document_matches|length > 5 %}
+                                            <div class="document-count-more">+{{ screening.document_matches|length - 5 }} more documents</div>
                                             {% endif %}
                                         {% else %}
-                                            <span class="text-muted">No matches</span>
+                                            <span class="text-muted small">No matches</span>
                                         {% endif %}
                                     </div>
-                                    <a href="#" class="btn btn-sm btn-medical-primary ms-2" onclick="alert('Prep sheet temporarily disabled')" title="Generate Prep Sheet">
+                                    <a href="#" class="btn prep-sheet-btn btn-medical-primary ms-2" onclick="alert('Prep sheet temporarily disabled')" title="Generate Prep Sheet">
                                         <i class="fas fa-file-medical"></i>
                                     </a>
                                 </div>
@@ -452,7 +538,7 @@
 <script>
 // Table sorting functionality
 function sortTable(column) {
-    const table = document.querySelector('.screening-table tbody');
+    const table = document.querySelector('.screening-table-compact tbody');
     const rows = Array.from(table.querySelectorAll('tr'));
     const header = document.querySelector(`[data-column="${column}"]`);
     const isAsc = header.classList.contains('asc');
