@@ -99,6 +99,7 @@ class ScreeningEngine:
             screening = Screening(
                 patient_id=patient.id,
                 screening_type_id=screening_type.id,
+                org_id=patient.org_id,
                 status='due'
             )
             db.session.add(screening)

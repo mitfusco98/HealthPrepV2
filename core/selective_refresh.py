@@ -320,6 +320,7 @@ class SelectiveRefreshManager:
                     screening = Screening()
                     screening.patient_id = patient.id
                     screening.screening_type_id = screening_type.id
+                    screening.org_id = patient.org_id
                     screening.status = 'due'
                     screening.created_at = datetime.utcnow()
                     screening.updated_at = datetime.utcnow()

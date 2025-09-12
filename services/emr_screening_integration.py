@@ -419,6 +419,7 @@ class EMRScreeningIntegration:
             screening = Screening(
                 patient_id=patient.id,
                 screening_type_id=screening_type.id,
+                org_id=patient.org_id,
                 status='due',
                 created_at=datetime.now()
             )

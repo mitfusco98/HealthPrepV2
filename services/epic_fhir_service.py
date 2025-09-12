@@ -13,7 +13,7 @@ from flask_login import current_user
 from emr.fhir_client import FHIRClient
 from emr.epic_integration import EpicScreeningIntegration
 from models import db, Patient, FHIRDocument, Organization, ScreeningType
-from routes.oauth_routes import get_epic_fhir_client
+from routes.oauth_routes import get_epic_fhir_client, get_epic_fhir_client_background
 
 logger = logging.getLogger(__name__)
 
@@ -21,26 +21,51 @@ logger = logging.getLogger(__name__)
 class EpicFHIRService:
     """Service layer for Epic FHIR operations with enhanced token management"""
     
-    def __init__(self, organization_id: int = None):
-        self.organization_id = organization_id or (current_user.org_id if current_user and current_user.is_authenticated else None)
+    def __init__(self, organization_id: int = None, background_context: bool = False):
+        # Determine organization ID and context
+        if background_context:
+            # Background context: organization_id is required
+            if not organization_id:
+                raise ValueError("organization_id is required for background context")
+            self.organization_id = organization_id
+            self.is_background = True
+        else:
+            # Interactive context: try to get from current_user
+            self.organization_id = organization_id or (current_user.org_id if current_user and current_user.is_authenticated else None)
+            self.is_background = False
+        
         self.fhir_client = None
         self.organization = None
         
         if self.organization_id:
             self.organization = Organization.query.get(self.organization_id)
             
-            # Try to get authenticated client first
-            self.fhir_client = get_epic_fhir_client()
-            
-            # If no authenticated client, create basic client with org config
-            if not self.fhir_client and self.organization and self.organization.epic_client_id:
-                from emr.fhir_client import FHIRClient
-                epic_config = {
-                    'epic_client_id': self.organization.epic_client_id,
-                    'epic_client_secret': self.organization.epic_client_secret,
-                    'epic_fhir_url': self.organization.epic_fhir_url or 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
-                }
-                self.fhir_client = FHIRClient(epic_config, organization=self.organization)
+            if self.is_background:
+                # Background context: use stored credentials from database
+                logger.info(f"Creating background Epic FHIR client for organization {self.organization_id}")
+                self.fhir_client = get_epic_fhir_client_background(self.organization_id)
+                
+                # If background client failed, create basic client for potential re-auth
+                if not self.fhir_client and self.organization and self.organization.epic_client_id:
+                    logger.warning(f"Background client failed, creating basic client for org {self.organization_id}")
+                    epic_config = {
+                        'epic_client_id': self.organization.epic_client_id,
+                        'epic_client_secret': self.organization.epic_client_secret,
+                        'epic_fhir_url': self.organization.epic_fhir_url or 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
+                    }
+                    self.fhir_client = FHIRClient(epic_config, organization=self.organization)
+            else:
+                # Interactive context: try session-based client first
+                self.fhir_client = get_epic_fhir_client()
+                
+                # If no session-based client, create basic client with org config
+                if not self.fhir_client and self.organization and self.organization.epic_client_id:
+                    epic_config = {
+                        'epic_client_id': self.organization.epic_client_id,
+                        'epic_client_secret': self.organization.epic_client_secret,
+                        'epic_fhir_url': self.organization.epic_fhir_url or 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
+                    }
+                    self.fhir_client = FHIRClient(epic_config, organization=self.organization)
     
     def ensure_authenticated(self) -> bool:
         """Ensure FHIR client is authenticated and tokens are valid"""
@@ -59,14 +84,48 @@ class EpicFHIRService:
                 logger.error("Failed to refresh access token")
                 return False
             
-            # Update session with new tokens
-            session['epic_access_token'] = self.fhir_client.access_token
-            if self.fhir_client.refresh_token:
-                session['epic_refresh_token'] = self.fhir_client.refresh_token
-            expires_in = int((self.fhir_client.token_expires - datetime.now()).total_seconds())
-            session['epic_token_expires'] = (datetime.now() + timedelta(seconds=expires_in)).isoformat()
+            # Update tokens based on context
+            if self.is_background:
+                # Background context: update database storage
+                self._update_database_tokens()
+            else:
+                # Interactive context: update session
+                try:
+                    session['epic_access_token'] = self.fhir_client.access_token
+                    if self.fhir_client.refresh_token:
+                        session['epic_refresh_token'] = self.fhir_client.refresh_token
+                    expires_in = int((self.fhir_client.token_expires - datetime.now()).total_seconds())
+                    session['epic_token_expires'] = (datetime.now() + timedelta(seconds=expires_in)).isoformat()
+                except RuntimeError:
+                    # No session available (e.g., background context detected late)
+                    logger.warning("No session available to update tokens, updating database instead")
+                    self._update_database_tokens()
         
         return True
+    
+    def _update_database_tokens(self):
+        """Update Epic tokens in database storage (for background context or session failures)"""
+        try:
+            from models import EpicCredentials
+            
+            epic_creds = EpicCredentials.query.filter_by(org_id=self.organization_id).first()
+            if epic_creds:
+                # Update existing credentials
+                epic_creds.access_token = self.fhir_client.access_token
+                if self.fhir_client.refresh_token:
+                    epic_creds.refresh_token = self.fhir_client.refresh_token
+                epic_creds.token_expires_at = self.fhir_client.token_expires
+                if self.fhir_client.token_scopes:
+                    epic_creds.token_scope = ' '.join(self.fhir_client.token_scopes)
+                epic_creds.updated_at = datetime.now()
+                
+                db.session.commit()
+                logger.info(f"Updated Epic tokens in database for organization {self.organization_id}")
+            else:
+                logger.error(f"No Epic credentials record found for organization {self.organization_id}")
+        except Exception as e:
+            logger.error(f"Error updating database tokens: {str(e)}")
+            db.session.rollback()
     
     def sync_patient_from_epic(self, epic_patient_id: str) -> Optional[Patient]:
         """
@@ -393,6 +452,11 @@ class EpicFHIRService:
         return self.fhir_client
 
 
-def get_epic_fhir_service(organization_id: int = None) -> EpicFHIRService:
+def get_epic_fhir_service(organization_id: int = None, background_context: bool = False) -> EpicFHIRService:
     """Factory function to get Epic FHIR service instance"""
-    return EpicFHIRService(organization_id)
+    return EpicFHIRService(organization_id, background_context)
+
+
+def get_epic_fhir_service_background(organization_id: int) -> EpicFHIRService:
+    """Factory function to get Epic FHIR service instance for background processes"""
+    return EpicFHIRService(organization_id, background_context=True)

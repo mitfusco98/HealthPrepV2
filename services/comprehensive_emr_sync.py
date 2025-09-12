@@ -10,11 +10,11 @@ from datetime import datetime, timedelta, date
 from typing import Dict, List, Optional, Tuple, Any
 from dateutil.relativedelta import relativedelta
 
-from flask import session
+from flask import session, has_request_context
 from flask_login import current_user
 
 from models import db, Patient, PatientCondition, FHIRDocument, Organization, ScreeningType
-from services.epic_fhir_service import EpicFHIRService
+from services.epic_fhir_service import EpicFHIRService, get_epic_fhir_service_background
 from emr.fhir_client import FHIRClient
 from core.engine import ScreeningEngine
 from ocr.document_processor import DocumentProcessor
@@ -33,8 +33,17 @@ class ComprehensiveEMRSync:
         self.organization_id = organization_id
         self.organization = Organization.query.get(organization_id)
         
-        # Initialize services
-        self.epic_service = EpicFHIRService(organization_id)
+        # Detect if we're in a request context (interactive) or background context
+        self.is_background = not has_request_context() or not (current_user and current_user.is_authenticated)
+        
+        # Initialize services with appropriate context
+        if self.is_background:
+            logger.info(f"ComprehensiveEMRSync initialized in background context for org {organization_id}")
+            self.epic_service = get_epic_fhir_service_background(organization_id)
+        else:
+            logger.info(f"ComprehensiveEMRSync initialized in interactive context for org {organization_id}")
+            self.epic_service = EpicFHIRService(organization_id)
+            
         self.screening_engine = ScreeningEngine()
         self.document_processor = DocumentProcessor()
         

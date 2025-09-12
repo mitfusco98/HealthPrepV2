@@ -720,3 +720,68 @@ def get_epic_fhir_client():
     fhir_client.set_tokens(access_token, refresh_token, expires_in, scopes)
 
     return fhir_client
+
+
+def get_epic_fhir_client_background(organization_id: int):
+    """
+    Background-compatible helper function to get configured FHIR client with stored credentials
+    Loads tokens from EpicCredentials table instead of session
+    For use in background processes, async tasks, and scheduled jobs
+    """
+    from models import Organization, EpicCredentials
+    
+    try:
+        # Get organization and verify it exists
+        org = Organization.query.get(organization_id)
+        if not org or not org.epic_client_id:
+            logger.error(f"Organization {organization_id} not found or missing Epic configuration")
+            return None
+        
+        # Load stored credentials from database
+        epic_creds = EpicCredentials.query.filter_by(org_id=organization_id).first()
+        if not epic_creds:
+            logger.error(f"No Epic credentials found for organization {organization_id}")
+            return None
+        
+        # Check if credentials are available
+        if not epic_creds.access_token:
+            logger.error(f"No access token stored for organization {organization_id}")
+            return None
+        
+        # Initialize client with organization config
+        epic_config = {
+            'epic_client_id': org.epic_client_id,
+            'epic_client_secret': org.epic_client_secret,
+            'epic_fhir_url': org.epic_fhir_url or 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
+        }
+        
+        fhir_client = FHIRClient(epic_config, organization=org)
+        
+        # Calculate expires_in from stored expiry
+        expires_in = 3600  # Default
+        if epic_creds.token_expires_at:
+            expires_in = max(0, int((epic_creds.token_expires_at - datetime.now()).total_seconds()))
+        
+        # Parse scopes
+        scopes = []
+        if epic_creds.token_scope:
+            scopes = epic_creds.token_scope.split()
+        
+        # Set tokens from database
+        fhir_client.set_tokens(
+            epic_creds.access_token,
+            epic_creds.refresh_token,
+            expires_in,
+            scopes
+        )
+        
+        # Update last used timestamp
+        epic_creds.last_used = datetime.now()
+        db.session.commit()
+        
+        logger.info(f"Background Epic FHIR client created for organization {organization_id}")
+        return fhir_client
+        
+    except Exception as e:
+        logger.error(f"Error creating background Epic FHIR client for org {organization_id}: {str(e)}")
+        return None

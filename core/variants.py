@@ -181,6 +181,7 @@ class ScreeningVariants:
                     new_screening = Screening(
                         patient_id=patient_id,
                         screening_type_id=applicable_variant.id,
+                        org_id=patient.org_id,
                         status='due'
                     )
                     db.session.add(new_screening)

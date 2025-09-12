@@ -194,6 +194,9 @@ class FHIRClient:
             # Update organization connection status (success)
             self._update_organization_status(True, None, self.token_expires)
             
+            # Persist refreshed tokens in database for background access
+            self._persist_tokens_to_database()
+            
             self.logger.info(f"Successfully refreshed Epic access token, expires in {expires_in} seconds")
             return True
             
@@ -223,6 +226,41 @@ class FHIRClient:
                 )
             except Exception as e:
                 self.logger.error(f"Failed to update organization connection status: {str(e)}")
+    
+    def _persist_tokens_to_database(self):
+        """Persist current tokens to EpicCredentials table for background access"""
+        if not self.organization:
+            self.logger.warning("No organization available for token persistence")
+            return
+        
+        try:
+            # Import here to avoid circular imports
+            from models import EpicCredentials, db
+            
+            # Find or create Epic credentials record
+            epic_creds = EpicCredentials.query.filter_by(org_id=self.organization.id).first()
+            if not epic_creds:
+                epic_creds = EpicCredentials(org_id=self.organization.id)
+                db.session.add(epic_creds)
+            
+            # Update tokens
+            epic_creds.access_token = self.access_token
+            if self.refresh_token:
+                epic_creds.refresh_token = self.refresh_token
+            epic_creds.token_expires_at = self.token_expires
+            if self.token_scopes:
+                epic_creds.token_scope = ' '.join(self.token_scopes)
+            epic_creds.updated_at = datetime.now()
+            
+            db.session.commit()
+            self.logger.info(f"Persisted Epic tokens to database for organization {self.organization.id}")
+            
+        except Exception as e:
+            self.logger.error(f"Error persisting tokens to database: {str(e)}")
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
     
     def authenticate(self):
         """
