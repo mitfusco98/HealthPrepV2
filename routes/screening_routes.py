@@ -50,8 +50,10 @@ def screening_list():
         screening_type_filter = request.args.get('screening_type', '', type=str)
 
         # Main screening list view - FILTER BY ORGANIZATION
+        # CRITICAL: Filter by BOTH Patient.org_id AND ScreeningType.org_id for proper multi-tenancy
         query = Screening.query.join(Patient).join(ScreeningType).filter(
-            Patient.org_id == current_user.org_id
+            Patient.org_id == current_user.org_id,
+            ScreeningType.org_id == current_user.org_id
         )
 
         # Apply filters

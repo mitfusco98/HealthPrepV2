@@ -57,7 +57,8 @@ class ScreeningEngine:
             if self.epic_integration and patient.mrn:
                 self._sync_patient_with_epic(patient)
             
-            screening_types = ScreeningType.query.filter_by(is_active=True).all()
+            # CRITICAL: Only get screening types from patient's organization
+            screening_types = ScreeningType.query.filter_by(is_active=True, org_id=patient.org_id).all()
             
             for screening_type in screening_types:
                 if self.criteria.is_patient_eligible(patient, screening_type):
@@ -157,8 +158,8 @@ class ScreeningEngine:
             if not self.epic_integration:
                 return
             
-            # Get screening types to determine what data to fetch
-            screening_types = ScreeningType.query.filter_by(is_active=True).all()
+            # Get screening types from patient's organization to determine what data to fetch
+            screening_types = ScreeningType.query.filter_by(is_active=True, org_id=patient.org_id).all()
             screening_data = [{
                 'name': st.name,
                 'fhir_mappings': st.fhir_mappings or {}
