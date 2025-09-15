@@ -69,9 +69,16 @@ def upload_document():
                 # Get file size
                 file_size = os.path.getsize(file_path)
 
+                # Get patient's organization for multi-tenancy
+                patient = Patient.query.get(patient_id)
+                if not patient:
+                    flash('Invalid patient selected.', 'error')
+                    return render_template('documents/document_upload.html', form=form, patients=patients)
+
                 # Create document record
                 document = Document(
                     patient_id=patient_id,
+                    org_id=patient.org_id,  # CRITICAL: Set org_id for multi-tenancy
                     filename=filename,
                     document_type=document_type,
                     document_date=document_date,
