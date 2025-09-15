@@ -4,6 +4,7 @@ Advanced fuzzy keyword matching and document matching functionality with semanti
 from app import db
 from models import Document, Screening, ScreeningType, ScreeningDocumentMatch
 from .fuzzy_detection import FuzzyDetectionEngine
+from datetime import date
 import logging
 
 class DocumentMatcher:
@@ -34,7 +35,11 @@ class DocumentMatcher:
         if not document.ocr_text:
             return matches
         
-        screening_types = ScreeningType.query.filter_by(is_active=True).all()
+        # Filter by organization for multi-tenancy
+        screening_types = ScreeningType.query.filter_by(
+            is_active=True,
+            org_id=document.patient.org_id
+        ).all()
         
         for screening_type in screening_types:
             confidence = self._calculate_match_confidence(document, screening_type)
@@ -255,5 +260,3 @@ class DocumentMatcher:
         }
         
         return analysis
-
-from datetime import date
