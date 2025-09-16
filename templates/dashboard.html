@@ -237,12 +237,10 @@
                 </h5>
             </div>
             <div class="card-body quick-actions text-center">
-                <form method="POST" action="{{ url_for('emr_sync.sync_emr_data') }}" style="display: inline;" onsubmit="return confirmEMRSync(event)">
-                    <button type="submit" class="btn btn-success w-100 mb-3" id="emr-sync-btn">
-                        <i class="fas fa-sync me-2"></i>
-                        Sync EMR Data
-                    </button>
-                </form>
+                <button type="button" class="btn btn-success w-100 mb-3" id="emr-sync-btn" onclick="refreshScreenings(event, 'dashboard')">
+                    <i class="fas fa-sync me-2"></i>
+                    Sync EMR Data
+                </button>
 
                 <a href="{{ url_for('ui.screening_list') }}" class="btn btn-primary w-100 mb-3">
                     <i class="fas fa-clipboard-list me-2"></i>
@@ -309,20 +307,77 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 300000);
 });
 
-function confirmEMRSync(event) {
-    if (!confirm('Discover and sync patient data from Epic EMR? This will automatically find Epic patients, import them locally, and run comprehensive data sync including conditions, documents, and screening statuses.')) {
-        event.preventDefault();
-        return false;
-    }
+// Enhanced refresh functionality that works across all pages
+function refreshScreenings(event, page) {
+    // Prevent default link behavior
+    event.preventDefault();
     
-    // Show loading state
-    const button = document.getElementById('emr-sync-btn');
-    if (button) {
-        button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Syncing...';
+    const button = event.target.closest('button') || event.target.closest('a');
+    const originalText = button.innerHTML;
+    const confirmMessage = 'Discover and sync patient data from Epic EMR? This will automatically find Epic patients, import them locally, fetch their medical records, conditions, documents, and update all screening statuses.';
+
+    if (confirm(confirmMessage)) {
+        // Show loading state
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Discovering and syncing from EMR...';
         button.disabled = true;
+
+        // Make refresh request to unified endpoint
+        fetch('/api/refresh-screenings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-success alert-dismissible fade show';
+                alertDiv.innerHTML = `
+                    <i class="fas fa-check-circle me-2"></i>
+                    Patient discovery and EMR sync completed successfully!
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                
+                const container = document.querySelector('.container-fluid') || document.querySelector('.container');
+                container.insertBefore(alertDiv, container.firstChild);
+                
+                // Reload page after short delay
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                throw new Error(data.error || 'Unknown error occurred');
+            }
+        })
+        .catch(error => {
+            console.error('Error refreshing screenings:', error);
+            
+            // Show error message
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+            alertDiv.innerHTML = `
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Error discovering and syncing EMR data: ${error.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            const container = document.querySelector('.container-fluid') || document.querySelector('.container');
+            container.insertBefore(alertDiv, container.firstChild);
+        })
+        .finally(() => {
+            // Restore button state
+            button.innerHTML = originalText;
+            button.disabled = false;
+        });
     }
-    
-    return true;
+}
+
+function confirmEMRSync(event) {
+    // Legacy function - redirect to new unified refresh
+    return refreshScreenings(event, 'dashboard');
 }
 </script>
 {% endblock %}
