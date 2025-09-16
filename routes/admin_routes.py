@@ -1874,7 +1874,7 @@ def admin_documents():
     """Admin documents page - Show per-patient document inventory"""
     try:
         # Get all patients in the current organization
-        from models import Patient, Document
+        from models import Patient, Document, PatientCondition
         
         patients = Patient.query.filter_by(org_id=current_user.org_id).all()
         
@@ -1882,6 +1882,13 @@ def admin_documents():
         patient_data = []
         for patient in patients:
             documents = Document.query.filter_by(patient_id=patient.id).all()
+            
+            # Get patient conditions
+            conditions = PatientCondition.query.filter_by(
+                patient_id=patient.id,
+                is_active=True
+            ).all()
+            condition_names = [condition.condition_name for condition in conditions]
             
             # Count documents by type
             doc_counts = {}
@@ -1900,7 +1907,7 @@ def admin_documents():
                 'total_documents': total_docs,
                 'documents_with_ocr': doc_with_ocr,
                 'document_counts': doc_counts,
-                'conditions': patient.medical_conditions or []
+                'conditions': condition_names
             })
         
         # Sort by patient name
