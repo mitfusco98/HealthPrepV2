@@ -83,6 +83,11 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.admin_documents') }}">
+                            <i class="fas fa-folder-open me-1"></i>Documents
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('admin.dashboard_phi') }}">
                             <i class="fas fa-user-shield me-1"></i>PHI Settings
                         </a>
@@ -193,7 +198,7 @@
                 </div>
                 <div class="col-md-6 text-md-end">
                     <small class="text-muted">
-                        <i class="fas fa-clock me-1"></i>{{ moment().format('YYYY-MM-DD HH:mm:ss') }} UTC
+                        <i class="fas fa-clock me-1"></i>Admin Panel Active
                     </small>
                 </div>
             </div>
