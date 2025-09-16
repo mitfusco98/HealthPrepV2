@@ -1867,11 +1867,11 @@ def check_preset_conflicts(preset_id):
             }
         }), 500
 
-@admin_bp.route('/documents')
+@admin_bp.route('/dashboard/documents')
 @login_required
 @admin_required
-def admin_documents():
-    """Admin documents page - Show per-patient document inventory"""
+def dashboard_documents():
+    """Admin dashboard - Documents tab"""
     try:
         # Get all patients in the current organization
         from models import Patient, Document, PatientCondition
@@ -1913,11 +1913,15 @@ def admin_documents():
         # Sort by patient name
         patient_data.sort(key=lambda x: x['patient'].name)
         
-        return render_template('admin/documents.html', 
-                             patient_data=patient_data,
-                             total_patients=len(patient_data))
+        # Get dashboard data and add documents data
+        data = get_dashboard_data()
+        data['active_tab'] = 'documents'
+        data['patient_data'] = patient_data
+        data['total_patients'] = len(patient_data)
+        
+        return render_template('admin/dashboard.html', **data)
         
     except Exception as e:
-        logger.error(f"Error in admin documents: {str(e)}")
+        logger.error(f"Error in dashboard documents: {str(e)}")
         flash('Error loading document inventory', 'error')
         return render_template('error/500.html'), 500

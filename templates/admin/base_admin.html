@@ -144,7 +144,7 @@
                         <a href="{{ url_for('prep_sheet.prep_sheet_settings') }}" class="list-group-item list-group-item-action bg-transparent text-light">
                             <i class="fas fa-cog me-2"></i>Prep Settings
                         </a>
-                        <a href="{{ url_for('admin.admin_documents') }}" class="list-group-item list-group-item-action bg-transparent text-light">
+                        <a href="{{ url_for('admin.dashboard_documents') }}" class="list-group-item list-group-item-action bg-transparent text-light">
                             <i class="fas fa-folder-open me-2"></i>Documents
                         </a>
                     </div>
@@ -193,7 +193,7 @@
                 </div>
                 <div class="col-md-6 text-md-end">
                     <small class="text-muted">
-                        <i class="fas fa-clock me-1"></i>{{ moment().format('YYYY-MM-DD HH:mm:ss') }} UTC
+                        <i class="fas fa-clock me-1"></i>{{ datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S') }} UTC
                     </small>
                 </div>
             </div>
