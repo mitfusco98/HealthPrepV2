@@ -1866,3 +1866,51 @@ def check_preset_conflicts(preset_id):
                 'will_skip': 0
             }
         }), 500
+
+@admin_bp.route('/documents')
+@login_required
+@admin_required
+def admin_documents():
+    """Admin documents page - Show per-patient document inventory"""
+    try:
+        # Get all patients in the current organization
+        from models import Patient, Document
+        
+        patients = Patient.query.filter_by(org_id=current_user.org_id).all()
+        
+        # Build patient document data
+        patient_data = []
+        for patient in patients:
+            documents = Document.query.filter_by(patient_id=patient.id).all()
+            
+            # Count documents by type
+            doc_counts = {}
+            doc_with_ocr = 0
+            total_docs = len(documents)
+            
+            for doc in documents:
+                doc_type = doc.document_type or 'Unknown'
+                doc_counts[doc_type] = doc_counts.get(doc_type, 0) + 1
+                if doc.ocr_text:
+                    doc_with_ocr += 1
+            
+            patient_data.append({
+                'patient': patient,
+                'documents': documents,
+                'total_documents': total_docs,
+                'documents_with_ocr': doc_with_ocr,
+                'document_counts': doc_counts,
+                'conditions': patient.medical_conditions or []
+            })
+        
+        # Sort by patient name
+        patient_data.sort(key=lambda x: x['patient'].name)
+        
+        return render_template('admin/documents.html', 
+                             patient_data=patient_data,
+                             total_patients=len(patient_data))
+        
+    except Exception as e:
+        logger.error(f"Error in admin documents: {str(e)}")
+        flash('Error loading document inventory', 'error')
+        return render_template('error/500.html'), 500

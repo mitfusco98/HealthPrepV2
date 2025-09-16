@@ -1,0 +1,282 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Documents Inventory - HealthPrep Admin{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-folder-open me-2"></i>Document Inventory</h2>
+    <div class="badge bg-info fs-6">{{ total_patients }} patients in organization</div>
+</div>
+
+{% if not patient_data %}
+<div class="alert alert-info">
+    <i class="fas fa-info-circle me-2"></i>
+    No patients found in your organization. Documents will appear here once patients are added.
+</div>
+{% else %}
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ total_patients }}</h4>
+                        <p class="card-text">Total Patients</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-users fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ patient_data | sum(attribute='total_documents') }}</h4>
+                        <p class="card-text">Total Documents</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-file-alt fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ patient_data | sum(attribute='documents_with_ocr') }}</h4>
+                        <p class="card-text">OCR Processed</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-eye fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="card-title">{{ (patient_data | selectattr('conditions') | list) | length }}</h4>
+                        <p class="card-text">With Conditions</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-heartbeat fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Patient Document Table -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-table me-2"></i>Per-Patient Document Inventory
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-dark table-striped">
+                <thead>
+                    <tr>
+                        <th>Patient</th>
+                        <th>Age/Gender</th>
+                        <th>Medical Conditions</th>
+                        <th>Total Docs</th>
+                        <th>OCR Processed</th>
+                        <th>Document Types</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for data in patient_data %}
+                    <tr>
+                        <td>
+                            <strong>{{ data.patient.name }}</strong>
+                            <br>
+                            <small class="text-muted">ID: {{ data.patient.id }}</small>
+                        </td>
+                        <td>
+                            {{ data.patient.age }}y, {{ data.patient.gender | title }}
+                        </td>
+                        <td>
+                            {% if data.conditions %}
+                                {% for condition in data.conditions %}
+                                    <span class="badge bg-secondary me-1 mb-1">{{ condition }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted">None recorded</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-primary fs-6">{{ data.total_documents }}</span>
+                        </td>
+                        <td>
+                            {% if data.documents_with_ocr > 0 %}
+                                <span class="badge bg-success fs-6">{{ data.documents_with_ocr }}</span>
+                            {% else %}
+                                <span class="badge bg-warning fs-6">0</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if data.document_counts %}
+                                {% for doc_type, count in data.document_counts.items() %}
+                                    <span class="badge bg-info me-1 mb-1">{{ doc_type }}: {{ count }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted">No documents</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" 
+                                    type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#documents-{{ data.patient.id }}" 
+                                    aria-expanded="false">
+                                <i class="fas fa-eye"></i> View Docs
+                            </button>
+                        </td>
+                    </tr>
+                    <!-- Document Details Row (Collapsible) -->
+                    <tr class="collapse" id="documents-{{ data.patient.id }}">
+                        <td colspan="7">
+                            <div class="card bg-dark border-secondary">
+                                <div class="card-header">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-file-alt me-2"></i>Documents for {{ data.patient.name }}
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    {% if data.documents %}
+                                        <div class="row">
+                                            {% for doc in data.documents %}
+                                            <div class="col-md-6 col-lg-4 mb-3">
+                                                <div class="card bg-secondary">
+                                                    <div class="card-body">
+                                                        <h6 class="card-title">
+                                                            <i class="fas fa-file me-1"></i>{{ doc.filename or 'Untitled Document' }}
+                                                        </h6>
+                                                        <p class="card-text small">
+                                                            <strong>Type:</strong> {{ doc.document_type or 'Unknown' }}<br>
+                                                            <strong>Date:</strong> {{ doc.document_date.strftime('%Y-%m-%d') if doc.document_date else 'Not set' }}<br>
+                                                            <strong>Epic Status:</strong> 
+                                                            {% if doc.epic_document_id %}
+                                                                <span class="badge bg-success">Synced</span>
+                                                            {% else %}
+                                                                <span class="badge bg-warning">Local Only</span>
+                                                            {% endif %}
+                                                        </p>
+                                                        
+                                                        <!-- OCR Status -->
+                                                        {% if doc.ocr_text %}
+                                                            <div class="mb-2">
+                                                                <span class="badge bg-success">
+                                                                    <i class="fas fa-eye me-1"></i>OCR Processed
+                                                                </span>
+                                                                {% if doc.ocr_confidence %}
+                                                                    <span class="badge bg-info">{{ "%.1f"|format(doc.ocr_confidence * 100) }}% confidence</span>
+                                                                {% endif %}
+                                                            </div>
+                                                            
+                                                            <!-- OCR Preview -->
+                                                            <div class="mt-2">
+                                                                <small class="text-muted">OCR Preview:</small>
+                                                                <div class="bg-dark p-2 rounded mt-1" style="max-height: 100px; overflow-y: auto;">
+                                                                    <small class="text-light">{{ doc.ocr_text[:200] }}{% if doc.ocr_text|length > 200 %}...{% endif %}</small>
+                                                                </div>
+                                                            </div>
+                                                        {% else %}
+                                                            <span class="badge bg-warning">
+                                                                <i class="fas fa-eye-slash me-1"></i>No OCR
+                                                            </span>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <p class="text-muted">No documents found for this patient.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Testing Notes -->
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-flask me-2"></i>Fuzzy Detection Testing Notes
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-info">
+            <h6><i class="fas fa-lightbulb me-2"></i>Available Test Conditions</h6>
+            <p class="mb-2">Based on your sandbox patients, you can test fuzzy detection with these medical conditions:</p>
+            <div class="row">
+                <div class="col-md-6">
+                    <ul class="list-unstyled">
+                        <li><span class="badge bg-primary me-2">polycystic ovarian syndrome</span> - Test PCOS variations</li>
+                        <li><span class="badge bg-primary me-2">risk factors</span> - Test risk-based screening triggers</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <ul class="list-unstyled">
+                        <li><span class="badge bg-primary me-2">asthma & bronchitis</span> - Test respiratory condition detection</li>
+                        <li><span class="badge bg-primary me-2">heart disease</span> - Test cardiac condition synonyms</li>
+                    </ul>
+                </div>
+            </div>
+            <small class="text-muted">
+                <i class="fas fa-info-circle me-1"></i>
+                Look for documents containing medical terminology related to these conditions to verify fuzzy detection accuracy.
+            </small>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+<style>
+.table th {
+    border-top: none;
+    font-weight: 600;
+    background-color: rgba(13, 110, 253, 0.1);
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(255, 255, 255, 0.075);
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+.card-body .card {
+    border: 1px solid rgba(255, 255, 255, 0.125);
+}
+
+.table-responsive {
+    border-radius: 0.375rem;
+}
+</style>
+{% endblock %}
