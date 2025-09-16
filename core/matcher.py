@@ -67,10 +67,12 @@ class DocumentMatcher:
                 confidence = self._calculate_match_confidence(document, screening.screening_type)
                 
                 if confidence > 0.3:
+                    # Use created_at since document_date column doesn't exist
+                    document_date = getattr(document, 'document_date', None) or document.created_at
                     matches.append({
                         'document': document,
                         'confidence': confidence,
-                        'document_date': document.document_date
+                        'document_date': document_date
                     })
         
         return sorted(matches, key=lambda x: x['document_date'] or date.min, reverse=True)

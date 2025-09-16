@@ -18,6 +18,12 @@
                 <i class="fas fa-building me-1"></i>
                 {{ total_patients or 0 }} patients in organization
             </span>
+            <form method="POST" action="{{ url_for('admin.trigger_document_matching') }}" style="display: inline;">
+                <button type="submit" class="btn btn-warning btn-sm ms-2" onclick="return confirm('This will re-run document matching for all documents. Continue?')">
+                    <i class="fas fa-sync me-1"></i>
+                    Trigger Document Matching
+                </button>
+            </form>
         </div>
     </div>
 
