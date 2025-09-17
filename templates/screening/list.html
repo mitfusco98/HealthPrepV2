@@ -232,6 +232,14 @@
 .screening-table-compact td:nth-child(5) { width: 100px; max-width: 100px; }
 .screening-table-compact td:nth-child(6) { width: auto; min-width: 300px; }
 
+/* Apply column widths to table header cells */
+.screening-table-compact th:nth-child(1) { width: 200px; max-width: 200px; }
+.screening-table-compact th:nth-child(2) { width: 180px; max-width: 180px; }
+.screening-table-compact th:nth-child(3) { width: 90px; max-width: 90px; }
+.screening-table-compact th:nth-child(4) { width: 110px; max-width: 110px; }
+.screening-table-compact th:nth-child(5) { width: 100px; max-width: 100px; }
+.screening-table-compact th:nth-child(6) { width: auto; min-width: 300px; }
+
 /* Ensure table layout respects column widths */
 .screening-table-compact {
     table-layout: fixed;
@@ -426,7 +434,7 @@
                         <tr>
                             <th scope="col" class="col-patient sortable text-white" data-column="patient">Patient</th>
                             <th scope="col" class="col-screening-type sortable text-white" data-column="screening_type">Screening Type</th>
-                            <th scope="col" class="col-status sortable text-white" data-column="status" style="width: 90px; min-width: 90px; max-width: 90px;">Status</th>
+                            <th scope="col" class="col-status sortable text-white" data-column="status">Status</th>
                             <th scope="col" class="col-last-completed sortable text-white" data-column="last_completed">Last Completed</th>
                             <th scope="col" class="col-frequency sortable text-white" data-column="frequency">Frequency</th>
                             <th scope="col" class="col-documents text-white">Matched Documents</th>
