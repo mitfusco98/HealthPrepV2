@@ -425,14 +425,65 @@ class FuzzyDetectionEngine:
         """
         # Define impossible word pairs that should never match
         impossible_pairs = [
+            # Mammogram should never match non-breast screenings
             ('mammogram', 'immunization'), ('mammography', 'immunization'),
             ('mammogram', 'vaccine'), ('mammography', 'vaccine'),
-            ('colonoscopy', 'mammogram'), ('colonoscopy', 'breast'),
+            ('mammogram', 'cervical'), ('mammography', 'cervical'),
+            ('mammogram', 'pap'), ('mammography', 'pap'),
+            ('mammogram', 'colon'), ('mammography', 'colon'),
+            ('mammogram', 'colonoscopy'), ('mammography', 'colonoscopy'),
+            ('mammogram', 'a1c'), ('mammography', 'a1c'),
+            ('mammogram', 'hba1c'), ('mammography', 'hba1c'),
+            ('mammogram', 'diabetes'), ('mammography', 'diabetes'),
+            ('mammogram', 'glucose'), ('mammography', 'glucose'),
+            ('mammogram', 'cardiac'), ('mammography', 'cardiac'),
+            ('mammogram', 'ecg'), ('mammography', 'ecg'),
+            ('mammogram', 'ekg'), ('mammography', 'ekg'),
+            
+            # ECG/Cardiac should never match metabolic/diabetes screenings
+            ('ecg', 'a1c'), ('ekg', 'a1c'),
+            ('ecg', 'hba1c'), ('ekg', 'hba1c'),
+            ('ecg', 'diabetes'), ('ekg', 'diabetes'),
+            ('ecg', 'glucose'), ('ekg', 'glucose'),
             ('ecg', 'mammogram'), ('ekg', 'mammogram'),
-            ('a1c', 'mammogram'), ('hba1c', 'mammogram'),
-            ('imaging', 'immunization'), ('imaging', 'vaccine'),
+            ('ecg', 'breast'), ('ekg', 'breast'),
+            ('ecg', 'cervical'), ('ekg', 'cervical'),
+            ('ecg', 'pap'), ('ekg', 'pap'),
+            ('ecg', 'colonoscopy'), ('ekg', 'colonoscopy'),
+            ('ecg', 'colon'), ('ekg', 'colon'),
+            ('cardiac', 'a1c'), ('cardiac', 'hba1c'),
+            ('cardiac', 'diabetes'), ('cardiac', 'glucose'),
+            
+            # Colon/GI should never match other organ systems
+            ('colonoscopy', 'mammogram'), ('colonoscopy', 'breast'),
+            ('colonoscopy', 'cervical'), ('colonoscopy', 'pap'),
+            ('colonoscopy', 'cardiac'), ('colonoscopy', 'ecg'),
+            ('colonoscopy', 'ekg'), ('colonoscopy', 'heart'),
+            ('colon', 'mammogram'), ('colon', 'breast'),
+            ('colon', 'cervical'), ('colon', 'cardiac'),
+            
+            # Cervical should never match other organ systems
             ('cervical', 'cardiac'), ('cervical', 'heart'),
-            ('breast', 'colonoscopy'), ('breast', 'colon')
+            ('cervical', 'mammogram'), ('cervical', 'breast'),
+            ('cervical', 'colonoscopy'), ('cervical', 'colon'),
+            ('cervical', 'a1c'), ('cervical', 'diabetes'),
+            ('pap', 'cardiac'), ('pap', 'mammogram'),
+            ('pap', 'colonoscopy'), ('pap', 'a1c'),
+            
+            # Immunization should never match imaging/procedures
+            ('immunization', 'mammogram'), ('immunization', 'mammography'),
+            ('immunization', 'ecg'), ('immunization', 'ekg'),
+            ('immunization', 'colonoscopy'), ('immunization', 'imaging'),
+            ('vaccine', 'mammogram'), ('vaccine', 'mammography'),
+            ('vaccine', 'ecg'), ('vaccine', 'ekg'),
+            ('vaccine', 'colonoscopy'), ('vaccine', 'imaging'),
+            
+            # Imaging should never match immunizations
+            ('imaging', 'immunization'), ('imaging', 'vaccine'),
+            
+            # Cross-system incompatibilities
+            ('breast', 'colonoscopy'), ('breast', 'colon'),
+            ('breast', 'cervical'), ('breast', 'cardiac')
         ]
         
         keyword_lower = keyword.lower()

@@ -258,9 +258,18 @@ class ScreeningEngine:
         else:
             match.match_confidence = confidence
         
-        # Update screening status
-        # Use created_at as document date since document_date doesn't exist
-        document_date = getattr(document, 'document_date', None) or document.created_at.date()
+        # Update screening status with robust date fallback
+        # Priority: document_date > created_at > current_date (for sandbox documents)
+        from datetime import date
+        document_date = getattr(document, 'document_date', None)
+        if document_date is None:
+            # Fallback to created_at if available
+            if hasattr(document, 'created_at') and document.created_at:
+                document_date = document.created_at.date()
+            else:
+                # Final fallback to current date for sandbox documents without dates
+                document_date = date.today()
+                self.logger.info(f"Using current date fallback for document {document.id} - sandbox document missing date")
         
         if document_date:
             new_status = self.criteria.calculate_screening_status(

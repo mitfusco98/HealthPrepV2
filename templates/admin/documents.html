@@ -214,6 +214,28 @@
                                                                     <div class="bg-dark p-2 rounded mt-1" style="max-height: 100px; overflow-y: auto;">
                                                                         <small class="text-light">{{ doc.ocr_text[:200] }}{% if doc.ocr_text|length > 200 %}...{% endif %}</small>
                                                                     </div>
+                                                                    
+                                                                    {% if doc.ocr_text|length > 200 %}
+                                                                    <!-- Full OCR Text (Collapsible for debugging) -->
+                                                                    <div class="mt-2">
+                                                                        <button class="btn btn-xs btn-outline-info" 
+                                                                                type="button" 
+                                                                                data-bs-toggle="collapse" 
+                                                                                data-bs-target="#fullOcr-{{ doc.id }}" 
+                                                                                aria-expanded="false">
+                                                                            <i class="fas fa-search-plus me-1"></i>View Full OCR Text ({{ doc.ocr_text|length }} chars)
+                                                                        </button>
+                                                                        <div class="collapse mt-2" id="fullOcr-{{ doc.id }}">
+                                                                            <div class="bg-dark p-3 rounded border border-info" style="max-height: 400px; overflow-y: auto;">
+                                                                                <div class="d-flex justify-content-between mb-2">
+                                                                                    <small class="text-info"><i class="fas fa-file-text me-1"></i>Complete OCR Text for {{ doc.filename or 'Document' }}</small>
+                                                                                    <small class="text-muted">{{ doc.ocr_text|length }} characters</small>
+                                                                                </div>
+                                                                                <pre class="text-light mb-0" style="font-size: 0.8rem; white-space: pre-wrap; word-wrap: break-word;">{{ doc.ocr_text }}</pre>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    {% endif %}
                                                                 </div>
                                                             {% else %}
                                                                 <span class="badge bg-warning">

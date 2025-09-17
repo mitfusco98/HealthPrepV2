@@ -585,6 +585,20 @@ class ScreeningType(db.Model):
         self.trigger_conditions = json.dumps(conditions) if conditions else None
 
     @property
+    def frequency_years(self):
+        """Return frequency in years as a float"""
+        if not self.frequency_value:
+            return 1.0  # Default to 1 year
+        
+        if self.frequency_unit == 'months':
+            return self.frequency_value / 12.0
+        elif self.frequency_unit == 'years':
+            return float(self.frequency_value)
+        else:
+            # Default to years for unknown units
+            return float(self.frequency_value)
+
+    @property
     def frequency_display(self):
         """Return frequency in user-friendly format"""
         frequency_months = self.frequency_years * 12
