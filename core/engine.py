@@ -113,20 +113,40 @@ class ScreeningEngine:
         matches = self.matcher.find_screening_matches(screening)
         
         if matches:
-            # Get the most recent matching document
-            latest_match = max(matches, key=lambda x: x['document_date'] or date.min)
+            # Get the most recent matching document with safe date comparison
+            def safe_date_key(match):
+                """Safely extract and normalize date for comparison"""
+                doc_date = match['document_date']
+                if doc_date is None:
+                    return date.min
+                # Ensure we're comparing date objects, not datetime
+                if hasattr(doc_date, 'date'):
+                    return doc_date.date()
+                return doc_date
+            
+            latest_match = max(matches, key=safe_date_key)
             
             # Calculate status based on frequency and last completion
             # Use document_date if available, otherwise fall back to created_at
             document_date = latest_match['document_date'] or latest_match['document'].created_at.date()
+            
+            # Ensure document_date is a date object, not datetime
+            if hasattr(document_date, 'date'):
+                document_date = document_date.date()
+            
             new_status = self.criteria.calculate_screening_status(
                 screening.screening_type,
                 document_date
             )
             
-            if new_status != screening.status:
+            # Always update last_completed if we have a newer date
+            status_changed = new_status != screening.status
+            date_changed = (screening.last_completed is None or 
+                          document_date > screening.last_completed)
+            
+            if status_changed or date_changed:
                 screening.status = new_status
-                screening.last_completed_date = document_date
+                screening.last_completed = document_date
                 screening.updated_at = datetime.utcnow()
                 return True
         
@@ -272,14 +292,23 @@ class ScreeningEngine:
                 self.logger.info(f"Using current date fallback for document {document.id} - sandbox document missing date")
         
         if document_date:
+            # Ensure document_date is a date object, not datetime
+            if hasattr(document_date, 'date'):
+                document_date = document_date.date()
+                
             new_status = self.criteria.calculate_screening_status(
                 screening.screening_type,
                 document_date
             )
             
-            if new_status != screening.status:
+            # Always update last_completed if we have a newer date
+            status_changed = new_status != screening.status
+            date_changed = (screening.last_completed is None or 
+                          document_date > screening.last_completed)
+            
+            if status_changed or date_changed:
                 screening.status = new_status
-                screening.last_completed_date = document_date
+                screening.last_completed = document_date
                 screening.updated_at = datetime.utcnow()
     
     def get_screening_summary(self, patient_id):

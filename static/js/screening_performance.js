@@ -458,7 +458,7 @@ class ScreeningPerformance {
                         header.style.width = '25%';
                         break;
                     case 2: // Status
-                        header.style.width = '15%';
+                        header.style.width = '10%';
                         break;
                     case 3: // Last completed
                         header.style.width = '15%';

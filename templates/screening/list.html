@@ -449,17 +449,17 @@
                             
                             <!-- Status -->
                             <td>
-                                {% if screening.status == 'Complete' %}
+                                {% if screening.status == 'complete' %}
                                     <span class="badge status-complete">
-                                        <i class="fas fa-check-circle me-1"></i>{{ screening.status }}
+                                        <i class="fas fa-check-circle me-1"></i>Complete
                                     </span>
-                                {% elif screening.status == 'Due Soon' %}
+                                {% elif screening.status == 'due_soon' %}
                                     <span class="badge status-due-soon">
-                                        <i class="fas fa-clock me-1"></i>{{ screening.status }}
+                                        <i class="fas fa-clock me-1"></i>Due Soon
                                     </span>
-                                {% elif screening.status == 'Due' %}
+                                {% elif screening.status == 'due' %}
                                     <span class="badge status-due">
-                                        <i class="fas fa-exclamation-circle me-1"></i>{{ screening.status }}
+                                        <i class="fas fa-exclamation-circle me-1"></i>Due
                                     </span>
                                 {% else %}
                                     <span class="badge status-due">
