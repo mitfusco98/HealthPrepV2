@@ -73,67 +73,61 @@ class DocumentMatcher:
         return sorted(matches, key=lambda x: x['document_date'] or date.min, reverse=True)
     
     def _calculate_match_confidence(self, document, screening_type):
-        """Calculate confidence score for document-screening match using advanced fuzzy detection"""
-        confidence = 0.0
+        """Calculate confidence score using exact whole-word keyword matching on OCR text only"""
+        import re
         
-        # Get text to search (filename + OCR text)
-        search_text = f"{document.filename or ''} {document.ocr_text or ''}".strip()
+        # Only use OCR text, NOT filename - critical for preventing false positives
+        search_text = document.ocr_text or ''
         
         if not search_text:
             return 0.0
         
-        # Use advanced fuzzy matching for keywords
+        # Only use explicit keywords - NO fallback to screening type name
         keywords = screening_type.keywords_list
+        if not keywords:
+            self.logger.debug(f"No keywords defined for {screening_type.name} - requiring explicit keywords")
+            return 0.0
         
-        # Fallback to screening type name tokens if keywords are sparse
-        if not keywords or len(keywords) < 2:
-            # Use screening type name as keyword source
-            name_tokens = screening_type.name.lower().split()
-            # Filter out common words and use meaningful medical terms
-            meaningful_tokens = [token for token in name_tokens 
-                               if len(token) > 2 and token not in {'test', 'screening', 'scan', 'exam'}]
-            keywords = meaningful_tokens if meaningful_tokens else [screening_type.name.lower()]
+        # Stopword guard - reject generic terms that cause false positives
+        stopwords = {'review', 'note', 'report', 'imaging', 'result', 'clinic', 'screening', 'test', 'exam'}
+        valid_keywords = [k for k in keywords if k.lower() not in stopwords]
         
-        if keywords:
-            # Get fuzzy matches for all keywords
-            fuzzy_matches = self.fuzzy_engine.fuzzy_match_keywords(
-                search_text, keywords, threshold=0.7  # Raised from 0.6
-            )
+        if not valid_keywords:
+            self.logger.debug(f"All keywords for {screening_type.name} are stopwords: {keywords}")
+            return 0.0
+        
+        # Exact whole-word matching only
+        matched_keywords = []
+        for keyword in valid_keywords:
+            # Handle multi-word keywords: require sequential word matching
+            if ' ' in keyword:
+                # Multi-word: escape each word and require sequential matching with whitespace
+                escaped_words = [re.escape(word) for word in keyword.split()]
+                pattern = r'\b' + r'\s+'.join(escaped_words) + r'\b'
+            else:
+                # Single word: exact word boundary matching
+                pattern = r'\b' + re.escape(keyword) + r'\b'
             
-            if fuzzy_matches:
-                # Calculate weighted confidence based on best matches
-                best_match_confidence = fuzzy_matches[0][1]  # Highest confidence
-                match_count = len(fuzzy_matches)
-                
-                # Base confidence from best match
-                confidence += best_match_confidence * 0.5
-                
-                # Bonus for multiple keyword matches
-                if match_count > 1:
-                    multi_match_bonus = min(0.2, (match_count - 1) * 0.05)
-                    confidence += multi_match_bonus
-                
-                self.logger.debug(f"Fuzzy matches for {screening_type.name}: {fuzzy_matches}")
+            if re.search(pattern, search_text, re.IGNORECASE):
+                matched_keywords.append(keyword)
+                self.logger.debug(f"EXACT MATCH: '{keyword}' found in OCR text for {screening_type.name}")
         
-        # Check document type alignment
-        if document.document_type:
-            type_confidence = self._get_document_type_confidence(
-                document.document_type, screening_type.name.lower()
-            )
-            confidence += type_confidence * 0.15
+        # Confidence based purely on exact keyword matches
+        if matched_keywords:
+            # Base confidence: 0.8 for any exact match
+            confidence = 0.8
+            
+            # Small bonus for multiple keyword matches (max 0.2 additional)
+            if len(matched_keywords) > 1:
+                multi_match_bonus = min(0.2, (len(matched_keywords) - 1) * 0.05)
+                confidence += multi_match_bonus
+            
+            self.logger.info(f"EXACT KEYWORD MATCHES for {screening_type.name}: {matched_keywords} -> confidence {confidence:.3f}")
+            return min(confidence, 1.0)
         
-        # Enhanced medical terminology check using fuzzy engine
-        terminology_confidence = self._check_enhanced_medical_terminology(
-            search_text, screening_type.name.lower()
-        )
-        confidence += terminology_confidence * 0.25
-        
-        # Semantic term extraction bonus
-        semantic_terms = self.fuzzy_engine.extract_semantic_terms(search_text)
-        if semantic_terms.get('medical_terms'):
-            confidence += min(0.1, len(semantic_terms['medical_terms']) * 0.02)
-        
-        return min(confidence, 1.0)  # Cap at 1.0
+        # No exact matches = zero confidence (no fuzzy fallbacks)
+        self.logger.debug(f"NO EXACT MATCHES for {screening_type.name} keywords {valid_keywords}")
+        return 0.0
     
     def _fuzzy_match_keyword(self, keyword, text):
         """Legacy fuzzy matching method - replaced by FuzzyDetectionEngine"""

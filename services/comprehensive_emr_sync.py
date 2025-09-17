@@ -33,15 +33,21 @@ class ComprehensiveEMRSync:
         self.organization_id = organization_id
         self.organization = Organization.query.get(organization_id)
         
-        # Detect if we're in a request context (interactive) or background context
-        self.is_background = not has_request_context() or not (current_user and current_user.is_authenticated)
+        # EMR sync operations should ALWAYS use background context (database tokens)
+        # even when called from UI, to avoid session token issues
+        use_background = True
+        
+        # Only use interactive/session tokens if session explicitly contains epic tokens
+        if has_request_context() and session.get('epic_access_token'):
+            use_background = False
+            logger.info(f"ComprehensiveEMRSync using session tokens for org {organization_id}")
         
         # Initialize services with appropriate context
-        if self.is_background:
-            logger.info(f"ComprehensiveEMRSync initialized in background context for org {organization_id}")
+        if use_background:
+            logger.info(f"ComprehensiveEMRSync using background/database tokens for org {organization_id}")
             self.epic_service = get_epic_fhir_service_background(organization_id)
         else:
-            logger.info(f"ComprehensiveEMRSync initialized in interactive context for org {organization_id}")
+            logger.info(f"ComprehensiveEMRSync using interactive/session tokens for org {organization_id}")
             self.epic_service = EpicFHIRService(organization_id)
             
         self.screening_engine = ScreeningEngine()
