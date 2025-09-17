@@ -141,9 +141,9 @@
 }
 
 .col-status {
-    width: 90px;
-    min-width: 90px;
-    max-width: 90px;
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
 }
 
 .col-last-completed {
@@ -227,18 +227,10 @@
 /* Apply column widths to table body cells */
 .screening-table-compact td:nth-child(1) { width: 200px; max-width: 200px; }
 .screening-table-compact td:nth-child(2) { width: 180px; max-width: 180px; }
-.screening-table-compact td:nth-child(3) { width: 70px; max-width: 70px; }
+.screening-table-compact td:nth-child(3) { width: 120px; max-width: 120px; }
 .screening-table-compact td:nth-child(4) { width: 110px; max-width: 110px; }
 .screening-table-compact td:nth-child(5) { width: 100px; max-width: 100px; }
 .screening-table-compact td:nth-child(6) { width: auto; min-width: 300px; }
-
-/* Apply column widths to table header cells */
-.screening-table-compact th:nth-child(1) { width: 200px; max-width: 200px; }
-.screening-table-compact th:nth-child(2) { width: 180px; max-width: 180px; }
-.screening-table-compact th:nth-child(3) { width: 70px; max-width: 70px; }
-.screening-table-compact th:nth-child(4) { width: 110px; max-width: 110px; }
-.screening-table-compact th:nth-child(5) { width: 100px; max-width: 100px; }
-.screening-table-compact th:nth-child(6) { width: auto; min-width: 300px; }
 
 /* Ensure table layout respects column widths */
 .screening-table-compact {
@@ -457,17 +449,17 @@
                             
                             <!-- Status -->
                             <td>
-                                {% if screening.status == 'complete' %}
+                                {% if screening.status == 'Complete' %}
                                     <span class="badge status-complete">
-                                        <i class="fas fa-check-circle me-1"></i>Complete
+                                        <i class="fas fa-check-circle me-1"></i>{{ screening.status }}
                                     </span>
-                                {% elif screening.status == 'due_soon' %}
+                                {% elif screening.status == 'Due Soon' %}
                                     <span class="badge status-due-soon">
-                                        <i class="fas fa-clock me-1"></i>Due Soon
+                                        <i class="fas fa-clock me-1"></i>{{ screening.status }}
                                     </span>
-                                {% elif screening.status == 'due' %}
+                                {% elif screening.status == 'Due' %}
                                     <span class="badge status-due">
-                                        <i class="fas fa-exclamation-circle me-1"></i>Due
+                                        <i class="fas fa-exclamation-circle me-1"></i>{{ screening.status }}
                                     </span>
                                 {% else %}
                                     <span class="badge status-due">

@@ -587,16 +587,30 @@ class ScreeningType(db.Model):
     @property
     def frequency_display(self):
         """Return frequency in user-friendly format"""
-        if not self.frequency_value or not self.frequency_unit:
-            return "Not specified"
-        
-        # Import the helper function
-        from utils.date_helpers import get_frequency_description
-        
-        # Convert frequency value to integer if it's a whole number
-        freq_value = int(self.frequency_value) if self.frequency_value == int(self.frequency_value) else self.frequency_value
-        
-        return get_frequency_description(freq_value, self.frequency_unit)
+        frequency_months = self.frequency_years * 12
+
+        # Special cases for common frequencies
+        if self.frequency_years == 1.0:
+            return "Every year"
+        elif self.frequency_years == 0.5:
+            return "Every 6 months"
+        elif self.frequency_years == 2.0:
+            return "Every 2 years"
+
+        # If it's a clean number of months and less than 12 months, show in months
+        if frequency_months < 12 and frequency_months == int(frequency_months):
+            months = int(frequency_months)
+            return f"Every {months} month{'s' if months != 1 else ''}"
+        # If it's a clean number of months between 12-23 months (but not 12), show in months
+        elif 12 < frequency_months < 24 and frequency_months == int(frequency_months):
+            months = int(frequency_months)
+            return f"Every {months} months"
+        # Otherwise show in years
+        else:
+            years = self.frequency_years
+            if years == int(years):
+                years = int(years)
+            return f"Every {years} year{'s' if years != 1 else ''}"
 
     @property
     def display_name(self):
