@@ -35,13 +35,19 @@ class PrepSheetFilters:
         # Filter: only show documents created after the cutoff date
         filtered_docs = []
         for doc in documents:
+            # Fallback mechanism: assign current date to sandbox documents without dates
             if hasattr(doc, 'document_date') and doc.document_date:
                 # Convert document_date to date if it's datetime
                 doc_date = doc.document_date.date() if hasattr(doc.document_date, 'date') else doc.document_date
-                
-                # Only include documents newer than cutoff (within last frequency period)
-                if doc_date >= cutoff_date:
-                    filtered_docs.append(doc)
+            else:
+                # Fallback: use current date for documents without dates (e.g., sandbox documents)
+                # This allows sandbox documents to be recognized as having a completion date
+                doc_date = date.today()
+                self.logger.info(f"Document {doc.id} ({doc.filename}) has no date - using current date as fallback")
+            
+            # Only include documents newer than cutoff (within last frequency period)
+            if doc_date >= cutoff_date:
+                filtered_docs.append(doc)
         
         return filtered_docs
     

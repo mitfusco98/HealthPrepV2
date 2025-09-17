@@ -227,7 +227,7 @@
 /* Apply column widths to table body cells */
 .screening-table-compact td:nth-child(1) { width: 200px; max-width: 200px; }
 .screening-table-compact td:nth-child(2) { width: 180px; max-width: 180px; }
-.screening-table-compact td:nth-child(3) { width: 90px; max-width: 90px; }
+.screening-table-compact td:nth-child(3) { width: 70px; max-width: 70px; }
 .screening-table-compact td:nth-child(4) { width: 110px; max-width: 110px; }
 .screening-table-compact td:nth-child(5) { width: 100px; max-width: 100px; }
 .screening-table-compact td:nth-child(6) { width: auto; min-width: 300px; }
@@ -235,7 +235,7 @@
 /* Apply column widths to table header cells */
 .screening-table-compact th:nth-child(1) { width: 200px; max-width: 200px; }
 .screening-table-compact th:nth-child(2) { width: 180px; max-width: 180px; }
-.screening-table-compact th:nth-child(3) { width: 90px; max-width: 90px; }
+.screening-table-compact th:nth-child(3) { width: 70px; max-width: 70px; }
 .screening-table-compact th:nth-child(4) { width: 110px; max-width: 110px; }
 .screening-table-compact th:nth-child(5) { width: 100px; max-width: 100px; }
 .screening-table-compact th:nth-child(6) { width: auto; min-width: 300px; }
@@ -457,17 +457,17 @@
                             
                             <!-- Status -->
                             <td>
-                                {% if screening.status == 'Complete' %}
+                                {% if screening.status == 'complete' %}
                                     <span class="badge status-complete">
-                                        <i class="fas fa-check-circle me-1"></i>{{ screening.status }}
+                                        <i class="fas fa-check-circle me-1"></i>Complete
                                     </span>
-                                {% elif screening.status == 'Due Soon' %}
+                                {% elif screening.status == 'due_soon' %}
                                     <span class="badge status-due-soon">
-                                        <i class="fas fa-clock me-1"></i>{{ screening.status }}
+                                        <i class="fas fa-clock me-1"></i>Due Soon
                                     </span>
-                                {% elif screening.status == 'Due' %}
+                                {% elif screening.status == 'due' %}
                                     <span class="badge status-due">
-                                        <i class="fas fa-exclamation-circle me-1"></i>{{ screening.status }}
+                                        <i class="fas fa-exclamation-circle me-1"></i>Due
                                     </span>
                                 {% else %}
                                     <span class="badge status-due">

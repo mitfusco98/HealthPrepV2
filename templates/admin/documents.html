@@ -210,10 +210,47 @@
                                                                 
                                                                 <!-- OCR Preview -->
                                                                 <div class="mt-2">
-                                                                    <small class="text-muted">OCR Preview:</small>
+                                                                    <div class="d-flex justify-content-between align-items-center">
+                                                                        <small class="text-muted">OCR Text:</small>
+                                                                        {% if doc.ocr_text|length > 200 %}
+                                                                        <button class="btn btn-sm btn-outline-info" 
+                                                                                type="button" 
+                                                                                data-bs-toggle="collapse" 
+                                                                                data-bs-target="#full-ocr-{{ doc.id }}" 
+                                                                                aria-expanded="false">
+                                                                            <i class="fas fa-expand-arrows-alt"></i> Show Full OCR
+                                                                        </button>
+                                                                        {% endif %}
+                                                                    </div>
+                                                                    
+                                                                    <!-- Preview -->
                                                                     <div class="bg-dark p-2 rounded mt-1" style="max-height: 100px; overflow-y: auto;">
                                                                         <small class="text-light">{{ doc.ocr_text[:200] }}{% if doc.ocr_text|length > 200 %}...{% endif %}</small>
                                                                     </div>
+                                                                    
+                                                                    <!-- Full OCR Text (Collapsible) -->
+                                                                    {% if doc.ocr_text|length > 200 %}
+                                                                    <div class="collapse mt-2" id="full-ocr-{{ doc.id }}">
+                                                                        <div class="card bg-secondary">
+                                                                            <div class="card-header py-2">
+                                                                                <h6 class="mb-0">
+                                                                                    <i class="fas fa-file-text me-2"></i>Full OCR Text ({{ doc.ocr_text|length }} characters)
+                                                                                </h6>
+                                                                            </div>
+                                                                            <div class="card-body">
+                                                                                <div class="bg-dark p-3 rounded" style="max-height: 400px; overflow-y: auto; white-space: pre-wrap; font-family: monospace;">
+                                                                                    <small class="text-light">{{ doc.ocr_text }}</small>
+                                                                                </div>
+                                                                                <div class="mt-2">
+                                                                                    <small class="text-muted">
+                                                                                        <i class="fas fa-info-circle me-1"></i>
+                                                                                        This is the complete OCR-extracted text used for fuzzy matching. Use this to debug document matching issues.
+                                                                                    </small>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    {% endif %}
                                                                 </div>
                                                             {% else %}
                                                                 <span class="badge bg-warning">
