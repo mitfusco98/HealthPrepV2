@@ -505,7 +505,8 @@ class ScreeningType(db.Model):
     eligible_genders = db.Column(db.String(10), default='both')  # 'M', 'F', or 'both'
     min_age = db.Column(db.Integer)
     max_age = db.Column(db.Integer)
-    frequency_years = db.Column(db.Float, nullable=False)  # Frequency in years (can be fractional like 0.25 for 3 months)
+    frequency_value = db.Column(db.Float, nullable=False)  # Frequency value (numeric)
+    frequency_unit = db.Column(db.String(10), default='years')  # Unit: 'years', 'months', etc.
     trigger_conditions = db.Column(db.Text)  # JSON string of conditions that modify screening protocols
     is_active = db.Column(db.Boolean, default=True)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # User who created this screening type

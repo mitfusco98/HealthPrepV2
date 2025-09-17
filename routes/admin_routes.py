@@ -1924,28 +1924,3 @@ def admin_documents():
         flash('Error loading document inventory', 'error')
         return render_template('error/500.html'), 500
 
-@admin_bp.route('/trigger_document_matching', methods=['POST'])
-@login_required
-@admin_required
-def trigger_document_matching():
-    """Manually trigger document matching for all documents"""
-    try:
-        from core.matcher import DocumentMatcher
-        
-        logger.info(f"Admin {current_user.username} triggered document matching")
-        
-        matcher = DocumentMatcher()
-        matcher.update_all_matches()
-        
-        # Count results
-        from models import ScreeningDocumentMatch
-        match_count = ScreeningDocumentMatch.query.count()
-        
-        flash(f'Document matching completed successfully! Found {match_count} matches.', 'success')
-        logger.info(f"Document matching completed. {match_count} matches found.")
-        
-    except Exception as e:
-        logger.error(f"Error in document matching: {str(e)}")
-        flash('Error during document matching. Check logs for details.', 'error')
-    
-    return redirect(url_for('admin.admin_documents'))

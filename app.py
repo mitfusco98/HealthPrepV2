@@ -146,6 +146,37 @@ def create_app():
         import models  # Import after app context
         db.create_all()
         logger.info("Database tables created successfully")
+        
+        # Process any existing unmatched documents on startup
+        try:
+            from core.engine import ScreeningEngine
+            from models import Document, ScreeningDocumentMatch
+            
+            # Check if there are unmatched documents with OCR text
+            unmatched_docs = db.session.query(Document).filter(
+                Document.ocr_text.isnot(None),
+                ~Document.id.in_(db.session.query(ScreeningDocumentMatch.document_id))
+            ).all()
+            
+            if unmatched_docs:
+                logger.info(f"Processing {len(unmatched_docs)} unmatched documents on startup")
+                engine = ScreeningEngine()
+                
+                processed_count = 0
+                for doc in unmatched_docs:
+                    try:
+                        engine.process_new_document(doc.id)
+                        processed_count += 1
+                    except Exception as e:
+                        logger.warning(f"Failed to process document {doc.id} on startup: {str(e)}")
+                
+                logger.info(f"Startup document processing completed: {processed_count}/{len(unmatched_docs)} documents processed")
+            else:
+                logger.info("No unmatched documents found on startup")
+        
+        except Exception as e:
+            logger.warning(f"Startup document processing failed: {str(e)}")
+            # Don't fail startup if document processing fails
 
     # Root route
     @app.route('/')

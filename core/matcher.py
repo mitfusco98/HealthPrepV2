@@ -33,27 +33,22 @@ class DocumentMatcher:
         matches = []
         
         if not document.ocr_text:
+            self.logger.debug(f"Document {document.id} has no OCR text")
             return matches
         
-        # Filter by organization for multi-tenancy
-        screening_types = ScreeningType.query.filter_by(
-            is_active=True,
-            org_id=document.patient.org_id
-        ).all()
+        # Get patient's existing screenings directly (respects org scoping via Screening records)
+        screenings = Screening.query.filter_by(patient_id=document.patient_id).all()
+        self.logger.debug(f"Found {len(screenings)} screenings for patient {document.patient_id}")
         
-        for screening_type in screening_types:
-            confidence = self._calculate_match_confidence(document, screening_type)
+        for screening in screenings:
+            confidence = self._calculate_match_confidence(document, screening.screening_type)
+            self.logger.debug(f"Document {document.id} vs Screening {screening.id} ({screening.screening_type.name}): confidence={confidence:.3f}")
             
             if confidence > 0.3:  # Minimum confidence threshold
-                # Find screenings of this type for the patient
-                screenings = Screening.query.filter_by(
-                    patient_id=document.patient_id,
-                    screening_type_id=screening_type.id
-                ).all()
-                
-                for screening in screenings:
-                    matches.append((screening.id, confidence))
+                matches.append((screening.id, confidence))
+                self.logger.info(f"MATCH FOUND: Document {document.id} matches Screening {screening.id} with confidence {confidence:.3f}")
         
+        self.logger.info(f"Document {document.id} matching complete: {len(matches)} matches found")
         return matches
     
     def find_screening_matches(self, screening):

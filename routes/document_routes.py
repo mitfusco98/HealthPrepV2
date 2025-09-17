@@ -107,6 +107,16 @@ def upload_document():
                                     document.phi_filtered_text = filter_result['filtered_text']
                                     db.session.commit()
 
+                            # CRITICAL: Automatically process document for screening matches
+                            try:
+                                from core.engine import ScreeningEngine
+                                engine = ScreeningEngine()
+                                engine.process_new_document(document.id)
+                                logger.info(f"Automatic document matching completed for document {document.id}")
+                            except Exception as matching_error:
+                                logger.warning(f"Document matching failed for document {document.id}: {str(matching_error)}")
+                                # Don't fail the upload, just log the issue
+
                     except Exception as ocr_error:
                         logger.warning(f"OCR processing failed for document {document.id}: {str(ocr_error)}")
                         flash('Document uploaded successfully, but OCR processing failed.', 'warning')

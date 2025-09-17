@@ -117,14 +117,16 @@ class ScreeningEngine:
             latest_match = max(matches, key=lambda x: x['document_date'] or date.min)
             
             # Calculate status based on frequency and last completion
+            # Use document_date if available, otherwise fall back to created_at
+            document_date = latest_match['document_date'] or latest_match['document'].created_at.date()
             new_status = self.criteria.calculate_screening_status(
                 screening.screening_type,
-                latest_match['document_date']
+                document_date
             )
             
             if new_status != screening.status:
                 screening.status = new_status
-                screening.last_completed_date = latest_match['document_date']
+                screening.last_completed_date = document_date
                 screening.updated_at = datetime.utcnow()
                 return True
         
@@ -257,15 +259,18 @@ class ScreeningEngine:
             match.match_confidence = confidence
         
         # Update screening status
-        if document.document_date:
+        # Use created_at as document date since document_date doesn't exist
+        document_date = getattr(document, 'document_date', None) or document.created_at.date()
+        
+        if document_date:
             new_status = self.criteria.calculate_screening_status(
                 screening.screening_type,
-                document.document_date
+                document_date
             )
             
             if new_status != screening.status:
                 screening.status = new_status
-                screening.last_completed_date = document.document_date
+                screening.last_completed_date = document_date
                 screening.updated_at = datetime.utcnow()
     
     def get_screening_summary(self, patient_id):
