@@ -33,22 +33,28 @@ class ComprehensiveEMRSync:
         self.organization_id = organization_id
         self.organization = Organization.query.get(organization_id)
         
-        # EMR sync operations should ALWAYS use background context (database tokens)
-        # even when called from UI, to avoid session token issues
-        use_background = True
+        # EMR sync operations should ALWAYS use database-stored tokens for stability
+        # Session tokens are volatile and expire quickly - not suitable for long-running sync operations
+        logger.info(f"ComprehensiveEMRSync: forcing database/background token usage for org {organization_id}")
         
-        # Only use interactive/session tokens if session explicitly contains epic tokens
-        if has_request_context() and session.get('epic_access_token'):
-            use_background = False
-            logger.info(f"ComprehensiveEMRSync using session tokens for org {organization_id}")
+        # Always use background service for EMR sync operations
+        self.epic_service = get_epic_fhir_service_background(organization_id)
         
-        # Initialize services with appropriate context
-        if use_background:
-            logger.info(f"ComprehensiveEMRSync using background/database tokens for org {organization_id}")
-            self.epic_service = get_epic_fhir_service_background(organization_id)
-        else:
-            logger.info(f"ComprehensiveEMRSync using interactive/session tokens for org {organization_id}")
-            self.epic_service = EpicFHIRService(organization_id)
+        # If background service fails, ensure we have database credentials to work with
+        if not self.epic_service or not hasattr(self.epic_service, 'fhir_client') or not self.epic_service.fhir_client:
+            logger.warning(f"Background Epic FHIR service unavailable for org {organization_id}")
+            
+            # Check if we have database credentials
+            from models import EpicCredentials
+            epic_creds = EpicCredentials.query.filter_by(org_id=organization_id).first()
+            if epic_creds and epic_creds.access_token:
+                logger.info(f"Found database credentials for org {organization_id}, creating service manually")
+                self.epic_service = EpicFHIRService(organization_id, background_context=True)
+            else:
+                logger.error(f"No database credentials available for org {organization_id} - OAuth2 authentication required")
+                raise ValueError(f"Epic FHIR authentication required for organization {organization_id}")
+        
+        logger.info(f"ComprehensiveEMRSync: using database-stored tokens for stable sync operations")
             
         self.screening_engine = ScreeningEngine()
         self.document_processor = DocumentProcessor()

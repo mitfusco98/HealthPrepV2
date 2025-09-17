@@ -68,40 +68,108 @@ class EpicFHIRService:
                     self.fhir_client = FHIRClient(epic_config, organization=self.organization)
     
     def ensure_authenticated(self) -> bool:
-        """Ensure FHIR client is authenticated and tokens are valid"""
+        """Ensure FHIR client is authenticated and tokens are valid with robust database token handling"""
         if not self.fhir_client:
-            logger.error("No FHIR client available - OAuth2 authentication required")
-            return False
+            # Try to initialize from database credentials if available
+            if self.organization_id:
+                logger.info(f"No FHIR client available, attempting to load from database for org {self.organization_id}")
+                if self._load_tokens_from_database():
+                    logger.info(f"Successfully loaded tokens from database for org {self.organization_id}")
+                else:
+                    logger.error(f"No FHIR client and no database credentials available for org {self.organization_id}")
+                    return False
+            else:
+                logger.error("No FHIR client available and no organization context - OAuth2 authentication required")
+                return False
         
         if not self.fhir_client.access_token:
-            logger.error("No access token available - OAuth2 authentication required")
-            return False
+            # Try to load tokens from database if in background mode
+            if self.is_background and self.organization_id:
+                logger.info(f"No access token in client, attempting to load from database for org {self.organization_id}")
+                if self._load_tokens_from_database():
+                    logger.info(f"Successfully loaded tokens from database for org {self.organization_id}")
+                else:
+                    logger.error(f"No access token available and no database credentials for org {self.organization_id}")
+                    return False
+            else:
+                logger.error("No access token available - OAuth2 authentication required")
+                return False
         
         # Check if token is expired
         if self.fhir_client.token_expires and datetime.now() >= self.fhir_client.token_expires:
-            logger.info("Access token expired, attempting refresh")
+            logger.info(f"Access token expired for org {self.organization_id}, attempting refresh")
             if not self.fhir_client.refresh_access_token():
-                logger.error("Failed to refresh access token")
+                logger.error(f"Failed to refresh access token for org {self.organization_id}")
+                # If refresh fails, try to reload from database (in case tokens were updated elsewhere)
+                if self.is_background and self.organization_id:
+                    logger.info("Attempting to reload tokens from database after refresh failure")
+                    if self._load_tokens_from_database():
+                        logger.info("Reloaded tokens from database, retrying authentication")
+                        return self.ensure_authenticated()  # Recursive retry with fresh tokens
                 return False
             
-            # Update tokens based on context
-            if self.is_background:
-                # Background context: update database storage
+            # Update tokens based on context - always prefer database storage
+            if self.is_background or self.organization_id:
+                # Background context or any context with org: update database storage
                 self._update_database_tokens()
+                logger.info(f"Updated tokens in database for org {self.organization_id}")
             else:
-                # Interactive context: update session
+                # Interactive context without org: update session
                 try:
                     session['epic_access_token'] = self.fhir_client.access_token
                     if self.fhir_client.refresh_token:
                         session['epic_refresh_token'] = self.fhir_client.refresh_token
                     expires_in = int((self.fhir_client.token_expires - datetime.now()).total_seconds())
                     session['epic_token_expires'] = (datetime.now() + timedelta(seconds=expires_in)).isoformat()
+                    logger.info("Updated tokens in session")
                 except RuntimeError:
                     # No session available (e.g., background context detected late)
                     logger.warning("No session available to update tokens, updating database instead")
-                    self._update_database_tokens()
+                    if self.organization_id:
+                        self._update_database_tokens()
         
+        logger.info(f"Authentication verified for org {self.organization_id}")
         return True
+    
+    def _load_tokens_from_database(self) -> bool:
+        """Load Epic tokens from database storage"""
+        try:
+            from models import EpicCredentials
+            
+            epic_creds = EpicCredentials.query.filter_by(org_id=self.organization_id).first()
+            if epic_creds and epic_creds.access_token:
+                # Check if we have a valid client to load tokens into
+                if not self.fhir_client and self.organization:
+                    # Create FHIR client if needed
+                    epic_config = {
+                        'epic_client_id': self.organization.epic_client_id,
+                        'epic_client_secret': self.organization.epic_client_secret,
+                        'epic_fhir_url': self.organization.epic_fhir_url or 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
+                    }
+                    self.fhir_client = FHIRClient(epic_config, organization=self.organization)
+                    logger.info(f"Created FHIR client for token loading for org {self.organization_id}")
+                
+                if self.fhir_client:
+                    # Load tokens into FHIR client
+                    self.fhir_client.access_token = epic_creds.access_token
+                    self.fhir_client.refresh_token = epic_creds.refresh_token
+                    self.fhir_client.token_expires = epic_creds.token_expires_at
+                    if epic_creds.token_scope:
+                        self.fhir_client.token_scopes = epic_creds.token_scope.split()
+                    
+                    logger.info(f"Successfully loaded tokens from database for org {self.organization_id}")
+                    logger.info(f"Token expires at: {epic_creds.token_expires_at}")
+                    return True
+                else:
+                    logger.error(f"Cannot load tokens: no FHIR client available for org {self.organization_id}")
+                    return False
+            else:
+                logger.info(f"No database credentials found for organization {self.organization_id}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error loading tokens from database for org {self.organization_id}: {str(e)}")
+            return False
     
     def _update_database_tokens(self):
         """Update Epic tokens in database storage (for background context or session failures)"""
