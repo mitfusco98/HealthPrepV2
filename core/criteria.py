@@ -100,14 +100,33 @@ class EligibilityCriteria:
         return False
     
     def _calculate_next_due_date(self, last_completed_date, frequency_value, frequency_unit):
-        """Calculate the next due date based on frequency"""
-        if frequency_unit == 'years':
-            return last_completed_date + relativedelta(years=frequency_value)
-        elif frequency_unit == 'months':
-            return last_completed_date + relativedelta(months=frequency_value)
-        else:
-            # Default to years if unit is unclear
-            return last_completed_date + relativedelta(years=frequency_value)
+        """Calculate the next due date based on frequency with proper fractional handling"""
+        if not frequency_value or not last_completed_date:
+            return None
+        
+        try:
+            # Sanitize frequency_value for relativedelta compatibility
+            if frequency_unit == 'years':
+                if isinstance(frequency_value, float) and frequency_value != int(frequency_value):
+                    # Convert fractional years to integer months
+                    months = round(frequency_value * 12)
+                    return last_completed_date + relativedelta(months=months)
+                else:
+                    return last_completed_date + relativedelta(years=int(frequency_value))
+            elif frequency_unit == 'months':
+                # Convert to integer months
+                months = int(round(frequency_value))
+                return last_completed_date + relativedelta(months=months)
+            else:
+                # Default to years, convert fractional to months if needed
+                if isinstance(frequency_value, float) and frequency_value != int(frequency_value):
+                    months = round(frequency_value * 12)
+                    return last_completed_date + relativedelta(months=months)
+                else:
+                    return last_completed_date + relativedelta(years=int(frequency_value))
+        except (ValueError, TypeError) as e:
+            self.logger.warning(f"Error calculating next due date: {e}. Using default 1 year interval.")
+            return last_completed_date + relativedelta(years=1)
     
     def get_screening_schedule(self, patient, screening_type):
         """Get recommended screening schedule for a patient"""

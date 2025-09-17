@@ -173,15 +173,45 @@ class FuzzyDetectionEngine:
     def _get_keyword_variations(self, keyword: str) -> List[str]:
         """
         Generate all possible variations of a keyword including medical equivalents
+        Enhanced with token-level synonym expansion for compound terms
         """
         variations = [keyword]
         keyword_lower = keyword.lower()
         
-        # Add medical equivalents
+        # Add medical equivalents for exact matches
         for main_term, equivalents in self.medical_equivalents.items():
             if keyword_lower == main_term or keyword_lower in equivalents:
                 variations.extend(equivalents)
                 variations.append(main_term)
+        
+        # NEW: Token-level synonym expansion for compound terms
+        tokens = keyword_lower.split()
+        if len(tokens) > 1:
+            # For compound terms like "a1c test", expand synonyms for each token
+            expanded_combinations = []
+            
+            for i, token in enumerate(tokens):
+                token_synonyms = [token]  # Start with original token
+                
+                # Find medical equivalents for this token
+                for main_term, equivalents in self.medical_equivalents.items():
+                    if token == main_term or token in equivalents:
+                        token_synonyms.extend(equivalents)
+                        token_synonyms.append(main_term)
+                
+                # Generate combinations with expanded tokens
+                if i == 0:
+                    expanded_combinations = [[syn] for syn in set(token_synonyms)]
+                else:
+                    new_combinations = []
+                    for combination in expanded_combinations:
+                        for synonym in set(token_synonyms):
+                            new_combinations.append(combination + [synonym])
+                    expanded_combinations = new_combinations
+            
+            # Convert combinations back to strings
+            for combination in expanded_combinations:
+                variations.append(' '.join(combination))
         
         # Generate separator variations
         base_variations = list(set(variations))
@@ -208,28 +238,39 @@ class FuzzyDetectionEngine:
     def _calculate_fuzzy_confidence(self, keyword: str, normalized_text: str, 
                                   original_text: str) -> Tuple[float, str]:
         """
-        Calculate fuzzy matching confidence using multiple strategies
+        Calculate fuzzy matching confidence using multiple strategies with improved precision
         """
         best_confidence = 0.0
         best_match = ""
         
-        # Strategy 1: Word-level fuzzy matching
+        # Quick negative filter for impossible medical matches
+        if self._is_impossible_medical_match(keyword, normalized_text):
+            return 0.0, ""
+        
+        # Strategy 1: Word-level fuzzy matching with improved thresholds
         keyword_words = keyword.split()
         text_words = normalized_text.split()
         
         if len(keyword_words) == 1:
-            # Single word matching
+            # Single word matching with higher threshold for medical terms
             for word in text_words:
+                # Require whole-word match for medical terms > 6 chars
+                if len(keyword) >= 6 and self._is_medical_term(keyword):
+                    if not self._is_whole_word_match(keyword, word):
+                        continue
+                
                 ratio = SequenceMatcher(None, keyword, word).ratio()
-                if ratio > best_confidence and ratio > 0.6:
+                # Raised threshold from 0.6 to 0.8 for better precision
+                if ratio > best_confidence and ratio > 0.8:
                     best_confidence = ratio
                     best_match = word
         else:
-            # Multi-word phrase matching
+            # Multi-word phrase matching with higher threshold
             for i in range(len(text_words) - len(keyword_words) + 1):
                 phrase = ' '.join(text_words[i:i + len(keyword_words)])
                 ratio = SequenceMatcher(None, keyword, phrase).ratio()
-                if ratio > best_confidence and ratio > 0.6:
+                # Raised threshold from 0.6 to 0.8 for better precision
+                if ratio > best_confidence and ratio > 0.8:
                     best_confidence = ratio
                     best_match = phrase
         
@@ -377,3 +418,88 @@ class FuzzyDetectionEngine:
         relevance = (match_frequency * 0.6) + (avg_confidence * 0.4)
         
         return relevance
+    
+    def _is_impossible_medical_match(self, keyword: str, text: str) -> bool:
+        """
+        Check for semantically impossible medical matches to prevent false positives
+        """
+        # Define impossible word pairs that should never match
+        impossible_pairs = [
+            ('mammogram', 'immunization'), ('mammography', 'immunization'),
+            ('mammogram', 'vaccine'), ('mammography', 'vaccine'),
+            ('colonoscopy', 'mammogram'), ('colonoscopy', 'breast'),
+            ('ecg', 'mammogram'), ('ekg', 'mammogram'),
+            ('a1c', 'mammogram'), ('hba1c', 'mammogram'),
+            ('imaging', 'immunization'), ('imaging', 'vaccine'),
+            ('cervical', 'cardiac'), ('cervical', 'heart'),
+            ('breast', 'colonoscopy'), ('breast', 'colon')
+        ]
+        
+        keyword_lower = keyword.lower()
+        text_lower = text.lower()
+        
+        # Check for impossible combinations
+        for term1, term2 in impossible_pairs:
+            if ((term1 in keyword_lower and term2 in text_lower) or 
+                (term2 in keyword_lower and term1 in text_lower)):
+                return True
+        
+        # Additional edit distance check for terms > 8 chars
+        if len(keyword) >= 8:
+            for word in text.split():
+                if len(word) >= 6:
+                    # If edit distance is very high, it's likely impossible
+                    edit_dist = self._levenshtein_distance(keyword_lower, word.lower())
+                    if edit_dist > max(3, len(keyword) * 0.4):
+                        continue
+        
+        return False
+    
+    def _is_medical_term(self, term: str) -> bool:
+        """
+        Check if a term is a medical term that requires strict matching
+        """
+        medical_terms = {
+            'mammogram', 'mammography', 'colonoscopy', 'ecg', 'ekg', 'electrocardiogram',
+            'a1c', 'hba1c', 'hemoglobin', 'immunization', 'vaccination', 'vaccine',
+            'cervical', 'cytology', 'pap', 'ultrasound', 'sonogram', 'mri', 'ct',
+            'dexa', 'densitometry', 'lipid', 'cholesterol', 'glucose', 'insulin'
+        }
+        
+        term_lower = term.lower()
+        return any(med_term in term_lower for med_term in medical_terms)
+    
+    def _is_whole_word_match(self, keyword: str, word: str) -> bool:
+        """
+        Check if keyword matches as a whole word (word boundary enforcement)
+        """
+        # For short terms or exact matches, allow
+        if len(keyword) < 4 or keyword.lower() == word.lower():
+            return True
+        
+        # Check if keyword appears at word boundaries in the text
+        import re
+        pattern = r'\b' + re.escape(keyword.lower()) + r'\b'
+        return bool(re.search(pattern, word.lower()))
+    
+    def _levenshtein_distance(self, s1: str, s2: str) -> int:
+        """
+        Calculate Levenshtein (edit) distance between two strings
+        """
+        if len(s1) < len(s2):
+            return self._levenshtein_distance(s2, s1)
+        
+        if len(s2) == 0:
+            return len(s1)
+        
+        previous_row = list(range(len(s2) + 1))
+        for i, c1 in enumerate(s1):
+            current_row = [i + 1]
+            for j, c2 in enumerate(s2):
+                insertions = previous_row[j + 1] + 1
+                deletions = current_row[j] + 1
+                substitutions = previous_row[j] + (c1 != c2)
+                current_row.append(min(insertions, deletions, substitutions))
+            previous_row = current_row
+        
+        return previous_row[-1]

@@ -147,36 +147,41 @@ def create_app():
         db.create_all()
         logger.info("Database tables created successfully")
         
-        # Process any existing unmatched documents on startup
-        try:
-            from core.engine import ScreeningEngine
-            from models import Document, ScreeningDocumentMatch
-            
-            # Check if there are unmatched documents with OCR text
-            unmatched_docs = db.session.query(Document).filter(
-                Document.ocr_text.isnot(None),
-                ~Document.id.in_(db.session.query(ScreeningDocumentMatch.document_id))
-            ).all()
-            
-            if unmatched_docs:
-                logger.info(f"Processing {len(unmatched_docs)} unmatched documents on startup")
-                engine = ScreeningEngine()
+        # Process any existing unmatched documents on startup (disabled by default for performance)
+        # Enable with environment variable: STARTUP_PROCESS_DOCS=true
+        # Document processing should be triggered by EMR sync or screening list refresh instead
+        if os.environ.get('STARTUP_PROCESS_DOCS', 'false').lower() == 'true':
+            try:
+                from core.engine import ScreeningEngine
+                from models import Document, ScreeningDocumentMatch
                 
-                processed_count = 0
-                for doc in unmatched_docs:
-                    try:
-                        engine.process_new_document(doc.id)
-                        processed_count += 1
-                    except Exception as e:
-                        logger.warning(f"Failed to process document {doc.id} on startup: {str(e)}")
+                # Check if there are unmatched documents with OCR text
+                unmatched_docs = db.session.query(Document).filter(
+                    Document.ocr_text.isnot(None),
+                    ~Document.id.in_(db.session.query(ScreeningDocumentMatch.document_id))
+                ).all()
                 
-                logger.info(f"Startup document processing completed: {processed_count}/{len(unmatched_docs)} documents processed")
-            else:
-                logger.info("No unmatched documents found on startup")
-        
-        except Exception as e:
-            logger.warning(f"Startup document processing failed: {str(e)}")
-            # Don't fail startup if document processing fails
+                if unmatched_docs:
+                    logger.info(f"Processing {len(unmatched_docs)} unmatched documents on startup")
+                    engine = ScreeningEngine()
+                    
+                    processed_count = 0
+                    for doc in unmatched_docs:
+                        try:
+                            engine.process_new_document(doc.id)
+                            processed_count += 1
+                        except Exception as e:
+                            logger.warning(f"Failed to process document {doc.id} on startup: {str(e)}")
+                    
+                    logger.info(f"Startup document processing completed: {processed_count}/{len(unmatched_docs)} documents processed")
+                else:
+                    logger.info("No unmatched documents found on startup")
+            
+            except Exception as e:
+                logger.warning(f"Startup document processing failed: {str(e)}")
+                # Don't fail startup if document processing fails
+        else:
+            logger.info("Startup document processing disabled for faster boot times (set STARTUP_PROCESS_DOCS=true to enable)")
 
     # Root route
     @app.route('/')

@@ -44,7 +44,7 @@ class DocumentMatcher:
             confidence = self._calculate_match_confidence(document, screening.screening_type)
             self.logger.debug(f"Document {document.id} vs Screening {screening.id} ({screening.screening_type.name}): confidence={confidence:.3f}")
             
-            if confidence > 0.3:  # Minimum confidence threshold
+            if confidence > 0.75:  # Raised threshold to reduce false positives
                 matches.append((screening.id, confidence))
                 self.logger.info(f"MATCH FOUND: Document {document.id} matches Screening {screening.id} with confidence {confidence:.3f}")
         
@@ -61,7 +61,7 @@ class DocumentMatcher:
             if document.ocr_text:
                 confidence = self._calculate_match_confidence(document, screening.screening_type)
                 
-                if confidence > 0.3:
+                if confidence > 0.75:
                     # Use created_at since document_date column doesn't exist
                     document_date = getattr(document, 'document_date', None) or document.created_at
                     matches.append({
@@ -84,10 +84,20 @@ class DocumentMatcher:
         
         # Use advanced fuzzy matching for keywords
         keywords = screening_type.keywords_list
+        
+        # Fallback to screening type name tokens if keywords are sparse
+        if not keywords or len(keywords) < 2:
+            # Use screening type name as keyword source
+            name_tokens = screening_type.name.lower().split()
+            # Filter out common words and use meaningful medical terms
+            meaningful_tokens = [token for token in name_tokens 
+                               if len(token) > 2 and token not in {'test', 'screening', 'scan', 'exam'}]
+            keywords = meaningful_tokens if meaningful_tokens else [screening_type.name.lower()]
+        
         if keywords:
             # Get fuzzy matches for all keywords
             fuzzy_matches = self.fuzzy_engine.fuzzy_match_keywords(
-                search_text, keywords, threshold=0.6
+                search_text, keywords, threshold=0.7  # Raised from 0.6
             )
             
             if fuzzy_matches:
