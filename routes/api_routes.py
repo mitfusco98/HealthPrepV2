@@ -22,6 +22,23 @@ logger = logging.getLogger(__name__)
 
 api_bp = Blueprint('api', __name__)
 
+@api_bp.route('/', methods=['GET', 'HEAD'])
+@api_bp.route('/health', methods=['GET', 'HEAD'])
+def api_health():
+    """
+    Health check endpoint for monitoring systems (Sentry, etc.)
+    Responds to both /api and /api/health for compatibility
+    """
+    if request.method == 'HEAD':
+        return '', 200
+    
+    return jsonify({
+        'status': 'healthy',
+        'service': 'HealthPrep API',
+        'version': '2.0',
+        'timestamp': datetime.now().isoformat()
+    })
+
 @api_bp.route('/screening-keywords/<int:screening_type_id>', methods=['GET', 'POST'])
 @login_required
 def screening_keywords(screening_type_id):
