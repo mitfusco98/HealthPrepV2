@@ -34,19 +34,22 @@ class UserViews:
             # Get user-specific statistics with organization filtering
             total_patients = Patient.query.filter_by(org_id=current_user.org_id).count()
             
-            # Calculate screening statistics from actual data - using lowercase status values to match database
+            # Calculate screening statistics from actual data - using EXACT same status values as screening list
             due_screenings = Screening.query.join(Patient).join(ScreeningType).filter(
                 Patient.org_id == current_user.org_id,
+                ScreeningType.is_active == True,
                 Screening.status == 'due'
             ).count()
             
             due_soon_screenings = Screening.query.join(Patient).join(ScreeningType).filter(
                 Patient.org_id == current_user.org_id,
-                Screening.status == 'due soon'
+                ScreeningType.is_active == True,
+                Screening.status == 'due_soon'
             ).count()
             
             complete_screenings = Screening.query.join(Patient).join(ScreeningType).filter(
                 Patient.org_id == current_user.org_id,
+                ScreeningType.is_active == True,
                 Screening.status == 'complete'
             ).count()
             
@@ -67,9 +70,10 @@ class UserViews:
                 'completed_screenings': complete_screenings  # Keep both for compatibility
             }
 
-            # Get recent screening activity (last 10 screenings)
+            # Get recent screening activity (last 10 screenings) - only active screening types
             recent_screenings = Screening.query.join(Patient).join(ScreeningType).filter(
-                Patient.org_id == current_user.org_id
+                Patient.org_id == current_user.org_id,
+                ScreeningType.is_active == True
             ).order_by(Screening.updated_at.desc()).limit(10).all()
 
             return render_template('dashboard.html',
@@ -103,8 +107,11 @@ class UserViews:
             status_filter = request.args.get('status', '')
             screening_type_filter = request.args.get('screening_type', '')
 
-            # Build query based on filters
-            query = Screening.query.join(Patient).join(ScreeningType)
+            # Build query based on filters - include organization and active screening type filtering
+            query = Screening.query.join(Patient).join(ScreeningType).filter(
+                Patient.org_id == current_user.org_id,
+                ScreeningType.is_active == True
+            )
 
             if patient_filter:
                 query = query.filter(
@@ -122,13 +129,26 @@ class UserViews:
 
             screenings = query.order_by(Screening.updated_at.desc()).all()
 
-            # Get additional data for the view
-            screening_types = ScreeningType.query.filter_by(is_active=True).all()
+            # Get additional data for the view - only active screening types in user's org
+            screening_types = ScreeningType.query.filter_by(
+                org_id=current_user.org_id, 
+                is_active=True
+            ).all()
+            
+            # Create screening type groups for the filter dropdown
+            screening_type_groups = []
+            for st in screening_types:
+                screening_type_groups.append({
+                    'name': st.name,
+                    'display_name': st.display_name
+                })
+            
             status_options = ['due', 'due_soon', 'complete', 'overdue']
 
             return render_template('screening/list.html',
                                  screenings=screenings,
                                  screening_types=screening_types,
+                                 screening_type_groups=screening_type_groups,
                                  status_options=status_options,
                                  current_filters={
                                      'patient': patient_filter,
