@@ -190,24 +190,24 @@
                                 <h6 class="mb-1">{{ screening.patient.full_name }}</h6>
                                 <p class="mb-1">{{ screening.screening_type.name }}</p>
                                 <small class="text-muted">
-                                    {% if screening.last_completed_date %}
-                                        Last completed: {{ screening.last_completed_date.strftime('%B %d, %Y') }}
+                                    {% if screening.last_completed %}
+                                        Last completed: {{ screening.last_completed.strftime('%m/%d/%Y') }}
                                     {% else %}
                                         Never completed
                                     {% endif %}
                                 </small>
                             </div>
-                            {% if screening.status == 'Complete' %}
+                            {% if screening.status == 'complete' %}
                                 <span class="badge status-complete">
-                                    <i class="fas fa-check-circle me-1"></i>{{ screening.status }}
+                                    <i class="fas fa-check-circle me-1"></i>Complete
                                 </span>
-                            {% elif screening.status == 'Due Soon' %}
+                            {% elif screening.status == 'due_soon' %}
                                 <span class="badge status-due-soon">
-                                    <i class="fas fa-clock me-1"></i>{{ screening.status }}
+                                    <i class="fas fa-clock me-1"></i>Due Soon
                                 </span>
-                            {% elif screening.status == 'Due' %}
+                            {% elif screening.status == 'due' %}
                                 <span class="badge status-due">
-                                    <i class="fas fa-exclamation-circle me-1"></i>{{ screening.status }}
+                                    <i class="fas fa-exclamation-circle me-1"></i>Due
                                 </span>
                             {% else %}
                                 <span class="badge status-due">
