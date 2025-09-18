@@ -17,6 +17,20 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Suppress health check logs from Sentry monitoring
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record):
+        message = record.getMessage()
+        # Filter out Sentry health check requests to /api and /api/
+        if ('HEAD /api HTTP/1.1' in message or 
+            'HEAD /api/ HTTP/1.1' in message):
+            return False
+        return True
+
+# Apply filter to werkzeug logger to suppress health check spam
+werkzeug_logger = logging.getLogger('werkzeug')
+werkzeug_logger.addFilter(HealthCheckFilter())
+
 class Base(DeclarativeBase):
     pass
 
