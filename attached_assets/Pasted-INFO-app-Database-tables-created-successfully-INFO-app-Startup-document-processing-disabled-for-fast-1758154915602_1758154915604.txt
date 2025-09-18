@@ -1,0 +1,48 @@
+INFO:app:Database tables created successfully
+INFO:app:Startup document processing disabled for faster boot times (set STARTUP_PROCESS_DOCS=true to enable)
+ERROR:routes.screening_routes:Screening list error: (psycopg2.errors.UndefinedColumn) column document.updated_at does not exist
+LINE 1: ...d_at, document.created_at AS document_created_at, document.u...
+                                                             ^
+HINT:  Perhaps you meant to reference the column "document.created_at".
+
+[SQL: SELECT document.id AS document_id, document.patient_id AS document_patient_id, document.org_id AS document_org_id, document.filename AS document_filename, document.file_path AS document_file_path, document.document_type AS document_document_type, document.content AS document_content, document.ocr_text AS document_ocr_text, document.ocr_confidence AS document_ocr_confidence, document.phi_filtered AS document_phi_filtered, document.processed_at AS document_processed_at, document.created_at AS document_created_at, document.updated_at AS document_updated_at, document.external_system AS document_external_system, document.external_id AS document_external_id, document.external_hash AS document_external_hash, document.ingested_at AS document_ingested_at, document.binary_fetched_at AS document_binary_fetched_at, document.processing_version AS document_processing_version, document.document_date AS document_document_date 
+FROM document 
+WHERE document.id = %(pk_1)s]
+[parameters: {'pk_1': 1}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+[2025-09-18 00:20:29 +0000] [3012] [INFO] Handling signal: winch
+[2025-09-18 00:20:29 +0000] [3012] [INFO] Handling signal: winch
+[2025-09-18 00:20:31 +0000] [3012] [INFO] Handling signal: winch
+[2025-09-18 00:20:31 +0000] [3012] [INFO] Handling signal: winch
+ERROR:routes.screening_routes:Screening list error: (psycopg2.errors.UndefinedColumn) column document.updated_at does not exist
+LINE 1: ...d_at, document.created_at AS document_created_at, document.u...
+                                                             ^
+HINT:  Perhaps you meant to reference the column "document.created_at".
+
+[SQL: SELECT document.id AS document_id, document.patient_id AS document_patient_id, document.org_id AS document_org_id, document.filename AS document_filename, document.file_path AS document_file_path, document.document_type AS document_document_type, document.content AS document_content, document.ocr_text AS document_ocr_text, document.ocr_confidence AS document_ocr_confidence, document.phi_filtered AS document_phi_filtered, document.processed_at AS document_processed_at, document.created_at AS document_created_at, document.updated_at AS document_updated_at, document.external_system AS document_external_system, document.external_id AS document_external_id, document.external_hash AS document_external_hash, document.ingested_at AS document_ingested_at, document.binary_fetched_at AS document_binary_fetched_at, document.processing_version AS document_processing_version, document.document_date AS document_document_date 
+FROM document 
+WHERE document.id = %(pk_1)s]
+[parameters: {'pk_1': 1}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+ERROR:ui.views:Error in dashboard view: (psycopg2.errors.UndefinedColumn) column document.updated_at does not exist
+LINE 2: ...d_at, document.created_at AS document_created_at, document.u...
+                                                             ^
+HINT:  Perhaps you meant to reference the column "document.created_at".
+
+[SQL: SELECT count(*) AS count_1 
+FROM (SELECT document.id AS document_id, document.patient_id AS document_patient_id, document.org_id AS document_org_id, document.filename AS document_filename, document.file_path AS document_file_path, document.document_type AS document_document_type, document.content AS document_content, document.ocr_text AS document_ocr_text, document.ocr_confidence AS document_ocr_confidence, document.phi_filtered AS document_phi_filtered, document.processed_at AS document_processed_at, document.created_at AS document_created_at, document.updated_at AS document_updated_at, document.external_system AS document_external_system, document.external_id AS document_external_id, document.external_hash AS document_external_hash, document.ingested_at AS document_ingested_at, document.binary_fetched_at AS document_binary_fetched_at, document.processing_version AS document_processing_version, document.document_date AS document_document_date 
+FROM document JOIN patient ON patient.id = document.patient_id 
+WHERE patient.org_id = %(org_id_1)s AND document.created_at >= %(created_at_1)s) AS anon_1]
+[parameters: {'org_id_1': 1, 'created_at_1': datetime.datetime(2025, 8, 19, 0, 21, 4, 202109)}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+ERROR:ui.views:Error in dashboard view: (psycopg2.errors.UndefinedColumn) column document.updated_at does not exist
+LINE 2: ...d_at, document.created_at AS document_created_at, document.u...
+                                                             ^
+HINT:  Perhaps you meant to reference the column "document.created_at".
+
+[SQL: SELECT count(*) AS count_1 
+FROM (SELECT document.id AS document_id, document.patient_id AS document_patient_id, document.org_id AS document_org_id, document.filename AS document_filename, document.file_path AS document_file_path, document.document_type AS document_document_type, document.content AS document_content, document.ocr_text AS document_ocr_text, document.ocr_confidence AS document_ocr_confidence, document.phi_filtered AS document_phi_filtered, document.processed_at AS document_processed_at, document.created_at AS document_created_at, document.updated_at AS document_updated_at, document.external_system AS document_external_system, document.external_id AS document_external_id, document.external_hash AS document_external_hash, document.ingested_at AS document_ingested_at, document.binary_fetched_at AS document_binary_fetched_at, document.processing_version AS document_processing_version, document.document_date AS document_document_date 
+FROM document JOIN patient ON patient.id = document.patient_id 
+WHERE patient.org_id = %(org_id_1)s AND document.created_at >= %(created_at_1)s) AS anon_1]
+[parameters: {'org_id_1': 1, 'created_at_1': datetime.datetime(2025, 8, 19, 0, 21, 4, 512876)}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
