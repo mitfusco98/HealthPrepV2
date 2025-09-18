@@ -15,6 +15,7 @@ from functools import wraps
 from flask import abort
 from services.smart_discovery import smart_discovery
 from services.jwt_client_auth import JWTClientAuthService
+from services.epic_session_cleanup import EpicSessionCleanupService
 
 def require_admin(f):
     """Decorator to require admin role"""
@@ -292,6 +293,10 @@ def epic_authorize():
         }
 
         redirect_uri = url_for('oauth.epic_callback', _external=True)
+        # Ensure HTTPS for Epic OAuth (required by Epic App Orchard)
+        if redirect_uri.startswith('http://'):
+            redirect_uri = redirect_uri.replace('http://', 'https://')
+        
         fhir_client = FHIRClient(epic_config, redirect_uri)
 
         # Debug logging for OAuth flow
@@ -299,6 +304,23 @@ def epic_authorize():
         logger.info(f"Epic client ID: {org.epic_client_id}")
         logger.info(f"Epic auth URL: {fhir_client.auth_url}")
 
+        # Check if scope changes require session cleanup
+        default_scopes = [
+            'openid', 'fhirUser', 'launch/patient',
+            'patient/Patient.read', 'patient/Observation.read', 
+            'patient/Condition.read', 'patient/DocumentReference.read'
+        ]
+        
+        # Prepare for potential scope changes
+        scope_prep_result = EpicSessionCleanupService.prepare_for_scope_change(
+            org.id, default_scopes
+        )
+        
+        if scope_prep_result['scope_changed']:
+            logger.info(f"Scope changes detected for org {org.id}, session cleanup performed")
+            if scope_prep_result['added_scopes']:
+                flash(f'OAuth scope expanded to include: {", ".join(scope_prep_result["added_scopes"])}', 'info')
+        
         # Generate authorization URL
         auth_url, state = fhir_client.get_authorization_url()
 
@@ -345,7 +367,30 @@ def epic_callback():
 
         if error:
             logger.error(f"Epic OAuth error: {error} - {error_description}")
-            flash(f'Epic authorization failed: {error}', 'error')
+            
+            # Check if this is a session conflict error and handle automatically
+            if current_user.is_authenticated:
+                org_id = current_user.org_id if current_user.organization else None
+                if org_id:
+                    conflict_result = EpicSessionCleanupService.handle_oauth_conflict_error(
+                        org_id, error, error_description
+                    )
+                    
+                    if conflict_result['is_conflict'] and conflict_result['success']:
+                        logger.info(f"Epic session conflict resolved for org {org_id}")
+                        flash('Epic session conflict detected. Server-side sessions cleared. '
+                              'To fully resolve: (1) Open Epic connection in a private/incognito window, OR '
+                              '(2) Clear epic.com cookies from your browser, then try again.', 'warning')
+                        return redirect(url_for('fhir.epic_config'))
+                    elif conflict_result['is_conflict']:
+                        logger.error(f"Failed to resolve Epic session conflict for org {org_id}")
+                        flash('Epic session conflict detected. Please: (1) Try in a private/incognito window, OR '
+                              '(2) Clear epic.com cookies from your browser, OR '
+                              '(3) Use the "Clear Epic Sessions" button below, then try again.', 'error')
+                        return redirect(url_for('fhir.epic_config'))
+            
+            # For non-conflict errors or if conflict resolution failed
+            flash(f'Epic authorization failed: {error_description or error}', 'error')
             return redirect(url_for('epic_registration.epic_registration'))
 
         if not code:
@@ -495,6 +540,38 @@ def epic_disconnect():
     except Exception as e:
         logger.error(f"Error disconnecting Epic OAuth: {str(e)}")
         flash('Error disconnecting from Epic', 'error')
+        return redirect(url_for('fhir.epic_config'))
+
+
+@oauth_bp.route('/epic-clear-sessions', methods=['POST'])
+@login_required
+@require_admin
+def epic_clear_sessions():
+    """
+    Clear all Epic sessions and tokens to resolve browser conflicts
+    Useful when Epic shows "another process already logged in" error
+    """
+    try:
+        org = current_user.organization
+        if not org:
+            flash('Organization not found', 'error')
+            return redirect(url_for('fhir.epic_config'))
+        
+        # Perform comprehensive session cleanup
+        cleanup_result = EpicSessionCleanupService.clear_all_epic_sessions(org.id)
+        
+        if cleanup_result['success']:
+            logger.info(f"Manual Epic session cleanup completed for org {org.id}")
+            flash('Epic sessions cleared successfully. You can now try connecting again.', 'success')
+        else:
+            logger.error(f"Manual Epic session cleanup failed for org {org.id}: {cleanup_result['message']}")
+            flash(f'Session cleanup failed: {cleanup_result["message"]}', 'error')
+        
+        return redirect(url_for('fhir.epic_config'))
+
+    except Exception as e:
+        logger.error(f"Error clearing Epic sessions: {str(e)}")
+        flash('Error clearing Epic sessions', 'error')
         return redirect(url_for('fhir.epic_config'))
 
 
