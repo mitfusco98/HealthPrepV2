@@ -607,12 +607,12 @@ function refreshScreenings(event, tab) {
     const button = event.target.closest('button') || event.target.closest('a');
     const originalText = button.innerHTML;
     const confirmMessage = tab === 'types' 
-        ? 'Discover and sync automated screenings from Epic EMR using the current parsing rules? This will find Epic patients, import them, and update document matches.'
-        : 'Discover and sync patient data from Epic EMR? This will automatically find Epic patients, import them locally, fetch their medical records, conditions, documents, and update all screening statuses.';
+        ? 'Refresh screening matches using current criteria? This will reprocess existing documents with updated keywords and rules to update screening statuses.'
+        : 'Refresh screening data using existing documents? This will reprocess your local documents with current screening criteria and update all screening statuses based on the latest rules.';
 
     if (confirm(confirmMessage)) {
         // Show loading state
-        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Discovering and syncing from EMR...';
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Refreshing screening data...';
         button.disabled = true;
 
         // Make refresh request
@@ -632,7 +632,7 @@ function refreshScreenings(event, tab) {
                 alertDiv.className = 'alert alert-success alert-dismissible fade show';
                 alertDiv.innerHTML = `
                     <i class="fas fa-check-circle me-2"></i>
-                    Patient discovery and EMR sync completed successfully!
+                    Screening data refresh completed successfully!
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 `;
                 
@@ -655,7 +655,7 @@ function refreshScreenings(event, tab) {
             alertDiv.className = 'alert alert-danger alert-dismissible fade show';
             alertDiv.innerHTML = `
                 <i class="fas fa-exclamation-triangle me-2"></i>
-                Error discovering and syncing EMR data: ${error.message}
+                Error refreshing screening data: ${error.message}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             `;
             
