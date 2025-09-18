@@ -36,6 +36,58 @@ def _extract_base_screening_name(name):
 
 screening_bp = Blueprint('screening', __name__)
 
+@screening_bp.route('/refresh', methods=['POST'])
+@login_required
+@non_admin_required
+def refresh_screenings():
+    """Screening refresh for screening list - processes EXISTING documents with updated criteria"""
+    try:
+        from services.screening_refresh_service import ScreeningRefreshService
+        
+        # Initialize screening refresh service for the user's organization
+        refresh_service = ScreeningRefreshService(current_user.org_id)
+        
+        # Get optional refresh options from request
+        refresh_options = {}
+        
+        # Check if force refresh is requested
+        if request.form.get('force_refresh') == 'true':
+            refresh_options['force_refresh'] = True
+        
+        # Get optional patient filter
+        if request.form.get('patient_filter'):
+            refresh_options['patient_filter'] = {
+                'patient_ids': [int(pid) for pid in request.form.getlist('patient_ids') if pid.isdigit()],
+                'mrn_filter': request.form.get('patient_filter')
+            }
+        
+        # Refresh screenings using existing data only (NO Epic calls)
+        refresh_results = refresh_service.refresh_screenings(refresh_options=refresh_options)
+        
+        if refresh_results.get('success'):
+            stats = refresh_results.get('stats', {})
+            patients_processed = stats.get('patients_processed', 0)
+            screenings_updated = stats.get('screenings_updated', 0)
+            errors = stats.get('errors', [])
+            
+            if screenings_updated > 0:
+                message = f'Screening refresh completed! Updated {screenings_updated} screenings across {patients_processed} patients'
+                if errors:
+                    message += f'. {len(errors)} errors occurred.'
+                flash(message, 'success')
+            else:
+                flash('Screening refresh completed - no updates needed', 'info')
+        else:
+            error_msg = refresh_results.get('error', 'Unknown error occurred')
+            flash(f'Screening refresh failed: {error_msg}', 'error')
+            
+        return redirect(url_for('screening.screening_list'))
+        
+    except Exception as e:
+        logger.error(f"Error refreshing screenings: {str(e)}")
+        flash('Error refreshing screening data', 'error')
+        return redirect(url_for('screening.screening_list'))
+
 @screening_bp.route('/list')
 @login_required
 @non_admin_required
@@ -461,52 +513,6 @@ def delete_screening_type(type_id):
         return redirect(url_for('screening.screening_types'))
 
 
-
-@screening_bp.route('/refresh', methods=['POST'])
-@login_required
-def refresh_screenings():
-    """Refresh screenings using the screening engine"""
-    try:
-        engine = ScreeningEngine()
-
-        # Get refresh type
-        refresh_type = request.form.get('refresh_type', 'all')
-        patient_id = request.form.get('patient_id', type=int)
-
-        if refresh_type == 'patient' and patient_id:
-            # Refresh specific patient
-            result = engine.process_patient_screenings(patient_id, refresh_all=True)
-            flash(f'Refreshed screenings for patient. Processed: {result["processed_screenings"]}', 'success')
-
-            # Log the action
-            log_admin_event(
-                event_type='refresh_patient_screenings',
-                user_id=current_user.id,
-                org_id=current_user.org_id,
-                ip=request.remote_addr,
-                data={'patient_id': patient_id, 'processed_screenings': result.get('processed_screenings', 0) if isinstance(result, dict) else 0, 'description': f'Refreshed screenings for patient {patient_id}'}
-            )
-
-        else:
-            # Refresh all screenings
-            result = engine.refresh_all_screenings()
-            flash(f'Refreshed all screenings. Processed {result.get("total_screenings", 0) if isinstance(result, dict) else 0} screenings for {result.get("processed_patients", 0) if isinstance(result, dict) else 0} patients', 'success')
-
-            # Log the action
-            log_admin_event(
-                event_type='refresh_all_screenings',
-                user_id=current_user.id,
-                org_id=current_user.org_id,
-                ip=request.remote_addr,
-                data={'total_screenings': result.get('total_screenings', 0) if isinstance(result, dict) else 0, 'processed_patients': result.get('processed_patients', 0) if isinstance(result, dict) else 0, 'description': f'Refreshed all screenings'}
-            )
-
-        return redirect(url_for('screening.screening_list'))
-
-    except Exception as e:
-        logger.error(f"Error refreshing screenings: {str(e)}")
-        flash('Error refreshing screenings', 'error')
-        return redirect(url_for('screening.screening_list'))
 
 @screening_bp.route('/api/screening-status/<int:patient_id>')
 @login_required

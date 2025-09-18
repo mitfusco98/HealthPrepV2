@@ -44,27 +44,35 @@ def emr_dashboard():
 @login_required
 @non_admin_required  
 def sync_emr_data():
-    """Comprehensive EMR sync accessible to regular users"""
+    """EMR sync for dashboard - pulls NEW documents and processes them"""
     try:
-        from services.comprehensive_emr_sync import ComprehensiveEMRSync
+        from services.emr_sync_service import EMRSyncService
         
-        # Initialize comprehensive EMR sync for the user's organization
-        emr_sync = ComprehensiveEMRSync(current_user.org_id)
+        # Initialize new EMR sync service for the user's organization
+        emr_sync = EMRSyncService(current_user.org_id)
         
-        # Use patient discovery to automatically find and sync Epic sandbox patients
-        sync_results = emr_sync.discover_and_sync_patients()
+        # Get optional patient filter from request
+        patient_filter = None
+        if request.form.get('patient_filter'):
+            patient_filter = {'mrn_filter': request.form.get('patient_filter')}
+        
+        # Sync new data only (with OCR processing and initial screening updates)
+        sync_results = emr_sync.sync_new_data(patient_filter=patient_filter)
         
         if sync_results.get('success'):
-            discovered = sync_results.get('discovered_patients', 0)
-            imported = sync_results.get('imported_patients', 0) 
-            synced = sync_results.get('synced_patients', 0)
-            updated_screenings = sync_results.get('updated_screenings', 0)
-            errors = sync_results.get('errors', [])
+            stats = sync_results.get('stats', {})
+            new_docs = stats.get('new_documents_found', 0)
+            processed_docs = stats.get('documents_processed', 0)
+            updated_screenings = stats.get('screenings_updated', 0)
+            errors = stats.get('errors', [])
             
-            message = f'EMR sync completed! Discovered {discovered} patients, imported {imported}, synced {synced} patients, updated {updated_screenings} screenings'
-            if errors:
-                message += f'. {len(errors)} errors occurred.'
-            flash(message, 'success')
+            if new_docs > 0:
+                message = f'EMR sync completed! Found {new_docs} new documents, processed {processed_docs} documents, updated {updated_screenings} screenings'
+                if errors:
+                    message += f'. {len(errors)} errors occurred.'
+                flash(message, 'success')
+            else:
+                flash('EMR sync completed - no new documents found', 'info')
         else:
             error_msg = sync_results.get('error', 'Unknown error occurred')
             flash(f'EMR sync failed: {error_msg}', 'error')

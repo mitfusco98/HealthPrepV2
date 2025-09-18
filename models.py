@@ -926,7 +926,7 @@ class Screening(db.Model):
         return f'<Screening {self.screening_type_id} for patient {self.patient_id}>'
 
 class Document(db.Model):
-    """Document model with organization scope"""
+    """Document model with organization scope and EMR sync tracking"""
     __tablename__ = 'document'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -941,9 +941,28 @@ class Document(db.Model):
     phi_filtered = db.Column(db.Boolean, default=False)
     processed_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # New fields for EMR sync architecture separation
+    external_system = db.Column(db.String(50))  # 'epic', 'allscripts', etc.
+    external_id = db.Column(db.String(100))  # External system document ID
+    external_hash = db.Column(db.String(64))  # SHA-256 hash for change detection
+    ingested_at = db.Column(db.DateTime)  # When document was pulled from EMR
+    binary_fetched_at = db.Column(db.DateTime)  # When document binary was downloaded
+    processing_version = db.Column(db.Integer, default=1)  # OCR/processing version
+    
+    # Document date from EMR vs local creation date
+    document_date = db.Column(db.Date)  # Date from EMR system (preferred for screening logic)
 
     # Relationships
     organization = db.relationship('Organization', backref='documents')
+    
+    # Add indexes for performance
+    __table_args__ = (
+        db.Index('idx_document_org_external', 'org_id', 'external_system', 'external_id'),
+        db.Index('idx_document_patient_date', 'patient_id', 'document_date'),
+        db.Index('idx_document_ingested', 'ingested_at'),
+    )
 
     def __repr__(self):
         return f'<Document {self.filename}>'
