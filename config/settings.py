@@ -67,7 +67,8 @@ class Config:
         'patient/Observation.read',
         'patient/DocumentReference.read',
         'patient/Condition.read',
-        'patient/DiagnosticReport.read'
+        'patient/DiagnosticReport.read',
+        'patient/Appointment.read'
     ]
 
 class DevelopmentConfig(Config):

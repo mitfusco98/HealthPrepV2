@@ -50,6 +50,7 @@ def epic_registration():
                 'patient/MedicationRequest.read',
                 'patient/DocumentReference.read',
                 'patient/DocumentReference.write',
+                'patient/Appointment.read',
                 'offline_access'
             ]
         }
