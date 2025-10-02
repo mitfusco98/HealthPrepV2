@@ -808,17 +808,26 @@ class ComprehensiveEMRSync:
             keywords = json.loads(screening_type.keywords) if screening_type.keywords else []
             
             # Search patient's documents for screening keywords
+            # Use document_date for filtering (the actual screening date), not creation_date
             recent_documents = FHIRDocument.query.filter_by(
                 patient_id=patient.id
             ).filter(
-                FHIRDocument.creation_date >= datetime.now() - timedelta(days=int(screening_type.frequency_years * 365))
+                FHIRDocument.document_date >= datetime.now() - timedelta(days=int(screening_type.frequency_years * 365))
             ).all()
             
             for doc in recent_documents:
                 if self._document_contains_screening_evidence(doc, keywords):
+                    # CRITICAL FIX: Use document_date (actual screening date) with fallback to creation_date
+                    # This ensures matched documents always have a valid completion date
+                    completion_date = doc.document_date or doc.creation_date
+                    if not completion_date:
+                        # Ultimate fallback to current date if neither field is set
+                        completion_date = datetime.now()
+                        logger.warning(f"Document {doc.id} has no date - using current date as fallback")
+                    
                     return {
                         'completed': True,
-                        'last_completed_date': doc.creation_date,
+                        'last_completed_date': completion_date,
                         'source': 'document',
                         'document_id': doc.id
                     }
