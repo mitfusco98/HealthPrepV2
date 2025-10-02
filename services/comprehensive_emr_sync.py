@@ -13,7 +13,7 @@ from dateutil.relativedelta import relativedelta
 from flask import session, has_request_context
 from flask_login import current_user
 
-from models import db, Patient, PatientCondition, FHIRDocument, Organization, ScreeningType
+from models import db, Patient, PatientCondition, FHIRDocument, Organization, ScreeningType, Appointment
 from services.epic_fhir_service import EpicFHIRService, get_epic_fhir_service_background
 from emr.fhir_client import FHIRClient
 from core.engine import ScreeningEngine
@@ -66,6 +66,7 @@ class ComprehensiveEMRSync:
             'observations_synced': 0,
             'documents_processed': 0,
             'encounters_synced': 0,
+            'appointments_synced': 0,
             'screenings_updated': 0,
             'errors': []
         }
@@ -115,6 +116,9 @@ class ComprehensiveEMRSync:
             # Step 5: Retrieve Encounters (Appointments, Visits)
             encounters_synced = self._sync_patient_encounters(patient, sync_options)
             
+            # Step 5a: Retrieve Appointments (Scheduled Visits)
+            appointments_synced = self._sync_patient_appointments(patient, sync_options)
+            
             # Step 6: Process data for screening engine
             screening_updates = self._process_screening_eligibility(patient, sync_options)
             
@@ -125,6 +129,7 @@ class ComprehensiveEMRSync:
                 'observations_synced': self.sync_stats['observations_synced'] + observations_synced,
                 'documents_processed': self.sync_stats['documents_processed'] + documents_processed,
                 'encounters_synced': self.sync_stats['encounters_synced'] + encounters_synced,
+                'appointments_synced': self.sync_stats['appointments_synced'] + appointments_synced,
                 'screenings_updated': self.sync_stats['screenings_updated'] + screening_updates
             })
             
@@ -142,6 +147,7 @@ class ComprehensiveEMRSync:
                 'observations_synced': observations_synced, 
                 'documents_processed': documents_processed,
                 'encounters_synced': encounters_synced,
+                'appointments_synced': appointments_synced,
                 'screenings_updated': screening_updates,
                 'last_encounter_date': last_encounter_date.isoformat() if last_encounter_date else None
             }
@@ -362,6 +368,89 @@ class ComprehensiveEMRSync:
             
         except Exception as e:
             logger.error(f"Error syncing patient encounters: {str(e)}")
+            return 0
+    
+    def _sync_patient_appointments(self, patient: Patient, sync_options: Dict[str, Any]) -> int:
+        """Step 5a: Retrieve Appointments (Scheduled Future Visits)"""
+        logger.info(f"Syncing appointments for patient {patient.epic_patient_id}")
+        
+        try:
+            # Get appointment window from organization settings or use default (14 days)
+            window_days = self.organization.prioritization_window_days or 14
+            today = datetime.now().date()
+            date_from = today
+            date_to = today + timedelta(days=window_days)
+            
+            # Retrieve appointments from Epic FHIR (booked/pending appointments only)
+            appointments_data = self.epic_service.fhir_client.get_appointments(
+                patient_id=patient.epic_patient_id,
+                status='booked',
+                date_from=date_from,
+                date_to=date_to
+            )
+            
+            if not appointments_data or not appointments_data.get('entry'):
+                logger.info(f"No upcoming appointments found for patient {patient.epic_patient_id}")
+                return 0
+            
+            appointments_synced = 0
+            
+            # Process each appointment
+            for fhir_appointment in appointments_data.get('entry', []):
+                appointment_resource = fhir_appointment.get('resource', {})
+                
+                epic_appointment_id = appointment_resource.get('id')
+                appointment_date = self._extract_appointment_date(appointment_resource)
+                appointment_status = appointment_resource.get('status', 'scheduled')
+                appointment_type = self._extract_appointment_type(appointment_resource)
+                provider = self._extract_appointment_provider(appointment_resource)
+                
+                if epic_appointment_id and appointment_date:
+                    # Check if appointment already exists
+                    existing_appointment = Appointment.query.filter_by(
+                        epic_appointment_id=epic_appointment_id,
+                        org_id=self.organization_id
+                    ).first()
+                    
+                    if not existing_appointment:
+                        # Create new appointment record
+                        new_appointment = Appointment()
+                        new_appointment.patient_id = patient.id
+                        new_appointment.org_id = self.organization_id
+                        new_appointment.epic_appointment_id = epic_appointment_id
+                        new_appointment.appointment_date = appointment_date
+                        new_appointment.appointment_type = appointment_type
+                        new_appointment.provider = provider
+                        new_appointment.status = appointment_status
+                        new_appointment.fhir_appointment_resource = json.dumps(appointment_resource)
+                        new_appointment.last_fhir_sync = datetime.now()
+                        
+                        db.session.add(new_appointment)
+                        appointments_synced += 1
+                        
+                        logger.info(f"Added new appointment: {appointment_date} for patient {patient.name}")
+                    else:
+                        # Update existing appointment if status/date changed
+                        if (existing_appointment.status != appointment_status or 
+                            existing_appointment.appointment_date != appointment_date):
+                            existing_appointment.appointment_date = appointment_date
+                            existing_appointment.status = appointment_status
+                            existing_appointment.appointment_type = appointment_type
+                            existing_appointment.provider = provider
+                            existing_appointment.fhir_appointment_resource = json.dumps(appointment_resource)
+                            existing_appointment.last_fhir_sync = datetime.now()
+                            
+                            logger.info(f"Updated appointment: {epic_appointment_id}")
+            
+            # Update organization's last appointment sync timestamp
+            self.organization.last_appointment_sync = datetime.now()
+            db.session.commit()
+            
+            logger.info(f"Processed {appointments_synced} appointments")
+            return appointments_synced
+            
+        except Exception as e:
+            logger.error(f"Error syncing patient appointments: {str(e)}")
             return 0
     
     def _process_screening_eligibility(self, patient: Patient, sync_options: Dict[str, Any]) -> int:
@@ -678,6 +767,39 @@ class ComprehensiveEMRSync:
         # This would update a separate patient visit history model
         # For now, we'll log it
         logger.info(f"Patient {patient.epic_patient_id} visit: {encounter_type} on {encounter_date}")
+    
+    def _extract_appointment_date(self, appointment_resource: Dict) -> Optional[datetime]:
+        """Extract appointment date from FHIR Appointment resource"""
+        try:
+            start_date = appointment_resource.get('start')
+            if start_date:
+                return datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+        except Exception:
+            pass
+        return None
+    
+    def _extract_appointment_type(self, appointment_resource: Dict) -> Optional[str]:
+        """Extract appointment type from FHIR Appointment resource"""
+        try:
+            appointment_type = appointment_resource.get('appointmentType', {})
+            coding = appointment_type.get('coding', [])
+            if coding:
+                return coding[0].get('display') or coding[0].get('code')
+        except Exception:
+            pass
+        return 'General'
+    
+    def _extract_appointment_provider(self, appointment_resource: Dict) -> Optional[str]:
+        """Extract appointment provider from FHIR Appointment resource"""
+        try:
+            participants = appointment_resource.get('participant', [])
+            for participant in participants:
+                actor = participant.get('actor', {})
+                if actor.get('display'):
+                    return actor.get('display')
+        except Exception:
+            pass
+        return None
     
     def _check_screening_completion(self, patient: Patient, screening_type: ScreeningType) -> Dict[str, Any]:
         """Check if screening has been completed based on documents and observations"""
