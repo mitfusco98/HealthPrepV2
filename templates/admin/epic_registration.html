@@ -234,6 +234,95 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Step 3: Appointment Prioritization -->
+            <div class="registration-step active">
+                <div class="d-flex align-items-start">
+                    <div class="step-icon active">
+                        <span>3</span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h5>Appointment-Based Screening Prioritization</h5>
+                        <p class="text-muted">Configure smart screening prioritization based on upcoming patient appointments</p>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-lightbulb me-2"></i>
+                            <strong>Reduce workload:</strong> Process only patients with upcoming appointments instead of your entire roster, reducing screening workload by up to 80%.
+                        </div>
+                        
+                        <form id="prioritizationForm">
+                            <div class="mb-3 form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="enablePrioritization" 
+                                       {% if organization.appointment_based_prioritization %}checked{% endif %}
+                                       onchange="togglePrioritizationSettings()">
+                                <label class="form-check-label" for="enablePrioritization">
+                                    <strong>Enable Appointment-Based Prioritization</strong>
+                                </label>
+                            </div>
+                            
+                            <div id="prioritizationSettings" style="{% if not organization.appointment_based_prioritization %}display: none;{% endif %}">
+                                <div class="mb-3">
+                                    <label class="form-label">Appointment Window (days ahead)</label>
+                                    <input type="number" class="form-control" id="windowDays" 
+                                           value="{{ organization.prioritization_window_days or 14 }}" 
+                                           min="1" max="90">
+                                    <small class="form-text text-muted">
+                                        Process patients with appointments in the next X days (default: 14)
+                                    </small>
+                                </div>
+                                
+                                <div class="mb-3 form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="processNonScheduled" 
+                                           {% if organization.process_non_scheduled_patients %}checked{% endif %}>
+                                    <label class="form-check-label" for="processNonScheduled">
+                                        Process non-scheduled patients after priority patients
+                                    </label>
+                                    <small class="form-text text-muted d-block">
+                                        If disabled, only patients with appointments will be processed
+                                    </small>
+                                </div>
+                                
+                                <div id="prioritizationStats" class="card bg-light mt-3" style="display: none;">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Current Statistics</h6>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-2">
+                                                    <small class="text-muted">Priority Patients:</small>
+                                                    <strong id="statsPriorityPatients" class="d-block">-</strong>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <small class="text-muted">Upcoming Appointments:</small>
+                                                    <strong id="statsUpcomingApts" class="d-block">-</strong>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-2">
+                                                    <small class="text-muted">Total Patients:</small>
+                                                    <strong id="statsTotalPatients" class="d-block">-</strong>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <small class="text-muted">Workload Reduction:</small>
+                                                    <strong id="statsWorkloadReduction" class="text-success d-block">-</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <small id="statsLastSync" class="text-muted">Last sync: -</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button type="button" class="btn btn-primary" onclick="savePrioritizationSettings()">
+                                <i class="fas fa-save me-1"></i> Save Prioritization Settings
+                            </button>
+                            
+                            <button type="button" class="btn btn-outline-info ms-2" onclick="loadPrioritizationStats()">
+                                <i class="fas fa-chart-bar me-1"></i> View Statistics
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Registration Status Sidebar -->
@@ -587,6 +676,75 @@ function checkOAuthStatus() {
         result.className = 'connection-status error';
         message.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>Failed to check OAuth status';
         console.error('Error:', error);
+    });
+}
+
+function togglePrioritizationSettings() {
+    const enabled = document.getElementById('enablePrioritization').checked;
+    const settings = document.getElementById('prioritizationSettings');
+    settings.style.display = enabled ? 'block' : 'none';
+}
+
+function savePrioritizationSettings() {
+    const data = {
+        appointment_based_prioritization: document.getElementById('enablePrioritization').checked,
+        prioritization_window_days: parseInt(document.getElementById('windowDays').value),
+        process_non_scheduled_patients: document.getElementById('processNonScheduled').checked
+    };
+
+    fetch('{{ url_for("epic_registration.update_appointment_prioritization") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Appointment prioritization settings saved successfully!');
+            loadPrioritizationStats();
+        } else {
+            alert('Error saving settings: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error saving prioritization settings');
+    });
+}
+
+function loadPrioritizationStats() {
+    const statsDiv = document.getElementById('prioritizationStats');
+    
+    fetch('{{ url_for("epic_registration.get_prioritization_stats") }}', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.stats) {
+            const stats = data.stats;
+            
+            document.getElementById('statsPriorityPatients').textContent = stats.priority_patients || '0';
+            document.getElementById('statsUpcomingApts').textContent = stats.upcoming_appointments || '0';
+            document.getElementById('statsTotalPatients').textContent = stats.total_patients || '0';
+            document.getElementById('statsWorkloadReduction').textContent = stats.workload_reduction_pct ? stats.workload_reduction_pct + '%' : '0%';
+            
+            const lastSync = stats.last_appointment_sync ? new Date(stats.last_appointment_sync).toLocaleString() : 'Never';
+            document.getElementById('statsLastSync').textContent = 'Last sync: ' + lastSync;
+            
+            statsDiv.style.display = 'block';
+        } else {
+            alert('Error loading statistics: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error loading prioritization statistics');
     });
 }
 </script>

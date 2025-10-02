@@ -170,3 +170,79 @@ def test_epic_connection():
             'success': False,
             'error': f'Connection test failed: {str(e)}'
         })
+
+@epic_registration_bp.route('/admin/epic/registration/appointment-prioritization', methods=['POST'])
+@login_required
+def update_appointment_prioritization():
+    """Update Appointment Prioritization Settings"""
+    try:
+        organization = current_user.organization
+        if not organization:
+            return jsonify({'success': False, 'error': 'Organization not found'})
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'})
+        
+        # Update appointment prioritization settings
+        if 'appointment_based_prioritization' in data:
+            organization.appointment_based_prioritization = bool(data['appointment_based_prioritization'])
+        
+        if 'prioritization_window_days' in data:
+            window_days = int(data['prioritization_window_days'])
+            if window_days < 1 or window_days > 90:
+                return jsonify({'success': False, 'error': 'Window days must be between 1 and 90'})
+            organization.prioritization_window_days = window_days
+        
+        if 'process_non_scheduled_patients' in data:
+            organization.process_non_scheduled_patients = bool(data['process_non_scheduled_patients'])
+        
+        # Import here to avoid circular imports
+        from app import db
+        db.session.commit()
+        
+        logger.info(f"Appointment prioritization settings updated for organization {organization.name}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Appointment prioritization settings updated successfully',
+            'settings': {
+                'appointment_based_prioritization': organization.appointment_based_prioritization,
+                'prioritization_window_days': organization.prioritization_window_days,
+                'process_non_scheduled_patients': organization.process_non_scheduled_patients,
+                'last_appointment_sync': organization.last_appointment_sync.isoformat() if organization.last_appointment_sync else None
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating appointment prioritization: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Failed to update settings: {str(e)}'
+        })
+
+@epic_registration_bp.route('/admin/epic/registration/prioritization-stats', methods=['GET'])
+@login_required
+def get_prioritization_stats():
+    """Get Appointment Prioritization Statistics"""
+    try:
+        organization = current_user.organization
+        if not organization:
+            return jsonify({'success': False, 'error': 'Organization not found'})
+        
+        from services.appointment_prioritization import AppointmentBasedPrioritization
+        
+        prioritization_service = AppointmentBasedPrioritization(organization.id)
+        stats = prioritization_service.get_prioritization_stats()
+        
+        return jsonify({
+            'success': True,
+            'stats': stats
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting prioritization stats: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
