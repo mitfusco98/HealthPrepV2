@@ -229,6 +229,9 @@ class DocumentProcessor:
                 # Plain text file
                 with open(file_path, 'r', encoding='utf-8') as f:
                     return f.read(), 1.0
+            elif file_ext in ['.html', '.htm']:
+                # HTML document (Epic clinical notes)
+                return self._extract_from_html(file_path)
             else:
                 self.logger.warning(f"Unsupported file type: {file_ext}")
                 return None, 0.0
@@ -306,6 +309,47 @@ class DocumentProcessor:
                 
         except Exception as e:
             self.logger.error(f"Error processing image {image_path}: {str(e)}")
+            return None, 0.0
+    
+    def _extract_from_html(self, html_path: str) -> Tuple[Optional[str], float]:
+        """Extract text from HTML document (Epic clinical notes)"""
+        try:
+            import trafilatura
+            
+            # Read HTML content
+            with open(html_path, 'r', encoding='utf-8', errors='ignore') as f:
+                html_content = f.read()
+            
+            # Extract clean text using trafilatura
+            extracted_text = trafilatura.extract(html_content, include_tables=True, include_comments=False)
+            
+            if extracted_text:
+                self.logger.info(f"Successfully extracted {len(extracted_text)} characters from HTML")
+                return extracted_text, 1.0  # HTML extraction is deterministic, high confidence
+            else:
+                # Fallback: strip HTML tags manually
+                from html.parser import HTMLParser
+                
+                class HTMLTextExtractor(HTMLParser):
+                    def __init__(self):
+                        super().__init__()
+                        self.text = []
+                    
+                    def handle_data(self, data):
+                        self.text.append(data.strip())
+                
+                parser = HTMLTextExtractor()
+                parser.feed(html_content)
+                fallback_text = ' '.join(parser.text)
+                
+                if fallback_text:
+                    self.logger.info(f"Extracted text using fallback HTML parser")
+                    return fallback_text, 0.9
+                else:
+                    return None, 0.0
+                
+        except Exception as e:
+            self.logger.error(f"Error processing HTML {html_path}: {str(e)}")
             return None, 0.0
     
     def _enhance_text_for_screening(self, text: str, document_title: str) -> str:
@@ -434,6 +478,7 @@ class DocumentProcessor:
             'image/bmp': '.bmp',
             'text/plain': '.txt',
             'text/html': '.html',
+            'application/xhtml+xml': '.html',
             'application/msword': '.doc',
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx'
         }
