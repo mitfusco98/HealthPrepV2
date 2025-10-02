@@ -382,11 +382,11 @@ class ScreeningRefreshService:
             ).all()
             
             for doc in fhir_documents:
-                if not doc.extracted_text:
+                if not doc.ocr_text:
                     continue
                 
                 # Check if document text contains screening keywords
-                text_lower = doc.extracted_text.lower()
+                text_lower = doc.ocr_text.lower()
                 for keyword in keywords:
                     if keyword.lower() in text_lower:
                         # Use document_date with fallback to creation_date

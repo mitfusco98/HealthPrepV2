@@ -659,25 +659,15 @@ class ComprehensiveEMRSync:
         return None
     
     def _is_potentially_screening_document(self, title: Optional[str], doc_type: Optional[str]) -> bool:
-        """Check if document might contain screening information"""
-        if not title and not doc_type:
-            return False
+        """Check if document might contain screening information
         
-        # Screening-related keywords
-        screening_keywords = [
-            'mammogram', 'colonoscopy', 'pap smear', 'pap test', 'cervical',
-            'bone density', 'dexa', 'dxa', 'osteoporosis',
-            'skin cancer', 'dermatology', 'mole', 'lesion',
-            'prostate', 'psa', 'digital rectal',
-            'breast', 'clinical breast exam',
-            'lung', 'chest ct', 'ldct',
-            'vision', 'eye exam', 'glaucoma',
-            'hearing', 'audiometry'
-        ]
-        
-        text_to_check = f"{title or ''} {doc_type or ''}".lower()
-        
-        return any(keyword in text_to_check for keyword in screening_keywords)
+        CRITICAL FIX: Process ALL documents instead of filtering by title.
+        Epic documents often have generic titles like "Progress Note" that don't contain
+        screening keywords, but their content does. Keyword matching should happen on 
+        the extracted text, not the title.
+        """
+        # Process all documents - let the keyword matching happen on extracted text
+        return True
     
     def _process_document_content(self, patient: Patient, document_resource: Dict,
                                 title: str, doc_date: datetime, doc_type: str) -> bool:
@@ -695,11 +685,11 @@ class ComprehensiveEMRSync:
                     fhir_doc = FHIRDocument(
                         patient_id=patient.id,
                         epic_document_id=document_resource.get('id'),
-                        document_type=doc_type or 'Unknown',
+                        document_type_display=doc_type or 'Unknown',
                         title=title or 'Untitled',
                         document_date=doc_date,
-                        extracted_text=extracted_text[:5000],  # Limit text length
-                        fhir_resource=json.dumps(document_resource),
+                        ocr_text=extracted_text[:5000],  # Limit text length
+                        fhir_document_reference=json.dumps(document_resource),
                         org_id=self.organization_id
                     )
                     
@@ -844,10 +834,10 @@ class ComprehensiveEMRSync:
     
     def _document_contains_screening_evidence(self, document: FHIRDocument, keywords: List[str]) -> bool:
         """Check if document contains evidence of completed screening"""
-        if not document.extracted_text or not keywords:
+        if not document.ocr_text or not keywords:
             return False
         
-        text_lower = document.extracted_text.lower()
+        text_lower = document.ocr_text.lower()
         
         # Use fuzzy matching for keywords
         for keyword in keywords:
