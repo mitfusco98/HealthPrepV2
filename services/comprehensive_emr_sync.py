@@ -658,6 +658,20 @@ class ComprehensiveEMRSync:
             pass
         return None
     
+    def _extract_content_type(self, document_resource: Dict) -> Optional[str]:
+        """Extract content type (MIME type) from document attachment"""
+        try:
+            content = document_resource.get('content', [])
+            for content_item in content:
+                attachment = content_item.get('attachment', {})
+                content_type = attachment.get('contentType')
+                if content_type:
+                    logger.debug(f"Extracted content type: {content_type}")
+                    return content_type
+        except Exception as e:
+            logger.debug(f"Could not extract content type: {str(e)}")
+        return None
+    
     def _is_potentially_screening_document(self, title: Optional[str], doc_type: Optional[str]) -> bool:
         """Check if document might contain screening information
         
@@ -673,12 +687,15 @@ class ComprehensiveEMRSync:
                                 title: str, doc_date: datetime, doc_type: str) -> bool:
         """Download and process document content for screening keywords"""
         try:
+            # Extract content type from document metadata
+            content_type = self._extract_content_type(document_resource)
+            
             # Download document content
             doc_content = self._download_document_content(document_resource)
             
             if doc_content:
-                # Use OCR if needed and extract text
-                extracted_text = self.document_processor.process_document(doc_content, title)
+                # Use OCR if needed and extract text (pass content_type for proper file type detection)
+                extracted_text = self.document_processor.process_document(doc_content, title, content_type)
                 
                 if extracted_text:
                     # Create FHIRDocument record
