@@ -59,6 +59,7 @@ class FHIRClient:
             'patient/Observation.read',
             'patient/DocumentReference.read',
             'patient/Encounter.read',
+            'patient/Appointment.read',
             'user/Patient.read',
             'user/Condition.read',
             'user/Observation.read',
