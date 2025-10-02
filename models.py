@@ -992,6 +992,7 @@ class FHIRDocument(db.Model):
     title = db.Column(db.String(300))
     description = db.Column(db.Text)
     creation_date = db.Column(db.DateTime)  # When document was created in Epic
+    document_date = db.Column(db.Date)  # Actual date from FHIR resource (preferred for screening logic)
     author_name = db.Column(db.String(200))  # Document author from Epic
     
     # Content handling
