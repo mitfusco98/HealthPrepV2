@@ -2,11 +2,12 @@
 Core screening engine that orchestrates the screening process with fuzzy detection
 """
 from app import db
-from models import Patient, ScreeningType, Screening, Document
+from models import Patient, ScreeningType, Screening, Document, Organization
 from .matcher import DocumentMatcher
 from .criteria import EligibilityCriteria
 from .fuzzy_detection import FuzzyDetectionEngine
 from emr.epic_integration import EpicScreeningIntegration
+from services.appointment_prioritization import AppointmentBasedPrioritization
 from datetime import datetime, date
 import logging
 from flask_login import current_user
@@ -21,18 +22,67 @@ class ScreeningEngine:
         self.logger = logging.getLogger(__name__)
         self.epic_integration = None
     
-    def refresh_all_screenings(self):
-        """Refresh all patient screenings based on current criteria and sync with Epic if available"""
+    def refresh_all_screenings(self, org_id=None):
+        """
+        Refresh all patient screenings based on current criteria and sync with Epic if available
+        Supports appointment-based prioritization to reduce workload
+        
+        Args:
+            org_id: Organization ID to filter patients (optional)
+        """
         updated_count = 0
         
         try:
             # Initialize Epic integration if user is authenticated and has access
             self._initialize_epic_integration()
             
-            patients = Patient.query.all()
-            
-            for patient in patients:
-                updated_count += self.refresh_patient_screenings(patient.id)
+            # If org_id provided, check if appointment prioritization is enabled
+            if org_id:
+                organization = Organization.query.get(org_id)
+                
+                if organization and organization.appointment_based_prioritization:
+                    self.logger.info("Appointment-based prioritization is ENABLED - processing priority patients first")
+                    
+                    # Use appointment-based prioritization
+                    prioritization_service = AppointmentBasedPrioritization(org_id)
+                    priority_patient_ids = prioritization_service.get_priority_patients()
+                    
+                    if priority_patient_ids:
+                        self.logger.info(f"Processing {len(priority_patient_ids)} priority patients with upcoming appointments")
+                        
+                        # Process priority patients first
+                        for patient_id in priority_patient_ids:
+                            updated_count += self.refresh_patient_screenings(patient_id)
+                        
+                        # Process non-scheduled patients if enabled
+                        if organization.process_non_scheduled_patients:
+                            self.logger.info("Processing non-scheduled patients (process_non_scheduled_patients is enabled)")
+                            non_scheduled_ids = prioritization_service.get_non_scheduled_patients(
+                                exclude_patient_ids=priority_patient_ids
+                            )
+                            
+                            for patient_id in non_scheduled_ids:
+                                updated_count += self.refresh_patient_screenings(patient_id)
+                        else:
+                            self.logger.info(f"Skipping {len(prioritization_service.get_non_scheduled_patients(priority_patient_ids))} non-scheduled patients (process_non_scheduled_patients is disabled)")
+                    else:
+                        self.logger.info("No priority patients found - falling back to standard processing")
+                        # Fall back to standard processing
+                        patients = Patient.query.filter_by(org_id=org_id).all()
+                        for patient in patients:
+                            updated_count += self.refresh_patient_screenings(patient.id)
+                else:
+                    # Standard processing for org without prioritization
+                    self.logger.info("Appointment-based prioritization is DISABLED - processing all patients")
+                    patients = Patient.query.filter_by(org_id=org_id).all()
+                    for patient in patients:
+                        updated_count += self.refresh_patient_screenings(patient.id)
+            else:
+                # No org_id provided - process all patients (legacy behavior)
+                self.logger.info("No org_id provided - processing all patients across all organizations")
+                patients = Patient.query.all()
+                for patient in patients:
+                    updated_count += self.refresh_patient_screenings(patient.id)
             
             db.session.commit()
             self.logger.info(f"Successfully refreshed {updated_count} screenings")
