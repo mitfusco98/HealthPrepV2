@@ -1289,17 +1289,36 @@ class PatientCondition(db.Model):
         return f'<Condition {self.condition_name} for patient {self.patient_id}>'
 
 class Appointment(db.Model):
-    """Patient appointments"""
+    """Patient appointments with Epic FHIR integration"""
     __tablename__ = 'appointment'
 
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
+    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
     appointment_date = db.Column(db.DateTime, nullable=False)
     appointment_type = db.Column(db.String(100))
     provider = db.Column(db.String(100))
     status = db.Column(db.String(20), default='scheduled')
     notes = db.Column(db.Text)
+    
+    # Epic FHIR integration fields
+    epic_appointment_id = db.Column(db.String(100))
+    fhir_appointment_resource = db.Column(db.Text)
+    last_fhir_sync = db.Column(db.DateTime)
+    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    organization = db.relationship('Organization', backref='appointments')
+    
+    # Indexes for performance and uniqueness
+    __table_args__ = (
+        db.Index('idx_appointment_date', 'appointment_date'),
+        db.Index('idx_appointment_patient', 'patient_id'),
+        db.Index('idx_appointment_epic_id', 'epic_appointment_id'),
+        db.UniqueConstraint('epic_appointment_id', 'org_id', name='unique_epic_appointment_per_org'),
+    )
 
     def __repr__(self):
         return f'<Appointment {self.appointment_date} for patient {self.patient_id}>'

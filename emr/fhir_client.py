@@ -709,6 +709,48 @@ class FHIRClient:
             self.logger.error(f"Error retrieving encounters for patient {patient_id}: {str(e)}")
             return None
     
+    def get_appointments(self, patient_id=None, status=None, date_from=None, date_to=None):
+        """
+        Get patient appointments using Epic FHIR
+        Query: GET [base]/Appointment?patient={patient_id}
+        Returns: Scheduled appointments for screening prioritization
+        
+        Args:
+            patient_id: Epic patient ID to filter appointments
+            status: Appointment status (booked, pending, arrived, fulfilled, cancelled, noshow)
+            date_from: Start date for appointment range
+            date_to: End date for appointment range
+        """
+        try:
+            url = f"{self.base_url}Appointment"
+            params = {
+                '_sort': 'date',
+                '_count': '100'
+            }
+            
+            if patient_id:
+                params['patient'] = patient_id
+            
+            if status:
+                params['status'] = status
+            
+            if date_from:
+                params['date'] = f"ge{date_from.isoformat()}"
+            if date_to:
+                if 'date' in params:
+                    params['date'] += f"&date=le{date_to.isoformat()}"
+                else:
+                    params['date'] = f"le{date_to.isoformat()}"
+            
+            response = requests.get(url, headers=self._get_headers(), params=params)
+            response.raise_for_status()
+            
+            return response.json()
+            
+        except Exception as e:
+            self.logger.error(f"Error retrieving appointments for patient {patient_id}: {str(e)}")
+            return None
+    
     def get_epic_screening_data_sequence(self, patient_id):
         """
         Execute Epic's recommended data retrieval sequence for screening
