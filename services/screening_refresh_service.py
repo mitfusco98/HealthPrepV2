@@ -18,7 +18,7 @@ from flask import has_request_context
 from flask_login import current_user
 
 from models import (
-    db, Patient, Screening, ScreeningType, Document, AdminLog,
+    db, Patient, Screening, ScreeningType, Document, FHIRDocument, AdminLog,
     PatientCondition, PrepSheetSettings
 )
 from core.matcher import DocumentMatcher
@@ -204,16 +204,23 @@ class ScreeningRefreshService:
                 changes['needs_refresh'] = True
                 logger.info(f"Found {len(modified_screening_types)} modified screening types")
             
-            # Check for recent document additions/modifications
+            # Check for recent document additions/modifications (both local and Epic FHIR)
             modified_documents = Document.query.filter(
                 Document.org_id == self.organization_id,
                 Document.created_at >= cutoff_time
             ).all()
             
-            if modified_documents:
+            modified_fhir_documents = FHIRDocument.query.filter(
+                FHIRDocument.creation_date >= cutoff_time
+            ).all()
+            
+            total_modified_docs = len(modified_documents) + len(modified_fhir_documents)
+            
+            if modified_documents or modified_fhir_documents:
                 changes['documents_modified'] = [doc.id for doc in modified_documents]
+                changes['fhir_documents_modified'] = [doc.id for doc in modified_fhir_documents]
                 changes['needs_refresh'] = True
-                logger.info(f"Found {len(modified_documents)} new/modified documents")
+                logger.info(f"Found {total_modified_docs} new/modified documents (local: {len(modified_documents)}, FHIR: {len(modified_fhir_documents)})")
             
             # Always check if force refresh is requested
             if refresh_options.get('force_refresh', False):
@@ -240,14 +247,22 @@ class ScreeningRefreshService:
             
             affected_patient_ids.update([pid[0] for pid in screening_patient_ids])
         
-        # If documents were modified, get their patients
-        if changes_detected['documents_modified']:
+        # If documents were modified, get their patients (local documents)
+        if changes_detected.get('documents_modified'):
             doc_patient_ids = db.session.query(Document.patient_id).filter(
                 Document.id.in_(changes_detected['documents_modified']),
                 Document.org_id == self.organization_id
             ).distinct().all()
             
             affected_patient_ids.update([pid[0] for pid in doc_patient_ids])
+        
+        # If FHIR documents were modified, get their patients
+        if changes_detected.get('fhir_documents_modified'):
+            fhir_doc_patient_ids = db.session.query(FHIRDocument.patient_id).filter(
+                FHIRDocument.id.in_(changes_detected['fhir_documents_modified'])
+            ).distinct().all()
+            
+            affected_patient_ids.update([pid[0] for pid in fhir_doc_patient_ids])
         
         # If force refresh, get all patients
         if refresh_options.get('force_refresh', False):
@@ -300,13 +315,19 @@ class ScreeningRefreshService:
                     ) or refresh_options.get('force_refresh', False)
                     
                     if not screening_affected:
-                        # Check if any of the patient's documents were modified
+                        # Check if any of the patient's documents were modified (local or FHIR)
                         patient_doc_ids = [doc.id for doc in patient.documents]
                         doc_affected = bool(set(patient_doc_ids).intersection(
                             set(changes_detected.get('documents_modified', []))
                         ))
                         
-                        if not doc_affected:
+                        # Also check FHIR documents
+                        patient_fhir_doc_ids = [doc.id for doc in patient.fhir_documents]
+                        fhir_doc_affected = bool(set(patient_fhir_doc_ids).intersection(
+                            set(changes_detected.get('fhir_documents_modified', []))
+                        ))
+                        
+                        if not (doc_affected or fhir_doc_affected):
                             continue  # Skip this screening type
                     
                     # Check eligibility (this may have changed due to criteria updates)
@@ -342,16 +363,68 @@ class ScreeningRefreshService:
         
         return updates_count
     
+    def _find_fhir_document_matches(self, screening: Screening) -> List[Dict]:
+        """
+        Find FHIR documents that match this screening's keywords
+        Similar to DocumentMatcher but for Epic FHIR documents
+        """
+        matches = []
+        
+        try:
+            # Get screening keywords
+            keywords = json.loads(screening.screening_type.keywords) if screening.screening_type.keywords else []
+            if not keywords:
+                return matches
+            
+            # Get patient's FHIR documents
+            fhir_documents = FHIRDocument.query.filter_by(
+                patient_id=screening.patient_id
+            ).all()
+            
+            for doc in fhir_documents:
+                if not doc.extracted_text:
+                    continue
+                
+                # Check if document text contains screening keywords
+                text_lower = doc.extracted_text.lower()
+                for keyword in keywords:
+                    if keyword.lower() in text_lower:
+                        # Use document_date with fallback to creation_date
+                        doc_date = doc.document_date or doc.creation_date
+                        if doc_date and hasattr(doc_date, 'date'):
+                            doc_date = doc_date.date()
+                        
+                        matches.append({
+                            'document': doc,
+                            'document_date': doc_date,
+                            'confidence': 0.9,  # High confidence for keyword match
+                            'source': 'fhir'
+                        })
+                        break  # Found a match, no need to check other keywords
+            
+            logger.debug(f"Found {len(matches)} FHIR document matches for screening {screening.id}")
+            return matches
+            
+        except Exception as e:
+            logger.error(f"Error finding FHIR document matches: {str(e)}")
+            return matches
+    
     def _update_screening_status_with_current_criteria(self, screening: Screening) -> bool:
         """
         Update screening status based on existing documents with current criteria
-        NO Epic calls - only processes existing local documents
+        NO Epic calls - processes existing local documents AND FHIR documents
         """
         try:
-            # Find matching documents using current keywords/criteria
+            # Find matching LOCAL documents using current keywords/criteria
             matches = self.matcher.find_screening_matches(screening)
             
-            if matches:
+            # ALSO find matching FHIR documents (from Epic)
+            fhir_matches = self._find_fhir_document_matches(screening)
+            
+            # Combine both match lists
+            all_matches = matches + fhir_matches
+            
+            if all_matches:
                 # Get the most recent matching document
                 def safe_date_key(match):
                     doc_date = match['document_date']
