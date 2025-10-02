@@ -54,13 +54,14 @@ class DocumentProcessor:
             'recommendation', 'follow-up', 'next screening'
         ]
     
-    def process_document(self, document_content: bytes, document_title: str) -> Optional[str]:
+    def process_document(self, document_content: bytes, document_title: str, content_type: Optional[str] = None) -> Optional[str]:
         """
         Process document content and extract text with screening analysis
         
         Args:
             document_content: Binary document content
             document_title: Document title or filename
+            content_type: MIME type (e.g., 'application/pdf', 'image/jpeg')
             
         Returns:
             Extracted and processed text or None if processing failed
@@ -68,8 +69,11 @@ class DocumentProcessor:
         try:
             self.logger.info(f"Processing document: {document_title}")
             
+            # Determine file extension from content type or filename
+            file_extension = self._get_file_extension_from_content_type(content_type) or self._get_file_extension(document_title)
+            
             # Create temporary file for processing
-            with tempfile.NamedTemporaryFile(delete=False, suffix=self._get_file_extension(document_title)) as temp_file:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
                 temp_file.write(document_content)
                 temp_file_path = temp_file.name
             
@@ -405,6 +409,39 @@ class DocumentProcessor:
         
         _, ext = os.path.splitext(filename)
         return ext if ext else '.tmp'
+    
+    def _get_file_extension_from_content_type(self, content_type: Optional[str]) -> Optional[str]:
+        """
+        Convert MIME content type to file extension
+        
+        Args:
+            content_type: MIME type (e.g., 'application/pdf', 'image/jpeg')
+            
+        Returns:
+            File extension (e.g., '.pdf', '.jpg') or None if not recognized
+        """
+        if not content_type:
+            return None
+        
+        # Common MIME type mappings for medical documents
+        mime_to_ext = {
+            'application/pdf': '.pdf',
+            'image/jpeg': '.jpg',
+            'image/jpg': '.jpg',
+            'image/png': '.png',
+            'image/tiff': '.tiff',
+            'image/tif': '.tiff',
+            'image/bmp': '.bmp',
+            'text/plain': '.txt',
+            'text/html': '.html',
+            'application/msword': '.doc',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx'
+        }
+        
+        # Clean content type (remove charset and other parameters)
+        clean_type = content_type.split(';')[0].strip().lower()
+        
+        return mime_to_ext.get(clean_type)
     
     def get_processing_statistics(self) -> Dict[str, Any]:
         """Get document processing statistics"""
