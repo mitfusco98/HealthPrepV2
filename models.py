@@ -69,6 +69,12 @@ class Organization(db.Model):
     custom_presets_enabled = db.Column(db.Boolean, default=True)
     auto_sync_enabled = db.Column(db.Boolean, default=False)
     max_users = db.Column(db.Integer, default=10)  # User limit for this org
+    
+    # Appointment-Based Prioritization Settings
+    appointment_based_prioritization = db.Column(db.Boolean, default=False)  # Enable appointment-based screening prioritization
+    prioritization_window_days = db.Column(db.Integer, default=14)  # Number of days to look ahead for appointments
+    process_non_scheduled_patients = db.Column(db.Boolean, default=False)  # Process patients without appointments after priority patients
+    last_appointment_sync = db.Column(db.DateTime)  # Last time appointments were synced from Epic
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
