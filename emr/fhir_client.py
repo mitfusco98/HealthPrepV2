@@ -547,7 +547,12 @@ class FHIRClient:
             elif binary_url.startswith('http'):
                 url = binary_url
             else:
-                url = f"{self.base_url}Binary/{binary_url}"
+                # Extract just the ID from Binary/xxx format if present
+                if binary_url.startswith('Binary/'):
+                    binary_id = binary_url.replace('Binary/', '', 1)
+                else:
+                    binary_id = binary_url
+                url = f"{self.base_url}Binary/{binary_id}"
             
             # Use retry logic for binary downloads
             headers = self._get_headers()
