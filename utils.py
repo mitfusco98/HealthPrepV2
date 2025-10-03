@@ -244,11 +244,8 @@ def get_screening_status(last_date: Optional[date], frequency_years: Optional[fl
     today = date.today()
     next_due = calculate_due_date(last_date, frequency_years)
     
-    # Calculate "due soon" threshold (90% of frequency period)
-    due_soon_threshold = last_date + relativedelta(
-        years=int(frequency_years * 0.9),
-        months=int(((frequency_years * 0.9) % 1) * 12)
-    )
+    # Calculate "due soon" threshold (30 days before next due date)
+    due_soon_threshold = next_due - timedelta(days=30)
     
     if today >= next_due:
         return 'Due'

@@ -976,12 +976,37 @@ class ComprehensiveEMRSync:
                 screening_type_id=screening_type.id
             ).first()
             
-            status = 'complete' if completion_status['completed'] else 'due'
+            # Calculate proper status including 'due_soon'
+            next_due = None
+            if completion_status['completed'] and completion_status['last_completed_date']:
+                from utils.date_helpers import calculate_due_date
+                from datetime import date as date_class, timedelta
+                
+                # Calculate next due date
+                next_due = calculate_due_date(
+                    completion_status['last_completed_date'],
+                    screening_type.frequency_value,
+                    screening_type.frequency_unit
+                )
+                
+                # Calculate status based on next_due date
+                today = date_class.today()
+                due_soon_threshold = next_due - timedelta(days=30)
+                
+                if today >= next_due:
+                    status = 'due'
+                elif today >= due_soon_threshold:
+                    status = 'due_soon'
+                else:
+                    status = 'complete'
+            else:
+                status = 'due'
             
             if existing_screening:
                 # Update existing screening
                 existing_screening.status = status
                 existing_screening.last_completed = completion_status['last_completed_date']
+                existing_screening.next_due = next_due if completion_status['completed'] and completion_status['last_completed_date'] else None
                 existing_screening.updated_at = datetime.now()
                 screening = existing_screening
             else:
@@ -992,6 +1017,7 @@ class ComprehensiveEMRSync:
                     org_id=patient.org_id,
                     status=status,
                     last_completed=completion_status['last_completed_date'],
+                    next_due=next_due if completion_status['completed'] and completion_status['last_completed_date'] else None,
                     created_at=datetime.now(),
                     updated_at=datetime.now()
                 )
@@ -1122,17 +1148,83 @@ class ComprehensiveEMRSync:
             synced_patients = 0
             total_updated_screenings = 0
             
-            for patient in imported_patients:
-                try:
-                    sync_result = self.sync_patient_comprehensive(patient.epic_patient_id, sync_options)
-                    if sync_result.get('success'):
-                        synced_patients += 1
-                        total_updated_screenings += sync_result.get('screenings_updated', 0)
+            # Check if appointment-based prioritization is enabled
+            from services.appointment_prioritization import AppointmentBasedPrioritization
+            
+            organization = Organization.query.get(self.organization_id)
+            
+            if organization and organization.appointment_based_prioritization:
+                logger.info("Appointment-Based Screening Prioritization is ENABLED")
+                
+                # Get priority patients with upcoming appointments
+                prioritization_service = AppointmentBasedPrioritization(self.organization_id)
+                priority_patient_ids = prioritization_service.get_priority_patients()
+                
+                if priority_patient_ids:
+                    logger.info(f"Processing {len(priority_patient_ids)} priority patients with upcoming appointments")
+                    
+                    # Process priority patients first
+                    priority_patients = [p for p in imported_patients if p.id in priority_patient_ids]
+                    for patient in priority_patients:
+                        try:
+                            sync_result = self.sync_patient_comprehensive(patient.epic_patient_id, sync_options)
+                            if sync_result.get('success'):
+                                synced_patients += 1
+                                total_updated_screenings += sync_result.get('screenings_updated', 0)
+                            else:
+                                self.sync_stats['errors'].append(f"Sync failed for {patient.name}: {sync_result.get('error', 'Unknown error')}")
+                        except Exception as e:
+                            logger.error(f"Error syncing priority patient {patient.epic_patient_id}: {str(e)}")
+                            self.sync_stats['errors'].append(f"Sync failed for {patient.name}: {str(e)}")
+                    
+                    # Process non-priority patients if configured
+                    if organization.process_non_scheduled_patients:
+                        logger.info("Processing non-scheduled patients (process_non_scheduled_patients is enabled)")
+                        non_priority_patients = [p for p in imported_patients if p.id not in priority_patient_ids]
+                        
+                        for patient in non_priority_patients:
+                            try:
+                                sync_result = self.sync_patient_comprehensive(patient.epic_patient_id, sync_options)
+                                if sync_result.get('success'):
+                                    synced_patients += 1
+                                    total_updated_screenings += sync_result.get('screenings_updated', 0)
+                                else:
+                                    self.sync_stats['errors'].append(f"Sync failed for {patient.name}: {sync_result.get('error', 'Unknown error')}")
+                            except Exception as e:
+                                logger.error(f"Error syncing non-priority patient {patient.epic_patient_id}: {str(e)}")
+                                self.sync_stats['errors'].append(f"Sync failed for {patient.name}: {str(e)}")
                     else:
-                        self.sync_stats['errors'].append(f"Sync failed for {patient.name}: {sync_result.get('error', 'Unknown error')}")
-                except Exception as e:
-                    logger.error(f"Error syncing patient {patient.epic_patient_id}: {str(e)}")
-                    self.sync_stats['errors'].append(f"Sync failed for {patient.name}: {str(e)}")
+                        logger.info(f"Skipping {len([p for p in imported_patients if p.id not in priority_patient_ids])} non-scheduled patients (process_non_scheduled_patients is disabled)")
+                else:
+                    # No priority patients found - fallback to standard sync
+                    logger.info("No patients eligible for Appointment-Based Screening Prioritization, continuing general EMR sync")
+                    
+                    for patient in imported_patients:
+                        try:
+                            sync_result = self.sync_patient_comprehensive(patient.epic_patient_id, sync_options)
+                            if sync_result.get('success'):
+                                synced_patients += 1
+                                total_updated_screenings += sync_result.get('screenings_updated', 0)
+                            else:
+                                self.sync_stats['errors'].append(f"Sync failed for {patient.name}: {sync_result.get('error', 'Unknown error')}")
+                        except Exception as e:
+                            logger.error(f"Error syncing patient {patient.epic_patient_id}: {str(e)}")
+                            self.sync_stats['errors'].append(f"Sync failed for {patient.name}: {str(e)}")
+            else:
+                # Appointment prioritization disabled - process all patients
+                logger.info("Appointment-Based Screening Prioritization is DISABLED - processing all patients")
+                
+                for patient in imported_patients:
+                    try:
+                        sync_result = self.sync_patient_comprehensive(patient.epic_patient_id, sync_options)
+                        if sync_result.get('success'):
+                            synced_patients += 1
+                            total_updated_screenings += sync_result.get('screenings_updated', 0)
+                        else:
+                            self.sync_stats['errors'].append(f"Sync failed for {patient.name}: {sync_result.get('error', 'Unknown error')}")
+                    except Exception as e:
+                        logger.error(f"Error syncing patient {patient.epic_patient_id}: {str(e)}")
+                        self.sync_stats['errors'].append(f"Sync failed for {patient.name}: {str(e)}")
             
             logger.info(f"Discovery and sync completed: {synced_patients} patients synced, {total_updated_screenings} screenings updated")
             
