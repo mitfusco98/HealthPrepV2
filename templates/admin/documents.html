@@ -153,6 +153,11 @@
                                     {% for doc_type, count in data.document_counts.items() %}
                                         <span class="badge bg-info me-1 mb-1">{{ doc_type }}: {{ count }}</span>
                                     {% endfor %}
+                                    <br>
+                                    <small class="text-muted mt-1">
+                                        Manual: {{ data.source_counts.get('Manual', 0) }} | 
+                                        Epic FHIR: {{ data.source_counts.get('Epic FHIR', 0) }}
+                                    </small>
                                 {% else %}
                                     <span class="text-muted">No documents</span>
                                 {% endif %}
@@ -184,17 +189,17 @@
                                                     <div class="card bg-secondary">
                                                         <div class="card-body">
                                                             <h6 class="card-title">
-                                                                <i class="fas fa-file me-1"></i>{{ doc.filename or 'Untitled Document' }}
+                                                                <i class="fas fa-file me-1"></i>{{ doc.title or 'Untitled Document' }}
+                                                                <span class="badge bg-{{ doc.source_badge }} ms-2">{{ doc.source }}</span>
                                                             </h6>
                                                             <p class="card-text small">
                                                                 <strong>Type:</strong> {{ doc.document_type or 'Unknown' }}<br>
                                                                 <strong>Date:</strong> {{ doc.document_date.strftime('%Y-%m-%d') if doc.document_date else 'Not set' }}<br>
-                                                                <strong>Epic Status:</strong> 
-                                                                {% if doc.epic_document_id %}
-                                                                    <span class="badge bg-success">Synced</span>
-                                                                {% else %}
-                                                                    <span class="badge bg-warning">Local Only</span>
+                                                                {% if doc.epic_id %}
+                                                                    <strong>Epic ID:</strong> <code class="text-light">{{ doc.epic_id }}</code><br>
                                                                 {% endif %}
+                                                                <strong>Source:</strong> 
+                                                                <span class="badge bg-{{ doc.source_badge }}">{{ doc.source }}</span>
                                                             </p>
                                                             
                                                             <!-- OCR Status -->
@@ -203,9 +208,6 @@
                                                                     <span class="badge bg-success">
                                                                         <i class="fas fa-eye me-1"></i>OCR Processed
                                                                     </span>
-                                                                    {% if doc.ocr_confidence %}
-                                                                        <span class="badge bg-info">{{ "%.1f"|format(doc.ocr_confidence * 100) }}% confidence</span>
-                                                                    {% endif %}
                                                                 </div>
                                                                 
                                                                 <!-- OCR Preview -->
@@ -221,14 +223,14 @@
                                                                         <button class="btn btn-xs btn-outline-info" 
                                                                                 type="button" 
                                                                                 data-bs-toggle="collapse" 
-                                                                                data-bs-target="#fullOcr-{{ doc.id }}" 
+                                                                                data-bs-target="#fullOcr-{{ doc.source }}-{{ doc.id }}" 
                                                                                 aria-expanded="false">
                                                                             <i class="fas fa-search-plus me-1"></i>View Full OCR Text ({{ doc.ocr_text|length }} chars)
                                                                         </button>
-                                                                        <div class="collapse mt-2" id="fullOcr-{{ doc.id }}">
+                                                                        <div class="collapse mt-2" id="fullOcr-{{ doc.source }}-{{ doc.id }}">
                                                                             <div class="bg-dark p-3 rounded border border-info" style="max-height: 400px; overflow-y: auto;">
                                                                                 <div class="d-flex justify-content-between mb-2">
-                                                                                    <small class="text-info"><i class="fas fa-file-text me-1"></i>Complete OCR Text for {{ doc.filename or 'Document' }}</small>
+                                                                                    <small class="text-info"><i class="fas fa-file-text me-1"></i>Complete OCR Text for {{ doc.title or 'Document' }}</small>
                                                                                     <small class="text-muted">{{ doc.ocr_text|length }} characters</small>
                                                                                 </div>
                                                                                 <pre class="text-light mb-0" style="font-size: 0.8rem; white-space: pre-wrap; word-wrap: break-word;">{{ doc.ocr_text }}</pre>

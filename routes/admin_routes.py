@@ -1871,10 +1871,10 @@ def check_preset_conflicts(preset_id):
 @login_required
 @admin_required
 def admin_documents():
-    """Admin documents page - Show per-patient document inventory"""
+    """Admin documents page - Show per-patient document inventory including FHIR documents"""
     try:
         # Get all patients in the current organization
-        from models import Patient, Document, PatientCondition
+        from models import Patient, Document, FHIRDocument, PatientCondition
         from datetime import date
         
         patients = Patient.query.filter_by(org_id=current_user.org_id).all()
@@ -1882,7 +1882,11 @@ def admin_documents():
         # Build patient document data
         patient_data = []
         for patient in patients:
-            documents = Document.query.filter_by(patient_id=patient.id).all()
+            # Get manual documents
+            manual_documents = Document.query.filter_by(patient_id=patient.id).all()
+            
+            # Get FHIR documents
+            fhir_documents = FHIRDocument.query.filter_by(patient_id=patient.id).all()
             
             # Get patient conditions
             conditions = PatientCondition.query.filter_by(
@@ -1891,23 +1895,57 @@ def admin_documents():
             ).all()
             condition_names = [condition.condition_name for condition in conditions]
             
-            # Count documents by type
+            # Combine documents with source markers
+            combined_documents = []
+            
+            # Add manual documents
+            for doc in manual_documents:
+                combined_documents.append({
+                    'id': doc.id,
+                    'source': 'Manual',
+                    'source_badge': 'primary',
+                    'title': doc.filename or 'Untitled',
+                    'document_type': doc.document_type or 'Unknown',
+                    'ocr_text': doc.ocr_text,
+                    'document_date': doc.document_date,
+                    'created_at': doc.created_at,
+                    'raw_object': doc
+                })
+            
+            # Add FHIR documents
+            for doc in fhir_documents:
+                combined_documents.append({
+                    'id': doc.id,
+                    'source': 'Epic FHIR',
+                    'source_badge': 'success',
+                    'title': doc.title or 'Untitled',
+                    'document_type': doc.document_type_display or 'Unknown',
+                    'ocr_text': doc.ocr_text,
+                    'document_date': doc.document_date,
+                    'created_at': doc.created_at,
+                    'epic_id': doc.epic_document_id,
+                    'raw_object': doc
+                })
+            
+            # Count documents by type and source
             doc_counts = {}
             doc_with_ocr = 0
-            total_docs = len(documents)
+            total_docs = len(combined_documents)
+            source_counts = {'Manual': len(manual_documents), 'Epic FHIR': len(fhir_documents)}
             
-            for doc in documents:
-                doc_type = doc.document_type or 'Unknown'
+            for doc in combined_documents:
+                doc_type = doc['document_type']
                 doc_counts[doc_type] = doc_counts.get(doc_type, 0) + 1
-                if doc.ocr_text:
+                if doc['ocr_text']:
                     doc_with_ocr += 1
             
             patient_data.append({
                 'patient': patient,
-                'documents': documents,
+                'documents': combined_documents,
                 'total_documents': total_docs,
                 'documents_with_ocr': doc_with_ocr,
                 'document_counts': doc_counts,
+                'source_counts': source_counts,
                 'conditions': condition_names
             })
         
