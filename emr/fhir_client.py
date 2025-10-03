@@ -538,7 +538,7 @@ class FHIRClient:
     def download_binary(self, binary_url):
         """
         Download binary content from Epic FHIR Binary resource
-        Used for downloading document attachments
+        Epic returns Binary resources as JSON with base64-encoded data field
         """
         try:
             # Handle relative URLs by prepending base URL if needed
@@ -554,14 +554,30 @@ class FHIRClient:
                     binary_id = binary_url
                 url = f"{self.base_url}Binary/{binary_id}"
             
-            # Use retry logic for binary downloads
+            # Request JSON response to get Binary resource with base64 data
             headers = self._get_headers()
-            headers['Accept'] = 'application/octet-stream'  # Request binary content
+            headers['Accept'] = 'application/fhir+json'
             
             response = requests.get(url, headers=headers)
             response.raise_for_status()
             
-            return response.content
+            # Epic returns Binary as JSON: {"resourceType":"Binary","data":"base64...","contentType":"..."}
+            try:
+                binary_resource = response.json()
+                if binary_resource.get('resourceType') == 'Binary' and 'data' in binary_resource:
+                    # Decode base64 data field
+                    import base64
+                    decoded_content = base64.b64decode(binary_resource['data'])
+                    self.logger.debug(f"Successfully decoded Binary resource, content type: {binary_resource.get('contentType')}")
+                    return decoded_content
+                else:
+                    # Fallback: return raw content if not a proper Binary resource
+                    self.logger.warning(f"Binary response is not in expected format: {binary_resource.get('resourceType')}")
+                    return response.content
+            except ValueError:
+                # Not JSON, return raw bytes
+                self.logger.debug("Binary response is not JSON, returning raw content")
+                return response.content
             
         except Exception as e:
             self.logger.error(f"Error downloading binary from {binary_url}: {str(e)}")
