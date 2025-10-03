@@ -94,8 +94,13 @@ class ScreeningEngine:
         
         return updated_count
     
-    def refresh_patient_screenings(self, patient_id):
-        """Refresh screenings for a specific patient and sync with Epic if available"""
+    def refresh_patient_screenings(self, patient_id, force_refresh=False):
+        """Refresh screenings for a specific patient and sync with Epic if available
+        
+        Args:
+            patient_id: Patient ID to refresh
+            force_refresh: If True, refresh all screenings regardless of criteria changes
+        """
         patient = Patient.query.get(patient_id)
         if not patient:
             return 0
@@ -111,16 +116,61 @@ class ScreeningEngine:
             screening_types = ScreeningType.query.filter_by(is_active=True, org_id=patient.org_id).all()
             
             for screening_type in screening_types:
+                # Check if patient is eligible
                 if self.criteria.is_patient_eligible(patient, screening_type):
                     screening = self._get_or_create_screening(patient, screening_type)
-                    if self._update_screening_status(screening):
-                        updated_count += 1
+                    
+                    # SELECTIVE REFRESH: Only reprocess if criteria changed or force refresh
+                    if force_refresh or self._should_refresh_screening(screening, screening_type):
+                        if self._update_screening_status(screening):
+                            updated_count += 1
+                    else:
+                        self.logger.debug(f"Skipping {screening_type.name} for patient {patient_id} - no criteria changes")
                         
         except Exception as e:
             self.logger.error(f"Error refreshing patient {patient_id} screenings: {str(e)}")
             # Continue with local refresh even if Epic sync fails
             
         return updated_count
+    
+    def _should_refresh_screening(self, screening: Screening, screening_type: ScreeningType) -> bool:
+        """Determine if a screening needs to be refreshed based on criteria changes
+        
+        Args:
+            screening: Existing screening record
+            screening_type: Associated screening type
+            
+        Returns:
+            True if refresh needed, False if can skip
+        """
+        # Always refresh if screening was never updated
+        if not screening.updated_at:
+            return True
+        
+        # Refresh if screening type criteria have changed since last update
+        if screening_type.updated_at and screening_type.updated_at > screening.updated_at:
+            self.logger.debug(f"Criteria changed for {screening_type.name}: {screening_type.updated_at} > {screening.updated_at}")
+            return True
+        
+        # Check if patient has new documents since last screening update
+        from models import Document, FHIRDocument
+        
+        new_manual_docs = Document.query.filter(
+            Document.patient_id == screening.patient_id,
+            Document.created_at > screening.updated_at
+        ).count()
+        
+        new_fhir_docs = FHIRDocument.query.filter(
+            FHIRDocument.patient_id == screening.patient_id,
+            FHIRDocument.created_at > screening.updated_at
+        ).count()
+        
+        if new_manual_docs > 0 or new_fhir_docs > 0:
+            self.logger.debug(f"New documents found for patient {screening.patient_id}: {new_manual_docs} manual + {new_fhir_docs} FHIR")
+            return True
+        
+        # No changes detected - safe to skip
+        return False
     
     def process_new_document(self, document_id):
         """Process a new document and update relevant screenings"""
