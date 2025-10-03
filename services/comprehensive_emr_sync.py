@@ -312,7 +312,9 @@ class ComprehensiveEMRSync:
                 
                 # Extract document metadata
                 doc_id = document_resource.get('id')
-                doc_ids_from_epic.append(doc_id)
+                # CRITICAL FIX: Handle None document IDs for logging
+                if doc_id:
+                    doc_ids_from_epic.append(doc_id)
                 doc_title = self._extract_document_title(document_resource)
                 doc_date = self._extract_document_date(document_resource)
                 doc_type = self._extract_document_type(document_resource)
@@ -879,7 +881,7 @@ class ComprehensiveEMRSync:
                                completion_status: Dict[str, Any]):
         """Update screening status for patient"""
         try:
-            from models import Screening, db
+            from models import Screening, FHIRDocument, db
             
             # Check if screening already exists
             existing_screening = Screening.query.filter_by(
@@ -894,6 +896,7 @@ class ComprehensiveEMRSync:
                 existing_screening.status = status
                 existing_screening.last_completed = completion_status['last_completed_date']
                 existing_screening.updated_at = datetime.now()
+                screening = existing_screening
             else:
                 # Create new screening record
                 new_screening = Screening(
@@ -906,6 +909,19 @@ class ComprehensiveEMRSync:
                     updated_at=datetime.now()
                 )
                 db.session.add(new_screening)
+                screening = new_screening
+            
+            # CRITICAL FIX: Save screening-document association when match is found
+            if completion_status.get('completed') and completion_status.get('document_id'):
+                # Get the matched document
+                matched_doc = FHIRDocument.query.get(completion_status['document_id'])
+                
+                if matched_doc:
+                    # Add document to screening's matched documents (if not already there)
+                    if matched_doc not in screening.fhir_documents:
+                        screening.fhir_documents.append(matched_doc)
+                        logger.info(f"Linked document {matched_doc.id} (Epic: {matched_doc.epic_document_id}) "
+                                  f"to screening {screening_type.name}")
             
             # Commit changes
             db.session.commit()
