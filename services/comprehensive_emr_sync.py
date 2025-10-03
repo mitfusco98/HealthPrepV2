@@ -864,15 +864,28 @@ class ComprehensiveEMRSync:
             return {'completed': False, 'last_completed_date': None, 'source': None}
     
     def _document_contains_screening_evidence(self, document: FHIRDocument, keywords: List[str]) -> bool:
-        """Check if document contains evidence of completed screening"""
+        """Check if document contains evidence of completed screening using word boundary matching"""
+        import re
+        
         if not document.ocr_text or not keywords:
             return False
         
-        text_lower = document.ocr_text.lower()
+        ocr_text = document.ocr_text
         
-        # Use fuzzy matching for keywords
+        # Use word boundary regex matching to prevent false positives
         for keyword in keywords:
-            if keyword.lower() in text_lower:
+            # Handle multi-word keywords: require sequential word matching
+            if ' ' in keyword:
+                # Multi-word: escape each word and require sequential matching with whitespace
+                escaped_words = [re.escape(word) for word in keyword.split()]
+                pattern = r'\b' + r'\s+'.join(escaped_words) + r'\b'
+            else:
+                # Single word: exact word boundary matching
+                pattern = r'\b' + re.escape(keyword) + r'\b'
+            
+            # Check for match with case-insensitive search
+            if re.search(pattern, ocr_text, re.IGNORECASE):
+                logger.debug(f"Keyword match found: '{keyword}' in document {document.id}")
                 return True
         
         return False
