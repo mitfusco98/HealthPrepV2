@@ -302,6 +302,7 @@ class ComprehensiveEMRSync:
             documents_processed = 0
             documents_skipped = 0
             total_documents_from_epic = len(documents_data.get('entry', []))
+            doc_ids_from_epic = []
             
             logger.info(f"Epic returned {total_documents_from_epic} documents for patient {patient.epic_patient_id}")
             
@@ -311,6 +312,7 @@ class ComprehensiveEMRSync:
                 
                 # Extract document metadata
                 doc_id = document_resource.get('id')
+                doc_ids_from_epic.append(doc_id)
                 doc_title = self._extract_document_title(document_resource)
                 doc_date = self._extract_document_date(document_resource)
                 doc_type = self._extract_document_type(document_resource)
@@ -336,6 +338,8 @@ class ComprehensiveEMRSync:
                         logger.debug(f"Skipping duplicate document: ID={doc_id}, Title='{doc_title}'")
                         documents_skipped += 1
             
+            # Log document IDs for deduplication verification
+            logger.info(f"Epic document IDs: {', '.join(doc_ids_from_epic[:5])}{'...' if len(doc_ids_from_epic) > 5 else ''}")
             logger.info(f"Document sync summary - Total: {total_documents_from_epic}, New: {documents_processed}, Skipped: {documents_skipped}")
             return documents_processed
             

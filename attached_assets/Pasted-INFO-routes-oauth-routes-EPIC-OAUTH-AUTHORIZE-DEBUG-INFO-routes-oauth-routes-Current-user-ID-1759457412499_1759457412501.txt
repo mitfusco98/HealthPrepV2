@@ -1,0 +1,327 @@
+INFO:routes.oauth_routes:=== EPIC OAUTH AUTHORIZE DEBUG ===
+INFO:routes.oauth_routes:Current user ID: 1
+INFO:routes.oauth_routes:Current user username: admin
+INFO:routes.oauth_routes:Current user org_id: 1
+INFO:routes.oauth_routes:Current user organization object: <Organization Default Organization>
+INFO:routes.oauth_routes:Session epic_org_id: 1
+INFO:routes.oauth_routes:Organization ID: 1
+INFO:routes.oauth_routes:Organization name: Default Organization
+INFO:routes.oauth_routes:Organization epic_client_id: e57377e2-dfd5-4675-9659-58c33aa67b3f
+INFO:routes.oauth_routes:================================
+INFO:routes.oauth_routes:OAuth redirect URI: https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/oauth/epic-callback
+INFO:routes.oauth_routes:Epic client ID: e57377e2-dfd5-4675-9659-58c33aa67b3f
+INFO:routes.oauth_routes:Epic auth URL: https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize
+INFO:services.epic_session_cleanup:Preparing for scope change - org: 1, scopes: ['openid', 'fhirUser', 'launch/patient', 'patient/Patient.read', 'patient/Observation.read', 'patient/Condition.read', 'patient/DocumentReference.read']
+INFO:services.epic_session_cleanup:Scope changes detected for org 1:
+INFO:services.epic_session_cleanup:  Added scopes: ['patient/Patient.read', 'launch/patient', 'patient/Condition.read', 'patient/DocumentReference.read', 'patient/Observation.read']
+INFO:services.epic_session_cleanup:  Removed scopes: ['user/Goal.read', 'user/List.read', 'user/Observation.read', 'user/Encounter.read', 'user/DiagnosticReport.read', 'user/Condition.read', 'user/AllergyIntolerance.read', 'user/Binary.read', 'user/DocumentReference.read', 'user/CarePlan.read', 'user/Patient.read', 'user/Procedure.read', 'user/Appointment.read', 'offline_access']
+INFO:services.epic_session_cleanup:Starting Epic session cleanup for org_id: 1
+INFO:services.epic_session_cleanup:Epic session cleanup completed: {'session_keys_cleared': ['epic_access_token', 'epic_refresh_token', 'epic_token_expires', 'epic_token_scopes', 'epic_patient_id', 'epic_org_id', 'epic_scope_requested'], 'database_tokens_cleared': True, 'organization_status_reset': True, 'conflicts_resolved': 1, 'success': True, 'message': 'Epic sessions cleared successfully'}
+INFO:routes.oauth_routes:Scope changes detected for org 1, session cleanup performed
+INFO:emr.fhir_client:Epic OAuth Parameters:
+INFO:emr.fhir_client:  response_type: code
+INFO:emr.fhir_client:  client_id: e57377e2-dfd5-4675-9659-58c33aa67b3f
+INFO:emr.fhir_client:  redirect_uri: https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/oauth/epic-callback
+INFO:emr.fhir_client:  scope: openid fhirUser patient/Patient.read patient/Condition.read patient/Observation.read patient/DocumentReference.read patient/Encounter.read patient/Appointment.read user/Patient.read user/Condition.read user/Observation.read user/DocumentReference.read user/Encounter.read
+INFO:emr.fhir_client:  aud: https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/
+INFO:emr.fhir_client:  state: gHCRJ1GuYuUyVA_rP8XmggTVqZP_0MDWNIgiguVvgVo
+INFO:emr.fhir_client:Generated Epic authorization URL: https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize?response_type=code&client_id=e57377e2-dfd5-4675-9659-58c33aa67b3f&redirect_uri=https%3A%2F%2F55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev%2Foauth%2Fepic-callback&scope=openid+fhirUser+patient%2FPatient.read+patient%2FCondition.read+patient%2FObservation.read+patient%2FDocumentReference.read+patient%2FEncounter.read+patient%2FAppointment.read+user%2FPatient.read+user%2FCondition.read+user%2FObservation.read+user%2FDocumentReference.read+user%2FEncounter.read&aud=https%3A%2F%2Ffhir.epic.com%2Finterconnect-fhir-oauth%2Fapi%2FFHIR%2FR4%2F&state=gHCRJ1GuYuUyVA_rP8XmggTVqZP_0MDWNIgiguVvgVo
+INFO:routes.oauth_routes:Starting Epic OAuth flow for organization 1
+INFO:werkzeug:10.81.7.90 - - [03/Oct/2025 01:51:13] "GET /oauth/epic-authorize HTTP/1.1" 302 -
+INFO:routes.oauth_routes:=== Epic OAuth Callback Debug ===
+INFO:routes.oauth_routes:Request URL: https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/oauth/epic-callback?code=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ1cm46b2lkOjEuMi44NDAuMTE0MzUwLjEuMTMuMC4xLjcuMy42ODg4ODQuMTAwIiwiY2xpZW50X2lkIjoiZTU3Mzc3ZTItZGZkNS00Njc1LTk2NTktNThjMzNhYTY3YjNmIiwiZXBpYy5lY2kiOiJ1cm46ZXBpYzpPcGVuLkVwaWMtY3VycmVudCIsImVwaWMubWV0YWRhdGEiOiJOV0dKWF9ZN1RlNlk5dGpIU0ttYTRseEpreTRSbXZCWFJqV0s1VUhYOFgwY0dZNkwyQ0k1LXFSaGFlQU5udEJETF9rT1ZsQU1Zc1Y5NEV3M1FYbkpZcVZJYVJHU2ZsU1V2dXl6RFh5WW12SUI4cU9XcUZEQ1pMdVk1SkZIbzMxcCIsImVwaWMudG9rZW50eXBlIjoiY29kZSIsImV4cCI6MTc1OTQ1NjU5MywiaWF0IjoxNzU5NDU2MjkzLCJpc3MiOiJ1cm46b2lkOjEuMi44NDAuMTE0MzUwLjEuMTMuMC4xLjcuMy42ODg4ODQuMTAwIiwianRpIjoiMzNiY2EzODMtNzA5My00ZmUxLTg2ZTUtMzNlNmFiYjdhZDViIiwibmJmIjoxNzU5NDU2MjkzLCJzdWIiOiJlNmF3Ni1SSnVLTzJtYnFqbGVLdmdWUTMifQ.MvHnM4GWLiq9Xdvv_Ewg7346dEjOGjFITWn_W6zo4TZcrdzfWOGLXIT2X_It2N13tS6oL1ZgEzZei_4dAePiHb45EzRsA4hym8lExhAQMtCIMKH4Y8q_w6epsLiNbYmn049tpja3s4VU51c_4H4crr1rIO4jEOA4uxaBjifzNlER3BUyeHZYlgS7aXtVSd4_a8OABXGUq2WG3eSUUdcafllbSM4-4M82f-xS0L19Kb5KiZrcL3x2oWBdAZ74-ldExr0v6lmc79lKvNSZOktPY9Q1xY7nXyU1s9dsuON6dq8EVsFgn2wwPB4o7pgEULZ6Ib7X3ka6bzWmIA7MBKQQew&state=gHCRJ1GuYuUyVA_rP8XmggTVqZP_0MDWNIgiguVvgVo
+INFO:routes.oauth_routes:Request method: GET
+INFO:routes.oauth_routes:Request headers: {'Host': '55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev', 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36', 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7', 'Accept-Encoding': 'gzip, deflate, br', 'Accept-Language': 'en-US', 'Cookie': 'session=.eJyFUttO3DAQ_ZXIzwv4Esdx3hBIvUgtKwTbm1Bkj8eJ1V0nJA5qhfj3GrqLVFTE03guZ-bo-NyT1m_N3ONMmh_3pEg5kBD9QFbk4nRJfTHDMGKBv0YTHboiDUWIsF0cNsVoUsCYTtZ_4_GExq2KrVki9Cf75up56myILqQwxP3coX4-wLLLj0v0OGEEfNG_sDNOd-YZSW4eblaZ9oRzT5o0LZiz4EhDGDgh0WthqYDaUG8rB4pVninGpVGaVVB7owXlpZPSCaoZQ65Lxo2RXqNwympuKKeu1Joyq0oLXtWmlk4yWlNuKgVW6dJwr5RTjBpuAbRXj9eyZu2Sye7Z5BTmybdp-IkxF1RllbNagCwzP_AIFKi1rHReOTClrTWXrsSMwzFAa7L8bQo7nJPZjXkBp1weMXpExRVljWQNE8c1pZyrA2R4wuT5hHm-e392-ZG9W74t1783p-20rr_uuu5qc_t93dJP518-f-hCt2zuus1wWPD02y30Jnb45m0llOL0X-iEt0sG4aMCOY_BFb4P03WW5YUz_mufV3_9FRu94SLy8AdLvfLV.aN8sEQ.oSQJ2S1qmJum-TSfQ8ZoR7UDfxo', 'Referer': 'https://fhir.epic.com/', 'Sec-Fetch-Dest': 'document', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Site': 'cross-site', 'Sec-Fetch-User': '?1', 'Upgrade-Insecure-Requests': '1', 'X-Forwarded-For': '69.207.59.155, 10.81.7.90', 'X-Forwarded-Proto': 'https', 'X-Replit-User-Bio': '', 'X-Replit-User-Id': '', 'X-Replit-User-Name': '', 'X-Replit-User-Profile-Image': '', 'X-Replit-User-Roles': '', 'X-Replit-User-Teams': '', 'X-Replit-User-Url': ''}
+INFO:routes.oauth_routes:Query parameters received:
+INFO:routes.oauth_routes:  - code: <present>
+INFO:routes.oauth_routes:  - state: <present>
+INFO:routes.oauth_routes:  - error: None
+INFO:routes.oauth_routes:  - error_description: None
+INFO:routes.oauth_routes:  - all query args: {'code': 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ1cm46b2lkOjEuMi44NDAuMTE0MzUwLjEuMTMuMC4xLjcuMy42ODg4ODQuMTAwIiwiY2xpZW50X2lkIjoiZTU3Mzc3ZTItZGZkNS00Njc1LTk2NTktNThjMzNhYTY3YjNmIiwiZXBpYy5lY2kiOiJ1cm46ZXBpYzpPcGVuLkVwaWMtY3VycmVudCIsImVwaWMubWV0YWRhdGEiOiJOV0dKWF9ZN1RlNlk5dGpIU0ttYTRseEpreTRSbXZCWFJqV0s1VUhYOFgwY0dZNkwyQ0k1LXFSaGFlQU5udEJETF9rT1ZsQU1Zc1Y5NEV3M1FYbkpZcVZJYVJHU2ZsU1V2dXl6RFh5WW12SUI4cU9XcUZEQ1pMdVk1SkZIbzMxcCIsImVwaWMudG9rZW50eXBlIjoiY29kZSIsImV4cCI6MTc1OTQ1NjU5MywiaWF0IjoxNzU5NDU2MjkzLCJpc3MiOiJ1cm46b2lkOjEuMi44NDAuMTE0MzUwLjEuMTMuMC4xLjcuMy42ODg4ODQuMTAwIiwianRpIjoiMzNiY2EzODMtNzA5My00ZmUxLTg2ZTUtMzNlNmFiYjdhZDViIiwibmJmIjoxNzU5NDU2MjkzLCJzdWIiOiJlNmF3Ni1SSnVLTzJtYnFqbGVLdmdWUTMifQ.MvHnM4GWLiq9Xdvv_Ewg7346dEjOGjFITWn_W6zo4TZcrdzfWOGLXIT2X_It2N13tS6oL1ZgEzZei_4dAePiHb45EzRsA4hym8lExhAQMtCIMKH4Y8q_w6epsLiNbYmn049tpja3s4VU51c_4H4crr1rIO4jEOA4uxaBjifzNlER3BUyeHZYlgS7aXtVSd4_a8OABXGUq2WG3eSUUdcafllbSM4-4M82f-xS0L19Kb5KiZrcL3x2oWBdAZ74-ldExr0v6lmc79lKvNSZOktPY9Q1xY7nXyU1s9dsuON6dq8EVsFgn2wwPB4o7pgEULZ6Ib7X3ka6bzWmIA7MBKQQew', 'state': 'gHCRJ1GuYuUyVA_rP8XmggTVqZP_0MDWNIgiguVvgVo'}
+INFO:routes.oauth_routes:Session state: gHCRJ1GuYuUyVA_rP8XmggTVqZP_0MDWNIgiguVvgVo
+INFO:routes.oauth_routes:Session user: True
+INFO:routes.oauth_routes:================================
+INFO:routes.oauth_routes:=== EPIC OAUTH CALLBACK USER DEBUG ===
+INFO:routes.oauth_routes:Callback current user ID: 1
+INFO:routes.oauth_routes:Callback current user username: admin
+INFO:routes.oauth_routes:Callback current user org_id: 1
+INFO:routes.oauth_routes:Callback current user organization object: <Organization Default Organization>
+INFO:routes.oauth_routes:Callback Organization ID: 1
+INFO:routes.oauth_routes:Callback Organization name: Default Organization
+INFO:routes.oauth_routes:Callback Organization epic_client_id: e57377e2-dfd5-4675-9659-58c33aa67b3f
+INFO:routes.oauth_routes:=======================================
+INFO:routes.oauth_routes:Token exchange - redirect URI: https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/oauth/epic-callback
+INFO:routes.oauth_routes:Token exchange - client ID: e57377e2-dfd5-4675-9659-58c33aa67b3f
+INFO:routes.oauth_routes:Token exchange - token URL: https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token
+INFO:emr.fhir_client:Token exchange request:
+INFO:emr.fhir_client:  - URL: https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token
+INFO:emr.fhir_client:  - client_id: e57377e2-dfd5-4675-9659-58c33aa67b3f
+INFO:emr.fhir_client:  - redirect_uri: https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/oauth/epic-callback
+INFO:emr.fhir_client:  - grant_type: authorization_code
+INFO:emr.fhir_client:  - code: <present>
+INFO:emr.fhir_client:Token exchange response:
+INFO:emr.fhir_client:  - status_code: 200
+INFO:emr.fhir_client:  - headers: {'Cache-Control': 'no-cache, no-store,no-store', 'Pragma': 'no-cache', 'Content-Type': 'application/json; charset=utf-8', 'Expires': '-1', 'Set-Cookie': 'ASP.NET_SessionId=srhbdtnmpkhu1nmmslak4svt; path=/Interconnect-fhir-oauth; secure; HttpOnly; SameSite=Lax, EpicPersistenceCookie=!CknOAGh+x/t7rJBc5iqg712Vrh0WW6F1MWxp9OQ5q8gPky1Iy/YEFIydDswf+G5PgcQFgXCqxoZrUt0=; path=/; Httponly; Secure', 'ServerMetrics': '{"BlockReads":28,"BlockWrites":27,"BlocksAllocated":2,"DBTime":52,"DatabaseCPUTime":34,"ECFNetworkTime":2,"ECFRequestCount":1,"ECFRequestTime":54,"GREF":2464,"JournalEntries":11,"LockWait":0.08,"LocksFailed":0,"LocksGranted":0,"MCommands":45383,"MemoryDifference":0,"NetworkCacheMisses":0,"NetworkUpdates":0,"WorkflowEventBlockReads":28,"WorkflowEventDBTime":52,"WorkflowEventECFNetworkTime":1,"WorkflowEventECFRequestCount":1,"WorkflowEventGREF":2464}', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains', 'X-Frame-Options': 'sameorigin', 'Access-Control-Allow-Headers': 'origin, authorization, accept, content-type, x-requested-with, prefer, Epic-User-ID, Epic-User-IDType, Epic-Client-ID, soapaction, Epic-MyChartUser-ID, Epic-MyChartUser-IDType', 'Access-Control-Allow-Methods': 'GET, HEAD, POST, PUT, DELETE, TRACE, OPTIONS', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Credentials': 'true', 'Date': 'Fri, 03 Oct 2025 01:51:33 GMT', 'Content-Length': '3408'}
+INFO:emr.fhir_client:Successfully exchanged authorization code for Epic access token
+INFO:routes.oauth_routes:Epic OAuth flow completed successfully for organization 1
+INFO:werkzeug:10.81.7.90 - - [03/Oct/2025 01:51:34] "GET /oauth/epic-callback?code=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ1cm46b2lkOjEuMi44NDAuMTE0MzUwLjEuMTMuMC4xLjcuMy42ODg4ODQuMTAwIiwiY2xpZW50X2lkIjoiZTU3Mzc3ZTItZGZkNS00Njc1LTk2NTktNThjMzNhYTY3YjNmIiwiZXBpYy5lY2kiOiJ1cm46ZXBpYzpPcGVuLkVwaWMtY3VycmVudCIsImVwaWMubWV0YWRhdGEiOiJOV0dKWF9ZN1RlNlk5dGpIU0ttYTRseEpreTRSbXZCWFJqV0s1VUhYOFgwY0dZNkwyQ0k1LXFSaGFlQU5udEJETF9rT1ZsQU1Zc1Y5NEV3M1FYbkpZcVZJYVJHU2ZsU1V2dXl6RFh5WW12SUI4cU9XcUZEQ1pMdVk1SkZIbzMxcCIsImVwaWMudG9rZW50eXBlIjoiY29kZSIsImV4cCI6MTc1OTQ1NjU5MywiaWF0IjoxNzU5NDU2MjkzLCJpc3MiOiJ1cm46b2lkOjEuMi44NDAuMTE0MzUwLjEuMTMuMC4xLjcuMy42ODg4ODQuMTAwIiwianRpIjoiMzNiY2EzODMtNzA5My00ZmUxLTg2ZTUtMzNlNmFiYjdhZDViIiwibmJmIjoxNzU5NDU2MjkzLCJzdWIiOiJlNmF3Ni1SSnVLTzJtYnFqbGVLdmdWUTMifQ.MvHnM4GWLiq9Xdvv_Ewg7346dEjOGjFITWn_W6zo4TZcrdzfWOGLXIT2X_It2N13tS6oL1ZgEzZei_4dAePiHb45EzRsA4hym8lExhAQMtCIMKH4Y8q_w6epsLiNbYmn049tpja3s4VU51c_4H4crr1rIO4jEOA4uxaBjifzNlER3BUyeHZYlgS7aXtVSd4_a8OABXGUq2WG3eSUUdcafllbSM4-4M82f-xS0L19Kb5KiZrcL3x2oWBdAZ74-ldExr0v6lmc79lKvNSZOktPY9Q1xY7nXyU1s9dsuON6dq8EVsFgn2wwPB4o7pgEULZ6Ib7X3ka6bzWmIA7MBKQQew&state=gHCRJ1GuYuUyVA_rP8XmggTVqZP_0MDWNIgiguVvgVo HTTP/1.1" 302 -
+INFO:werkzeug:10.81.7.90 - - [03/Oct/2025 01:51:34] "GET /admin/epic/registration HTTP/1.1" 200 -
+INFO:werkzeug:10.81.10.248 - - [03/Oct/2025 01:51:34] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.6.68 - - [03/Oct/2025 01:51:34] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.6.68 - - [03/Oct/2025 01:51:35] "GET /oauth/epic-status HTTP/1.1" 200 -
+INFO:werkzeug:10.81.6.68 - - [03/Oct/2025 01:51:36] "GET /oauth/epic-status HTTP/1.1" 200 -
+INFO:werkzeug:10.81.10.248 - - [03/Oct/2025 01:51:37] "GET /admin/epic/registration HTTP/1.1" 200 -
+INFO:werkzeug:10.81.7.90 - - [03/Oct/2025 01:51:37] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.0.121 - - [03/Oct/2025 01:51:37] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.6.68 - - [03/Oct/2025 01:51:37] "GET /oauth/epic-status HTTP/1.1" 200 -
+INFO:werkzeug:10.81.10.248 - - [03/Oct/2025 02:03:12] "GET / HTTP/1.1" 302 -
+INFO:werkzeug:10.81.10.248 - - [03/Oct/2025 02:03:13] "GET /admin/dashboard HTTP/1.1" 302 -
+INFO:werkzeug:10.81.10.248 - - [03/Oct/2025 02:03:14] "GET /admin/dashboard/logs HTTP/1.1" 200 -
+INFO:werkzeug:10.81.10.248 - - [03/Oct/2025 02:03:14] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.7.90 - - [03/Oct/2025 02:03:14] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug: * Detected change in '/home/runner/workspace/emr/fhir_client.py', reloading
+INFO:werkzeug: * Restarting with stat
+Using PostgreSQL database: ep-raspy-heart-aep9yhc2.c-2.us-east-2.aws.neon.tech
+INFO:app:Database tables created successfully
+INFO:app:Startup document processing disabled for faster boot times (set STARTUP_PROCESS_DOCS=true to enable)
+INFO:__main__:Starting HealthPrep Medical Screening System
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 144-655-448
+INFO:werkzeug: * Detected change in '/home/runner/workspace/services/comprehensive_emr_sync.py', reloading
+INFO:werkzeug: * Restarting with stat
+Using PostgreSQL database: ep-raspy-heart-aep9yhc2.c-2.us-east-2.aws.neon.tech
+INFO:app:Database tables created successfully
+INFO:app:Startup document processing disabled for faster boot times (set STARTUP_PROCESS_DOCS=true to enable)
+INFO:__main__:Starting HealthPrep Medical Screening System
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 144-655-448
+INFO:werkzeug:10.81.7.90 - - [03/Oct/2025 02:08:47] "GET /auth/logout HTTP/1.1" 302 -
+INFO:werkzeug:10.81.7.90 - - [03/Oct/2025 02:08:47] "GET /auth/login HTTP/1.1" 200 -
+INFO:werkzeug:10.81.7.90 - - [03/Oct/2025 02:08:48] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.7.90 - - [03/Oct/2025 02:08:48] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.7.90 - - [03/Oct/2025 02:08:48] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.2.133 - - [03/Oct/2025 02:08:48] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.10.248 - - [03/Oct/2025 02:08:48] "GET /static/css/medical_styles.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.10.248 - - [03/Oct/2025 02:08:53] "POST /auth/login HTTP/1.1" 302 -
+INFO:werkzeug:10.81.10.248 - - [03/Oct/2025 02:08:54] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:10.81.2.133 - - [03/Oct/2025 02:08:54] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.7.90 - - [03/Oct/2025 02:08:54] "GET /static/css/medical_styles.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.0.121 - - [03/Oct/2025 02:08:54] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.6.68 - - [03/Oct/2025 02:08:54] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.10.248 - - [03/Oct/2025 02:08:54] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:services.comprehensive_emr_sync:ComprehensiveEMRSync: forcing database/background token usage for org 1
+INFO:services.epic_fhir_service:Creating background Epic FHIR client for organization 1
+INFO:emr.fhir_client:Epic FHIR tokens set successfully
+INFO:routes.oauth_routes:Background Epic FHIR client created for organization 1
+INFO:services.comprehensive_emr_sync:ComprehensiveEMRSync: using database-stored tokens for stable sync operations
+INFO:services.comprehensive_emr_sync:Initialized ComprehensiveEMRSync for organization 1
+INFO:services.comprehensive_emr_sync:Starting patient discovery from Epic FHIR
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Retrieving patient erXuFYUfucBZaryVksYEcMg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.comprehensive_emr_sync:Retrieving patient eq081-VQEgP8drUUqCWzHfw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.comprehensive_emr_sync:Retrieving patient eAB3mDIBBcyUKviyzrxsnAw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Retrieving patient egqBHVfQlt4Bw3XGXoxVxHg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.comprehensive_emr_sync:Retrieving patient eIXesllypH3M9tAA5WdJftQ3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.comprehensive_emr_sync:Retrieving patient eh2xYHuzl9nkSFVvV3osUHg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.comprehensive_emr_sync:Retrieving patient e0w0LEDCYtfckT6N.CkJKCw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:Retrieved 7 Epic sandbox patients
+INFO:services.comprehensive_emr_sync:Discovered 7 patients from Epic
+INFO:services.comprehensive_emr_sync:Updated existing patient: Camila Maria Lopez
+INFO:services.comprehensive_emr_sync:Updated existing patient: Derrick Lin
+INFO:services.comprehensive_emr_sync:Updated existing patient: Desiree Caroline Powell
+INFO:services.comprehensive_emr_sync:Updated existing patient: Elijah John Davis
+INFO:services.comprehensive_emr_sync:Updated existing patient: Linda Jane Ross
+INFO:services.comprehensive_emr_sync:Updated existing patient: Olivia Anne Roberts
+INFO:services.comprehensive_emr_sync:Updated existing patient: Warren James McGinnis
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for erXuFYUfucBZaryVksYEcMg3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient erXuFYUfucBZaryVksYEcMg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Camila Maria Lopez
+INFO:services.comprehensive_emr_sync:Syncing conditions for patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.comprehensive_emr_sync:Syncing observations for patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.comprehensive_emr_sync:Processed 0 screening-relevant observations
+INFO:services.comprehensive_emr_sync:Syncing documents for patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.comprehensive_emr_sync:Epic returned 16 documents for patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.comprehensive_emr_sync:Document has no date from Epic FHIR, using current date as fallback for sandbox testing
+INFO:services.comprehensive_emr_sync:Document sync summary - Total: 16, New: 0, Skipped: 15
+INFO:services.comprehensive_emr_sync:Syncing encounters for patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.comprehensive_emr_sync:Patient erXuFYUfucBZaryVksYEcMg3 visit: Orders Only on 2023-06-02 00:00:00
+INFO:services.comprehensive_emr_sync:Patient erXuFYUfucBZaryVksYEcMg3 visit: Office Visit on 2023-05-21 00:00:00
+INFO:services.comprehensive_emr_sync:Processed 2 encounters
+INFO:services.comprehensive_emr_sync:Syncing appointments for patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.comprehensive_emr_sync:Updated appointment: eGFFFp0KKaZdjgF36sTfrjXaLjBH89aU3nWCXNCrJ4x03
+INFO:services.comprehensive_emr_sync:Updated appointment: eGFFFp0KKaZdjgF36sTfrjUY.ncsYpxzuKSpa51uP6OA3
+INFO:services.comprehensive_emr_sync:Updated appointment: eGFFFp0KKaZdjgF36sTfrjYhfIWKytcVWCHb2RL1710I3
+INFO:services.comprehensive_emr_sync:Updated appointment: eZwitZgFWP-uwOnD.EFyOYN3ee0oO99tej7KEPE.bRko3
+INFO:services.comprehensive_emr_sync:Updated appointment: eZwitZgFWP-uwOnD.EFyOYL9Wasd5MlRGj84G1jhHAEY3
+INFO:services.comprehensive_emr_sync:Updated appointment: eZwitZgFWP-uwOnD.EFyOYN.5FdkfqRMU.sNLdseey9M3
+INFO:services.comprehensive_emr_sync:Processed 0 appointments
+INFO:services.comprehensive_emr_sync:Processing screening eligibility for patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.comprehensive_emr_sync:Updating screening status for erXuFYUfucBZaryVksYEcMg3: Immunization Review - Due
+INFO:services.comprehensive_emr_sync:Updated 1 screening statuses
+INFO:services.comprehensive_emr_sync:Successfully completed comprehensive sync for patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for eq081-VQEgP8drUUqCWzHfw3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient eq081-VQEgP8drUUqCWzHfw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Derrick Lin
+INFO:services.comprehensive_emr_sync:Syncing conditions for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.comprehensive_emr_sync:Syncing observations for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.comprehensive_emr_sync:Processed 0 screening-relevant observations
+INFO:services.comprehensive_emr_sync:Syncing documents for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.comprehensive_emr_sync:Epic returned 8 documents for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.comprehensive_emr_sync:Document has no date from Epic FHIR, using current date as fallback for sandbox testing
+INFO:services.comprehensive_emr_sync:Document sync summary - Total: 8, New: 0, Skipped: 7
+INFO:services.comprehensive_emr_sync:Syncing encounters for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.comprehensive_emr_sync:Processed 0 encounters
+INFO:services.comprehensive_emr_sync:Syncing appointments for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.comprehensive_emr_sync:Updated appointment: evTiQA9oPDAS66tOkrTIbXVkgWPaOTrRcucSsvdoeNfI3
+INFO:services.comprehensive_emr_sync:Updated appointment: evTiQA9oPDAS66tOkrTIbXdvQysdvJopbk.a8HGzO7k43
+INFO:services.comprehensive_emr_sync:Updated appointment: ejxqY5Pdk6FFOvtrireyw8RTvNd-wqa5ZQPOyQb0Y60g3
+INFO:services.comprehensive_emr_sync:Updated appointment: ejxqY5Pdk6FFOvtrireyw8aAAsuMyNiTARz1s.VhrtT43
+INFO:services.comprehensive_emr_sync:Updated appointment: ejxqY5Pdk6FFOvtrireyw8TQOhRQgm-NKHidELkOetEk3
+INFO:services.comprehensive_emr_sync:Processed 0 appointments
+INFO:services.comprehensive_emr_sync:Processing screening eligibility for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.comprehensive_emr_sync:Updating screening status for eq081-VQEgP8drUUqCWzHfw3: A1C Test - Due
+INFO:services.comprehensive_emr_sync:Updating screening status for eq081-VQEgP8drUUqCWzHfw3: Lipid Panel - Due
+INFO:services.comprehensive_emr_sync:Updating screening status for eq081-VQEgP8drUUqCWzHfw3: Electrocardiogram (ECG) - Due
+INFO:services.comprehensive_emr_sync:Updating screening status for eq081-VQEgP8drUUqCWzHfw3: Colorectal Cancer Screening - Due
+INFO:services.comprehensive_emr_sync:Updating screening status for eq081-VQEgP8drUUqCWzHfw3: Immunization Review - Due
+INFO:services.comprehensive_emr_sync:Updated 5 screening statuses
+INFO:services.comprehensive_emr_sync:Successfully completed comprehensive sync for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient eAB3mDIBBcyUKviyzrxsnAw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Desiree Caroline Powell
+INFO:services.comprehensive_emr_sync:Syncing conditions for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Syncing observations for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Processed 0 screening-relevant observations
+INFO:services.comprehensive_emr_sync:Syncing documents for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Epic returned 1 documents for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Document has no date from Epic FHIR, using current date as fallback for sandbox testing
+INFO:services.comprehensive_emr_sync:Document sync summary - Total: 1, New: 0, Skipped: 0
+INFO:services.comprehensive_emr_sync:Syncing encounters for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Processed 0 encounters
+INFO:services.comprehensive_emr_sync:Syncing appointments for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Updated appointment: epzVtRMYDrKx9yS1RmteOKnXnpmE1sqNcQf7OtVrXgkM3
+INFO:services.comprehensive_emr_sync:Updated appointment: ekc45lwqCaVidNYBWdNpVyzkXpawYUNsuX0vzYwPF91I3
+INFO:services.comprehensive_emr_sync:Processed 0 appointments
+INFO:services.comprehensive_emr_sync:Processing screening eligibility for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Updated 0 screening statuses
+INFO:services.comprehensive_emr_sync:Successfully completed comprehensive sync for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient egqBHVfQlt4Bw3XGXoxVxHg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Elijah John Davis
+INFO:services.comprehensive_emr_sync:Syncing conditions for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.comprehensive_emr_sync:Syncing observations for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.comprehensive_emr_sync:Processed 0 screening-relevant observations
+INFO:services.comprehensive_emr_sync:Syncing documents for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.comprehensive_emr_sync:Epic returned 2 documents for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.comprehensive_emr_sync:Document has no date from Epic FHIR, using current date as fallback for sandbox testing
+INFO:services.comprehensive_emr_sync:Document sync summary - Total: 2, New: 0, Skipped: 1
+INFO:services.comprehensive_emr_sync:Syncing encounters for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.comprehensive_emr_sync:Patient egqBHVfQlt4Bw3XGXoxVxHg3 visit: Office Visit on 2019-05-24 00:00:00
+INFO:services.comprehensive_emr_sync:Processed 1 encounters
+INFO:services.comprehensive_emr_sync:Syncing appointments for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.comprehensive_emr_sync:Updated appointment: eBIwj8viFzhwmT9dRb-Y8PyY0n6WfglhV3mN3mI0ay303
+INFO:services.comprehensive_emr_sync:Updated appointment: eVAPSUh8LrEy.NQsC3WqFJQhvEBtj-kbO4JrHdLAuolk3
+INFO:services.comprehensive_emr_sync:Updated appointment: eVAPSUh8LrEy.NQsC3WqFJTPgoP5PezppluyhnjfKp1U3
+INFO:services.comprehensive_emr_sync:Processed 0 appointments
+INFO:services.comprehensive_emr_sync:Processing screening eligibility for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.comprehensive_emr_sync:Updating screening status for egqBHVfQlt4Bw3XGXoxVxHg3: Immunization Review - Due
+INFO:services.comprehensive_emr_sync:Updated 1 screening statuses
+INFO:services.comprehensive_emr_sync:Successfully completed comprehensive sync for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for eIXesllypH3M9tAA5WdJftQ3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient eIXesllypH3M9tAA5WdJftQ3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Linda Jane Ross
+INFO:services.comprehensive_emr_sync:Syncing conditions for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.comprehensive_emr_sync:Syncing observations for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.comprehensive_emr_sync:Processed 0 screening-relevant observations
+INFO:services.comprehensive_emr_sync:Syncing documents for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.comprehensive_emr_sync:Epic returned 2 documents for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.comprehensive_emr_sync:Document has no date from Epic FHIR, using current date as fallback for sandbox testing
+INFO:services.comprehensive_emr_sync:Document sync summary - Total: 2, New: 0, Skipped: 1
+INFO:services.comprehensive_emr_sync:Syncing encounters for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.comprehensive_emr_sync:Patient eIXesllypH3M9tAA5WdJftQ3 visit: Inpatient on 2019-05-24 20:32:25+00:00
+INFO:services.comprehensive_emr_sync:Processed 1 encounters
+INFO:services.comprehensive_emr_sync:Syncing appointments for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.comprehensive_emr_sync:Processed 0 appointments
+INFO:services.comprehensive_emr_sync:Processing screening eligibility for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.comprehensive_emr_sync:Updating screening status for eIXesllypH3M9tAA5WdJftQ3: A1C Test - Due
+INFO:services.comprehensive_emr_sync:Updating screening status for eIXesllypH3M9tAA5WdJftQ3: Lipid Panel - Due
+INFO:services.comprehensive_emr_sync:Updating screening status for eIXesllypH3M9tAA5WdJftQ3: Electrocardiogram (ECG) - Due
+INFO:services.comprehensive_emr_sync:Updating screening status for eIXesllypH3M9tAA5WdJftQ3: Cervical Cancer Screening - Due
+INFO:services.comprehensive_emr_sync:Updating screening status for eIXesllypH3M9tAA5WdJftQ3: Colorectal Cancer Screening - Due
+INFO:services.comprehensive_emr_sync:Updating screening status for eIXesllypH3M9tAA5WdJftQ3: Mammogram - Due
+INFO:services.comprehensive_emr_sync:Updating screening status for eIXesllypH3M9tAA5WdJftQ3: Immunization Review - Due
+INFO:services.comprehensive_emr_sync:Updated 7 screening statuses
+INFO:services.comprehensive_emr_sync:Successfully completed comprehensive sync for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient eh2xYHuzl9nkSFVvV3osUHg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Olivia Anne Roberts
+INFO:services.comprehensive_emr_sync:Syncing conditions for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.comprehensive_emr_sync:Syncing observations for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.comprehensive_emr_sync:Processed 0 screening-relevant observations
+INFO:services.comprehensive_emr_sync:Syncing documents for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.comprehensive_emr_sync:Epic returned 2 documents for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.comprehensive_emr_sync:Document has no date from Epic FHIR, using current date as fallback for sandbox testing
+INFO:services.comprehensive_emr_sync:Document sync summary - Total: 2, New: 0, Skipped: 1
+INFO:services.comprehensive_emr_sync:Syncing encounters for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.comprehensive_emr_sync:Processed 0 encounters
+INFO:services.comprehensive_emr_sync:Syncing appointments for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.comprehensive_emr_sync:Processed 0 appointments
+INFO:services.comprehensive_emr_sync:Processing screening eligibility for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.comprehensive_emr_sync:Updating screening status for eh2xYHuzl9nkSFVvV3osUHg3: Cervical Cancer Screening - Due
+INFO:services.comprehensive_emr_sync:Updating screening status for eh2xYHuzl9nkSFVvV3osUHg3: Immunization Review - Due
+INFO:services.comprehensive_emr_sync:Updated 2 screening statuses
+INFO:services.comprehensive_emr_sync:Successfully completed comprehensive sync for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient e0w0LEDCYtfckT6N.CkJKCw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Warren James McGinnis
+INFO:services.comprehensive_emr_sync:Syncing conditions for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:Syncing observations for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:Screening observation for e0w0LEDCYtfckT6N.CkJKCw3: 2093-3 = 187 mg/dL on 2019-05-28 15:59:00+00:00
+INFO:services.comprehensive_emr_sync:Processed 1 screening-relevant observations
+INFO:services.comprehensive_emr_sync:Syncing documents for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:Epic returned 5 documents for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:Document has no date from Epic FHIR, using current date as fallback for sandbox testing
+INFO:services.comprehensive_emr_sync:Document sync summary - Total: 5, New: 0, Skipped: 4
+INFO:services.comprehensive_emr_sync:Syncing encounters for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:Processed 0 encounters
+INFO:services.comprehensive_emr_sync:Syncing appointments for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:Updated appointment: eFIFqrdNNcaZqN8UsTYlUkM9JguzV4seQ-hO-443VxLA3
+INFO:services.comprehensive_emr_sync:Processed 0 appointments
+INFO:services.comprehensive_emr_sync:Processing screening eligibility for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:Updating screening status for e0w0LEDCYtfckT6N.CkJKCw3: A1C Test - Due
+INFO:services.comprehensive_emr_sync:Updating screening status for e0w0LEDCYtfckT6N.CkJKCw3: Lipid Panel - Due
+INFO:services.comprehensive_emr_sync:Updating screening status for e0w0LEDCYtfckT6N.CkJKCw3: Electrocardiogram (ECG) - Due
+INFO:services.comprehensive_emr_sync:Updating screening status for e0w0LEDCYtfckT6N.CkJKCw3: Colorectal Cancer Screening - Due
+INFO:services.comprehensive_emr_sync:Updating screening status for e0w0LEDCYtfckT6N.CkJKCw3: Immunization Review - Due
+INFO:services.comprehensive_emr_sync:Updated 5 screening statuses
+INFO:services.comprehensive_emr_sync:Successfully completed comprehensive sync for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:Discovery and sync completed: 7 patients synced, 21 screenings updated
+INFO:werkzeug:10.81.10.248 - - [03/Oct/2025 02:09:21] "POST /api/refresh-screenings HTTP/1.1" 200 -
