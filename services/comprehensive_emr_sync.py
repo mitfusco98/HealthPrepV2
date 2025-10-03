@@ -13,7 +13,7 @@ from dateutil.relativedelta import relativedelta
 from flask import session, has_request_context
 from flask_login import current_user
 
-from models import db, Patient, PatientCondition, FHIRDocument, Organization, ScreeningType, Appointment
+from models import db, Patient, PatientCondition, FHIRDocument, Document, Organization, ScreeningType, Appointment, ScreeningDocumentMatch
 from services.epic_fhir_service import EpicFHIRService, get_epic_fhir_service_background
 from emr.fhir_client import FHIRClient
 from core.engine import ScreeningEngine
@@ -823,54 +823,115 @@ class ComprehensiveEMRSync:
         return None
     
     def _check_screening_completion(self, patient: Patient, screening_type: ScreeningType) -> Dict[str, Any]:
-        """Check if screening has been completed based on documents and observations"""
+        """Check if screening has been completed based on BOTH manual and FHIR documents
+        
+        CRITICAL FIX: Query both Document (manual) and FHIRDocument (FHIR) tables
+        to ensure manual test documents are included in screening match detection.
+        Returns all matched documents for proper association management.
+        """
         try:
             # Get screening keywords
             keywords = json.loads(screening_type.keywords) if screening_type.keywords else []
+            if not keywords:
+                return {
+                    'completed': False,
+                    'last_completed_date': None,
+                    'source': None,
+                    'matched_manual_docs': [],
+                    'matched_fhir_docs': []
+                }
             
-            # Search patient's documents for screening keywords
-            # Use document_date for filtering (the actual screening date), not creation_date
-            recent_documents = FHIRDocument.query.filter_by(
+            # Calculate date cutoff (same for both manual and FHIR documents)
+            cutoff_date = datetime.now() - timedelta(days=int(screening_type.frequency_years * 365))
+            
+            matched_manual_docs = []
+            matched_fhir_docs = []
+            most_recent_completion_date = None
+            
+            # Query manual documents (Document table)
+            logger.debug(f"Checking manual documents for patient {patient.id}, screening {screening_type.name}")
+            manual_documents = Document.query.filter_by(
                 patient_id=patient.id
             ).filter(
-                FHIRDocument.document_date >= datetime.now() - timedelta(days=int(screening_type.frequency_years * 365))
+                Document.created_at >= cutoff_date
             ).all()
             
-            for doc in recent_documents:
-                if self._document_contains_screening_evidence(doc, keywords):
-                    # CRITICAL FIX: Use document_date (actual screening date) with fallback to creation_date
-                    # This ensures matched documents always have a valid completion date
+            for doc in manual_documents:
+                if self._document_contains_screening_evidence_generic(doc.ocr_text, keywords):
+                    completion_date = doc.created_at
+                    if not completion_date:
+                        completion_date = datetime.now()
+                        logger.warning(f"Manual document {doc.id} has no date - using current date")
+                    
+                    matched_manual_docs.append({
+                        'id': doc.id,
+                        'date': completion_date,
+                        'title': doc.filename
+                    })
+                    
+                    if not most_recent_completion_date or completion_date > most_recent_completion_date:
+                        most_recent_completion_date = completion_date
+                    
+                    logger.info(f"Manual document match: {doc.filename} (ID: {doc.id}) for {screening_type.name}")
+            
+            # Query FHIR documents (FHIRDocument table)
+            logger.debug(f"Checking FHIR documents for patient {patient.id}, screening {screening_type.name}")
+            fhir_documents = FHIRDocument.query.filter_by(
+                patient_id=patient.id
+            ).filter(
+                FHIRDocument.document_date >= cutoff_date
+            ).all()
+            
+            for doc in fhir_documents:
+                if self._document_contains_screening_evidence_generic(doc.ocr_text, keywords):
                     completion_date = doc.document_date or doc.creation_date
                     if not completion_date:
-                        # Ultimate fallback to current date if neither field is set
                         completion_date = datetime.now()
-                        logger.warning(f"Document {doc.id} has no date - using current date as fallback")
+                        logger.warning(f"FHIR document {doc.id} has no date - using current date")
                     
-                    return {
-                        'completed': True,
-                        'last_completed_date': completion_date,
-                        'source': 'document',
-                        'document_id': doc.id
-                    }
+                    matched_fhir_docs.append({
+                        'id': doc.id,
+                        'date': completion_date,
+                        'title': doc.title
+                    })
+                    
+                    if not most_recent_completion_date or completion_date > most_recent_completion_date:
+                        most_recent_completion_date = completion_date
+                    
+                    logger.info(f"FHIR document match: {doc.title} (ID: {doc.id}, Epic: {doc.epic_document_id}) for {screening_type.name}")
+            
+            # Return results with all matched documents
+            has_matches = len(matched_manual_docs) > 0 or len(matched_fhir_docs) > 0
             
             return {
-                'completed': False,
-                'last_completed_date': None,
-                'source': None
+                'completed': has_matches,
+                'last_completed_date': most_recent_completion_date,
+                'source': 'document' if has_matches else None,
+                'matched_manual_docs': matched_manual_docs,
+                'matched_fhir_docs': matched_fhir_docs
             }
             
         except Exception as e:
             logger.error(f"Error checking screening completion: {str(e)}")
-            return {'completed': False, 'last_completed_date': None, 'source': None}
+            import traceback
+            logger.error(traceback.format_exc())
+            return {
+                'completed': False,
+                'last_completed_date': None,
+                'source': None,
+                'matched_manual_docs': [],
+                'matched_fhir_docs': []
+            }
     
-    def _document_contains_screening_evidence(self, document: FHIRDocument, keywords: List[str]) -> bool:
-        """Check if document contains evidence of completed screening using word boundary matching"""
+    def _document_contains_screening_evidence_generic(self, ocr_text: Optional[str], keywords: List[str]) -> bool:
+        """Generic keyword matching for both manual and FHIR documents using word boundary regex
+        
+        This method applies the same word boundary matching logic to OCR text from any source.
+        """
         import re
         
-        if not document.ocr_text or not keywords:
+        if not ocr_text or not keywords:
             return False
-        
-        ocr_text = document.ocr_text
         
         # Use word boundary regex matching to prevent false positives
         for keyword in keywords:
@@ -885,16 +946,29 @@ class ComprehensiveEMRSync:
             
             # Check for match with case-insensitive search
             if re.search(pattern, ocr_text, re.IGNORECASE):
-                logger.debug(f"Keyword match found: '{keyword}' in document {document.id}")
+                logger.debug(f"Keyword match found: '{keyword}'")
                 return True
         
         return False
     
+    def _document_contains_screening_evidence(self, document: FHIRDocument, keywords: List[str]) -> bool:
+        """Check if FHIR document contains evidence of completed screening (legacy method)
+        
+        Kept for backwards compatibility. New code should use _document_contains_screening_evidence_generic.
+        """
+        return self._document_contains_screening_evidence_generic(document.ocr_text, keywords)
+    
     def _update_screening_status(self, patient: Patient, screening_type: ScreeningType, 
                                completion_status: Dict[str, Any]):
-        """Update screening status for patient"""
+        """Update screening status with unified document matching and stale association cleanup
+        
+        CRITICAL FIX: This method now:
+        1. Clears OLD associations not re-confirmed in current sync
+        2. Creates NEW associations to correct junction tables
+        3. Updates screening status based ONLY on current validated matches
+        """
         try:
-            from models import Screening, FHIRDocument, db
+            from models import Screening, FHIRDocument, Document, db
             
             # Check if screening already exists
             existing_screening = Screening.query.filter_by(
@@ -923,27 +997,84 @@ class ComprehensiveEMRSync:
                 )
                 db.session.add(new_screening)
                 screening = new_screening
+                db.session.flush()  # Get screening ID for associations
             
-            # CRITICAL FIX: Save screening-document association when match is found
-            if completion_status.get('completed') and completion_status.get('document_id'):
-                # Get the matched document
-                matched_doc = FHIRDocument.query.get(completion_status['document_id'])
+            # SCOPED INVALIDATION: Clear stale associations before creating new ones
+            # This ensures screening status reflects ONLY current, validated matches
+            
+            # Get current match IDs from this sync
+            current_manual_ids = set(doc['id'] for doc in completion_status.get('matched_manual_docs', []))
+            current_fhir_ids = set(doc['id'] for doc in completion_status.get('matched_fhir_docs', []))
+            
+            # Remove stale manual document associations
+            if existing_screening:
+                stale_manual_matches = ScreeningDocumentMatch.query.filter_by(
+                    screening_id=screening.id
+                ).all()
                 
-                if matched_doc:
-                    # Add document to screening's matched documents (if not already there)
-                    if matched_doc not in screening.fhir_documents:
-                        screening.fhir_documents.append(matched_doc)
-                        logger.info(f"Linked document {matched_doc.id} (Epic: {matched_doc.epic_document_id}) "
-                                  f"to screening {screening_type.name}")
+                for match in stale_manual_matches:
+                    if match.document_id not in current_manual_ids:
+                        logger.info(f"Removing stale manual document association: "
+                                  f"screening {screening.id} <-> document {match.document_id}")
+                        db.session.delete(match)
             
-            # Commit changes
+            # Remove stale FHIR document associations
+            if existing_screening:
+                # Clear FHIR associations not in current match set
+                existing_fhir_ids = set(doc.id for doc in screening.fhir_documents)
+                for fhir_id in existing_fhir_ids:
+                    if fhir_id not in current_fhir_ids:
+                        fhir_doc = FHIRDocument.query.get(fhir_id)
+                        if fhir_doc and fhir_doc in screening.fhir_documents:
+                            screening.fhir_documents.remove(fhir_doc)
+                            logger.info(f"Removing stale FHIR document association: "
+                                      f"screening {screening.id} <-> FHIR doc {fhir_id}")
+            
+            # CREATE NEW ASSOCIATIONS: Add matched documents to correct junction tables
+            
+            # Add manual document matches to screening_document_match table
+            for doc_info in completion_status.get('matched_manual_docs', []):
+                doc_id = doc_info['id']
+                
+                # Check if association already exists
+                existing_match = ScreeningDocumentMatch.query.filter_by(
+                    screening_id=screening.id,
+                    document_id=doc_id
+                ).first()
+                
+                if not existing_match:
+                    new_match = ScreeningDocumentMatch(
+                        screening_id=screening.id,
+                        document_id=doc_id,
+                        match_confidence=1.0,
+                        matched_keywords=json.dumps([]),  # Could track which keywords matched
+                        created_at=datetime.now()
+                    )
+                    db.session.add(new_match)
+                    logger.info(f"Created manual document association: "
+                              f"{doc_info['title']} (ID: {doc_id}) -> {screening_type.name}")
+            
+            # Add FHIR document matches to screening_fhir_documents table
+            for doc_info in completion_status.get('matched_fhir_docs', []):
+                doc_id = doc_info['id']
+                fhir_doc = FHIRDocument.query.get(doc_id)
+                
+                if fhir_doc and fhir_doc not in screening.fhir_documents:
+                    screening.fhir_documents.append(fhir_doc)
+                    logger.info(f"Created FHIR document association: "
+                              f"{doc_info['title']} (ID: {doc_id}) -> {screening_type.name}")
+            
+            # Commit all changes atomically
             db.session.commit()
             
-            logger.info(f"Updating screening status for {patient.epic_patient_id}: "
-                       f"{screening_type.name} - {'Completed' if completion_status['completed'] else 'Due'}")
+            logger.info(f"Updated screening status for {patient.epic_patient_id}: "
+                       f"{screening_type.name} - {status} "
+                       f"({len(current_manual_ids)} manual + {len(current_fhir_ids)} FHIR docs matched)")
         except Exception as e:
             db.session.rollback()
             logger.error(f"Error updating screening status: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
     
     def discover_and_sync_patients(self, sync_options: Dict[str, Any] = None) -> Dict[str, Any]:
         """
