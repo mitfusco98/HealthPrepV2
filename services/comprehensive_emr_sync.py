@@ -300,6 +300,10 @@ class ComprehensiveEMRSync:
                 return 0
             
             documents_processed = 0
+            documents_skipped = 0
+            total_documents_from_epic = len(documents_data.get('entry', []))
+            
+            logger.info(f"Epic returned {total_documents_from_epic} documents for patient {patient.epic_patient_id}")
             
             # Process each document reference
             for fhir_document in documents_data.get('entry', []):
@@ -320,6 +324,7 @@ class ComprehensiveEMRSync:
                     ).first()
                     
                     if not existing_doc:
+                        logger.debug(f"Processing new document: ID={doc_id}, Title='{doc_title}', Type='{doc_type}'")
                         # Download and process document content
                         content_processed = self._process_document_content(
                             patient, document_resource, doc_title, doc_date, doc_type
@@ -327,8 +332,11 @@ class ComprehensiveEMRSync:
                         
                         if content_processed:
                             documents_processed += 1
+                    else:
+                        logger.debug(f"Skipping duplicate document: ID={doc_id}, Title='{doc_title}'")
+                        documents_skipped += 1
             
-            logger.info(f"Processed {documents_processed} documents for screening analysis")
+            logger.info(f"Document sync summary - Total: {total_documents_from_epic}, New: {documents_processed}, Skipped: {documents_skipped}")
             return documents_processed
             
         except Exception as e:
