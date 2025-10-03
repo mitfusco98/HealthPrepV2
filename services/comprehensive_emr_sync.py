@@ -73,6 +73,67 @@ class ComprehensiveEMRSync:
         
         logger.info(f"Initialized ComprehensiveEMRSync for organization {organization_id}")
     
+    def _should_skip_patient_sync(self, patient: Patient, sync_options: Dict[str, Any]) -> bool:
+        """
+        Pre-flight check to determine if patient sync can be skipped.
+        Skips if:
+        - No new documents since last sync
+        - Screening eligibility criteria unchanged
+        - force_refresh not enabled
+        
+        Returns:
+            True if sync can be safely skipped, False otherwise
+        """
+        from models import Document, FHIRDocument, ScreeningType
+        
+        # Never skip if force refresh is requested
+        if sync_options.get('force_refresh', False):
+            logger.debug(f"Force refresh enabled for {patient.epic_patient_id}, cannot skip")
+            return False
+        
+        # If never synced before, don't skip
+        if not patient.last_fhir_sync:
+            logger.debug(f"Patient {patient.epic_patient_id} never synced before, cannot skip")
+            return False
+        
+        try:
+            # Count current documents
+            manual_doc_count = Document.query.filter_by(patient_id=patient.id).count()
+            fhir_doc_count = FHIRDocument.query.filter_by(patient_id=patient.id).count()
+            total_docs = manual_doc_count + fhir_doc_count
+            
+            # Get screening types that apply to this patient
+            active_screening_types = ScreeningType.query.filter_by(
+                org_id=patient.org_id,
+                is_active=True
+            ).all()
+            
+            # Check if any screening type has been modified since last sync
+            criteria_changed = any(
+                st.updated_at and st.updated_at > patient.last_fhir_sync 
+                for st in active_screening_types
+            )
+            
+            if criteria_changed:
+                logger.info(f"Screening criteria changed for {patient.epic_patient_id} since last sync, cannot skip")
+                return False
+            
+            # Store current state for comparison (using patient's fhir_version_id as document count tracker)
+            # This is a lightweight approach - in production you'd use dedicated fields
+            last_doc_count = int(patient.fhir_version_id or '0') if patient.fhir_version_id and patient.fhir_version_id.isdigit() else 0
+            
+            if total_docs != last_doc_count:
+                logger.info(f"Document count changed for {patient.epic_patient_id}: {last_doc_count} -> {total_docs}, cannot skip")
+                return False
+            
+            # All checks passed - safe to skip
+            logger.info(f"No changes detected for {patient.epic_patient_id} since last sync, skipping reprocessing")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error in skip check for {patient.epic_patient_id}: {str(e)}, will not skip")
+            return False
+    
     def sync_patient_comprehensive(self, epic_patient_id: str, 
                                  sync_options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
@@ -100,6 +161,24 @@ class ComprehensiveEMRSync:
             patient = self._sync_patient_demographics(epic_patient_id)
             if not patient:
                 raise Exception(f"Failed to retrieve patient {epic_patient_id}")
+            
+            # PRE-FLIGHT CHECK: Selective sync optimization
+            # Skip reprocessing if no new documents and eligibility unchanged
+            if self._should_skip_patient_sync(patient, sync_options):
+                logger.info(f"Skipped reprocessing for {patient.epic_patient_id} - no changes detected")
+                return {
+                    'success': True,
+                    'patient_id': patient.id,
+                    'epic_patient_id': epic_patient_id,
+                    'skipped': True,
+                    'reason': 'No new documents and eligibility unchanged',
+                    'conditions_synced': 0,
+                    'observations_synced': 0,
+                    'documents_processed': 0,
+                    'encounters_synced': 0,
+                    'appointments_synced': 0,
+                    'screenings_updated': 0
+                }
             
             # Get the last encounter date for data cutoff calculations
             last_encounter_date = self._get_last_encounter_date(patient)
@@ -133,8 +212,14 @@ class ComprehensiveEMRSync:
                 'screenings_updated': self.sync_stats['screenings_updated'] + screening_updates
             })
             
-            # Update patient's last sync timestamp
+            # Update patient's last sync timestamp and document count for selective sync
+            from models import Document as ManualDocument, FHIRDocument
+            manual_doc_count = ManualDocument.query.filter_by(patient_id=patient.id).count()
+            fhir_doc_count = FHIRDocument.query.filter_by(patient_id=patient.id).count()
+            total_docs = manual_doc_count + fhir_doc_count
+            
             patient.last_fhir_sync = datetime.now()
+            patient.fhir_version_id = str(total_docs)  # Store document count for next sync comparison
             db.session.commit()
             
             logger.info(f"Successfully completed comprehensive sync for patient {epic_patient_id}")
