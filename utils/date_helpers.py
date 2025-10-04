@@ -5,7 +5,7 @@ Handles screening frequency calculations and date formatting.
 
 from datetime import datetime, date, timedelta
 from dateutil.relativedelta import relativedelta
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 import logging
 
 logger = logging.getLogger(__name__)
