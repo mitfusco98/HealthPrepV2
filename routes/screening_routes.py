@@ -276,11 +276,7 @@ def add_screening_type():
                     # Fallback to comma-separated parsing (manual textarea input)
                     trigger_conditions_list = [tc.strip() for tc in form.trigger_conditions.data.split(',') if tc.strip()]
             
-            # Convert frequency to years for storage
-            frequency_years = form.frequency_value.data or 1.0
-            if form.frequency_unit.data == 'months' and form.frequency_value.data:
-                frequency_years = form.frequency_value.data / 12.0
-            
+            # Set frequency fields directly (frequency_years is a computed property)
             screening_type = ScreeningType()
             screening_type.name = form.name.data
             screening_type.org_id = current_user.org_id
@@ -288,7 +284,8 @@ def add_screening_type():
             screening_type.eligible_genders = form.eligible_genders.data
             screening_type.min_age = form.min_age.data
             screening_type.max_age = form.max_age.data
-            screening_type.frequency_years = frequency_years
+            screening_type.frequency_value = form.frequency_value.data or 1.0
+            screening_type.frequency_unit = form.frequency_unit.data or 'years'
             screening_type.trigger_conditions = json.dumps(trigger_conditions_list) if trigger_conditions_list else None
 
             db.session.add(screening_type)
@@ -360,17 +357,14 @@ def edit_screening_type(type_id):
                     # Fallback to comma-separated parsing (manual textarea input)
                     trigger_conditions_list = [tc.strip() for tc in form.trigger_conditions.data.split(',') if tc.strip()]
             
-            # Convert frequency to years for storage
-            frequency_years = form.frequency_value.data or 1.0
-            if form.frequency_unit.data == 'months' and form.frequency_value.data:
-                frequency_years = form.frequency_value.data / 12.0
-            
+            # Set frequency fields directly (frequency_years is a computed property)
             screening_type.name = form.name.data
             # Keywords are managed via modal - don't update from form
             screening_type.eligible_genders = form.eligible_genders.data
             screening_type.min_age = form.min_age.data
             screening_type.max_age = form.max_age.data
-            screening_type.frequency_years = frequency_years
+            screening_type.frequency_value = form.frequency_value.data or 1.0
+            screening_type.frequency_unit = form.frequency_unit.data or 'years'
             screening_type.trigger_conditions = json.dumps(trigger_conditions_list) if trigger_conditions_list else None
 
             # Capture after values for logging
