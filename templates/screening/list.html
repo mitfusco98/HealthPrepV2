@@ -615,7 +615,7 @@ function refreshScreenings(event, tab) {
         button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Refreshing screening data...';
         button.disabled = true;
 
-        // Make refresh request
+        // Make refresh request with force_refresh to recalculate all statuses
         const csrfToken = document.querySelector('meta[name=csrf-token]')?.getAttribute('content');
         fetch('/screening/refresh', {
             method: 'POST',
@@ -623,7 +623,7 @@ function refreshScreenings(event, tab) {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'X-CSRFToken': csrfToken
             },
-            body: new URLSearchParams({})
+            body: new URLSearchParams({force_refresh: 'true'})
         })
         .then(response => {
             if (response.ok) {

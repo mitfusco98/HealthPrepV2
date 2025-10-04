@@ -1,0 +1,251 @@
+INFO:services.comprehensive_emr_sync:ComprehensiveEMRSync: forcing database/background token usage for org 1
+INFO:services.epic_fhir_service:Creating background Epic FHIR client for organization 1
+INFO:emr.fhir_client:Epic FHIR tokens set successfully
+INFO:routes.oauth_routes:Background Epic FHIR client created for organization 1
+INFO:services.comprehensive_emr_sync:ComprehensiveEMRSync: using database-stored tokens for stable sync operations
+INFO:services.comprehensive_emr_sync:Initialized ComprehensiveEMRSync for organization 1
+INFO:services.comprehensive_emr_sync:Starting patient discovery from Epic FHIR
+INFO:services.epic_fhir_service:Access token expired for org 1, attempting refresh
+INFO:emr.fhir_client:Attempting token refresh for organization Default Organization
+INFO:emr.fhir_client:Persisted Epic tokens to database for organization 1
+INFO:emr.fhir_client:Successfully refreshed Epic access token, expires in 3600 seconds
+INFO:services.epic_fhir_service:Updated Epic tokens in database for organization 1
+INFO:services.epic_fhir_service:Updated tokens in database for org 1
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Retrieving patient erXuFYUfucBZaryVksYEcMg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.comprehensive_emr_sync:Retrieving patient eq081-VQEgP8drUUqCWzHfw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.comprehensive_emr_sync:Retrieving patient eAB3mDIBBcyUKviyzrxsnAw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Retrieving patient egqBHVfQlt4Bw3XGXoxVxHg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.comprehensive_emr_sync:Retrieving patient eIXesllypH3M9tAA5WdJftQ3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.comprehensive_emr_sync:Retrieving patient eh2xYHuzl9nkSFVvV3osUHg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.comprehensive_emr_sync:Retrieving patient e0w0LEDCYtfckT6N.CkJKCw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:Retrieved 7 Epic sandbox patients
+INFO:services.comprehensive_emr_sync:Discovered 7 patients from Epic
+INFO:services.comprehensive_emr_sync:Updated existing patient: Camila Maria Lopez
+INFO:services.comprehensive_emr_sync:Updated existing patient: Derrick Lin
+INFO:services.comprehensive_emr_sync:Updated existing patient: Desiree Caroline Powell
+INFO:services.comprehensive_emr_sync:Updated existing patient: Elijah John Davis
+INFO:services.comprehensive_emr_sync:Updated existing patient: Linda Jane Ross
+INFO:services.comprehensive_emr_sync:Updated existing patient: Olivia Anne Roberts
+INFO:services.comprehensive_emr_sync:Updated existing patient: Warren James McGinnis
+INFO:services.comprehensive_emr_sync:Appointment-Based Screening Prioritization is ENABLED
+INFO:services.appointment_prioritization:Initialized AppointmentBasedPrioritization for organization 1
+INFO:services.appointment_prioritization:Getting priority patients with appointments between 2025-10-04 and 2025-10-18
+INFO:services.appointment_prioritization:Found 0 priority patients with 0 appointments
+INFO:services.comprehensive_emr_sync:No patients eligible for Appointment-Based Screening Prioritization, continuing general EMR sync
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for erXuFYUfucBZaryVksYEcMg3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient erXuFYUfucBZaryVksYEcMg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Camila Maria Lopez
+INFO:services.comprehensive_emr_sync:No changes detected for erXuFYUfucBZaryVksYEcMg3 since last sync, skipping reprocessing
+INFO:services.comprehensive_emr_sync:Skipped reprocessing for erXuFYUfucBZaryVksYEcMg3 - no changes detected
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for eq081-VQEgP8drUUqCWzHfw3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient eq081-VQEgP8drUUqCWzHfw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Derrick Lin
+INFO:services.comprehensive_emr_sync:No changes detected for eq081-VQEgP8drUUqCWzHfw3 since last sync, skipping reprocessing
+INFO:services.comprehensive_emr_sync:Skipped reprocessing for eq081-VQEgP8drUUqCWzHfw3 - no changes detected
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient eAB3mDIBBcyUKviyzrxsnAw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Desiree Caroline Powell
+INFO:services.comprehensive_emr_sync:No changes detected for eAB3mDIBBcyUKviyzrxsnAw3 since last sync, skipping reprocessing
+INFO:services.comprehensive_emr_sync:Skipped reprocessing for eAB3mDIBBcyUKviyzrxsnAw3 - no changes detected
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient egqBHVfQlt4Bw3XGXoxVxHg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Elijah John Davis
+INFO:services.comprehensive_emr_sync:No changes detected for egqBHVfQlt4Bw3XGXoxVxHg3 since last sync, skipping reprocessing
+INFO:services.comprehensive_emr_sync:Skipped reprocessing for egqBHVfQlt4Bw3XGXoxVxHg3 - no changes detected
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for eIXesllypH3M9tAA5WdJftQ3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient eIXesllypH3M9tAA5WdJftQ3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Linda Jane Ross
+INFO:services.comprehensive_emr_sync:No changes detected for eIXesllypH3M9tAA5WdJftQ3 since last sync, skipping reprocessing
+INFO:services.comprehensive_emr_sync:Skipped reprocessing for eIXesllypH3M9tAA5WdJftQ3 - no changes detected
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient eh2xYHuzl9nkSFVvV3osUHg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Olivia Anne Roberts
+INFO:services.comprehensive_emr_sync:No changes detected for eh2xYHuzl9nkSFVvV3osUHg3 since last sync, skipping reprocessing
+INFO:services.comprehensive_emr_sync:Skipped reprocessing for eh2xYHuzl9nkSFVvV3osUHg3 - no changes detected
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient e0w0LEDCYtfckT6N.CkJKCw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Warren James McGinnis
+INFO:services.comprehensive_emr_sync:No changes detected for e0w0LEDCYtfckT6N.CkJKCw3 since last sync, skipping reprocessing
+INFO:services.comprehensive_emr_sync:Skipped reprocessing for e0w0LEDCYtfckT6N.CkJKCw3 - no changes detected
+INFO:services.comprehensive_emr_sync:Discovery and sync completed: 7 patients synced, 0 screenings updated
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:50:13] "POST /api/refresh-screenings HTTP/1.1" 200 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:50:15] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:50:16] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.10.248 - - [04/Oct/2025 17:50:16] "GET /static/css/medical_styles.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.0.121 - - [04/Oct/2025 17:50:16] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.6.68 - - [04/Oct/2025 17:50:16] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:50:16] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:50:35] "GET /auth/logout HTTP/1.1" 302 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:50:35] "GET /auth/login HTTP/1.1" 200 -
+INFO:werkzeug:10.81.6.68 - - [04/Oct/2025 17:50:35] "GET /static/css/medical_styles.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:50:35] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.10.248 - - [04/Oct/2025 17:50:35] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.0.121 - - [04/Oct/2025 17:50:35] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:50:35] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.0.121 - - [04/Oct/2025 17:50:44] "POST /auth/login HTTP/1.1" 302 -
+INFO:werkzeug:10.81.0.121 - - [04/Oct/2025 17:50:44] "GET /admin/dashboard HTTP/1.1" 302 -
+INFO:werkzeug:10.81.0.121 - - [04/Oct/2025 17:50:46] "GET /admin/dashboard/logs HTTP/1.1" 200 -
+INFO:werkzeug:10.81.10.248 - - [04/Oct/2025 17:50:46] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:50:46] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.0.121 - - [04/Oct/2025 17:50:51] "GET /admin/epic/registration HTTP/1.1" 200 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:50:51] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.10.248 - - [04/Oct/2025 17:50:51] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.10.248 - - [04/Oct/2025 17:50:54] "GET /oauth/epic-status HTTP/1.1" 200 -
+INFO:werkzeug:10.81.10.248 - - [04/Oct/2025 17:50:54] "GET /oauth/epic-status HTTP/1.1" 200 -
+INFO:werkzeug:10.81.10.248 - - [04/Oct/2025 17:50:59] "GET /auth/logout HTTP/1.1" 302 -
+INFO:werkzeug:10.81.10.248 - - [04/Oct/2025 17:50:59] "GET /auth/login HTTP/1.1" 200 -
+INFO:werkzeug:10.81.10.248 - - [04/Oct/2025 17:50:59] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.0.121 - - [04/Oct/2025 17:50:59] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:50:59] "GET /static/css/medical_styles.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.6.68 - - [04/Oct/2025 17:50:59] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:50:59] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:51:05] "POST /auth/login HTTP/1.1" 302 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:51:06] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:10.81.6.68 - - [04/Oct/2025 17:51:06] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.0.121 - - [04/Oct/2025 17:51:06] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.10.248 - - [04/Oct/2025 17:51:06] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:51:06] "GET /static/css/medical_styles.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:51:06] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:services.comprehensive_emr_sync:ComprehensiveEMRSync: forcing database/background token usage for org 1
+INFO:services.epic_fhir_service:Creating background Epic FHIR client for organization 1
+INFO:emr.fhir_client:Epic FHIR tokens set successfully
+INFO:routes.oauth_routes:Background Epic FHIR client created for organization 1
+INFO:services.comprehensive_emr_sync:ComprehensiveEMRSync: using database-stored tokens for stable sync operations
+INFO:services.comprehensive_emr_sync:Initialized ComprehensiveEMRSync for organization 1
+INFO:services.comprehensive_emr_sync:Starting patient discovery from Epic FHIR
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Retrieving patient erXuFYUfucBZaryVksYEcMg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.comprehensive_emr_sync:Retrieving patient eq081-VQEgP8drUUqCWzHfw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.comprehensive_emr_sync:Retrieving patient eAB3mDIBBcyUKviyzrxsnAw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Retrieving patient egqBHVfQlt4Bw3XGXoxVxHg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.comprehensive_emr_sync:Retrieving patient eIXesllypH3M9tAA5WdJftQ3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.comprehensive_emr_sync:Retrieving patient eh2xYHuzl9nkSFVvV3osUHg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.comprehensive_emr_sync:Retrieving patient e0w0LEDCYtfckT6N.CkJKCw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:Retrieved 7 Epic sandbox patients
+INFO:services.comprehensive_emr_sync:Discovered 7 patients from Epic
+INFO:services.comprehensive_emr_sync:Updated existing patient: Camila Maria Lopez
+INFO:services.comprehensive_emr_sync:Updated existing patient: Derrick Lin
+INFO:services.comprehensive_emr_sync:Updated existing patient: Desiree Caroline Powell
+INFO:services.comprehensive_emr_sync:Updated existing patient: Elijah John Davis
+INFO:services.comprehensive_emr_sync:Updated existing patient: Linda Jane Ross
+INFO:services.comprehensive_emr_sync:Updated existing patient: Olivia Anne Roberts
+INFO:services.comprehensive_emr_sync:Updated existing patient: Warren James McGinnis
+INFO:services.comprehensive_emr_sync:Appointment-Based Screening Prioritization is ENABLED
+INFO:services.appointment_prioritization:Initialized AppointmentBasedPrioritization for organization 1
+INFO:services.appointment_prioritization:Getting priority patients with appointments between 2025-10-04 and 2025-10-18
+INFO:services.appointment_prioritization:Found 0 priority patients with 0 appointments
+INFO:services.comprehensive_emr_sync:No patients eligible for Appointment-Based Screening Prioritization, continuing general EMR sync
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for erXuFYUfucBZaryVksYEcMg3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient erXuFYUfucBZaryVksYEcMg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Camila Maria Lopez
+INFO:services.comprehensive_emr_sync:No changes detected for erXuFYUfucBZaryVksYEcMg3 since last sync, skipping reprocessing
+INFO:services.comprehensive_emr_sync:Skipped reprocessing for erXuFYUfucBZaryVksYEcMg3 - no changes detected
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for eq081-VQEgP8drUUqCWzHfw3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient eq081-VQEgP8drUUqCWzHfw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Derrick Lin
+INFO:services.comprehensive_emr_sync:No changes detected for eq081-VQEgP8drUUqCWzHfw3 since last sync, skipping reprocessing
+INFO:services.comprehensive_emr_sync:Skipped reprocessing for eq081-VQEgP8drUUqCWzHfw3 - no changes detected
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient eAB3mDIBBcyUKviyzrxsnAw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Desiree Caroline Powell
+INFO:services.comprehensive_emr_sync:No changes detected for eAB3mDIBBcyUKviyzrxsnAw3 since last sync, skipping reprocessing
+INFO:services.comprehensive_emr_sync:Skipped reprocessing for eAB3mDIBBcyUKviyzrxsnAw3 - no changes detected
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient egqBHVfQlt4Bw3XGXoxVxHg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Elijah John Davis
+INFO:services.comprehensive_emr_sync:No changes detected for egqBHVfQlt4Bw3XGXoxVxHg3 since last sync, skipping reprocessing
+INFO:services.comprehensive_emr_sync:Skipped reprocessing for egqBHVfQlt4Bw3XGXoxVxHg3 - no changes detected
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for eIXesllypH3M9tAA5WdJftQ3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient eIXesllypH3M9tAA5WdJftQ3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Linda Jane Ross
+INFO:services.comprehensive_emr_sync:No changes detected for eIXesllypH3M9tAA5WdJftQ3 since last sync, skipping reprocessing
+INFO:services.comprehensive_emr_sync:Skipped reprocessing for eIXesllypH3M9tAA5WdJftQ3 - no changes detected
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient eh2xYHuzl9nkSFVvV3osUHg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Olivia Anne Roberts
+INFO:services.comprehensive_emr_sync:No changes detected for eh2xYHuzl9nkSFVvV3osUHg3 since last sync, skipping reprocessing
+INFO:services.comprehensive_emr_sync:Skipped reprocessing for eh2xYHuzl9nkSFVvV3osUHg3 - no changes detected
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.epic_fhir_service:Authentication verified for org 1
+INFO:services.epic_fhir_service:Successfully synced patient e0w0LEDCYtfckT6N.CkJKCw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Warren James McGinnis
+INFO:services.comprehensive_emr_sync:No changes detected for e0w0LEDCYtfckT6N.CkJKCw3 since last sync, skipping reprocessing
+INFO:services.comprehensive_emr_sync:Skipped reprocessing for e0w0LEDCYtfckT6N.CkJKCw3 - no changes detected
+INFO:services.comprehensive_emr_sync:Discovery and sync completed: 7 patients synced, 0 screenings updated
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:51:21] "POST /api/refresh-screenings HTTP/1.1" 200 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:51:23] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:51:23] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.0.121 - - [04/Oct/2025 17:51:23] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.6.68 - - [04/Oct/2025 17:51:23] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.10.248 - - [04/Oct/2025 17:51:23] "GET /static/css/medical_styles.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:51:23] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:51:26] "GET /patients HTTP/1.1" 302 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:51:27] "GET /screening/list HTTP/1.1" 200 -
+INFO:werkzeug:10.81.10.248 - - [04/Oct/2025 17:51:27] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.6.68 - - [04/Oct/2025 17:51:27] "GET /static/css/medical_styles.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:51:27] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.0.121 - - [04/Oct/2025 17:51:27] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:51:27] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.2.133 - - [04/Oct/2025 17:51:27] "GET /static/js/screening_performance.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.0.121 - - [04/Oct/2025 17:51:27] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:services.screening_refresh_service:ScreeningRefreshService initialized for organization 1 - LOCAL PROCESSING ONLY
+INFO:services.screening_refresh_service:Starting screening refresh for EXISTING data only - NO Epic calls
+ERROR:services.screening_refresh_service:Error logging refresh event: 'username' is an invalid keyword argument for AdminLog
+INFO:services.screening_refresh_service:No changes detected - early termination
+ERROR:services.screening_refresh_service:Error logging refresh event: 'username' is an invalid keyword argument for AdminLog
