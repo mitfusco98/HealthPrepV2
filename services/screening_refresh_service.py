@@ -267,8 +267,7 @@ class ScreeningRefreshService:
         # If force refresh, get all patients
         if refresh_options.get('force_refresh', False):
             all_patient_ids = db.session.query(Patient.id).filter(
-                Patient.org_id == self.organization_id,
-                Patient.is_active == True
+                Patient.org_id == self.organization_id
             ).all()
             
             affected_patient_ids.update([pid[0] for pid in all_patient_ids])
@@ -286,8 +285,7 @@ class ScreeningRefreshService:
         
         patients = Patient.query.filter(
             Patient.id.in_(affected_patient_ids),
-            Patient.org_id == self.organization_id,
-            Patient.is_active == True
+            Patient.org_id == self.organization_id
         ).limit(refresh_options.get('max_patients', 1000)).all()
         
         return patients
@@ -547,21 +545,33 @@ class ScreeningRefreshService:
         try:
             # Get current user if available
             user_id = None
-            username = None
+            username = 'system'
             if has_request_context() and current_user and current_user.is_authenticated:
                 user_id = current_user.id
                 username = current_user.username
             
-            # Create admin log entry
+            # Convert datetime objects to strings for JSON serialization
+            serializable_details = {}
+            for key, value in details.items():
+                if isinstance(value, datetime):
+                    serializable_details[key] = value.isoformat()
+                elif isinstance(value, dict):
+                    # Handle nested datetime objects
+                    serializable_details[key] = {
+                        k: v.isoformat() if isinstance(v, datetime) else v
+                        for k, v in value.items()
+                    }
+                else:
+                    serializable_details[key] = value
+            
+            # Create admin log entry matching AdminLog model structure
             admin_log = AdminLog(
                 user_id=user_id,
-                username=username or 'system',
-                action=event_type,
-                target_type='screening_refresh',
-                target_id=self.organization_id,
-                details=json.dumps(details),
                 org_id=self.organization_id,
-                timestamp=datetime.utcnow()
+                event_type=event_type,
+                resource_type='screening_refresh',
+                action_details=f"Screening refresh: {event_type} (User: {username})",
+                data=serializable_details
             )
             
             db.session.add(admin_log)
