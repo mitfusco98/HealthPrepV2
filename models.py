@@ -1854,6 +1854,22 @@ class ScreeningPreset(db.Model):
                     max_age = get_age_value(st_data, ['max_age', 'age_max'])
                     frequency_years = get_frequency_years(st_data)
                     
+                    # Convert frequency_years to frequency_value and frequency_unit
+                    if frequency_years:
+                        frequency_months = frequency_years * 12
+                        if frequency_months < 24 and frequency_months == int(frequency_months):
+                            frequency_value = int(frequency_months)
+                            frequency_unit = 'months'
+                        elif frequency_years == int(frequency_years):
+                            frequency_value = int(frequency_years)
+                            frequency_unit = 'years'
+                        else:
+                            frequency_value = frequency_years
+                            frequency_unit = 'years'
+                    else:
+                        frequency_value = 1.0
+                        frequency_unit = 'years'
+                    
                     # When replace_entire_set is True, skip duplicate checking since we cleared everything
                     if replace_entire_set:
                         existing = None
@@ -1866,7 +1882,8 @@ class ScreeningPreset(db.Model):
                         eligible_genders=eligible_genders,
                         min_age=min_age,
                         max_age=max_age,
-                        frequency_years=frequency_years,
+                        frequency_value=frequency_value,
+                        frequency_unit=frequency_unit,
                         trigger_conditions=trigger_conditions_json
                     ).first()
 
@@ -1884,7 +1901,8 @@ class ScreeningPreset(db.Model):
                         existing.eligible_genders = eligible_genders
                         existing.min_age = min_age
                         existing.max_age = max_age
-                        existing.frequency_years = frequency_years
+                        existing.frequency_value = frequency_value
+                        existing.frequency_unit = frequency_unit
                         existing.trigger_conditions = trigger_conditions_json
                         existing.is_active = st_data.get('is_active', True)
                         existing.updated_at = datetime.utcnow()
@@ -1909,7 +1927,8 @@ class ScreeningPreset(db.Model):
                         new_st.eligible_genders = eligible_genders
                         new_st.min_age = min_age
                         new_st.max_age = max_age
-                        new_st.frequency_years = frequency_years
+                        new_st.frequency_value = frequency_value
+                        new_st.frequency_unit = frequency_unit
                         new_st.trigger_conditions = trigger_conditions_json
                         new_st.is_active = st_data.get('is_active', True)
                         new_st.created_by = created_by

@@ -70,11 +70,26 @@ class UserViews:
                 'completed_screenings': complete_screenings  # Keep both for compatibility
             }
 
-            # Get recent screening activity (last 10 screenings) - only active screening types
-            recent_screenings = Screening.query.join(Patient).join(ScreeningType).filter(
+            # Get recent screening activity - prioritize complete and due_soon, then due
+            all_recent_screenings = Screening.query.join(Patient).join(ScreeningType).filter(
                 Patient.org_id == current_user.org_id,
                 ScreeningType.is_active == True
-            ).order_by(Screening.updated_at.desc()).limit(10).all()
+            ).order_by(Screening.updated_at.desc()).limit(50).all()
+            
+            # Define status priority (lower number = higher priority, shown at top)
+            status_priority = {
+                'complete': 0,
+                'due_soon': 1,
+                'due': 2,
+                'overdue': 3
+            }
+            
+            # Sort by status priority first, then by updated date
+            recent_screenings = sorted(all_recent_screenings, 
+                                     key=lambda s: (
+                                         status_priority.get(s.status, 99),
+                                         -(s.updated_at.timestamp() if s.updated_at else 0)
+                                     ))[:10]
 
             return render_template('dashboard.html',
                                  stats=stats,
@@ -127,7 +142,23 @@ class UserViews:
             if screening_type_filter:
                 query = query.filter(ScreeningType.name.ilike(f'%{screening_type_filter}%'))
 
-            screenings = query.order_by(Screening.updated_at.desc()).all()
+            # Get all screenings and sort by priority: complete and due_soon first, then due, then others
+            all_screenings = query.all()
+            
+            # Define status priority (lower number = higher priority, shown at top)
+            status_priority = {
+                'complete': 0,
+                'due_soon': 1,
+                'due': 2,
+                'overdue': 3
+            }
+            
+            # Sort by status priority first, then by updated date (most recent first)
+            screenings = sorted(all_screenings, 
+                              key=lambda s: (
+                                  status_priority.get(s.status, 99),
+                                  -(s.updated_at.timestamp() if s.updated_at else 0)
+                              ))
 
             # Get additional data for the view - only active screening types in user's org
             screening_types = ScreeningType.query.filter_by(

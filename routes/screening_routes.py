@@ -123,7 +123,24 @@ def screening_list():
         if screening_type_filter:
             query = query.filter(ScreeningType.name == screening_type_filter)
 
-        screenings = query.order_by(Patient.name, ScreeningType.name).all()
+        # Get all screenings and sort by priority: complete and due_soon first, then due, then others
+        all_screenings = query.all()
+        
+        # Define status priority (lower number = higher priority, shown at top)
+        status_priority = {
+            'complete': 0,
+            'due_soon': 1,
+            'due': 2,
+            'overdue': 3
+        }
+        
+        # Sort by status priority first, then by patient name, then screening type name
+        screenings = sorted(all_screenings, 
+                          key=lambda s: (
+                              status_priority.get(s.status, 99),
+                              s.patient.name.lower() if s.patient.name else '',
+                              s.screening_type.name.lower() if s.screening_type.name else ''
+                          ))
 
         # Get filter options - FILTER BY ORGANIZATION
         patients = Patient.query.filter_by(org_id=current_user.org_id).order_by(Patient.name).all()
@@ -393,7 +410,53 @@ def edit_screening_type(type_id):
                 }
             )
 
-            flash(f'Screening type "{screening_type.name}" updated successfully', 'success')
+            # Detect changes and trigger selective refresh if needed
+            eligibility_changed = (
+                before_values['eligible_genders'] != after_values['eligible_genders'] or
+                before_values['min_age'] != after_values['min_age'] or
+                before_values['max_age'] != after_values['max_age'] or
+                before_values['trigger_conditions'] != after_values['trigger_conditions']
+            )
+            
+            frequency_changed = (
+                before_values['frequency_years'] != after_values['frequency_years']
+            )
+            
+            # Trigger refresh if criteria changed
+            if eligibility_changed or frequency_changed:
+                logger.info(f"Screening type {screening_type.name} criteria changed - triggering selective refresh")
+                from services.screening_refresh_service import ScreeningRefreshService
+                refresh_service = ScreeningRefreshService(current_user.org_id)
+                
+                # Trigger selective refresh for this screening type
+                refresh_options = {
+                    'force_refresh': True,
+                    'specific_screening_types': [screening_type.id]
+                }
+                
+                refresh_results = refresh_service.refresh_screenings(refresh_options=refresh_options)
+                
+                if refresh_results.get('success'):
+                    stats = refresh_results.get('stats', {})
+                    screenings_updated = stats.get('screenings_updated', 0)
+                    
+                    change_types = []
+                    if eligibility_changed:
+                        change_types.append('eligibility criteria')
+                    if frequency_changed:
+                        change_types.append('frequency')
+                    
+                    change_desc = ' and '.join(change_types)
+                    
+                    if screenings_updated > 0:
+                        flash(f'Screening type "{screening_type.name}" updated. {change_desc.capitalize()} changed - {screenings_updated} screenings refreshed', 'success')
+                    else:
+                        flash(f'Screening type "{screening_type.name}" updated successfully', 'success')
+                else:
+                    flash(f'Screening type "{screening_type.name}" updated, but refresh encountered issues', 'warning')
+            else:
+                flash(f'Screening type "{screening_type.name}" updated successfully', 'success')
+            
             return redirect(url_for('screening.screening_types'))
 
         # Populate form fields for editing
@@ -438,11 +501,16 @@ def toggle_screening_type_status(type_id):
     """Toggle screening type active status and sync to all variants"""
     try:
         screening_type = ScreeningType.query.get_or_404(type_id)
-
+        
+        old_status = screening_type.is_active
         screening_type.is_active = not screening_type.is_active
+        new_status = screening_type.is_active
         
         # Sync status to all variants of the same base name
         screening_type.sync_status_to_variants()
+        
+        # Commit the status change
+        db.session.commit()
 
         # Log the action
         log_admin_event(
@@ -450,11 +518,37 @@ def toggle_screening_type_status(type_id):
             user_id=current_user.id,
             org_id=current_user.org_id,
             ip=request.remote_addr,
-            data={'screening_type_name': screening_type.name, 'new_status': screening_type.is_active, 'synced_to_variants': True, 'description': f'Toggled screening type status: {screening_type.name} -> {screening_type.is_active} (synced to variants)'}
+            data={'screening_type_name': screening_type.name, 'new_status': new_status, 'synced_to_variants': True, 'description': f'Toggled screening type status: {screening_type.name} -> {new_status} (synced to variants)'}
         )
 
-        status = 'activated' if screening_type.is_active else 'deactivated'
-        flash(f'Screening type "{screening_type.name}" {status} (all variants synced)', 'success')
+        # Trigger screening refresh to handle activation/deactivation
+        if new_status and not old_status:
+            # ACTIVATION: Create screening items for eligible patients
+            logger.info(f"Screening type {screening_type.name} activated - triggering refresh to create screening items")
+            from services.screening_refresh_service import ScreeningRefreshService
+            refresh_service = ScreeningRefreshService(current_user.org_id)
+            
+            # Force refresh for this specific screening type
+            refresh_options = {
+                'force_refresh': True,
+                'specific_screening_types': [screening_type.id]
+            }
+            
+            refresh_results = refresh_service.refresh_screenings(refresh_options=refresh_options)
+            
+            if refresh_results.get('success'):
+                stats = refresh_results.get('stats', {})
+                screenings_created = stats.get('screenings_updated', 0)
+                if screenings_created > 0:
+                    flash(f'Screening type "{screening_type.name}" activated and {screenings_created} screening items created', 'success')
+                else:
+                    flash(f'Screening type "{screening_type.name}" activated (all variants synced)', 'success')
+            else:
+                flash(f'Screening type "{screening_type.name}" activated, but refresh encountered issues', 'warning')
+        else:
+            # DEACTIVATION: Screening items will be filtered out in queries
+            status = 'activated' if new_status else 'deactivated'
+            flash(f'Screening type "{screening_type.name}" {status} (all variants synced)', 'success')
 
         return redirect(url_for('screening.screening_types'))
 
@@ -741,6 +835,9 @@ def manage_screening_keywords(screening_type_id):
                 if isinstance(keyword, str) and keyword.strip():
                     clean_keywords.append(keyword.strip())
             
+            # Get old keywords for change detection
+            old_keywords = screening_type.get_content_keywords()
+            
             # Save keywords
             screening_type.set_content_keywords(clean_keywords)
             db.session.commit()
@@ -753,6 +850,37 @@ def manage_screening_keywords(screening_type_id):
                 ip=request.remote_addr,
                 data={'screening_type_name': screening_type.name, 'keywords_count': len(clean_keywords), 'description': f'Updated keywords for screening type: {screening_type.name}'}
             )
+            
+            # Trigger selective refresh if keywords changed
+            keywords_changed = set(old_keywords or []) != set(clean_keywords)
+            
+            if keywords_changed:
+                logger.info(f"Keywords changed for {screening_type.name} - triggering selective refresh")
+                from services.screening_refresh_service import ScreeningRefreshService
+                refresh_service = ScreeningRefreshService(current_user.org_id)
+                
+                # Trigger selective refresh for this screening type
+                refresh_options = {
+                    'force_refresh': True,
+                    'specific_screening_types': [screening_type.id]
+                }
+                
+                refresh_results = refresh_service.refresh_screenings(refresh_options=refresh_options)
+                
+                if refresh_results.get('success'):
+                    stats = refresh_results.get('stats', {})
+                    screenings_updated = stats.get('screenings_updated', 0)
+                    
+                    message = f'Updated {len(clean_keywords)} keywords for {screening_type.name}'
+                    if screenings_updated > 0:
+                        message += f'. {screenings_updated} screenings refreshed with new keywords'
+                    
+                    return jsonify({
+                        'success': True,
+                        'message': message,
+                        'keywords': clean_keywords,
+                        'screenings_updated': screenings_updated
+                    })
             
             return jsonify({
                 'success': True,

@@ -166,9 +166,9 @@ class PrepSheetGenerator:
             
             checklist_items.append(item)
         
-        # Sort by priority (due first, then due soon, then complete)
-        priority_order = {'due': 0, 'due_soon': 1, 'complete': 2}
-        checklist_items.sort(key=lambda x: priority_order.get(x['status'], 3))
+        # Sort by priority (complete and due_soon first, then due, then others)
+        priority_order = {'complete': 0, 'due_soon': 1, 'due': 2, 'overdue': 3}
+        checklist_items.sort(key=lambda x: priority_order.get(x['status'], 99))
         
         return {
             'items': checklist_items,

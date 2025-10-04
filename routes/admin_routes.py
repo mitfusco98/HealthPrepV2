@@ -1789,6 +1789,25 @@ def apply_preset_to_organization(preset_id):
                     }
                 )
                 
+                # Trigger screening refresh to create screening items for new/updated screening types
+                logger.info(f"Preset {preset.name} applied - triggering screening refresh to create screening items")
+                from services.screening_refresh_service import ScreeningRefreshService
+                refresh_service = ScreeningRefreshService(current_user.org_id)
+                
+                # Force refresh for all screening types (since preset was just applied)
+                refresh_options = {
+                    'force_refresh': True
+                }
+                
+                refresh_results = refresh_service.refresh_screenings(refresh_options=refresh_options)
+                
+                if refresh_results.get('success'):
+                    stats = refresh_results.get('stats', {})
+                    screenings_created = stats.get('screenings_updated', 0)
+                    
+                    if screenings_created > 0:
+                        success_message += f'. {screenings_created} screening items created for eligible patients'
+                
                 flash(success_message, 'success')
             else:
                 if result['errors']:
