@@ -482,15 +482,27 @@
                             <td class="document-badges">
                                 <div class="d-flex justify-content-between align-items-start">
                                     <div class="documents-list">
-                                        {% if screening.document_matches %}
-                                            {% for match in screening.document_matches[:5] %}
-                                            <span class="badge confidence-{{ match.document.confidence_level }}" 
+                                        {% set total_docs = (screening.document_matches|length) + (screening.fhir_documents|length) %}
+                                        {% if total_docs > 0 %}
+                                            {# Show local documents #}
+                                            {% for match in screening.document_matches[:3] %}
+                                            <span class="badge confidence-{{ match.document.confidence_level if match.document.confidence_level else 'medium' }}" 
                                                   title="{{ match.document.filename }} - Confidence: {{ (match.match_confidence * 100)|round(1) }}%">
                                                 {{ match.document.filename[:25] }}{% if match.document.filename|length > 25 %}...{% endif %}
                                             </span>
                                             {% endfor %}
-                                            {% if screening.document_matches|length > 5 %}
-                                            <div class="document-count-more">+{{ screening.document_matches|length - 5 }} more documents</div>
+                                            
+                                            {# Show FHIR documents #}
+                                            {% for fhir_doc in screening.fhir_documents[:(5 - (screening.document_matches[:3]|length))] %}
+                                            <span class="badge confidence-high" 
+                                                  title="{{ fhir_doc.title or fhir_doc.document_type_display }} (Epic) - Date: {{ fhir_doc.document_date.strftime('%m/%d/%Y') if fhir_doc.document_date else 'N/A' }}">
+                                                {{ (fhir_doc.title or fhir_doc.document_type_display)[:25] }}{% if (fhir_doc.title or fhir_doc.document_type_display)|length > 25 %}...{% endif %} 
+                                                <i class="fas fa-cloud text-white-50" style="font-size: 0.7em;" title="From Epic"></i>
+                                            </span>
+                                            {% endfor %}
+                                            
+                                            {% if total_docs > 5 %}
+                                            <div class="document-count-more">+{{ total_docs - 5 }} more documents</div>
                                             {% endif %}
                                         {% else %}
                                             <span class="text-muted small">No matches</span>
