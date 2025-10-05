@@ -51,36 +51,77 @@ class DocumentMatcher:
         self.logger.info(f"Document {document.id} matching complete: {len(matches)} matches found")
         return matches
     
-    def find_screening_matches(self, screening):
-        """Find all documents that match this screening"""
+    def find_screening_matches(self, screening, exclude_dismissed=True):
+        """
+        Find all documents that match this screening
+        
+        Args:
+            screening: Screening object to find matches for
+            exclude_dismissed: If True, filters out dismissed matches (default True)
+        
+        Returns:
+            List of match dicts sorted by document_date (newest first)
+        """
+        from models import DismissedDocumentMatch, db
         matches = []
+        candidate_matches = []
         
         documents = Document.query.filter_by(patient_id=screening.patient_id).all()
         
+        # First pass: find all potential matches
         for document in documents:
             if document.ocr_text:
                 confidence = self._calculate_match_confidence(document, screening.screening_type)
                 
                 if confidence > 0.75:
-                    # Use created_at since document_date column doesn't exist
                     document_date = getattr(document, 'document_date', None) or document.created_at
-                    matches.append({
+                    candidate_matches.append({
                         'document': document,
                         'confidence': confidence,
                         'document_date': document_date
                     })
         
+        # If dismissal filtering enabled, batch query for all dismissed document IDs
+        if exclude_dismissed and candidate_matches:
+            doc_ids = [m['document'].id for m in candidate_matches]
+            dismissed_ids = set(
+                row[0] for row in db.session.query(DismissedDocumentMatch.document_id).filter(
+                    DismissedDocumentMatch.document_id.in_(doc_ids),
+                    DismissedDocumentMatch.screening_id == screening.id,
+                    DismissedDocumentMatch.is_active == True
+                ).all()
+            )
+            
+            # Filter out dismissed matches using batched set
+            matches = [m for m in candidate_matches if m['document'].id not in dismissed_ids]
+        else:
+            matches = candidate_matches
+        
         return sorted(matches, key=lambda x: x['document_date'] or date.min, reverse=True)
     
-    def get_document_match_details(self, document):
+    def get_document_match_details(self, document, include_dismissed=False):
         """
         Get detailed match information for a document including matched keywords.
-        Returns list of dicts with: screening_id, screening_name, confidence, matched_keywords
+        
+        Args:
+            document: Document or FHIRDocument to analyze
+            include_dismissed: If True, returns dict with 'active' and 'dismissed' lists.
+                             If False, returns only active matches (default).
+        
+        Returns:
+            If include_dismissed=False: List of active match dicts
+            If include_dismissed=True: Dict with 'active' and 'dismissed' lists
         """
-        matches = []
+        from models import DismissedDocumentMatch, Document, FHIRDocument
+        
+        active_matches = []
+        dismissed_matches = []
         
         if not document.ocr_text:
-            return matches
+            return {'active': [], 'dismissed': []} if include_dismissed else []
+        
+        # Determine if this is a local Document or FHIRDocument
+        is_fhir = isinstance(document, FHIRDocument)
         
         # Get patient's screenings
         screenings = Screening.query.filter_by(patient_id=document.patient_id).all()
@@ -89,15 +130,38 @@ class DocumentMatcher:
             confidence, matched_keywords = self._calculate_match_with_keywords(document, screening.screening_type)
             
             if confidence > 0.75:
-                matches.append({
+                # Check if this match has been dismissed
+                dismissal_query = DismissedDocumentMatch.query.filter_by(
+                    screening_id=screening.id,
+                    is_active=True
+                )
+                
+                if is_fhir:
+                    dismissal_query = dismissal_query.filter_by(fhir_document_id=document.id)
+                else:
+                    dismissal_query = dismissal_query.filter_by(document_id=document.id)
+                
+                dismissal = dismissal_query.first()
+                
+                match_data = {
                     'screening_id': screening.id,
                     'screening_name': screening.screening_type.display_name,
                     'screening_type_name': screening.screening_type.name,
                     'confidence': confidence,
                     'matched_keywords': matched_keywords
-                })
+                }
+                
+                if dismissal:
+                    match_data['dismissal_id'] = dismissal.id
+                    match_data['dismissal_reason'] = dismissal.dismissal_reason
+                    dismissed_matches.append(match_data)
+                else:
+                    active_matches.append(match_data)
         
-        return matches
+        if include_dismissed:
+            return {'active': active_matches, 'dismissed': dismissed_matches}
+        else:
+            return active_matches
     
     def _calculate_match_with_keywords(self, document, screening_type):
         """

@@ -1921,8 +1921,14 @@ def admin_documents():
             
             # Add manual documents
             for doc in manual_documents:
-                # Get screening matches with keywords for this document
-                match_details = matcher.get_document_match_details(doc) if doc.ocr_text else []
+                # Get screening matches with keywords for this document (separated by active/dismissed)
+                if doc.ocr_text:
+                    match_data = matcher.get_document_match_details(doc, include_dismissed=True)
+                    active_matches = match_data['active']
+                    dismissed_matches = match_data['dismissed']
+                else:
+                    active_matches = []
+                    dismissed_matches = []
                 
                 combined_documents.append({
                     'id': doc.id,
@@ -1934,13 +1940,20 @@ def admin_documents():
                     'document_date': doc.document_date,
                     'created_at': doc.created_at,
                     'raw_object': doc,
-                    'match_details': match_details
+                    'active_matches': active_matches,
+                    'dismissed_matches': dismissed_matches
                 })
             
             # Add FHIR documents
             for doc in fhir_documents:
-                # Get screening matches with keywords for FHIR documents
-                match_details = matcher.get_document_match_details(doc) if doc.ocr_text else []
+                # Get screening matches with keywords for FHIR documents (separated by active/dismissed)
+                if doc.ocr_text:
+                    match_data = matcher.get_document_match_details(doc, include_dismissed=True)
+                    active_matches = match_data['active']
+                    dismissed_matches = match_data['dismissed']
+                else:
+                    active_matches = []
+                    dismissed_matches = []
                 
                 combined_documents.append({
                     'id': doc.id,
@@ -1953,7 +1966,8 @@ def admin_documents():
                     'created_at': doc.created_at,
                     'epic_id': doc.epic_document_id,
                     'raw_object': doc,
-                    'match_details': match_details
+                    'active_matches': active_matches,
+                    'dismissed_matches': dismissed_matches
                 })
             
             # Count documents by type and source
@@ -1990,4 +2004,134 @@ def admin_documents():
         logger.error(f"Error in admin documents: {str(e)}")
         flash('Error loading document inventory', 'error')
         return render_template('error/500.html'), 500
+
+
+@admin_bp.route('/documents/dismiss-match', methods=['POST'])
+@login_required
+@admin_required
+def dismiss_document_match():
+    """Dismiss a false positive document-screening match"""
+    try:
+        from models import DismissedDocumentMatch, Screening, Document, FHIRDocument
+        
+        # Get parameters
+        document_id = request.form.get('document_id', type=int)
+        fhir_document_id = request.form.get('fhir_document_id', type=int)
+        screening_id = request.form.get('screening_id', type=int)
+        reason = request.form.get('reason', '').strip()
+        
+        # Validate inputs
+        if not screening_id:
+            return jsonify({'success': False, 'error': 'Screening ID required'}), 400
+        
+        # Ensure exactly ONE of document_id or fhir_document_id is provided
+        if (document_id and fhir_document_id) or (not document_id and not fhir_document_id):
+            return jsonify({'success': False, 'error': 'Provide exactly one of document_id or fhir_document_id'}), 400
+        
+        # Verify screening exists and belongs to user's org
+        screening = Screening.query.get(screening_id)
+        if not screening or screening.patient.org_id != current_user.org_id:
+            return jsonify({'success': False, 'error': 'Screening not found'}), 404
+        
+        # Verify document belongs to same patient and org as screening
+        if document_id:
+            document = Document.query.get(document_id)
+            if not document:
+                return jsonify({'success': False, 'error': 'Document not found'}), 404
+            if document.patient_id != screening.patient_id:
+                return jsonify({'success': False, 'error': 'Document does not belong to screening patient'}), 403
+            if document.org_id != current_user.org_id:
+                return jsonify({'success': False, 'error': 'Document does not belong to your organization'}), 403
+        else:
+            fhir_document = FHIRDocument.query.get(fhir_document_id)
+            if not fhir_document:
+                return jsonify({'success': False, 'error': 'FHIR Document not found'}), 404
+            if fhir_document.patient_id != screening.patient_id:
+                return jsonify({'success': False, 'error': 'FHIR Document does not belong to screening patient'}), 403
+            if fhir_document.org_id != current_user.org_id:
+                return jsonify({'success': False, 'error': 'FHIR Document does not belong to your organization'}), 403
+        
+        # Check if already dismissed
+        existing = DismissedDocumentMatch.query.filter_by(
+            document_id=document_id,
+            fhir_document_id=fhir_document_id,
+            screening_id=screening_id,
+            is_active=True
+        ).first()
+        
+        if existing:
+            return jsonify({'success': False, 'error': 'Match already dismissed'}), 400
+        
+        # Create dismissal record
+        dismissal = DismissedDocumentMatch(
+            document_id=document_id,
+            fhir_document_id=fhir_document_id,
+            screening_id=screening_id,
+            org_id=current_user.org_id,
+            dismissed_by=current_user.id,
+            dismissal_reason=reason or None
+        )
+        
+        db.session.add(dismissal)
+        db.session.commit()
+        
+        logger.info(f"User {current_user.id} dismissed document match: Doc={document_id or fhir_document_id} -> Screening={screening_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Match dismissed successfully',
+            'dismissal_id': dismissal.id
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error dismissing match: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/documents/restore-match', methods=['POST'])
+@login_required
+@admin_required
+def restore_document_match():
+    """Restore a previously dismissed document-screening match"""
+    try:
+        from models import DismissedDocumentMatch, Screening
+        
+        dismissal_id = request.form.get('dismissal_id', type=int)
+        
+        if not dismissal_id:
+            return jsonify({'success': False, 'error': 'Dismissal ID required'}), 400
+        
+        # Get dismissal record with org validation
+        dismissal = DismissedDocumentMatch.query.get(dismissal_id)
+        
+        if not dismissal or dismissal.org_id != current_user.org_id:
+            return jsonify({'success': False, 'error': 'Dismissal not found'}), 404
+        
+        # Verify screening still belongs to user's org
+        screening = Screening.query.get(dismissal.screening_id)
+        if not screening or screening.patient.org_id != current_user.org_id:
+            return jsonify({'success': False, 'error': 'Screening access denied'}), 403
+        
+        if not dismissal.is_active:
+            return jsonify({'success': False, 'error': 'Match already restored'}), 400
+        
+        # Restore the match
+        dismissal.is_active = False
+        dismissal.restored_by = current_user.id
+        dismissal.restored_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        logger.info(f"User {current_user.id} restored document match: Dismissal={dismissal_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Match restored successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error restoring match: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 

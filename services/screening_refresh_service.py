@@ -407,19 +407,52 @@ class ScreeningRefreshService:
             logger.error(f"Error finding FHIR document matches: {str(e)}")
             return matches
     
+    def _find_fhir_document_matches_filtered(self, screening: Screening) -> List[Dict]:
+        """
+        Find FHIR documents that match this screening - with dismissal filtering (batched query)
+        """
+        from models import DismissedDocumentMatch
+        
+        # Get all FHIR matches
+        all_matches = self._find_fhir_document_matches(screening)
+        
+        if not all_matches:
+            return []
+        
+        # Batch query: Get all dismissed FHIR document IDs for this screening in one query
+        fhir_doc_ids = [match['document'].id for match in all_matches]
+        dismissed_ids = set(
+            row[0] for row in db.session.query(DismissedDocumentMatch.fhir_document_id).filter(
+                DismissedDocumentMatch.fhir_document_id.in_(fhir_doc_ids),
+                DismissedDocumentMatch.screening_id == screening.id,
+                DismissedDocumentMatch.is_active == True
+            ).all()
+        )
+        
+        # Filter out dismissed matches using the batched set
+        filtered_matches = []
+        for match in all_matches:
+            if match['document'].id not in dismissed_ids:
+                filtered_matches.append(match)
+            else:
+                logger.debug(f"Skipping dismissed FHIR match: Doc {match['document'].id} -> Screening {screening.id}")
+        
+        return filtered_matches
+    
     def _update_screening_status_with_current_criteria(self, screening: Screening) -> bool:
         """
         Update screening status based on existing documents with current criteria
         NO Epic calls - processes existing local documents AND FHIR documents
+        Automatically excludes dismissed matches via DocumentMatcher
         """
         try:
-            # Find matching LOCAL documents using current keywords/criteria
-            matches = self.matcher.find_screening_matches(screening)
+            # Find matching LOCAL documents (already excludes dismissed matches)
+            matches = self.matcher.find_screening_matches(screening, exclude_dismissed=True)
             
-            # ALSO find matching FHIR documents (from Epic)
-            fhir_matches = self._find_fhir_document_matches(screening)
+            # ALSO find matching FHIR documents (from Epic) and filter dismissed
+            fhir_matches = self._find_fhir_document_matches_filtered(screening)
             
-            # Combine both match lists
+            # Combine both match lists (both already filtered)
             all_matches = matches + fhir_matches
             
             if all_matches:

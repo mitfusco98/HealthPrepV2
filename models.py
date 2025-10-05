@@ -2366,4 +2366,50 @@ class TypeLabelAssociation(db.Model):
         return f'<TypeLabelAssociation {self.label} -> {self.universal_type_id}>'
 
 
+class DismissedDocumentMatch(db.Model):
+    """Track dismissed document-screening matches to handle false positives"""
+    __tablename__ = 'dismissed_document_matches'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Support both local documents and FHIR documents
+    document_id = db.Column(db.Integer, db.ForeignKey('document.id'), nullable=True)
+    fhir_document_id = db.Column(db.Integer, db.ForeignKey('fhir_documents.id'), nullable=True)
+    
+    # Screening this document was incorrectly matched to
+    screening_id = db.Column(db.Integer, db.ForeignKey('screening.id'), nullable=False)
+    
+    # Multi-tenancy
+    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
+    
+    # Audit trail
+    dismissed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    dismissed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    dismissal_reason = db.Column(db.Text)  # Optional reason for dismissal
+    
+    # Allow restoration
+    is_active = db.Column(db.Boolean, default=True)
+    restored_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    restored_at = db.Column(db.DateTime, nullable=True)
+    
+    # Relationships
+    document = db.relationship('Document', backref='dismissals')
+    fhir_document = db.relationship('FHIRDocument', backref='dismissals')
+    screening = db.relationship('Screening', backref='dismissed_matches')
+    dismisser = db.relationship('User', foreign_keys=[dismissed_by], backref='dismissed_matches')
+    restorer = db.relationship('User', foreign_keys=[restored_by], backref='restored_matches')
+    organization = db.relationship('Organization', backref='dismissed_matches')
+    
+    # Indexes for performance
+    __table_args__ = (
+        db.Index('idx_dismissed_doc_screening', 'document_id', 'screening_id', 'is_active'),
+        db.Index('idx_dismissed_fhir_screening', 'fhir_document_id', 'screening_id', 'is_active'),
+        db.Index('idx_dismissed_org', 'org_id', 'is_active'),
+    )
+    
+    def __repr__(self):
+        doc_ref = f"Doc:{self.document_id}" if self.document_id else f"FHIR:{self.fhir_document_id}"
+        return f'<DismissedDocumentMatch {doc_ref} -> Screening:{self.screening_id}>'
+
+
 # Note: ExportRequest model removed - global preset management handled directly by root admin
