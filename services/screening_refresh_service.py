@@ -432,7 +432,7 @@ class ScreeningRefreshService:
                         return doc_date.date()
                     return doc_date
                 
-                latest_match = max(matches, key=safe_date_key)
+                latest_match = max(all_matches, key=safe_date_key)
                 document_date = latest_match['document_date'] or latest_match['document'].created_at.date()
                 
                 if hasattr(document_date, 'date'):
