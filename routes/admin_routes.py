@@ -1895,8 +1895,10 @@ def admin_documents():
         # Get all patients in the current organization
         from models import Patient, Document, FHIRDocument, PatientCondition
         from datetime import date
+        from core.matcher import DocumentMatcher
         
         patients = Patient.query.filter_by(org_id=current_user.org_id).all()
+        matcher = DocumentMatcher()
         
         # Build patient document data
         patient_data = []
@@ -1914,11 +1916,14 @@ def admin_documents():
             ).all()
             condition_names = [condition.condition_name for condition in conditions]
             
-            # Combine documents with source markers
+            # Combine documents with source markers and match details
             combined_documents = []
             
             # Add manual documents
             for doc in manual_documents:
+                # Get screening matches with keywords for this document
+                match_details = matcher.get_document_match_details(doc) if doc.ocr_text else []
+                
                 combined_documents.append({
                     'id': doc.id,
                     'source': 'Manual',
@@ -1928,11 +1933,15 @@ def admin_documents():
                     'ocr_text': doc.ocr_text,
                     'document_date': doc.document_date,
                     'created_at': doc.created_at,
-                    'raw_object': doc
+                    'raw_object': doc,
+                    'match_details': match_details
                 })
             
             # Add FHIR documents
             for doc in fhir_documents:
+                # Get screening matches with keywords for FHIR documents
+                match_details = matcher.get_document_match_details(doc) if doc.ocr_text else []
+                
                 combined_documents.append({
                     'id': doc.id,
                     'source': 'Epic FHIR',
@@ -1943,7 +1952,8 @@ def admin_documents():
                     'document_date': doc.document_date,
                     'created_at': doc.created_at,
                     'epic_id': doc.epic_document_id,
-                    'raw_object': doc
+                    'raw_object': doc,
+                    'match_details': match_details
                 })
             
             # Count documents by type and source

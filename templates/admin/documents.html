@@ -202,6 +202,21 @@
                                                                 <span class="badge bg-{{ doc.source_badge }}">{{ doc.source }}</span>
                                                             </p>
                                                             
+                                                            <!-- Screening Matches -->
+                                                            {% if doc.match_details %}
+                                                                <div class="mb-2">
+                                                                    <small class="text-info"><i class="fas fa-check-circle me-1"></i>Matches {{ doc.match_details|length }} screening(s):</small>
+                                                                    <div class="mt-1">
+                                                                        {% for match in doc.match_details %}
+                                                                        <div class="badge bg-info me-1 mb-1" style="font-size: 0.75rem;">
+                                                                            {{ match.screening_name }} 
+                                                                            <span class="badge bg-light text-dark ms-1">{{ (match.confidence * 100)|round }}%</span>
+                                                                        </div>
+                                                                        {% endfor %}
+                                                                    </div>
+                                                                </div>
+                                                            {% endif %}
+                                                            
                                                             <!-- OCR Status -->
                                                             {% if doc.ocr_text %}
                                                                 <div class="mb-2">
@@ -210,7 +225,7 @@
                                                                     </span>
                                                                 </div>
                                                                 
-                                                                <!-- OCR Preview -->
+                                                                <!-- OCR Preview with Keyword Highlighting -->
                                                                 <div class="mt-2">
                                                                     <small class="text-muted">OCR Preview:</small>
                                                                     <div class="bg-dark p-2 rounded mt-1" style="max-height: 100px; overflow-y: auto;">
@@ -218,7 +233,7 @@
                                                                     </div>
                                                                     
                                                                     {% if doc.ocr_text|length > 200 %}
-                                                                    <!-- Full OCR Text (Collapsible for debugging) -->
+                                                                    <!-- Full OCR Text with Keyword Highlighting (Collapsible) -->
                                                                     <div class="mt-2">
                                                                         <button class="btn btn-xs btn-outline-info" 
                                                                                 type="button" 
@@ -233,7 +248,19 @@
                                                                                     <small class="text-info"><i class="fas fa-file-text me-1"></i>Complete OCR Text for {{ doc.title or 'Document' }}</small>
                                                                                     <small class="text-muted">{{ doc.ocr_text|length }} characters | Source: {{ doc.source }}</small>
                                                                                 </div>
-                                                                                <pre class="text-light mb-0" style="font-size: 0.8rem; white-space: pre-wrap; word-wrap: break-word;">{{ doc.ocr_text }}</pre>
+                                                                                {% if doc.match_details %}
+                                                                                <div class="mb-2">
+                                                                                    <small class="text-warning"><i class="fas fa-highlighter me-1"></i>Highlighted keywords:</small>
+                                                                                    {% for match in doc.match_details %}
+                                                                                        {% for keyword in match.matched_keywords %}
+                                                                                        <span class="badge bg-warning text-dark me-1" style="font-size: 0.7rem;">{{ keyword }}</span>
+                                                                                        {% endfor %}
+                                                                                    {% endfor %}
+                                                                                </div>
+                                                                                {% endif %}
+                                                                                <pre class="text-light mb-0 ocr-text-highlight" 
+                                                                                     style="font-size: 0.8rem; white-space: pre-wrap; word-wrap: break-word;"
+                                                                                     data-keywords='{{ doc.match_details|tojson|safe if doc.match_details else "[]" }}'>{{ doc.ocr_text }}</pre>
                                                                             </div>
                                                                         </div>
                                                                     </div>
@@ -298,4 +325,54 @@
 
     {% endif %}
 </div>
+
+<script>
+// Keyword highlighting in OCR text
+document.addEventListener('DOMContentLoaded', function() {
+    // Find all OCR text elements with keywords
+    const ocrElements = document.querySelectorAll('.ocr-text-highlight');
+    
+    ocrElements.forEach(element => {
+        const keywordsData = element.getAttribute('data-keywords');
+        if (!keywordsData || keywordsData === '[]') return;
+        
+        try {
+            const matchDetails = JSON.parse(keywordsData);
+            if (!matchDetails || matchDetails.length === 0) return;
+            
+            // Collect all unique keywords from all matches
+            const allKeywords = new Set();
+            matchDetails.forEach(match => {
+                if (match.matched_keywords) {
+                    match.matched_keywords.forEach(kw => allKeywords.add(kw));
+                }
+            });
+            
+            if (allKeywords.size === 0) return;
+            
+            // Get the original text
+            let text = element.textContent;
+            
+            // Sort keywords by length (longest first) to avoid partial matches
+            const sortedKeywords = Array.from(allKeywords).sort((a, b) => b.length - a.length);
+            
+            // Create highlighted text
+            sortedKeywords.forEach(keyword => {
+                // Handle multi-word keywords
+                const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const pattern = new RegExp(`\\b(${escapedKeyword})\\b`, 'gi');
+                
+                // Replace with highlighted version
+                text = text.replace(pattern, '<mark style="background-color: #ffc107; color: #000; padding: 1px 3px; border-radius: 2px;">$1</mark>');
+            });
+            
+            // Update the element HTML
+            element.innerHTML = text;
+            
+        } catch (e) {
+            console.error('Error highlighting keywords:', e);
+        }
+    });
+});
+</script>
 {% endblock %}

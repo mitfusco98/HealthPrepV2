@@ -72,8 +72,38 @@ class DocumentMatcher:
         
         return sorted(matches, key=lambda x: x['document_date'] or date.min, reverse=True)
     
-    def _calculate_match_confidence(self, document, screening_type):
-        """Calculate confidence score using intelligent hybrid filename + OCR keyword matching"""
+    def get_document_match_details(self, document):
+        """
+        Get detailed match information for a document including matched keywords.
+        Returns list of dicts with: screening_id, screening_name, confidence, matched_keywords
+        """
+        matches = []
+        
+        if not document.ocr_text:
+            return matches
+        
+        # Get patient's screenings
+        screenings = Screening.query.filter_by(patient_id=document.patient_id).all()
+        
+        for screening in screenings:
+            confidence, matched_keywords = self._calculate_match_with_keywords(document, screening.screening_type)
+            
+            if confidence > 0.75:
+                matches.append({
+                    'screening_id': screening.id,
+                    'screening_name': screening.screening_type.display_name,
+                    'screening_type_name': screening.screening_type.name,
+                    'confidence': confidence,
+                    'matched_keywords': matched_keywords
+                })
+        
+        return matches
+    
+    def _calculate_match_with_keywords(self, document, screening_type):
+        """
+        Calculate confidence AND return matched keywords for highlighting.
+        Returns (confidence, matched_keywords_list)
+        """
         import re
         
         # Hybrid approach: use both filename AND OCR text for comprehensive matching
@@ -81,21 +111,19 @@ class DocumentMatcher:
         ocr_text = document.ocr_text or ''
         
         if not filename and not ocr_text:
-            return 0.0
+            return 0.0, []
         
         # Only use explicit keywords - NO fallback to screening type name
         keywords = screening_type.keywords_list
         if not keywords:
-            self.logger.debug(f"No keywords defined for {screening_type.name} - requiring explicit keywords")
-            return 0.0
+            return 0.0, []
         
         # Remove generic stopwords that cause false positives
         stopwords = {'review', 'note', 'report', 'imaging', 'result', 'clinic', 'screening', 'test', 'exam'}
         valid_keywords = [k for k in keywords if k.lower() not in stopwords]
         
         if not valid_keywords:
-            self.logger.debug(f"All keywords for {screening_type.name} are stopwords: {keywords}")
-            return 0.0
+            return 0.0, []
         
         # Check for matches in both filename and OCR text
         filename_matches = []
@@ -114,12 +142,10 @@ class DocumentMatcher:
             # Check filename matches
             if filename and re.search(pattern, filename, re.IGNORECASE):
                 filename_matches.append(keyword)
-                self.logger.debug(f"FILENAME MATCH: '{keyword}' found in filename '{filename}' for {screening_type.name}")
             
             # Check OCR text matches
             if ocr_text and re.search(pattern, ocr_text, re.IGNORECASE):
                 ocr_matches.append(keyword)
-                self.logger.debug(f"OCR MATCH: '{keyword}' found in OCR text for {screening_type.name}")
         
         # Calculate confidence based on matches found
         if filename_matches or ocr_matches:
@@ -144,21 +170,18 @@ class DocumentMatcher:
                 else:
                     confidence += ocr_confidence  # Full OCR confidence if no filename match
             
-            # Log the successful matches
-            all_matches = list(set(filename_matches + ocr_matches))  # Remove duplicates
-            match_sources = []
-            if filename_matches:
-                match_sources.append(f"filename: {filename_matches}")
-            if ocr_matches:
-                match_sources.append(f"OCR: {ocr_matches}")
-            
-            final_confidence = min(confidence, 1.0)  # Cap at 1.0
-            self.logger.info(f"EXACT MATCHES for {screening_type.name}: {', '.join(match_sources)} -> confidence {final_confidence:.3f}")
-            return final_confidence
+            # Return confidence and all matched keywords (deduplicated)
+            all_matched = list(set(filename_matches + ocr_matches))
+            final_confidence = min(confidence, 1.0)
+            return final_confidence, all_matched
         
-        # No exact matches = zero confidence (no fuzzy fallbacks)
-        self.logger.debug(f"NO EXACT MATCHES for {screening_type.name} keywords {valid_keywords}")
-        return 0.0
+        # No exact matches = zero confidence
+        return 0.0, []
+    
+    def _calculate_match_confidence(self, document, screening_type):
+        """Calculate confidence score using intelligent hybrid filename + OCR keyword matching"""
+        confidence, _ = self._calculate_match_with_keywords(document, screening_type)
+        return confidence
     
     def _fuzzy_match_keyword(self, keyword, text):
         """Legacy fuzzy matching method - replaced by FuzzyDetectionEngine"""
