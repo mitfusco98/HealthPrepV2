@@ -2077,6 +2077,12 @@ def dismiss_document_match():
         
         logger.info(f"User {current_user.id} dismissed document match: Doc={document_id or fhir_document_id} -> Screening={screening_id}")
         
+        # Refresh screening status to reflect dismissed match
+        from services.screening_refresh_service import ScreeningRefreshService
+        refresh_service = ScreeningRefreshService()
+        refresh_service._update_screening_status_with_current_criteria(screening)
+        db.session.commit()
+        
         return jsonify({
             'success': True,
             'message': 'Match dismissed successfully',
@@ -2124,6 +2130,12 @@ def restore_document_match():
         db.session.commit()
         
         logger.info(f"User {current_user.id} restored document match: Dismissal={dismissal_id}")
+        
+        # Refresh screening status to reflect restored match
+        from services.screening_refresh_service import ScreeningRefreshService
+        refresh_service = ScreeningRefreshService()
+        refresh_service._update_screening_status_with_current_criteria(screening)
+        db.session.commit()
         
         return jsonify({
             'success': True,
