@@ -483,11 +483,23 @@
 <script>
 // Event delegation for dismiss and restore buttons
 document.addEventListener('DOMContentLoaded', function() {
-    // Handle dismiss match clicks
+    console.log('✓ Document loaded, attaching click handlers for dismiss/restore buttons');
+    
+    // Count buttons found
+    const dismissButtons = document.querySelectorAll('.dismiss-match-btn');
+    const restoreButtons = document.querySelectorAll('.restore-match-btn');
+    console.log(`Found ${dismissButtons.length} dismiss buttons and ${restoreButtons.length} restore buttons`);
+    
+    // Handle dismiss and restore match clicks
     document.addEventListener('click', function(e) {
+        console.log('Click detected on:', e.target.tagName, e.target.className);
+        
         const dismissBtn = e.target.closest('.dismiss-match-btn');
         if (dismissBtn) {
+            console.log('✓ Dismiss button found!');
+            console.log('Button dataset:', dismissBtn.dataset);
             e.preventDefault();
+            e.stopPropagation();
             
             const docId = dismissBtn.dataset.docId;
             const screeningId = dismissBtn.dataset.screeningId;
@@ -495,11 +507,17 @@ document.addEventListener('DOMContentLoaded', function() {
             const docTitle = dismissBtn.dataset.docTitle;
             const screeningName = dismissBtn.dataset.screeningName;
             
+            console.log('Data extracted:', { docId, screeningId, source, docTitle, screeningName });
+            
             const reason = prompt(`Dismiss match: "${docTitle}" → "${screeningName}"?\n\nOptional: Enter reason for dismissal (or leave blank):`);
             
             // User cancelled
-            if (reason === null) return;
+            if (reason === null) {
+                console.log('User cancelled dismissal');
+                return;
+            }
             
+            console.log('Sending dismiss request...');
             const formData = new FormData();
             if (source === 'Epic FHIR') {
                 formData.append('fhir_document_id', docId);
@@ -517,6 +535,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(response => response.json())
             .then(data => {
+                console.log('Dismiss response:', data);
                 if (data.success) {
                     alert('Match dismissed successfully');
                     location.reload();
@@ -528,21 +547,29 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error:', error);
                 alert('Failed to dismiss match');
             });
+            return; // Stop processing this click
         }
         
         // Handle restore match clicks
         const restoreBtn = e.target.closest('.restore-match-btn');
         if (restoreBtn) {
+            console.log('✓ Restore button found!');
+            console.log('Button dataset:', restoreBtn.dataset);
             e.preventDefault();
+            e.stopPropagation();
             
             const dismissalId = restoreBtn.dataset.dismissalId;
             const docTitle = restoreBtn.dataset.docTitle;
             const screeningName = restoreBtn.dataset.screeningName;
             
+            console.log('Data extracted:', { dismissalId, docTitle, screeningName });
+            
             if (!confirm(`Restore match: "${docTitle}" → "${screeningName}"?`)) {
+                console.log('User cancelled restore');
                 return;
             }
             
+            console.log('Sending restore request...');
             const formData = new FormData();
             formData.append('dismissal_id', dismissalId);
             
@@ -552,6 +579,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(response => response.json())
             .then(data => {
+                console.log('Restore response:', data);
                 if (data.success) {
                     alert('Match restored successfully');
                     location.reload();
