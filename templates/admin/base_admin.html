@@ -132,50 +132,41 @@
             <div class="col-lg-2 mb-4">
                 <div class="admin-sidebar p-3">
                     <h6 class="text-muted mb-3">
-                        <i class="fas fa-cogs me-1"></i>System Tools
+                        <i class="fas fa-cogs me-1"></i>Admin Navigation
                     </h6>
                     <div class="list-group list-group-flush">
-                        <a href="{{ url_for('admin.dashboard') }}" class="list-group-item list-group-item-action bg-transparent text-light">
-                            <i class="fas fa-chart-line me-2"></i>Analytics
+                        <a href="{{ url_for('admin.logs') }}" class="list-group-item list-group-item-action bg-transparent text-light">
+                            <i class="fas fa-history me-2"></i>Activity Logs
                         </a>
+                        <a href="{{ url_for('admin.dashboard_users') }}" class="list-group-item list-group-item-action bg-transparent text-light">
+                            <i class="fas fa-users me-2"></i>User Management
+                        </a>
+                        <a href="{{ url_for('admin.dashboard_presets') }}" class="list-group-item list-group-item-action bg-transparent text-light">
+                            <i class="fas fa-cog me-2"></i>Preset Management
+                        </a>
+                        <a href="{{ url_for('admin.dashboard_phi') }}" class="list-group-item list-group-item-action bg-transparent text-light">
+                            <i class="fas fa-user-secret me-2"></i>PHI Filter
+                        </a>
+                        <a href="{{ url_for('admin.dashboard_analytics') }}" class="list-group-item list-group-item-action bg-transparent text-light">
+                            <i class="fas fa-chart-line me-2"></i>Customer Analytics
+                        </a>
+                        <a href="/admin/epic/registration" class="list-group-item list-group-item-action bg-transparent text-light">
+                            <i class="fas fa-hospital me-2"></i>Epic Registration
+                        </a>
+                        <a href="{{ url_for('admin.admin_documents') }}" class="list-group-item list-group-item-action bg-transparent text-light">
+                            <i class="fas fa-folder-open me-2"></i>Document Inventory
+                        </a>
+                    </div>
+                    
+                    <h6 class="text-muted mb-3 mt-4">
+                        <i class="fas fa-tools me-1"></i>System Tools
+                    </h6>
+                    <div class="list-group list-group-flush">
                         <a href="{{ url_for('screening.screening_types') }}" class="list-group-item list-group-item-action bg-transparent text-light">
                             <i class="fas fa-list-check me-2"></i>Screening Types
                         </a>
                         <a href="{{ url_for('prep_sheet.prep_sheet_settings') }}" class="list-group-item list-group-item-action bg-transparent text-light">
                             <i class="fas fa-cog me-2"></i>Prep Settings
-                        </a>
-                        <a href="{{ url_for('admin.admin_documents') }}" class="list-group-item list-group-item-action bg-transparent text-light">
-                            <i class="fas fa-folder-open me-2"></i>Documents
-                        </a>
-                    </div>
-                    
-                    <h6 class="text-muted mb-3 mt-4">
-                        <i class="fas fa-shield-alt me-1"></i>Security
-                    </h6>
-                    <div class="list-group list-group-flush">
-                        <a href="{{ url_for('admin.dashboard_phi') }}" class="list-group-item list-group-item-action bg-transparent text-light">
-                            <i class="fas fa-user-secret me-2"></i>PHI Filter
-                        </a>
-                        <a href="{{ url_for('admin.logs') }}" class="list-group-item list-group-item-action bg-transparent text-light">
-                            <i class="fas fa-history me-2"></i>Audit Trail
-                        </a>
-                    </div>
-                    
-                    <h6 class="text-muted mb-3 mt-4">
-                        <i class="fas fa-chart-bar me-1"></i>Analytics
-                    </h6>
-                    <div class="list-group list-group-flush">
-                        <a href="{{ url_for('admin.dashboard_analytics') }}" class="list-group-item list-group-item-action bg-transparent text-light">
-                            <i class="fas fa-chart-line me-2"></i>Customer Analytics
-                        </a>
-                    </div>
-                    
-                    <h6 class="text-muted mb-3 mt-4">
-                        <i class="fas fa-exchange-alt me-1"></i>Integrations
-                    </h6>
-                    <div class="list-group list-group-flush">
-                        <a href="/admin/epic/registration" class="list-group-item list-group-item-action bg-transparent text-light">
-                            <i class="fas fa-hospital me-2"></i>Epic Registration
                         </a>
                     </div>
                 </div>
