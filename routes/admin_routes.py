@@ -1897,7 +1897,20 @@ def admin_documents():
         from datetime import date
         from core.matcher import DocumentMatcher
         
-        patients = Patient.query.filter_by(org_id=current_user.org_id).all()
+        # Get filter parameters
+        patient_search = request.args.get('patient_search', '').strip()
+        has_matches_filter = request.args.get('has_matches', '').strip()
+        
+        # Build patient query with search filter
+        patients_query = Patient.query.filter_by(org_id=current_user.org_id)
+        
+        if patient_search:
+            # Case-insensitive patient name search
+            patients_query = patients_query.filter(
+                Patient.name.ilike(f'%{patient_search}%')
+            )
+        
+        patients = patients_query.all()
         matcher = DocumentMatcher()
         
         # Build patient document data
@@ -1981,6 +1994,13 @@ def admin_documents():
                 doc_counts[doc_type] = doc_counts.get(doc_type, 0) + 1
                 if doc['ocr_text']:
                     doc_with_ocr += 1
+            
+            # Apply "has active matches" filter
+            if has_matches_filter:
+                # Only include this patient if at least one document has active matches
+                has_any_active_matches = any(doc['active_matches'] for doc in combined_documents)
+                if not has_any_active_matches:
+                    continue  # Skip this patient
             
             patient_data.append({
                 'patient': patient,
