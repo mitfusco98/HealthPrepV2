@@ -21,10 +21,65 @@
         </div>
     </div>
 
+    <!-- Search and Filter Controls -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-filter me-2"></i>Search & Filter
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('admin.admin_documents') }}" class="row g-3">
+                <div class="col-md-6">
+                    <label for="patient_search" class="form-label">Search by Patient Name</label>
+                    <input type="text" class="form-control" id="patient_search" name="patient_search" 
+                           placeholder="Enter patient name..." value="{{ request.args.get('patient_search', '') }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label d-block">&nbsp;</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="has_matches" name="has_matches" value="1"
+                               {% if request.args.get('has_matches') %}checked{% endif %}>
+                        <label class="form-check-label" for="has_matches">
+                            Only documents with active matches
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label d-block">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="fas fa-search me-1"></i>Apply Filters
+                    </button>
+                    <a href="{{ url_for('admin.admin_documents') }}" class="btn btn-secondary">
+                        <i class="fas fa-times me-1"></i>Clear
+                    </a>
+                </div>
+            </form>
+            
+            {% if request.args.get('patient_search') or request.args.get('has_matches') %}
+            <div class="mt-3">
+                <span class="badge bg-info">
+                    <i class="fas fa-filter me-1"></i>Active Filters: 
+                    {% if request.args.get('patient_search') %}
+                        Patient: "{{ request.args.get('patient_search') }}"
+                    {% endif %}
+                    {% if request.args.get('has_matches') %}
+                        | With Active Matches
+                    {% endif %}
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
     {% if not patient_data %}
     <div class="alert alert-info">
         <i class="fas fa-info-circle me-2"></i>
+        {% if request.args.get('patient_search') or request.args.get('has_matches') %}
+        No patients match your search criteria. Try adjusting your filters.
+        {% else %}
         No patients found in your organization. Documents will appear here once patients are added.
+        {% endif %}
     </div>
     {% else %}
 
