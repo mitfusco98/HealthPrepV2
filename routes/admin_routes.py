@@ -2128,7 +2128,7 @@ def dismiss_document_match():
         
         # Refresh screening status to reflect dismissed match
         from services.screening_refresh_service import ScreeningRefreshService
-        refresh_service = ScreeningRefreshService()
+        refresh_service = ScreeningRefreshService(organization_id=current_user.org_id)
         refresh_service._update_screening_status_with_current_criteria(screening)
         db.session.commit()
         
@@ -2182,7 +2182,7 @@ def restore_document_match():
         
         # Refresh screening status to reflect restored match
         from services.screening_refresh_service import ScreeningRefreshService
-        refresh_service = ScreeningRefreshService()
+        refresh_service = ScreeningRefreshService(organization_id=current_user.org_id)
         refresh_service._update_screening_status_with_current_criteria(screening)
         db.session.commit()
         
