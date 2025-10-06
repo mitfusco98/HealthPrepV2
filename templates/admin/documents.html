@@ -510,16 +510,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const screeningName = dismissBtn.dataset.screeningName;
             
             console.log('Data extracted:', { docId, screeningId, source, docTitle, screeningName });
-            
-            const reason = prompt(`Dismiss match: "${docTitle}" → "${screeningName}"?\n\nOptional: Enter reason for dismissal (or leave blank):`);
-            
-            // User cancelled
-            if (reason === null) {
-                console.log('User cancelled dismissal');
-                return;
-            }
-            
-            console.log('Sending dismiss request...');
+            console.log('Dismissing match instantly (no confirmation)...');
             
             // Get CSRF token
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -532,9 +523,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 formData.append('document_id', docId);
             }
             formData.append('screening_id', screeningId);
-            if (reason && reason.trim()) {
-                formData.append('reason', reason.trim());
-            }
             
             fetch('/admin/documents/dismiss-match', {
                 method: 'POST',
@@ -544,15 +532,16 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 console.log('Dismiss response:', data);
                 if (data.success) {
-                    alert('Match dismissed successfully');
+                    console.log('✓ Match dismissed successfully - reloading page');
                     location.reload();
                 } else {
-                    alert('Error: ' + (data.error || 'Unknown error'));
+                    console.error('Error dismissing match:', data.error);
+                    location.reload();
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Failed to dismiss match');
+                location.reload();
             });
             return; // Stop processing this click
         }
@@ -570,13 +559,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const screeningName = restoreBtn.dataset.screeningName;
             
             console.log('Data extracted:', { dismissalId, docTitle, screeningName });
-            
-            if (!confirm(`Restore match: "${docTitle}" → "${screeningName}"?`)) {
-                console.log('User cancelled restore');
-                return;
-            }
-            
-            console.log('Sending restore request...');
+            console.log('Restoring match instantly (no confirmation)...');
             
             // Get CSRF token
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -593,15 +576,16 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 console.log('Restore response:', data);
                 if (data.success) {
-                    alert('Match restored successfully');
+                    console.log('✓ Match restored successfully - reloading page');
                     location.reload();
                 } else {
-                    alert('Error: ' + (data.error || 'Unknown error'));
+                    console.error('Error restoring match:', data.error);
+                    location.reload();
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Failed to restore match');
+                location.reload();
             });
         }
     });
