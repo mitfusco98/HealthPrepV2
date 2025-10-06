@@ -379,6 +379,62 @@
                     </tbody>
                 </table>
             </div>
+            
+            <!-- Pagination Controls -->
+            {% if total_pages > 1 %}
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <div>
+                    <small class="text-muted">
+                        Showing page {{ page }} of {{ total_pages }} ({{ per_page }} patients per page)
+                    </small>
+                </div>
+                <nav aria-label="Patient pagination">
+                    <ul class="pagination pagination-sm mb-0">
+                        <!-- Previous Page -->
+                        <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                            <a class="page-link" href="?page={{ page - 1 }}{% if request.args.get('patient_search') %}&patient_search={{ request.args.get('patient_search') }}{% endif %}{% if request.args.get('has_matches') %}&has_matches=1{% endif %}">
+                                <i class="fas fa-chevron-left"></i> Previous
+                            </a>
+                        </li>
+                        
+                        <!-- Page Numbers -->
+                        {% set start_page = [1, page - 2]|max %}
+                        {% set end_page = [total_pages, page + 2]|min %}
+                        
+                        {% if start_page > 1 %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if request.args.get('patient_search') %}&patient_search={{ request.args.get('patient_search') }}{% endif %}{% if request.args.get('has_matches') %}&has_matches=1{% endif %}">1</a>
+                        </li>
+                        {% if start_page > 2 %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                        {% endif %}
+                        
+                        {% for p in range(start_page, end_page + 1) %}
+                        <li class="page-item {% if p == page %}active{% endif %}">
+                            <a class="page-link" href="?page={{ p }}{% if request.args.get('patient_search') %}&patient_search={{ request.args.get('patient_search') }}{% endif %}{% if request.args.get('has_matches') %}&has_matches=1{% endif %}">{{ p }}</a>
+                        </li>
+                        {% endfor %}
+                        
+                        {% if end_page < total_pages %}
+                        {% if end_page < total_pages - 1 %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ total_pages }}{% if request.args.get('patient_search') %}&patient_search={{ request.args.get('patient_search') }}{% endif %}{% if request.args.get('has_matches') %}&has_matches=1{% endif %}">{{ total_pages }}</a>
+                        </li>
+                        {% endif %}
+                        
+                        <!-- Next Page -->
+                        <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                            <a class="page-link" href="?page={{ page + 1 }}{% if request.args.get('patient_search') %}&patient_search={{ request.args.get('patient_search') }}{% endif %}{% if request.args.get('has_matches') %}&has_matches=1{% endif %}">
+                                Next <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+            {% endif %}
         </div>
     </div>
 
