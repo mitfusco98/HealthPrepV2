@@ -267,8 +267,12 @@
                                                                             <div class="badge bg-info" style="font-size: 0.75rem;">
                                                                                 {{ match.screening_name }} 
                                                                                 <span class="badge bg-light text-dark ms-1">{{ (match.confidence * 100)|round }}%</span>
-                                                                                <button class="btn btn-xs btn-link text-white p-0 ms-1" 
-                                                                                        onclick="dismissMatch({{ doc.id }}, {{ match.screening_id }}, '{{ doc.source }}', '{{ doc.title }}', '{{ match.screening_name }}')"
+                                                                                <button class="btn btn-xs btn-link text-white p-0 ms-1 dismiss-match-btn" 
+                                                                                        data-doc-id="{{ doc.id }}"
+                                                                                        data-screening-id="{{ match.screening_id }}"
+                                                                                        data-source="{{ doc.source }}"
+                                                                                        data-doc-title="{{ doc.title }}"
+                                                                                        data-screening-name="{{ match.screening_name }}"
                                                                                         title="Dismiss this match (false positive)">
                                                                                     <i class="fas fa-times"></i>
                                                                                 </button>
@@ -297,8 +301,10 @@
                                                                                 {% if match.dismissal_reason %}
                                                                                 <span class="badge bg-dark ms-1" title="{{ match.dismissal_reason }}">Reason</span>
                                                                                 {% endif %}
-                                                                                <button class="btn btn-xs btn-link text-white p-0 ms-1" 
-                                                                                        onclick="restoreMatch({{ match.dismissal_id }}, '{{ doc.title }}', '{{ match.screening_name }}')"
+                                                                                <button class="btn btn-xs btn-link text-white p-0 ms-1 restore-match-btn" 
+                                                                                        data-dismissal-id="{{ match.dismissal_id }}"
+                                                                                        data-doc-title="{{ doc.title }}"
+                                                                                        data-screening-name="{{ match.screening_name }}"
                                                                                         title="Restore this match">
                                                                                     <i class="fas fa-undo"></i>
                                                                                 </button>
@@ -475,73 +481,92 @@
 </div>
 
 <script>
-// Dismiss a document-screening match
-function dismissMatch(docId, screeningId, source, docTitle, screeningName) {
-    const reason = prompt(`Dismiss match: "${docTitle}" → "${screeningName}"?\n\nOptional: Enter reason for dismissal (or leave blank):`);
-    
-    // User cancelled
-    if (reason === null) return;
-    
-    const formData = new FormData();
-    if (source === 'Epic FHIR') {
-        formData.append('fhir_document_id', docId);
-    } else {
-        formData.append('document_id', docId);
-    }
-    formData.append('screening_id', screeningId);
-    if (reason.trim()) {
-        formData.append('reason', reason.trim());
-    }
-    
-    fetch('/admin/documents/dismiss-match', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('Match dismissed successfully');
-            location.reload();
-        } else {
-            alert('Error: ' + (data.error || 'Unknown error'));
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Failed to dismiss match');
-    });
-}
-
-// Restore a dismissed match
-function restoreMatch(dismissalId, docTitle, screeningName) {
-    if (!confirm(`Restore match: "${docTitle}" → "${screeningName}"?`)) {
-        return;
-    }
-    
-    const formData = new FormData();
-    formData.append('dismissal_id', dismissalId);
-    
-    fetch('/admin/documents/restore-match', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('Match restored successfully');
-            location.reload();
-        } else {
-            alert('Error: ' + (data.error || 'Unknown error'));
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Failed to restore match');
-    });
-}
-
-// Keyword highlighting in OCR text
+// Event delegation for dismiss and restore buttons
 document.addEventListener('DOMContentLoaded', function() {
+    // Handle dismiss match clicks
+    document.addEventListener('click', function(e) {
+        const dismissBtn = e.target.closest('.dismiss-match-btn');
+        if (dismissBtn) {
+            e.preventDefault();
+            
+            const docId = dismissBtn.dataset.docId;
+            const screeningId = dismissBtn.dataset.screeningId;
+            const source = dismissBtn.dataset.source;
+            const docTitle = dismissBtn.dataset.docTitle;
+            const screeningName = dismissBtn.dataset.screeningName;
+            
+            const reason = prompt(`Dismiss match: "${docTitle}" → "${screeningName}"?\n\nOptional: Enter reason for dismissal (or leave blank):`);
+            
+            // User cancelled
+            if (reason === null) return;
+            
+            const formData = new FormData();
+            if (source === 'Epic FHIR') {
+                formData.append('fhir_document_id', docId);
+            } else {
+                formData.append('document_id', docId);
+            }
+            formData.append('screening_id', screeningId);
+            if (reason && reason.trim()) {
+                formData.append('reason', reason.trim());
+            }
+            
+            fetch('/admin/documents/dismiss-match', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Match dismissed successfully');
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to dismiss match');
+            });
+        }
+        
+        // Handle restore match clicks
+        const restoreBtn = e.target.closest('.restore-match-btn');
+        if (restoreBtn) {
+            e.preventDefault();
+            
+            const dismissalId = restoreBtn.dataset.dismissalId;
+            const docTitle = restoreBtn.dataset.docTitle;
+            const screeningName = restoreBtn.dataset.screeningName;
+            
+            if (!confirm(`Restore match: "${docTitle}" → "${screeningName}"?`)) {
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('dismissal_id', dismissalId);
+            
+            fetch('/admin/documents/restore-match', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Match restored successfully');
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to restore match');
+            });
+        }
+    });
+    
+    // Keyword highlighting in OCR text
     // Find all OCR text elements with keywords
     const ocrElements = document.querySelectorAll('.ocr-text-highlight');
     
