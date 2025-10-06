@@ -452,6 +452,12 @@ class ScreeningRefreshService:
             # ALSO find matching FHIR documents (from Epic) and filter dismissed
             fhir_matches = self._find_fhir_document_matches_filtered(screening)
             
+            # Link FHIR documents to screening for UI display (many-to-many relationship)
+            for fhir_match in fhir_matches:
+                fhir_doc = fhir_match['document']
+                if fhir_doc not in screening.fhir_documents:
+                    screening.fhir_documents.append(fhir_doc)
+            
             # Combine both match lists (both already filtered)
             all_matches = matches + fhir_matches
             
