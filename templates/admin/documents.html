@@ -520,7 +520,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             console.log('Sending dismiss request...');
+            
+            // Get CSRF token
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            
             const formData = new FormData();
+            formData.append('csrf_token', csrfToken);
             if (source === 'Epic FHIR') {
                 formData.append('fhir_document_id', docId);
             } else {
@@ -572,7 +577,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             console.log('Sending restore request...');
+            
+            // Get CSRF token
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            
             const formData = new FormData();
+            formData.append('csrf_token', csrfToken);
             formData.append('dismissal_id', dismissalId);
             
             fetch('/admin/documents/restore-match', {
