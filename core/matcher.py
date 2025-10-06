@@ -337,9 +337,16 @@ class DocumentMatcher:
             sample_documents = Document.query.limit(50).all()
         
         # Extract text from documents
+        from models import FHIRDocument
         document_texts = []
         for doc in sample_documents:
-            text = f"{doc.filename or ''} {doc.ocr_text or ''}".strip()
+            # Handle both Document (has 'filename') and FHIRDocument (has 'title')
+            if isinstance(doc, FHIRDocument):
+                doc_name = doc.title or doc.document_type_display or ''
+            else:
+                doc_name = getattr(doc, 'filename', '') or ''
+            
+            text = f"{doc_name} {doc.ocr_text or ''}".strip()
             if text:
                 document_texts.append(text)
         
@@ -366,10 +373,18 @@ class DocumentMatcher:
     
     def analyze_document_content(self, document):
         """Analyze document content using fuzzy detection for semantic understanding"""
+        from models import FHIRDocument
+        
         if not document:
             return {}
         
-        text = f"{document.filename or ''} {document.ocr_text or ''}".strip()
+        # Handle both Document (has 'filename') and FHIRDocument (has 'title')
+        if isinstance(document, FHIRDocument):
+            doc_name = document.title or document.document_type_display or ''
+        else:
+            doc_name = getattr(document, 'filename', '') or ''
+        
+        text = f"{doc_name} {document.ocr_text or ''}".strip()
         if not text:
             return {}
         
