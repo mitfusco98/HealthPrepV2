@@ -169,9 +169,15 @@ class DocumentMatcher:
         Returns (confidence, matched_keywords_list)
         """
         import re
+        from models import FHIRDocument
         
-        # Hybrid approach: use both filename AND OCR text for comprehensive matching
-        filename = document.filename or ''
+        # Hybrid approach: use both filename/title AND OCR text for comprehensive matching
+        # Handle both Document (has 'filename') and FHIRDocument (has 'title')
+        if isinstance(document, FHIRDocument):
+            filename = document.title or document.document_type_display or ''
+        else:
+            filename = getattr(document, 'filename', '') or ''
+        
         ocr_text = document.ocr_text or ''
         
         if not filename and not ocr_text:
