@@ -473,7 +473,11 @@ def admin_required(f):
 @admin_required
 def dashboard():
     """Main admin dashboard - redirect to logs by default"""
-    return redirect(url_for('admin.dashboard_logs'))
+    response = make_response(redirect(url_for('admin.dashboard_logs')))
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 def get_dashboard_data():
     """Helper function to get common dashboard data"""

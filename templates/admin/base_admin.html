@@ -68,23 +68,38 @@
             <div class="collapse navbar-collapse" id="adminNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('admin.dashboard') }}">
-                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('admin.logs') }}">
-                            <i class="fas fa-file-alt me-1"></i>Audit Logs
+                            <i class="fas fa-history me-1"></i>Activity Logs
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('admin.ocr_dashboard') }}">
-                            <i class="fas fa-eye me-1"></i>OCR Monitor
+                        <a class="nav-link" href="{{ url_for('admin.dashboard_users') }}">
+                            <i class="fas fa-users me-1"></i>User Management
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.dashboard_presets') }}">
+                            <i class="fas fa-cog me-1"></i>Preset Management
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('admin.dashboard_phi') }}">
-                            <i class="fas fa-user-shield me-1"></i>PHI Settings
+                            <i class="fas fa-user-shield me-1"></i>PHI Filter
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.dashboard_analytics') }}">
+                            <i class="fas fa-chart-line me-1"></i>Customer Analytics
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/epic/registration">
+                            <i class="fas fa-hospital me-1"></i>Epic Registration
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin.admin_documents') }}">
+                            <i class="fas fa-folder-open me-1"></i>Document Inventory
                         </a>
                     </li>
                 </ul>
