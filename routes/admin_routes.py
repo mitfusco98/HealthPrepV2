@@ -1901,9 +1901,11 @@ def admin_documents():
         from datetime import date
         from core.matcher import DocumentMatcher
         
-        # Get filter parameters
+        # Get filter and pagination parameters
         patient_search = request.args.get('patient_search', '').strip()
         has_matches_filter = request.args.get('has_matches', '').strip()
+        page = request.args.get('page', 1, type=int)
+        per_page = 20
         
         # Build patient query with search filter
         patients_query = Patient.query.filter_by(org_id=current_user.org_id)
@@ -1914,11 +1916,24 @@ def admin_documents():
                 Patient.name.ilike(f'%{patient_search}%')
             )
         
-        patients = patients_query.all()
+        # Order by name for consistent pagination
+        patients_query = patients_query.order_by(Patient.name)
+        
+        # Get total count before pagination
+        total_patients = patients_query.count()
+        
+        # Apply pagination
+        patients = patients_query.offset((page - 1) * per_page).limit(per_page).all()
+        
+        # Calculate pagination info
+        total_pages = (total_patients + per_page - 1) // per_page  # Ceiling division
+        
         matcher = DocumentMatcher()
         
-        # Build patient document data
-        patient_data = []
+        # BATCH OPTIMIZATION: Collect all documents for all patients first
+        all_documents = []
+        patient_docs_map = {}  # Map patient_id -> {'manual': [], 'fhir': []}
+        
         for patient in patients:
             # Get manual documents
             manual_documents = Document.query.filter_by(patient_id=patient.id).all()
@@ -1926,6 +1941,20 @@ def admin_documents():
             # Get FHIR documents
             fhir_documents = FHIRDocument.query.filter_by(patient_id=patient.id).all()
             
+            patient_docs_map[patient.id] = {
+                'manual': manual_documents,
+                'fhir': fhir_documents
+            }
+            
+            all_documents.extend(manual_documents)
+            all_documents.extend(fhir_documents)
+        
+        # BATCH LOAD: Get all match details in 1-2 queries instead of N queries
+        batch_match_results = matcher.get_batch_document_match_details(all_documents, include_dismissed=True)
+        
+        # Build patient document data using batch results
+        patient_data = []
+        for patient in patients:
             # Get patient conditions
             conditions = PatientCondition.query.filter_by(
                 patient_id=patient.id,
@@ -1933,19 +1962,17 @@ def admin_documents():
             ).all()
             condition_names = [condition.condition_name for condition in conditions]
             
-            # Combine documents with source markers and match details
+            manual_documents = patient_docs_map[patient.id]['manual']
+            fhir_documents = patient_docs_map[patient.id]['fhir']
+            
+            # Combine documents with source markers and match details from batch results
             combined_documents = []
             
             # Add manual documents
             for doc in manual_documents:
-                # Get screening matches with keywords for this document (separated by active/dismissed)
-                if doc.ocr_text:
-                    match_data = matcher.get_document_match_details(doc, include_dismissed=True)
-                    active_matches = match_data['active']
-                    dismissed_matches = match_data['dismissed']
-                else:
-                    active_matches = []
-                    dismissed_matches = []
+                match_data = batch_match_results.get(doc.id, {'active': [], 'dismissed': []})
+                active_matches = match_data['active']
+                dismissed_matches = match_data['dismissed']
                 
                 combined_documents.append({
                     'id': doc.id,
@@ -1963,14 +1990,9 @@ def admin_documents():
             
             # Add FHIR documents
             for doc in fhir_documents:
-                # Get screening matches with keywords for FHIR documents (separated by active/dismissed)
-                if doc.ocr_text:
-                    match_data = matcher.get_document_match_details(doc, include_dismissed=True)
-                    active_matches = match_data['active']
-                    dismissed_matches = match_data['dismissed']
-                else:
-                    active_matches = []
-                    dismissed_matches = []
+                match_data = batch_match_results.get(doc.id, {'active': [], 'dismissed': []})
+                active_matches = match_data['active']
+                dismissed_matches = match_data['dismissed']
                 
                 combined_documents.append({
                     'id': doc.id,
@@ -1987,24 +2009,27 @@ def admin_documents():
                     'dismissed_matches': dismissed_matches
                 })
             
+            # Apply "has active matches" filter at DOCUMENT level
+            if has_matches_filter:
+                # Filter out documents without active matches
+                combined_documents = [doc for doc in combined_documents if doc['active_matches']]
+                
+                # Skip patient if no documents remain after filtering
+                if not combined_documents:
+                    continue
+            
             # Count documents by type and source
             doc_counts = {}
             doc_with_ocr = 0
             total_docs = len(combined_documents)
-            source_counts = {'Manual': len(manual_documents), 'Epic FHIR': len(fhir_documents)}
+            source_counts = {'Manual': len([d for d in combined_documents if d['source'] == 'Manual']), 
+                           'Epic FHIR': len([d for d in combined_documents if d['source'] == 'Epic FHIR'])}
             
             for doc in combined_documents:
                 doc_type = doc['document_type']
                 doc_counts[doc_type] = doc_counts.get(doc_type, 0) + 1
                 if doc['ocr_text']:
                     doc_with_ocr += 1
-            
-            # Apply "has active matches" filter
-            if has_matches_filter:
-                # Only include this patient if at least one document has active matches
-                has_any_active_matches = any(doc['active_matches'] for doc in combined_documents)
-                if not has_any_active_matches:
-                    continue  # Skip this patient
             
             patient_data.append({
                 'patient': patient,
@@ -2016,13 +2041,13 @@ def admin_documents():
                 'conditions': condition_names
             })
         
-        # Sort by patient name
-        patient_data.sort(key=lambda x: x['patient'].name)
-        
         return render_template('admin/documents.html', 
                              patient_data=patient_data,
-                             total_patients=len(patient_data),
-                             current_date=date.today())
+                             total_patients=total_patients,
+                             current_date=date.today(),
+                             page=page,
+                             total_pages=total_pages,
+                             per_page=per_page)
         
     except Exception as e:
         logger.error(f"Error in admin documents: {str(e)}")

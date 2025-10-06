@@ -163,6 +163,113 @@ class DocumentMatcher:
         else:
             return active_matches
     
+    def get_batch_document_match_details(self, documents, include_dismissed=False):
+        """
+        Batch version: Get match details for multiple documents efficiently.
+        
+        Args:
+            documents: List of Document/FHIRDocument objects
+            include_dismissed: If True, includes dismissed matches
+        
+        Returns:
+            Dict mapping document.id -> match_details (same format as get_document_match_details)
+        """
+        from models import DismissedDocumentMatch, Document, FHIRDocument, Screening
+        
+        if not documents:
+            return {}
+        
+        # Separate documents by type and collect patient IDs
+        patient_ids = set()
+        doc_lookup = {}  # Maps (is_fhir, doc_id) -> document
+        
+        for doc in documents:
+            if not doc.ocr_text:
+                continue
+            patient_ids.add(doc.patient_id)
+            is_fhir = isinstance(doc, FHIRDocument)
+            doc_lookup[(is_fhir, doc.id)] = doc
+        
+        if not patient_ids:
+            return {doc.id: {'active': [], 'dismissed': []} for doc in documents}
+        
+        # Batch load all screenings for these patients
+        screenings = Screening.query.filter(Screening.patient_id.in_(patient_ids)).all()
+        screenings_by_patient = {}
+        for screening in screenings:
+            if screening.patient_id not in screenings_by_patient:
+                screenings_by_patient[screening.patient_id] = []
+            screenings_by_patient[screening.patient_id].append(screening)
+        
+        # Batch load all dismissals for these documents
+        doc_ids = [doc_id for is_fhir, doc_id in doc_lookup.keys() if not is_fhir]
+        fhir_doc_ids = [doc_id for is_fhir, doc_id in doc_lookup.keys() if is_fhir]
+        
+        dismissals = []
+        if doc_ids:
+            dismissals.extend(
+                DismissedDocumentMatch.query.filter(
+                    DismissedDocumentMatch.document_id.in_(doc_ids),
+                    DismissedDocumentMatch.is_active == True
+                ).all()
+            )
+        if fhir_doc_ids:
+            dismissals.extend(
+                DismissedDocumentMatch.query.filter(
+                    DismissedDocumentMatch.fhir_document_id.in_(fhir_doc_ids),
+                    DismissedDocumentMatch.is_active == True
+                ).all()
+            )
+        
+        # Build dismissal lookup: (is_fhir, doc_id, screening_id) -> dismissal
+        dismissal_lookup = {}
+        for dismissal in dismissals:
+            if dismissal.document_id:
+                key = (False, dismissal.document_id, dismissal.screening_id)
+            else:
+                key = (True, dismissal.fhir_document_id, dismissal.screening_id)
+            dismissal_lookup[key] = dismissal
+        
+        # Process all documents
+        results = {}
+        for (is_fhir, doc_id), document in doc_lookup.items():
+            active_matches = []
+            dismissed_matches = []
+            
+            patient_screenings = screenings_by_patient.get(document.patient_id, [])
+            
+            for screening in patient_screenings:
+                confidence, matched_keywords = self._calculate_match_with_keywords(document, screening.screening_type)
+                
+                if confidence > 0.75:
+                    match_data = {
+                        'screening_id': screening.id,
+                        'screening_name': screening.screening_type.display_name,
+                        'screening_type_name': screening.screening_type.name,
+                        'confidence': confidence,
+                        'matched_keywords': matched_keywords
+                    }
+                    
+                    dismissal = dismissal_lookup.get((is_fhir, doc_id, screening.id))
+                    if dismissal:
+                        match_data['dismissal_id'] = dismissal.id
+                        match_data['dismissal_reason'] = dismissal.dismissal_reason
+                        dismissed_matches.append(match_data)
+                    else:
+                        active_matches.append(match_data)
+            
+            if include_dismissed:
+                results[doc_id] = {'active': active_matches, 'dismissed': dismissed_matches}
+            else:
+                results[doc_id] = active_matches
+        
+        # Add empty results for documents without OCR
+        for doc in documents:
+            if doc.id not in results:
+                results[doc.id] = {'active': [], 'dismissed': []} if include_dismissed else []
+        
+        return results
+    
     def _calculate_match_with_keywords(self, document, screening_type):
         """
         Calculate confidence AND return matched keywords for highlighting.
