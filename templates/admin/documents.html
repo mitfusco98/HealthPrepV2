@@ -293,25 +293,21 @@
                                                                 </div>
                                                             {% endif %}
                                                             
-                                                            <!-- Dismissed Matches (Collapsible) -->
+                                                            <!-- Dismissed Matches (Always Visible) -->
                                                             {% if doc.dismissed_matches %}
                                                                 <div class="mb-2">
-                                                                    <button class="btn btn-sm btn-link text-muted p-0" 
-                                                                            type="button" 
-                                                                            data-bs-toggle="collapse" 
-                                                                            data-bs-target="#dismissed-{{ data.patient.id }}-{{ loop.index }}" 
-                                                                            aria-expanded="false">
-                                                                        <i class="fas fa-ban me-1"></i>Dismissed Matches ({{ doc.dismissed_matches|length }}) - Click to view
-                                                                    </button>
-                                                                    <div class="collapse mt-1" id="dismissed-{{ data.patient.id }}-{{ loop.index }}">
+                                                                    <small class="text-warning"><i class="fas fa-ban me-1"></i>Dismissed Matches ({{ doc.dismissed_matches|length }}):</small>
+                                                                    <div class="mt-1">
                                                                         {% for match in doc.dismissed_matches %}
                                                                         <div class="d-inline-block me-1 mb-1">
-                                                                            <div class="badge bg-secondary" style="font-size: 0.75rem; opacity: 0.7;">
+                                                                            <div class="badge bg-warning text-dark" style="font-size: 0.75rem;">
                                                                                 <i class="fas fa-ban me-1"></i>{{ match.screening_name }}
                                                                                 {% if match.dismissal_reason %}
-                                                                                <span class="badge bg-dark ms-1" title="{{ match.dismissal_reason }}">Reason</span>
+                                                                                <span class="badge bg-secondary ms-1" title="{{ match.dismissal_reason }}">
+                                                                                    <i class="fas fa-info-circle"></i>
+                                                                                </span>
                                                                                 {% endif %}
-                                                                                <button class="btn btn-xs btn-link text-white p-0 ms-1 restore-match-btn" 
+                                                                                <button class="btn btn-xs btn-link text-dark p-0 ms-1 restore-match-btn" 
                                                                                         data-dismissal-id="{{ match.dismissal_id }}"
                                                                                         data-doc-title="{{ doc.title }}"
                                                                                         data-screening-name="{{ match.screening_name }}"
@@ -519,7 +515,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const docTitle = dismissBtn.dataset.docTitle;
             const screeningName = dismissBtn.dataset.screeningName;
             
-            console.log('Data extracted:', { docId, screeningId, source, docTitle, screeningName });
+            // Find the patient collapse element to preserve scroll position
+            const collapseElement = dismissBtn.closest('.collapse[id^="documents-"]');
+            const patientFragment = collapseElement ? '#' + collapseElement.id : '';
+            
+            console.log('Data extracted:', { docId, screeningId, source, docTitle, screeningName, patientFragment });
             console.log('Dismissing match instantly (no confirmation)...');
             
             // Get CSRF token
@@ -542,16 +542,16 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 console.log('Dismiss response:', data);
                 if (data.success) {
-                    console.log('✓ Match dismissed successfully - reloading page');
-                    location.reload();
+                    console.log('✓ Match dismissed successfully - reloading to:', patientFragment);
+                    window.location = window.location.pathname + window.location.search + patientFragment;
                 } else {
                     console.error('Error dismissing match:', data.error);
-                    location.reload();
+                    window.location = window.location.pathname + window.location.search + patientFragment;
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                location.reload();
+                window.location = window.location.pathname + window.location.search + patientFragment;
             });
             return; // Stop processing this click
         }
@@ -568,7 +568,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const docTitle = restoreBtn.dataset.docTitle;
             const screeningName = restoreBtn.dataset.screeningName;
             
-            console.log('Data extracted:', { dismissalId, docTitle, screeningName });
+            // Find the patient collapse element to preserve scroll position
+            const collapseElement = restoreBtn.closest('.collapse[id^="documents-"]');
+            const patientFragment = collapseElement ? '#' + collapseElement.id : '';
+            
+            console.log('Data extracted:', { dismissalId, docTitle, screeningName, patientFragment });
             console.log('Restoring match instantly (no confirmation)...');
             
             // Get CSRF token
@@ -586,16 +590,16 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 console.log('Restore response:', data);
                 if (data.success) {
-                    console.log('✓ Match restored successfully - reloading page');
-                    location.reload();
+                    console.log('✓ Match restored successfully - reloading to:', patientFragment);
+                    window.location = window.location.pathname + window.location.search + patientFragment;
                 } else {
                     console.error('Error restoring match:', data.error);
-                    location.reload();
+                    window.location = window.location.pathname + window.location.search + patientFragment;
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                location.reload();
+                window.location = window.location.pathname + window.location.search + patientFragment;
             });
         }
     });
