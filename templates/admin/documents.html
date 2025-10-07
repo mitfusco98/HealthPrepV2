@@ -329,46 +329,36 @@
                                                                     </span>
                                                                 </div>
                                                                 
-                                                                <!-- OCR Preview with Keyword Highlighting -->
+                                                                <!-- Full OCR Text with Keyword Highlighting (Collapsible) -->
                                                                 <div class="mt-2">
-                                                                    <small class="text-muted">OCR Preview:</small>
-                                                                    <div class="bg-dark p-2 rounded mt-1" style="max-height: 100px; overflow-y: auto;">
-                                                                        <small class="text-light">{{ doc.ocr_text[:200] }}{% if doc.ocr_text|length > 200 %}...{% endif %}</small>
-                                                                    </div>
-                                                                    
-                                                                    {% if doc.ocr_text|length > 200 %}
-                                                                    <!-- Full OCR Text with Keyword Highlighting (Collapsible) -->
-                                                                    <div class="mt-2">
-                                                                        <button class="btn btn-xs btn-outline-info" 
-                                                                                type="button" 
-                                                                                data-bs-toggle="collapse" 
-                                                                                data-bs-target="#fullOcr-{{ data.patient.id }}-{{ loop.index }}" 
-                                                                                aria-expanded="false">
-                                                                            <i class="fas fa-search-plus me-1"></i>View Full OCR Text ({{ doc.ocr_text|length }} chars)
-                                                                        </button>
-                                                                        <div class="collapse mt-2" id="fullOcr-{{ data.patient.id }}-{{ loop.index }}">
-                                                                            <div class="bg-dark p-3 rounded border border-info" style="max-height: 400px; overflow-y: auto;">
-                                                                                <div class="d-flex justify-content-between mb-2">
-                                                                                    <small class="text-info"><i class="fas fa-file-text me-1"></i>Complete OCR Text for {{ doc.title or 'Document' }}</small>
-                                                                                    <small class="text-muted">{{ doc.ocr_text|length }} characters | Source: {{ doc.source }}</small>
-                                                                                </div>
-                                                                                {% if doc.active_matches or doc.dismissed_matches %}
-                                                                                <div class="mb-2">
-                                                                                    <small class="text-warning"><i class="fas fa-highlighter me-1"></i>Highlighted keywords:</small>
-                                                                                    {% for match in doc.active_matches + doc.dismissed_matches %}
-                                                                                        {% for keyword in match.matched_keywords %}
-                                                                                        <span class="badge bg-warning text-dark me-1" style="font-size: 0.7rem;">{{ keyword }}</span>
-                                                                                        {% endfor %}
-                                                                                    {% endfor %}
-                                                                                </div>
-                                                                                {% endif %}
-                                                                                <pre class="text-light mb-0 ocr-text-highlight" 
-                                                                                     style="font-size: 0.8rem; white-space: pre-wrap; word-wrap: break-word;"
-                                                                                     data-keywords='{{ (doc.active_matches + doc.dismissed_matches)|tojson|safe if (doc.active_matches or doc.dismissed_matches) else "[]" }}'>{{ doc.ocr_text }}</pre>
+                                                                    <button class="btn btn-xs btn-outline-info" 
+                                                                            type="button" 
+                                                                            data-bs-toggle="collapse" 
+                                                                            data-bs-target="#fullOcr-{{ data.patient.id }}-{{ loop.index }}" 
+                                                                            aria-expanded="false">
+                                                                        <i class="fas fa-search-plus me-1"></i>View Full OCR Text ({{ doc.ocr_text|length }} chars)
+                                                                    </button>
+                                                                    <div class="collapse mt-2" id="fullOcr-{{ data.patient.id }}-{{ loop.index }}">
+                                                                        <div class="bg-dark p-3 rounded border border-info" style="max-height: 400px; overflow-y: auto;">
+                                                                            <div class="d-flex justify-content-between mb-2">
+                                                                                <small class="text-info"><i class="fas fa-file-text me-1"></i>Complete OCR Text for {{ doc.title or 'Document' }}</small>
+                                                                                <small class="text-muted">{{ doc.ocr_text|length }} characters | Source: {{ doc.source }}</small>
                                                                             </div>
+                                                                            {% if doc.active_matches or doc.dismissed_matches %}
+                                                                            <div class="mb-2">
+                                                                                <small class="text-warning"><i class="fas fa-highlighter me-1"></i>Highlighted keywords:</small>
+                                                                                {% for match in doc.active_matches + doc.dismissed_matches %}
+                                                                                    {% for keyword in match.matched_keywords %}
+                                                                                    <span class="badge bg-warning text-dark me-1" style="font-size: 0.7rem;">{{ keyword }}</span>
+                                                                                    {% endfor %}
+                                                                                {% endfor %}
+                                                                            </div>
+                                                                            {% endif %}
+                                                                            <pre class="text-light mb-0 ocr-text-highlight" 
+                                                                                 style="font-size: 0.8rem; white-space: pre-wrap; word-wrap: break-word;"
+                                                                                 data-keywords='{{ (doc.active_matches + doc.dismissed_matches)|tojson|safe if (doc.active_matches or doc.dismissed_matches) else "[]" }}'>{{ doc.ocr_text }}</pre>
                                                                         </div>
                                                                     </div>
-                                                                    {% endif %}
                                                                 </div>
                                                             {% else %}
                                                                 <span class="badge bg-warning">
