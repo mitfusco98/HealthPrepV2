@@ -19,7 +19,7 @@ from flask_login import current_user
 
 from models import (
     db, Patient, Screening, ScreeningType, Document, FHIRDocument, AdminLog,
-    PatientCondition, PrepSheetSettings
+    PatientCondition, PrepSheetSettings, ScreeningDocumentMatch
 )
 from core.matcher import DocumentMatcher
 from core.criteria import EligibilityCriteria
@@ -363,6 +363,11 @@ class ScreeningRefreshService:
                         
                         if existing_screening:
                             logger.info(f"Patient {patient.id} no longer eligible for {screening_type.name} - removing screening {existing_screening.id}")
+                            
+                            # Delete related match records first to avoid FK constraint violation
+                            ScreeningDocumentMatch.query.filter_by(screening_id=existing_screening.id).delete()
+                            
+                            # Now safe to delete the screening
                             db.session.delete(existing_screening)
                             updates_count += 1
                     
