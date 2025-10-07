@@ -487,10 +487,25 @@ class ScreeningRefreshService:
             # Find matching LOCAL documents (already excludes dismissed matches)
             matches = self.matcher.find_screening_matches(screening, exclude_dismissed=True)
             
-            # Save local document matches to database for UI display
+            # Clean up stale matches and save current matches to database for UI display
             from models import ScreeningDocumentMatch
             import json
             
+            # Get current matching document IDs
+            current_match_doc_ids = {match['document'].id for match in matches}
+            
+            # Delete stale ScreeningDocumentMatch records (documents that no longer match)
+            stale_matches = ScreeningDocumentMatch.query.filter(
+                ScreeningDocumentMatch.screening_id == screening.id,
+                ~ScreeningDocumentMatch.document_id.in_(current_match_doc_ids) if current_match_doc_ids else True
+            ).all()
+            
+            if stale_matches:
+                for stale_match in stale_matches:
+                    logger.debug(f"Removing stale ScreeningDocumentMatch: Screening {screening.id} -> Doc {stale_match.document_id}")
+                    db.session.delete(stale_match)
+            
+            # Create or update current matches
             for match in matches:
                 # Check if match already exists
                 existing_match = ScreeningDocumentMatch.query.filter_by(
@@ -517,7 +532,16 @@ class ScreeningRefreshService:
             # ALSO find matching FHIR documents (from Epic) and filter dismissed
             fhir_matches = self._find_fhir_document_matches_filtered(screening)
             
-            # Link FHIR documents to screening for UI display (many-to-many relationship)
+            # Clean up stale FHIR document associations and link current matches
+            current_fhir_doc_ids = {fhir_match['document'].id for fhir_match in fhir_matches}
+            
+            # Remove FHIR documents that no longer match
+            stale_fhir_docs = [doc for doc in screening.fhir_documents if doc.id not in current_fhir_doc_ids]
+            for stale_doc in stale_fhir_docs:
+                logger.debug(f"Removing stale FHIR document link: Screening {screening.id} -> FHIRDoc {stale_doc.id}")
+                screening.fhir_documents.remove(stale_doc)
+            
+            # Link current FHIR documents to screening for UI display (many-to-many relationship)
             for fhir_match in fhir_matches:
                 fhir_doc = fhir_match['document']
                 if fhir_doc not in screening.fhir_documents:
