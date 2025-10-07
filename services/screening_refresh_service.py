@@ -344,6 +344,7 @@ class ScreeningRefreshService:
                             screening_type_id=screening_type.id
                         ).first()
                         
+                        screening_created = False
                         if not screening:
                             screening = Screening(
                                 patient_id=patient.id,
@@ -353,11 +354,17 @@ class ScreeningRefreshService:
                             )
                             db.session.add(screening)
                             db.session.flush()
+                            screening_created = True
+                            logger.info(f"Created NEW screening {screening.id} for patient {patient.id}, type {screening_type.name}")
                         
                         # Update status based on existing documents with current criteria
-                        if self._update_screening_status_with_current_criteria(screening):
+                        status_changed = self._update_screening_status_with_current_criteria(screening)
+                        
+                        # Count as update if screening was created OR status changed
+                        if screening_created or status_changed:
                             updates_count += 1
-                            logger.debug(f"Updated screening {screening.id} for type {screening_type.name}")
+                            if status_changed and not screening_created:
+                                logger.debug(f"Updated screening {screening.id} status for type {screening_type.name}")
                     else:
                         # ONLY delete screening if this specific screening type was modified
                         # Don't delete due to eligibility during force refresh of unmodified types
