@@ -354,6 +354,17 @@ class ScreeningRefreshService:
                         if self._update_screening_status_with_current_criteria(screening):
                             updates_count += 1
                             logger.debug(f"Updated screening {screening.id} for type {screening_type.name}")
+                    else:
+                        # Patient is NOT eligible - remove screening if it exists
+                        existing_screening = Screening.query.filter_by(
+                            patient_id=patient.id,
+                            screening_type_id=screening_type.id
+                        ).first()
+                        
+                        if existing_screening:
+                            logger.info(f"Patient {patient.id} no longer eligible for {screening_type.name} - removing screening {existing_screening.id}")
+                            db.session.delete(existing_screening)
+                            updates_count += 1
                     
                 except Exception as e:
                     logger.error(f"Error processing screening type {screening_type.id} for patient {patient.id}: {str(e)}")
