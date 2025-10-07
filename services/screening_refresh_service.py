@@ -364,8 +364,10 @@ class ScreeningRefreshService:
                         if existing_screening:
                             logger.info(f"Patient {patient.id} no longer eligible for {screening_type.name} - removing screening {existing_screening.id}")
                             
-                            # Delete related match records first to avoid FK constraint violation
-                            ScreeningDocumentMatch.query.filter_by(screening_id=existing_screening.id).delete()
+                            # Disable autoflush to prevent cascade update before we delete match records
+                            with db.session.no_autoflush:
+                                # Delete related match records first to avoid FK constraint violation
+                                ScreeningDocumentMatch.query.filter_by(screening_id=existing_screening.id).delete(synchronize_session='fetch')
                             
                             # Now safe to delete the screening
                             db.session.delete(existing_screening)
