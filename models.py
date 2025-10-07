@@ -927,6 +927,38 @@ class Screening(db.Model):
             return json.loads(self.matched_documents)
         except:
             return []
+    
+    def get_active_document_matches(self):
+        """Get document matches excluding dismissed ones"""
+        from models import DismissedDocumentMatch
+        
+        # Get all dismissed document IDs for this screening
+        dismissed_ids = set(
+            row[0] for row in db.session.query(DismissedDocumentMatch.document_id).filter(
+                DismissedDocumentMatch.screening_id == self.id,
+                DismissedDocumentMatch.is_active == True,
+                DismissedDocumentMatch.document_id.isnot(None)
+            ).all()
+        )
+        
+        # Filter out dismissed matches
+        return [match for match in self.document_matches if match.document_id not in dismissed_ids]
+    
+    def get_active_fhir_documents(self):
+        """Get FHIR documents excluding dismissed ones"""
+        from models import DismissedDocumentMatch
+        
+        # Get all dismissed FHIR document IDs for this screening
+        dismissed_ids = set(
+            row[0] for row in db.session.query(DismissedDocumentMatch.fhir_document_id).filter(
+                DismissedDocumentMatch.screening_id == self.id,
+                DismissedDocumentMatch.is_active == True,
+                DismissedDocumentMatch.fhir_document_id.isnot(None)
+            ).all()
+        )
+        
+        # Filter out dismissed documents
+        return [doc for doc in self.fhir_documents if doc.id not in dismissed_ids]
 
     def __repr__(self):
         return f'<Screening {self.screening_type_id} for patient {self.patient_id}>'

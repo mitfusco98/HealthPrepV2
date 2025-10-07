@@ -482,10 +482,12 @@
                             <td class="document-badges">
                                 <div class="d-flex justify-content-between align-items-start">
                                     <div class="documents-list">
-                                        {% set total_docs = (screening.document_matches|length) + (screening.fhir_documents|length) %}
+                                        {% set active_matches = screening.get_active_document_matches() %}
+                                        {% set active_fhir_docs = screening.get_active_fhir_documents() %}
+                                        {% set total_docs = (active_matches|length) + (active_fhir_docs|length) %}
                                         {% if total_docs > 0 %}
                                             {# Show local documents #}
-                                            {% for match in screening.document_matches[:3] %}
+                                            {% for match in active_matches[:3] %}
                                             <span class="badge confidence-{{ match.document.confidence_level if match.document.confidence_level else 'medium' }}" 
                                                   title="{{ match.document.filename }} - Confidence: {{ (match.match_confidence * 100)|round(1) }}%">
                                                 {{ match.document.filename[:25] }}{% if match.document.filename|length > 25 %}...{% endif %}
@@ -493,7 +495,7 @@
                                             {% endfor %}
                                             
                                             {# Show FHIR documents #}
-                                            {% for fhir_doc in screening.fhir_documents[:(5 - (screening.document_matches[:3]|length))] %}
+                                            {% for fhir_doc in active_fhir_docs[:(5 - (active_matches[:3]|length))] %}
                                             <span class="badge confidence-high" 
                                                   title="{{ fhir_doc.title or fhir_doc.document_type_display }} (Epic) - Date: {{ fhir_doc.document_date.strftime('%m/%d/%Y') if fhir_doc.document_date else 'N/A' }}">
                                                 {{ (fhir_doc.title or fhir_doc.document_type_display)[:25] }}{% if (fhir_doc.title or fhir_doc.document_type_display)|length > 25 %}...{% endif %} 
