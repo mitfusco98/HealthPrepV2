@@ -487,6 +487,33 @@ class ScreeningRefreshService:
             # Find matching LOCAL documents (already excludes dismissed matches)
             matches = self.matcher.find_screening_matches(screening, exclude_dismissed=True)
             
+            # Save local document matches to database for UI display
+            from models import ScreeningDocumentMatch
+            import json
+            
+            for match in matches:
+                # Check if match already exists
+                existing_match = ScreeningDocumentMatch.query.filter_by(
+                    screening_id=screening.id,
+                    document_id=match['document'].id
+                ).first()
+                
+                if not existing_match:
+                    # Create new match record
+                    new_match = ScreeningDocumentMatch(
+                        screening_id=screening.id,
+                        document_id=match['document'].id,
+                        match_confidence=match.get('confidence', 1.0),
+                        matched_keywords=json.dumps(match.get('matched_keywords', []))
+                    )
+                    db.session.add(new_match)
+                    logger.debug(f"Created ScreeningDocumentMatch: Screening {screening.id} -> Doc {match['document'].id}")
+                else:
+                    # Update existing match if confidence changed
+                    if existing_match.match_confidence != match.get('confidence', 1.0):
+                        existing_match.match_confidence = match.get('confidence', 1.0)
+                        existing_match.matched_keywords = json.dumps(match.get('matched_keywords', []))
+            
             # ALSO find matching FHIR documents (from Epic) and filter dismissed
             fhir_matches = self._find_fhir_document_matches_filtered(screening)
             
