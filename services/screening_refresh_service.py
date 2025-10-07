@@ -242,14 +242,15 @@ class ScreeningRefreshService:
         """Get patients affected by the detected changes"""
         affected_patient_ids = set()
         
-        # If screening types were modified, get patients with those screening types
+        # If screening types were modified, get ALL patients (eligibility may have changed)
+        # This includes both patients losing eligibility AND newly eligible patients
         if changes_detected['screening_types_modified']:
-            screening_patient_ids = db.session.query(Screening.patient_id).filter(
-                Screening.screening_type_id.in_(changes_detected['screening_types_modified']),
-                Screening.org_id == self.organization_id
-            ).distinct().all()
+            all_patient_ids = db.session.query(Patient.id).filter(
+                Patient.org_id == self.organization_id
+            ).all()
             
-            affected_patient_ids.update([pid[0] for pid in screening_patient_ids])
+            affected_patient_ids.update([pid[0] for pid in all_patient_ids])
+            logger.info(f"Screening type criteria changed - checking ALL {len(all_patient_ids)} patients for eligibility")
         
         # If documents were modified, get their patients (local documents)
         if changes_detected.get('documents_modified'):
