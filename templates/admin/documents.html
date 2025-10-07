@@ -44,6 +44,13 @@
                             Only documents with active matches
                         </label>
                     </div>
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" id="has_dismissed" name="has_dismissed" value="1"
+                               {% if request.args.get('has_dismissed') %}checked{% endif %}>
+                        <label class="form-check-label" for="has_dismissed">
+                            Only documents with dismissed matches
+                        </label>
+                    </div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label d-block">&nbsp;</label>
@@ -56,7 +63,7 @@
                 </div>
             </form>
             
-            {% if request.args.get('patient_search') or request.args.get('has_matches') %}
+            {% if request.args.get('patient_search') or request.args.get('has_matches') or request.args.get('has_dismissed') %}
             <div class="mt-3">
                 <span class="badge bg-info">
                     <i class="fas fa-filter me-1"></i>Active Filters: 
@@ -65,6 +72,9 @@
                     {% endif %}
                     {% if request.args.get('has_matches') %}
                         | With Active Matches
+                    {% endif %}
+                    {% if request.args.get('has_dismissed') %}
+                        | With Dismissed Matches
                     {% endif %}
                 </span>
             </div>
@@ -75,7 +85,7 @@
     {% if not patient_data %}
     <div class="alert alert-info">
         <i class="fas fa-info-circle me-2"></i>
-        {% if request.args.get('patient_search') or request.args.get('has_matches') %}
+        {% if request.args.get('patient_search') or request.args.get('has_matches') or request.args.get('has_dismissed') %}
         No patients match your search criteria. Try adjusting your filters.
         {% else %}
         No patients found in your organization. Documents will appear here once patients are added.
@@ -398,7 +408,7 @@
                     <ul class="pagination pagination-sm mb-0">
                         <!-- Previous Page -->
                         <li class="page-item {% if page <= 1 %}disabled{% endif %}">
-                            <a class="page-link" href="?page={{ page - 1 }}{% if request.args.get('patient_search') %}&patient_search={{ request.args.get('patient_search') }}{% endif %}{% if request.args.get('has_matches') %}&has_matches=1{% endif %}">
+                            <a class="page-link" href="?page={{ page - 1 }}{% if request.args.get('patient_search') %}&patient_search={{ request.args.get('patient_search') }}{% endif %}{% if request.args.get('has_matches') %}&has_matches=1{% endif %}{% if request.args.get('has_dismissed') %}&has_dismissed=1{% endif %}">
                                 <i class="fas fa-chevron-left"></i> Previous
                             </a>
                         </li>
@@ -409,7 +419,7 @@
                         
                         {% if start_page > 1 %}
                         <li class="page-item">
-                            <a class="page-link" href="?page=1{% if request.args.get('patient_search') %}&patient_search={{ request.args.get('patient_search') }}{% endif %}{% if request.args.get('has_matches') %}&has_matches=1{% endif %}">1</a>
+                            <a class="page-link" href="?page=1{% if request.args.get('patient_search') %}&patient_search={{ request.args.get('patient_search') }}{% endif %}{% if request.args.get('has_matches') %}&has_matches=1{% endif %}{% if request.args.get('has_dismissed') %}&has_dismissed=1{% endif %}">1</a>
                         </li>
                         {% if start_page > 2 %}
                         <li class="page-item disabled"><span class="page-link">...</span></li>
@@ -418,7 +428,7 @@
                         
                         {% for p in range(start_page, end_page + 1) %}
                         <li class="page-item {% if p == page %}active{% endif %}">
-                            <a class="page-link" href="?page={{ p }}{% if request.args.get('patient_search') %}&patient_search={{ request.args.get('patient_search') }}{% endif %}{% if request.args.get('has_matches') %}&has_matches=1{% endif %}">{{ p }}</a>
+                            <a class="page-link" href="?page={{ p }}{% if request.args.get('patient_search') %}&patient_search={{ request.args.get('patient_search') }}{% endif %}{% if request.args.get('has_matches') %}&has_matches=1{% endif %}{% if request.args.get('has_dismissed') %}&has_dismissed=1{% endif %}">{{ p }}</a>
                         </li>
                         {% endfor %}
                         
@@ -427,13 +437,13 @@
                         <li class="page-item disabled"><span class="page-link">...</span></li>
                         {% endif %}
                         <li class="page-item">
-                            <a class="page-link" href="?page={{ total_pages }}{% if request.args.get('patient_search') %}&patient_search={{ request.args.get('patient_search') }}{% endif %}{% if request.args.get('has_matches') %}&has_matches=1{% endif %}">{{ total_pages }}</a>
+                            <a class="page-link" href="?page={{ total_pages }}{% if request.args.get('patient_search') %}&patient_search={{ request.args.get('patient_search') }}{% endif %}{% if request.args.get('has_matches') %}&has_matches=1{% endif %}{% if request.args.get('has_dismissed') %}&has_dismissed=1{% endif %}">{{ total_pages }}</a>
                         </li>
                         {% endif %}
                         
                         <!-- Next Page -->
                         <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
-                            <a class="page-link" href="?page={{ page + 1 }}{% if request.args.get('patient_search') %}&patient_search={{ request.args.get('patient_search') }}{% endif %}{% if request.args.get('has_matches') %}&has_matches=1{% endif %}">
+                            <a class="page-link" href="?page={{ page + 1 }}{% if request.args.get('patient_search') %}&patient_search={{ request.args.get('patient_search') }}{% endif %}{% if request.args.get('has_matches') %}&has_matches=1{% endif %}{% if request.args.get('has_dismissed') %}&has_dismissed=1{% endif %}">
                                 Next <i class="fas fa-chevron-right"></i>
                             </a>
                         </li>

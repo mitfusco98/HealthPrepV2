@@ -1904,6 +1904,7 @@ def admin_documents():
         # Get filter and pagination parameters
         patient_search = request.args.get('patient_search', '').strip()
         has_matches_filter = request.args.get('has_matches', '').strip()
+        has_dismissed_filter = request.args.get('has_dismissed', '').strip()
         page = request.args.get('page', 1, type=int)
         per_page = 20
         
@@ -2013,6 +2014,15 @@ def admin_documents():
             if has_matches_filter:
                 # Filter out documents without active matches
                 combined_documents = [doc for doc in combined_documents if doc['active_matches']]
+                
+                # Skip patient if no documents remain after filtering
+                if not combined_documents:
+                    continue
+            
+            # Apply "has dismissed matches" filter at DOCUMENT level
+            if has_dismissed_filter:
+                # Filter out documents without dismissed matches
+                combined_documents = [doc for doc in combined_documents if doc['dismissed_matches']]
                 
                 # Skip patient if no documents remain after filtering
                 if not combined_documents:
