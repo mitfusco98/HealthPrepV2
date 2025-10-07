@@ -103,9 +103,11 @@ def screening_list():
 
         # Main screening list view - FILTER BY ORGANIZATION
         # CRITICAL: Filter by BOTH Patient.org_id AND ScreeningType.org_id for proper multi-tenancy
+        # ALSO filter out screenings with inactive screening types
         query = Screening.query.join(Patient).join(ScreeningType).filter(
             Patient.org_id == current_user.org_id,
-            ScreeningType.org_id == current_user.org_id
+            ScreeningType.org_id == current_user.org_id,
+            ScreeningType.is_active == True
         )
 
         # Apply filters

@@ -182,6 +182,8 @@ class ScreeningRefreshService:
         changes = {
             'needs_refresh': False,
             'screening_types_modified': [],
+            'active_screening_types': [],
+            'inactive_screening_types': [],
             'criteria_changes': [],
             'keyword_changes': [],
             'documents_modified': [],
@@ -190,19 +192,21 @@ class ScreeningRefreshService:
         
         try:
             # Check for recent screening type modifications
-            # Look for screening types updated since last refresh
+            # Look for screening types updated since last refresh (BOTH active and inactive)
             cutoff_time = refresh_options.get('since_time') or (datetime.utcnow() - timedelta(hours=24))
             
             modified_screening_types = ScreeningType.query.filter(
                 ScreeningType.org_id == self.organization_id,
-                ScreeningType.is_active == True,
                 ScreeningType.updated_at >= cutoff_time
             ).all()
             
             if modified_screening_types:
                 changes['screening_types_modified'] = [st.id for st in modified_screening_types]
+                # Track which ones are active vs inactive for proper handling
+                changes['active_screening_types'] = [st.id for st in modified_screening_types if st.is_active]
+                changes['inactive_screening_types'] = [st.id for st in modified_screening_types if not st.is_active]
                 changes['needs_refresh'] = True
-                logger.info(f"Found {len(modified_screening_types)} modified screening types")
+                logger.info(f"Found {len(modified_screening_types)} modified screening types (active: {len(changes['active_screening_types'])}, inactive: {len(changes['inactive_screening_types'])})")
             
             # Check for recent document additions/modifications (both local and Epic FHIR)
             modified_documents = Document.query.filter(
