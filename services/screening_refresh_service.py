@@ -310,11 +310,14 @@ class ScreeningRefreshService:
             
             for screening_type in screening_types:
                 try:
-                    # Check if this screening type was affected by changes
-                    screening_affected = (
+                    # Check if this SPECIFIC screening type was modified (not just force refresh)
+                    screening_type_modified = (
                         changes_detected['screening_types_modified'] and 
                         screening_type.id in changes_detected['screening_types_modified']
-                    ) or refresh_options.get('force_refresh', False)
+                    )
+                    
+                    # Check if screening type is affected by changes OR force refresh
+                    screening_affected = screening_type_modified or refresh_options.get('force_refresh', False)
                     
                     if not screening_affected:
                         # Check if any of the patient's documents were modified (local or FHIR)
@@ -355,23 +358,28 @@ class ScreeningRefreshService:
                             updates_count += 1
                             logger.debug(f"Updated screening {screening.id} for type {screening_type.name}")
                     else:
-                        # Patient is NOT eligible - remove screening if it exists
-                        existing_screening = Screening.query.filter_by(
-                            patient_id=patient.id,
-                            screening_type_id=screening_type.id
-                        ).first()
-                        
-                        if existing_screening:
-                            logger.info(f"Patient {patient.id} no longer eligible for {screening_type.name} - removing screening {existing_screening.id}")
+                        # ONLY delete screening if this specific screening type was modified
+                        # Don't delete due to eligibility during force refresh of unmodified types
+                        if screening_type_modified:
+                            existing_screening = Screening.query.filter_by(
+                                patient_id=patient.id,
+                                screening_type_id=screening_type.id
+                            ).first()
                             
-                            # Disable autoflush to prevent cascade update before we delete match records
-                            with db.session.no_autoflush:
-                                # Delete related match records first to avoid FK constraint violation
-                                ScreeningDocumentMatch.query.filter_by(screening_id=existing_screening.id).delete(synchronize_session='fetch')
-                            
-                            # Now safe to delete the screening
-                            db.session.delete(existing_screening)
-                            updates_count += 1
+                            if existing_screening:
+                                logger.info(f"Patient {patient.id} no longer eligible for {screening_type.name} (criteria changed) - removing screening {existing_screening.id}")
+                                
+                                # Disable autoflush to prevent cascade update before we delete match records
+                                with db.session.no_autoflush:
+                                    # Delete related match records first to avoid FK constraint violation
+                                    ScreeningDocumentMatch.query.filter_by(screening_id=existing_screening.id).delete(synchronize_session='fetch')
+                                
+                                # Now safe to delete the screening
+                                db.session.delete(existing_screening)
+                                updates_count += 1
+                        else:
+                            # Screening type not modified - just skip (don't delete)
+                            logger.debug(f"Patient {patient.id} not eligible for {screening_type.name}, but criteria unchanged - skipping")
                     
                 except Exception as e:
                     logger.error(f"Error processing screening type {screening_type.id} for patient {patient.id}: {str(e)}")
