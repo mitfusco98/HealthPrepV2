@@ -1989,7 +1989,6 @@ class ScreeningPreset(db.Model):
                         existing.max_age = max_age
                         existing.frequency_value = frequency_value
                         existing.frequency_unit = frequency_unit
-                        existing.frequency_years = frequency_years  # CRITICAL: Set frequency_years for NOT NULL constraint
                         existing.trigger_conditions = trigger_conditions_json
                         existing.is_active = st_data.get('is_active', True)
                         existing.updated_at = datetime.utcnow()
@@ -2016,7 +2015,6 @@ class ScreeningPreset(db.Model):
                         new_st.max_age = max_age
                         new_st.frequency_value = frequency_value
                         new_st.frequency_unit = frequency_unit
-                        new_st.frequency_years = frequency_years  # CRITICAL: Set frequency_years for NOT NULL constraint
                         new_st.trigger_conditions = trigger_conditions_json
                         new_st.is_active = st_data.get('is_active', True)
                         new_st.created_by = created_by
