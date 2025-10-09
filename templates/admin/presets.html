@@ -112,7 +112,7 @@
                                     <div class="d-flex justify-content-between align-items-start mb-2">
                                         <strong>{{ st.get('name', st.name if st.name is defined else 'Unnamed') }}</strong>
                                         <div>
-                                            {% set gender = st.get('eligible_genders', st.get('gender_criteria', 'both')) %}
+                                            {% set gender = st.get('eligible_genders', st.get('gender_criteria', st.get('gender_restriction', 'both'))) %}
                                             {% if gender and gender != 'both' %}
                                                 <span class="badge bg-info badge-sm">
                                                     {% set gender_upper = gender|upper %}

@@ -1900,7 +1900,11 @@ class ScreeningPreset(db.Model):
                 - 'M' (Male Only)
                 - 'F' (Female Only)
                 """
-                gender = data.get('eligible_genders') or data.get('gender_criteria', 'both')
+                # Check multiple possible field names used in different preset formats
+                gender = (data.get('eligible_genders') or 
+                         data.get('gender_criteria') or 
+                         data.get('gender_restriction') or 
+                         'both')
                 
                 if not gender or gender == '':
                     return 'both'
