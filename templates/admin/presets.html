@@ -115,9 +115,10 @@
                                             {% set gender = st.get('eligible_genders', st.get('gender_criteria', 'both')) %}
                                             {% if gender and gender != 'both' %}
                                                 <span class="badge bg-info badge-sm">
-                                                    {% if gender == 'female' %}
+                                                    {% set gender_upper = gender|upper %}
+                                                    {% if gender_upper in ('F', 'FEMALE', 'FEM') %}
                                                         Female Only
-                                                    {% elif gender == 'male' %}
+                                                    {% elif gender_upper in ('M', 'MALE') %}
                                                         Male Only
                                                     {% else %}
                                                         {{ gender|title }}
