@@ -258,15 +258,20 @@ class DocumentMatcher:
                     else:
                         active_matches.append(match_data)
             
+            # Use composite key to prevent ID collision between Document and FHIRDocument tables
+            composite_key = f"fhir_{doc_id}" if is_fhir else f"manual_{doc_id}"
+            
             if include_dismissed:
-                results[doc_id] = {'active': active_matches, 'dismissed': dismissed_matches}
+                results[composite_key] = {'active': active_matches, 'dismissed': dismissed_matches}
             else:
-                results[doc_id] = active_matches
+                results[composite_key] = active_matches
         
         # Add empty results for documents without OCR
         for doc in documents:
-            if doc.id not in results:
-                results[doc.id] = {'active': [], 'dismissed': []} if include_dismissed else []
+            is_fhir = isinstance(doc, FHIRDocument)
+            composite_key = f"fhir_{doc.id}" if is_fhir else f"manual_{doc.id}"
+            if composite_key not in results:
+                results[composite_key] = {'active': [], 'dismissed': []} if include_dismissed else []
         
         return results
     
