@@ -377,17 +377,34 @@ class MedicalConditionsDB:
         - Status modifiers (uncomplicated, unspecified, with exacerbation)
         - Qualifiers (primary, secondary, essential, old, previous)
         
+        Also standardizes spelling variants:
+        - "ovarian" → "ovary" (polycystic ovarian syndrome = polycystic ovary syndrome)
+        - "ischemic" ↔ "ischaemic"
+        
         Examples:
         - "Moderate persistent asthma, uncomplicated" → "asthma"
         - "Old myocardial infarction" → "myocardial infarction"
         - "Acute bronchitis, unspecified" → "bronchitis"
         - "Lobar pneumonia, unspecified organism" → "lobar pneumonia"
+        - "Polycystic ovarian syndrome" → "polycystic ovary syndrome"
         """
         if not condition_name:
             return ""
         
         # Normalize to lowercase for processing
         normalized = condition_name.lower().strip()
+        
+        # Standardize common medical spelling variants (before modifier removal)
+        spelling_variants = {
+            r'\bovarian\b': 'ovary',
+            r'\bischaemic\b': 'ischemic',
+            r'\boesophageal\b': 'esophageal',
+            r'\bhaemorrhage\b': 'hemorrhage',
+            r'\banaemia\b': 'anemia',
+        }
+        
+        for variant_pattern, standard_form in spelling_variants.items():
+            normalized = re.sub(variant_pattern, standard_form, normalized)
         
         # List of clinical modifiers to remove (order matters - more specific first)
         modifiers_to_remove = [
@@ -493,17 +510,17 @@ class MedicalConditionsDB:
         Matches if:
         1. Normalized forms match exactly
         2. Trigger condition exists as complete words in patient condition (word boundary)
-        3. Condition variants match (e.g., PCOS = polycystic ovarian syndrome)
+        3. Both match database variants (abbreviations, synonyms) EXCLUDING false pairs
         
         Examples of MATCHES:
         - "Moderate persistent asthma, uncomplicated" matches "asthma" ✓
         - "Diabetes mellitus type 2" matches "type 2 diabetes" ✓
         - "Polycystic ovarian syndrome" matches "PCOS" ✓
-        - "Old myocardial infarction" matches "heart disease" ✓
+        - "Old myocardial infarction" matches "MI" ✓
         
         Examples of NON-MATCHES:
-        - "diabetes" does NOT match "prediabetes" ✗ (word boundary prevents)
-        - "asthma" does NOT match "asthmatic bronchitis" ✗ (different condition)
+        - "diabetes" does NOT match "prediabetes" ✗ (different conditions)
+        - "type 2 diabetes" does NOT match "type 1 diabetes" ✗ (different types)
         """
         if not patient_condition or not trigger_condition:
             return False
@@ -512,29 +529,191 @@ class MedicalConditionsDB:
         normalized_patient = self.normalize_condition_name(patient_condition)
         normalized_trigger = self.normalize_condition_name(trigger_condition)
         
+        # CRITICAL: Check false positive pairs FIRST before any matching
+        false_positive_pairs = {
+            ('diabetes', 'prediabetes'),
+            ('prediabetes', 'diabetes'),
+            ('diabetes mellitus', 'prediabetes'),
+            ('prediabetes', 'diabetes mellitus'),
+            ('type 1 diabetes', 'type 2 diabetes'),
+            ('type 2 diabetes', 'type 1 diabetes'),
+            ('diabetes mellitus type 1', 'diabetes mellitus type 2'),
+            ('diabetes mellitus type 2', 'diabetes mellitus type 1'),
+            ('t1dm', 't2dm'),
+            ('t2dm', 't1dm'),
+        }
+        
+        pair = (normalized_patient, normalized_trigger)
+        if pair in false_positive_pairs:
+            return False
+        
         # 1. Check exact match of normalized forms
         if normalized_patient == normalized_trigger:
             return True
         
-        # 2. Check if normalized trigger exists with word boundaries in patient condition
-        # Build word boundary pattern for trigger condition
+        # 2. Handle word order variations (e.g., "diabetes mellitus type 2" = "type 2 diabetes mellitus")
+        patient_words = set(normalized_patient.split())
+        trigger_words = set(normalized_trigger.split())
+        
+        # If they have the exact same words (just different order), they match
+        if patient_words == trigger_words and len(patient_words) > 1:
+            return True
+        
+        # 3. Check if normalized trigger exists with word boundaries in patient condition
         trigger_pattern = r'\b' + re.escape(normalized_trigger) + r'\b'
         if re.search(trigger_pattern, normalized_patient, re.IGNORECASE):
             return True
         
-        # 3. Check if patient normalized condition exists in trigger (reverse check)
+        # 4. Check if patient normalized condition exists in trigger (reverse check)
         patient_pattern = r'\b' + re.escape(normalized_patient) + r'\b'
         if re.search(patient_pattern, normalized_trigger, re.IGNORECASE):
             return True
         
-        # 4. Check condition variants/abbreviations across all categories
-        patient_category = self._find_condition_category(normalized_patient)
-        trigger_category = self._find_condition_category(normalized_trigger)
+        # 4. Check database variants with false positive prevention
+        patient_variants = self._get_matching_variants(normalized_patient)
+        trigger_variants = self._get_matching_variants(normalized_trigger)
         
-        if patient_category and trigger_category and patient_category == trigger_category:
-            return True
+        if patient_variants and trigger_variants:
+            # Check if they share at least one common variant
+            if patient_variants & trigger_variants:
+                return True
+            
+            # SPECIAL CASE: Check for known false positive pairs to exclude
+            # Even if in same category, these should NOT match
+            false_positive_pairs = {
+                ('diabetes', 'prediabetes'),
+                ('prediabetes', 'diabetes'),
+                ('diabetes mellitus', 'prediabetes'),
+                ('prediabetes', 'diabetes mellitus'),
+                ('type 1 diabetes', 'type 2 diabetes'),
+                ('type 2 diabetes', 'type 1 diabetes'),
+                ('diabetes mellitus type 1', 'diabetes mellitus type 2'),
+                ('diabetes mellitus type 2', 'diabetes mellitus type 1'),
+                ('t1dm', 't2dm'),
+                ('t2dm', 't1dm'),
+            }
+            
+            pair = (normalized_patient, normalized_trigger)
+            if pair in false_positive_pairs:
+                return False
+            
+            # Check if both are in same category (for abbreviation matching)
+            patient_category = self._find_condition_category(normalized_patient) 
+            trigger_category = self._find_condition_category(normalized_trigger)
+            
+            if patient_category and trigger_category and patient_category == trigger_category:
+                # Same category - check if one is likely an abbreviation of the other
+                # This handles cases like MI <-> myocardial infarction, PCOS <-> polycystic ovarian syndrome
+                if self._is_likely_abbreviation(normalized_patient, normalized_trigger):
+                    return True
         
         return False
+    
+    def _is_likely_abbreviation(self, cond1: str, cond2: str) -> bool:
+        """Check if one condition is likely an abbreviation of the other
+        
+        Examples:
+        - MI is abbreviation of myocardial infarction ✓
+        - PCOS is abbreviation of polycystic ovarian syndrome ✓  
+        - T2DM is abbreviation of type 2 diabetes mellitus ✓
+        - diabetes is NOT abbreviation of prediabetes ✗
+        """
+        # Known special abbreviation mappings (for complex cases)
+        special_abbreviations = {
+            'pcos': ['polycystic ovary syndrome', 'polycystic ovarian syndrome'],
+            't1dm': ['type 1 diabetes mellitus', 'type 1 diabetes', 'diabetes mellitus type 1'],
+            't2dm': ['type 2 diabetes mellitus', 'type 2 diabetes', 'diabetes mellitus type 2'],
+            'mi': ['myocardial infarction'],
+            'cad': ['coronary artery disease'],
+            'chf': ['congestive heart failure'],
+            'copd': ['chronic obstructive pulmonary disease'],
+            'ckd': ['chronic kidney disease'],
+        }
+        
+        cond1_lower = cond1.lower()
+        cond2_lower = cond2.lower()
+        
+        # Check special abbreviations
+        if cond1_lower in special_abbreviations:
+            if cond2_lower in special_abbreviations[cond1_lower]:
+                return True
+        if cond2_lower in special_abbreviations:
+            if cond1_lower in special_abbreviations[cond2_lower]:
+                return True
+        
+        # Standard abbreviation detection - one must be significantly shorter
+        if len(cond1) < 6 and len(cond2) > len(cond1) * 2:
+            # cond1 might be abbreviation of cond2
+            words2 = cond2.split()
+            if len(words2) >= 2:  # Need at least 2 words for abbreviation
+                # Build initials from all words
+                initials_all = ''.join([w[0] for w in words2 if w])
+                # Also try meaningful words only (skip common words)
+                skip_words = {'of', 'the', 'a', 'an', 'and', 'or', 'in', 'on', 'at'}
+                initials_meaningful = ''.join([w[0] for w in words2 if w and w.lower() not in skip_words])
+                
+                if cond1.upper() == initials_all.upper()[:len(cond1)]:
+                    return True
+                if cond1.upper() == initials_meaningful.upper()[:len(cond1)]:
+                    return True
+        
+        if len(cond2) < 6 and len(cond1) > len(cond2) * 2:
+            # cond2 might be abbreviation of cond1
+            words1 = cond1.split()
+            if len(words1) >= 2:
+                # Build initials
+                initials_all = ''.join([w[0] for w in words1 if w])
+                skip_words = {'of', 'the', 'a', 'an', 'and', 'or', 'in', 'on', 'at'}
+                initials_meaningful = ''.join([w[0] for w in words1 if w and w.lower() not in skip_words])
+                
+                if cond2.upper() == initials_all.upper()[:len(cond2)]:
+                    return True
+                if cond2.upper() == initials_meaningful.upper()[:len(cond2)]:
+                    return True
+        
+        return False
+    
+    def _get_matching_variants(self, condition_name: str) -> Set[str]:
+        """Get all database variants that match the given condition
+        
+        Returns a set of matching variant strings from the conditions database.
+        Used to determine if two conditions are synonyms.
+        
+        Examples:
+        - "PCOS" returns {"PCOS", "polycystic ovary syndrome", "polycystic ovarian syndrome", ...}
+        - "MI" returns {"MI", "myocardial infarction", "heart attack", ...}
+        - "diabetes" returns all diabetes-related variants
+        """
+        if not condition_name:
+            return set()
+        
+        condition_lower = condition_name.lower().strip()
+        matching_variants = set()
+        
+        # Check each category's condition list
+        for category, condition_list in self.conditions.items():
+            for known_condition in condition_list:
+                known_lower = known_condition.lower()
+                
+                # Exact match
+                if condition_lower == known_lower:
+                    # Return ALL variants from this category that are synonyms
+                    # Determine which specific group this belongs to
+                    matching_variants.add(known_lower)
+                    continue
+                
+                # Word boundary match
+                pattern = r'\b' + re.escape(known_lower) + r'\b'
+                if re.search(pattern, condition_lower):
+                    matching_variants.add(known_lower)
+                    continue
+                
+                # Reverse check
+                reverse_pattern = r'\b' + re.escape(condition_lower) + r'\b'
+                if re.search(reverse_pattern, known_lower):
+                    matching_variants.add(known_lower)
+        
+        return matching_variants
     
     def _find_condition_category(self, condition_name: str) -> str:
         """Find which category a condition belongs to

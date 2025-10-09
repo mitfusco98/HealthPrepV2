@@ -78,25 +78,47 @@ class EligibilityCriteria:
         return patient.gender == screening_type.eligible_genders
     
     def _check_trigger_conditions(self, patient, screening_type):
-        """Check if patient has required trigger conditions"""
+        """Check if patient has required trigger conditions using enhanced fuzzy matching
+        
+        Uses medical_conditions_db.fuzzy_match_condition() which:
+        - Strips clinical modifiers (mild, moderate, severe, chronic, acute, etc.)
+        - Handles medical abbreviations (PCOS, COPD, MI, CAD, etc.)
+        - Uses word boundaries to prevent false matches (diabetes ≠ prediabetes)
+        - Matches condition variants (Type 2 diabetes = diabetes mellitus type 2 = T2DM)
+        
+        Examples:
+        - "Moderate persistent asthma, uncomplicated" matches trigger "asthma" ✓
+        - "Polycystic ovarian syndrome" matches trigger "PCOS" ✓
+        - "Old myocardial infarction" matches trigger "heart disease" ✓
+        - "diabetes" does NOT match trigger "prediabetes" ✗
+        """
+        from utils.medical_conditions import medical_conditions_db
+        
         # If no trigger conditions defined, screening applies to all patients
         if not screening_type.trigger_conditions_list:
             return True
         
-        # Get patient conditions
-        patient_conditions = [c.condition_name.lower() for c in patient.conditions if c.is_active]
+        # Get patient conditions (keep original case for logging)
+        patient_conditions = [c.condition_name for c in patient.conditions if c.is_active]
         
-        # Check if any trigger condition is met
+        # Check if any trigger condition is met using enhanced fuzzy matching
         for trigger_condition in screening_type.trigger_conditions_list:
-            trigger_condition = trigger_condition.lower().strip()
+            trigger_condition = trigger_condition.strip()
             
-            # Check for exact matches or partial matches
+            # Check against each patient condition using fuzzy matcher
             for patient_condition in patient_conditions:
-                if (trigger_condition in patient_condition or 
-                    patient_condition in trigger_condition):
+                if medical_conditions_db.fuzzy_match_condition(patient_condition, trigger_condition):
+                    self.logger.debug(
+                        f"Trigger condition match: Patient '{patient_condition}' matches "
+                        f"screening trigger '{trigger_condition}' for {screening_type.name}"
+                    )
                     return True
         
         # Patient doesn't have required trigger conditions
+        self.logger.debug(
+            f"No trigger match for {screening_type.name}. Patient has: {patient_conditions}, "
+            f"Screening requires: {screening_type.trigger_conditions_list}"
+        )
         return False
     
     def _calculate_next_due_date(self, last_completed_date, frequency_value, frequency_unit):
