@@ -1840,7 +1840,12 @@ class ScreeningPreset(db.Model):
                         db.session.delete(existing_type)
                     
                     logger.info(f"Deleted {deleted_count} existing screening types and all associated screenings for complete replacement")
+                    
+                    # Commit the deletions before importing new ones to prevent rollback issues
+                    db.session.commit()
+                    logger.info("Committed deletion of existing screening types")
                 except Exception as e:
+                    db.session.rollback()
                     logger.error(f"Error deleting existing screening types for replacement: {str(e)}")
                     return {
                         'success': False,
@@ -1957,6 +1962,7 @@ class ScreeningPreset(db.Model):
                         existing.max_age = max_age
                         existing.frequency_value = frequency_value
                         existing.frequency_unit = frequency_unit
+                        existing.frequency_years = frequency_years  # CRITICAL: Set frequency_years for NOT NULL constraint
                         existing.trigger_conditions = trigger_conditions_json
                         existing.is_active = st_data.get('is_active', True)
                         existing.updated_at = datetime.utcnow()
@@ -1983,6 +1989,7 @@ class ScreeningPreset(db.Model):
                         new_st.max_age = max_age
                         new_st.frequency_value = frequency_value
                         new_st.frequency_unit = frequency_unit
+                        new_st.frequency_years = frequency_years  # CRITICAL: Set frequency_years for NOT NULL constraint
                         new_st.trigger_conditions = trigger_conditions_json
                         new_st.is_active = st_data.get('is_active', True)
                         new_st.created_by = created_by
@@ -1992,6 +1999,8 @@ class ScreeningPreset(db.Model):
                         imported_count += 1
 
                 except Exception as e:
+                    # Rollback this individual screening type to prevent session pollution
+                    db.session.rollback()
                     error_msg = f"Error processing '{st_data.get('name', 'Unknown')}': {str(e)}"
                     errors.append(error_msg)
                     logger.error(f"Error processing screening type {st_data.get('name', 'Unknown')}: {str(e)}")
