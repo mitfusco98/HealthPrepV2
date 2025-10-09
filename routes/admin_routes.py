@@ -1971,7 +1971,9 @@ def admin_documents():
             
             # Add manual documents
             for doc in manual_documents:
-                match_data = batch_match_results.get(doc.id, {'active': [], 'dismissed': []})
+                # Use composite key to prevent ID collision with FHIRDocument table
+                composite_key = f"manual_{doc.id}"
+                match_data = batch_match_results.get(composite_key, {'active': [], 'dismissed': []})
                 active_matches = match_data['active']
                 dismissed_matches = match_data['dismissed']
                 
@@ -1991,7 +1993,9 @@ def admin_documents():
             
             # Add FHIR documents
             for doc in fhir_documents:
-                match_data = batch_match_results.get(doc.id, {'active': [], 'dismissed': []})
+                # Use composite key to prevent ID collision with Document table
+                composite_key = f"fhir_{doc.id}"
+                match_data = batch_match_results.get(composite_key, {'active': [], 'dismissed': []})
                 active_matches = match_data['active']
                 dismissed_matches = match_data['dismissed']
                 
