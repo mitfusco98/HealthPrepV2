@@ -377,10 +377,19 @@ class ScreeningRefreshService:
                             if existing_screening:
                                 logger.info(f"Patient {patient.id} no longer eligible for {screening_type.name} (criteria changed) - removing screening {existing_screening.id}")
                                 
-                                # Disable autoflush to prevent cascade update before we delete match records
+                                # Comprehensive cleanup of all related records
+                                from models import DismissedDocumentMatch
+                                
+                                # Disable autoflush to prevent cascade update before we delete related records
                                 with db.session.no_autoflush:
-                                    # Delete related match records first to avoid FK constraint violation
+                                    # 1. Delete ScreeningDocumentMatch records (local documents)
                                     ScreeningDocumentMatch.query.filter_by(screening_id=existing_screening.id).delete(synchronize_session='fetch')
+                                    
+                                    # 2. Delete DismissedDocumentMatch records (both local and FHIR)
+                                    DismissedDocumentMatch.query.filter_by(screening_id=existing_screening.id).delete(synchronize_session='fetch')
+                                    
+                                    # 3. Remove FHIR document associations (many-to-many)
+                                    existing_screening.fhir_documents.clear()
                                 
                                 # Now safe to delete the screening
                                 db.session.delete(existing_screening)

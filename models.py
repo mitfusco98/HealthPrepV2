@@ -1815,9 +1815,31 @@ class ScreeningPreset(db.Model):
                 try:
                     existing_types = ScreeningType.query.filter_by(org_id=target_org_id).all()
                     deleted_count = len(existing_types)
+                    
+                    # For each screening type, delete all associated records first to avoid orphans
                     for existing_type in existing_types:
+                        # Get all screenings for this type
+                        screenings = Screening.query.filter_by(screening_type_id=existing_type.id).all()
+                        
+                        # Delete all related records for each screening
+                        for screening in screenings:
+                            with db.session.no_autoflush:
+                                # Delete ScreeningDocumentMatch records
+                                ScreeningDocumentMatch.query.filter_by(screening_id=screening.id).delete(synchronize_session='fetch')
+                                
+                                # Delete DismissedDocumentMatch records  
+                                DismissedDocumentMatch.query.filter_by(screening_id=screening.id).delete(synchronize_session='fetch')
+                                
+                                # Clear FHIR document associations
+                                screening.fhir_documents.clear()
+                            
+                            # Delete the screening
+                            db.session.delete(screening)
+                        
+                        # Now safe to delete the screening type
                         db.session.delete(existing_type)
-                    logger.info(f"Deleted {deleted_count} existing screening types for complete replacement")
+                    
+                    logger.info(f"Deleted {deleted_count} existing screening types and all associated screenings for complete replacement")
                 except Exception as e:
                     logger.error(f"Error deleting existing screening types for replacement: {str(e)}")
                     return {
