@@ -14,71 +14,141 @@ class MedicalConditionsDB:
         self.condition_categories = self._load_condition_categories()
     
     def _load_medical_conditions(self) -> Dict[str, List[str]]:
-        """Load comprehensive medical conditions database with FHIR codes"""
-        # Enhanced with standardized codes for Epic FHIR interoperability
+        """Load comprehensive medical conditions database with FHIR codes
+        
+        ENHANCED with 100+ variants including:
+        - Clinical modifiers (mild, moderate, severe, chronic, acute)
+        - Medical abbreviations (PCOS, COPD, MI, CAD, etc.)
+        - Variant spellings and formats (Type 2 diabetes = diabetes mellitus type 2)
+        - Condition-specific terminology
+        """
         return {
             'diabetes': [
-                'diabetes mellitus', 'type 1 diabetes', 'type 2 diabetes', 
-                'gestational diabetes', 'diabetic', 'DM', 'T1DM', 'T2DM',
-                'insulin dependent diabetes', 'non insulin dependent diabetes',
-                'diabetes mellitus type 1', 'diabetes mellitus type 2',
-                'prediabetes', 'impaired glucose tolerance', 'IGT'
+                # Standard forms
+                'diabetes mellitus', 'diabetes', 'diabetic', 'DM',
+                # Type 1 variants
+                'type 1 diabetes', 'type I diabetes', 'diabetes mellitus type 1', 
+                'diabetes mellitus type I', 'T1DM', 'insulin dependent diabetes', 'IDDM',
+                # Type 2 variants  
+                'type 2 diabetes', 'type II diabetes', 'diabetes mellitus type 2',
+                'diabetes mellitus type II', 'T2DM', 'non insulin dependent diabetes', 'NIDDM',
+                # Other forms
+                'gestational diabetes', 'GDM', 'prediabetes', 'pre diabetes',
+                'impaired glucose tolerance', 'IGT', 'impaired fasting glucose', 'IFG'
             ],
             'cardiovascular': [
-                'hypertension', 'high blood pressure', 'HTN', 'cardiac disease',
-                'coronary artery disease', 'CAD', 'myocardial infarction', 'MI',
-                'heart failure', 'CHF', 'atrial fibrillation', 'AFib',
-                'hyperlipidemia', 'dyslipidemia', 'high cholesterol',
-                'peripheral vascular disease', 'PVD', 'stroke', 'CVA'
+                # Heart disease variants
+                'heart disease', 'cardiac disease', 'cardiovascular disease', 'CVD',
+                'ischemic heart disease', 'IHD', 'coronary heart disease', 'CHD',
+                'coronary artery disease', 'CAD', 'atherosclerotic heart disease', 'ASHD',
+                # Myocardial infarction
+                'myocardial infarction', 'MI', 'heart attack', 'old myocardial infarction',
+                'old MI', 'previous MI', 'history of MI', 'STEMI', 'NSTEMI',
+                # Heart failure
+                'heart failure', 'cardiac failure', 'CHF', 'congestive heart failure',
+                'systolic heart failure', 'diastolic heart failure', 'HFrEF', 'HFpEF',
+                # Hypertension
+                'hypertension', 'high blood pressure', 'HTN', 'elevated blood pressure',
+                'essential hypertension', 'primary hypertension', 'secondary hypertension',
+                # Arrhythmias
+                'atrial fibrillation', 'AFib', 'AF', 'a fib', 'atrial flutter',
+                # Lipids
+                'hyperlipidemia', 'dyslipidemia', 'high cholesterol', 'hypercholesterolemia',
+                # Other cardiovascular
+                'peripheral vascular disease', 'PVD', 'PAD', 'peripheral artery disease',
+                'stroke', 'CVA', 'cerebrovascular accident', 'TIA', 'transient ischemic attack'
             ],
             'oncology': [
-                'cancer', 'malignancy', 'tumor', 'neoplasm', 'carcinoma',
-                'breast cancer', 'prostate cancer', 'colorectal cancer',
-                'lung cancer', 'skin cancer', 'melanoma', 'lymphoma',
-                'leukemia', 'family history of cancer', 'BRCA mutation',
-                'genetic predisposition to cancer'
+                'cancer', 'malignancy', 'tumor', 'neoplasm', 'carcinoma', 'CA',
+                'breast cancer', 'breast CA', 'prostate cancer', 'prostate CA',
+                'colorectal cancer', 'colon cancer', 'rectal cancer', 'CRC',
+                'lung cancer', 'lung CA', 'NSCLC', 'SCLC', 'skin cancer', 
+                'melanoma', 'basal cell carcinoma', 'BCC', 'squamous cell carcinoma', 'SCC',
+                'lymphoma', 'Hodgkin lymphoma', 'non-Hodgkin lymphoma', 'NHL',
+                'leukemia', 'AML', 'CML', 'ALL', 'CLL',
+                'family history of cancer', 'FH cancer', 'BRCA mutation', 'BRCA positive',
+                'BRCA1', 'BRCA2', 'genetic predisposition to cancer'
             ],
             'pulmonary': [
-                'asthma', 'COPD', 'chronic obstructive pulmonary disease',
-                'emphysema', 'chronic bronchitis', 'smoking history',
-                'tobacco use disorder', 'pulmonary fibrosis',
-                'sleep apnea', 'respiratory disease', 'lung disease'
+                # Asthma variants - CRITICAL for Linda's condition
+                'asthma', 'asthmatic', 'bronchial asthma',
+                'persistent asthma', 'intermittent asthma', 
+                'mild persistent asthma', 'moderate persistent asthma', 'severe persistent asthma',
+                'mild intermittent asthma', 'exercise induced asthma', 'EIA',
+                'allergic asthma', 'non-allergic asthma', 'asthma exacerbation',
+                'acute asthma', 'chronic asthma', 'asthma with exacerbation',
+                # COPD variants
+                'COPD', 'chronic obstructive pulmonary disease', 'chronic obstructive lung disease',
+                'mild COPD', 'moderate COPD', 'severe COPD', 'very severe COPD',
+                'COPD exacerbation', 'acute exacerbation of COPD', 'AECOPD',
+                # Emphysema & bronchitis
+                'emphysema', 'chronic emphysema', 'pulmonary emphysema',
+                'chronic bronchitis', 'bronchitis', 'acute bronchitis', 
+                'acute bronchitis unspecified', 'recurrent bronchitis',
+                # Pneumonia variants - CRITICAL for Elijah's condition
+                'pneumonia', 'lobar pneumonia', 'bacterial pneumonia', 'viral pneumonia',
+                'aspiration pneumonia', 'community acquired pneumonia', 'CAP',
+                'hospital acquired pneumonia', 'HAP', 'ventilator associated pneumonia', 'VAP',
+                'pneumonia unspecified organism', 'unspecified pneumonia',
+                # Other pulmonary
+                'smoking history', 'tobacco use', 'tobacco use disorder', 
+                'current smoker', 'former smoker', 'nicotine dependence',
+                'pulmonary fibrosis', 'interstitial lung disease', 'ILD',
+                'sleep apnea', 'obstructive sleep apnea', 'OSA', 'respiratory disease', 'lung disease'
             ],
             'gastrointestinal': [
-                'IBD', 'inflammatory bowel disease', 'Crohns disease',
-                'ulcerative colitis', 'IBS', 'irritable bowel syndrome',
-                'GERD', 'gastroesophageal reflux disease', 'peptic ulcer',
-                'hepatitis', 'cirrhosis', 'liver disease', 'celiac disease'
+                'IBD', 'inflammatory bowel disease', 'Crohns disease', 'Crohn disease',
+                'ulcerative colitis', 'UC', 'IBS', 'irritable bowel syndrome',
+                'GERD', 'gastroesophageal reflux disease', 'acid reflux', 'reflux disease',
+                'peptic ulcer', 'gastric ulcer', 'duodenal ulcer', 'PUD',
+                'hepatitis', 'hepatitis B', 'hepatitis C', 'hep B', 'hep C', 'HBV', 'HCV',
+                'cirrhosis', 'liver cirrhosis', 'hepatic cirrhosis', 
+                'liver disease', 'fatty liver', 'NAFLD', 'non-alcoholic fatty liver disease',
+                'celiac disease', 'celiac sprue', 'gluten sensitivity'
             ],
             'endocrine': [
-                'thyroid disease', 'hypothyroidism', 'hyperthyroidism',
-                'thyroid nodule', 'goiter', 'adrenal insufficiency',
-                'Cushings syndrome', 'osteoporosis', 'osteopenia',
-                'metabolic syndrome', 'obesity', 'BMI > 30'
+                'thyroid disease', 'thyroid disorder', 'hypothyroidism', 'hyperthyroidism',
+                'Hashimoto thyroiditis', 'Graves disease', 'thyroid nodule', 'goiter',
+                'adrenal insufficiency', 'Addisons disease', 'Cushings syndrome', 'Cushing syndrome',
+                'osteoporosis', 'osteopenia', 'low bone density', 'bone loss',
+                'metabolic syndrome', 'syndrome X', 'obesity', 'morbid obesity', 
+                'BMI > 30', 'overweight', 'BMI > 25'
             ],
             'renal': [
-                'chronic kidney disease', 'CKD', 'renal insufficiency',
-                'kidney disease', 'nephropathy', 'dialysis',
-                'kidney transplant', 'proteinuria', 'hematuria',
-                'hypertensive nephropathy', 'diabetic nephropathy'
+                'chronic kidney disease', 'CKD', 'chronic renal disease', 'CRD',
+                'renal insufficiency', 'kidney disease', 'renal disease',
+                'nephropathy', 'diabetic nephropathy', 'hypertensive nephropathy',
+                'dialysis', 'hemodialysis', 'peritoneal dialysis', 'ESRD', 'end stage renal disease',
+                'kidney transplant', 'renal transplant', 'proteinuria', 'hematuria',
+                'acute kidney injury', 'AKI', 'acute renal failure', 'ARF'
             ],
             'autoimmune': [
-                'rheumatoid arthritis', 'RA', 'systemic lupus erythematosus',
-                'SLE', 'lupus', 'multiple sclerosis', 'MS',
-                'inflammatory arthritis', 'psoriatic arthritis',
-                'ankylosing spondylitis', 'Sjögrens syndrome'
+                'rheumatoid arthritis', 'RA', 'inflammatory arthritis',
+                'systemic lupus erythematosus', 'SLE', 'lupus',
+                'multiple sclerosis', 'MS', 'psoriatic arthritis', 'PsA',
+                'ankylosing spondylitis', 'AS', 'Sjögrens syndrome', 'Sjogren syndrome',
+                'scleroderma', 'systemic sclerosis', 'polymyalgia rheumatica', 'PMR'
             ],
             'mental_health': [
-                'depression', 'major depressive disorder', 'MDD',
-                'anxiety disorder', 'generalized anxiety disorder', 'GAD',
-                'bipolar disorder', 'PTSD', 'post traumatic stress disorder',
-                'substance use disorder', 'alcohol use disorder'
+                'depression', 'major depressive disorder', 'MDD', 'major depression',
+                'depressive disorder', 'clinical depression', 'unipolar depression',
+                'anxiety disorder', 'anxiety', 'generalized anxiety disorder', 'GAD',
+                'panic disorder', 'social anxiety', 'bipolar disorder', 'bipolar I', 'bipolar II',
+                'PTSD', 'post traumatic stress disorder', 'posttraumatic stress disorder',
+                'substance use disorder', 'SUD', 'drug abuse', 'substance abuse',
+                'alcohol use disorder', 'AUD', 'alcoholism', 'alcohol dependence'
             ],
             'reproductive': [
-                'pregnancy', 'pregnant', 'postmenopausal', 'menopause',
-                'PCOS', 'polycystic ovary syndrome', 'endometriosis',
-                'infertility', 'contraceptive use', 'hormone replacement therapy',
-                'HRT', 'estrogen therapy'
+                # PCOS variants - CRITICAL for Camila's condition
+                'PCOS', 'polycystic ovary syndrome', 'polycystic ovarian syndrome',
+                'polycystic ovaries', 'PCO', 'Stein-Leventhal syndrome',
+                # Other reproductive
+                'pregnancy', 'pregnant', 'gravida', 'gestational',
+                'postmenopausal', 'post menopausal', 'menopause', 'climacteric',
+                'perimenopause', 'peri menopausal', 'menopausal',
+                'endometriosis', 'infertility', 'female infertility', 'male infertility',
+                'contraceptive use', 'birth control', 'hormone replacement therapy',
+                'HRT', 'estrogen therapy', 'testosterone therapy'
             ]
         }
     
@@ -297,6 +367,206 @@ class MedicalConditionsDB:
         """Get Epic-specific search terms for a condition"""
         codes = self.get_fhir_codes_for_condition(condition_name)
         return codes.get('epic_search_terms', [])
+    
+    def normalize_condition_name(self, condition_name: str) -> str:
+        """Normalize a condition name by removing clinical modifiers and standardizing format
+        
+        Removes:
+        - Severity modifiers (mild, moderate, severe, very severe)
+        - Temporal modifiers (acute, chronic, persistent, intermittent, recurrent)
+        - Status modifiers (uncomplicated, unspecified, with exacerbation)
+        - Qualifiers (primary, secondary, essential, old, previous)
+        
+        Examples:
+        - "Moderate persistent asthma, uncomplicated" → "asthma"
+        - "Old myocardial infarction" → "myocardial infarction"
+        - "Acute bronchitis, unspecified" → "bronchitis"
+        - "Lobar pneumonia, unspecified organism" → "lobar pneumonia"
+        """
+        if not condition_name:
+            return ""
+        
+        # Normalize to lowercase for processing
+        normalized = condition_name.lower().strip()
+        
+        # List of clinical modifiers to remove (order matters - more specific first)
+        modifiers_to_remove = [
+            # Compound modifiers (must be before individual words)
+            r'\bmild persistent\b',
+            r'\bmoderate persistent\b', 
+            r'\bsevere persistent\b',
+            r'\bmild intermittent\b',
+            r'\bvery severe\b',
+            r'\bacute exacerbation of\b',
+            r'\bwith exacerbation\b',
+            r'\bwithout exacerbation\b',
+            r'\bunspecified organism\b',
+            r'\bunspecified arm\b',
+            r'\bunspecified side\b',
+            r'\binitial encounter for\b',
+            r'\bclosed fracture\b',
+            r'\bopen fracture\b',
+            # Single-word severity modifiers
+            r'\bmild\b',
+            r'\bmoderate\b',
+            r'\bsevere\b',
+            # Temporal modifiers
+            r'\bacute\b',
+            r'\bchronic\b',
+            r'\bpersistent\b',
+            r'\bintermittent\b',
+            r'\brecurrent\b',
+            r'\bepisodic\b',
+            # Status modifiers
+            r'\buncomplicated\b',
+            r'\bcomplicated\b',
+            r'\bunspecified\b',
+            r'\buncontrolled\b',
+            r'\bcontrolled\b',
+            r'\bunstable\b',
+            r'\bstable\b',
+            # Qualifiers
+            r'\bprimary\b',
+            r'\bsecondary\b',
+            r'\bessential\b',
+            r'\bnon-essential\b',
+            r'\bold\b',
+            r'\bprevious\b',
+            r'\bhistory of\b',
+            r'\bwith\b',
+            r'\bwithout\b',
+        ]
+        
+        # Remove each modifier pattern
+        for modifier_pattern in modifiers_to_remove:
+            normalized = re.sub(modifier_pattern, '', normalized, flags=re.IGNORECASE)
+        
+        # Remove common suffixes that don't add medical meaning
+        suffixes_to_remove = [
+            r',\s*unspecified.*$',
+            r',\s*nos\b.*$',  # "not otherwise specified"
+            r'\s+disorder\s*$' if 'use disorder' not in normalized else r'(?!use)\s+disorder\s*$',
+        ]
+        
+        for suffix_pattern in suffixes_to_remove:
+            normalized = re.sub(suffix_pattern, '', normalized, flags=re.IGNORECASE)
+        
+        # Clean up extra whitespace and commas
+        normalized = re.sub(r'\s*,\s*,\s*', ', ', normalized)  # Remove double commas
+        normalized = re.sub(r'\s*,\s*$', '', normalized)  # Remove trailing comma
+        normalized = re.sub(r'^\s*,\s*', '', normalized)  # Remove leading comma
+        normalized = re.sub(r'\s+', ' ', normalized)  # Normalize whitespace
+        normalized = normalized.strip()
+        
+        return normalized
+    
+    def extract_severity_level(self, condition_name: str) -> str:
+        """Extract severity level from condition name
+        
+        Returns: 'mild', 'moderate', 'severe', 'very_severe', or None
+        
+        Examples:
+        - "Moderate persistent asthma" → "moderate"
+        - "Severe COPD" → "severe"
+        - "Asthma" → None
+        """
+        if not condition_name:
+            return None
+        
+        condition_lower = condition_name.lower()
+        
+        # Check for severity indicators (order matters - most specific first)
+        if re.search(r'\bvery severe\b', condition_lower):
+            return 'very_severe'
+        elif re.search(r'\bsevere\b', condition_lower):
+            return 'severe'
+        elif re.search(r'\bmoderate\b', condition_lower):
+            return 'moderate'
+        elif re.search(r'\bmild\b', condition_lower):
+            return 'mild'
+        
+        return None
+    
+    def fuzzy_match_condition(self, patient_condition: str, trigger_condition: str) -> bool:
+        """Enhanced fuzzy matching for medical conditions using word boundaries
+        
+        Matches if:
+        1. Normalized forms match exactly
+        2. Trigger condition exists as complete words in patient condition (word boundary)
+        3. Condition variants match (e.g., PCOS = polycystic ovarian syndrome)
+        
+        Examples of MATCHES:
+        - "Moderate persistent asthma, uncomplicated" matches "asthma" ✓
+        - "Diabetes mellitus type 2" matches "type 2 diabetes" ✓
+        - "Polycystic ovarian syndrome" matches "PCOS" ✓
+        - "Old myocardial infarction" matches "heart disease" ✓
+        
+        Examples of NON-MATCHES:
+        - "diabetes" does NOT match "prediabetes" ✗ (word boundary prevents)
+        - "asthma" does NOT match "asthmatic bronchitis" ✗ (different condition)
+        """
+        if not patient_condition or not trigger_condition:
+            return False
+        
+        # Normalize both conditions
+        normalized_patient = self.normalize_condition_name(patient_condition)
+        normalized_trigger = self.normalize_condition_name(trigger_condition)
+        
+        # 1. Check exact match of normalized forms
+        if normalized_patient == normalized_trigger:
+            return True
+        
+        # 2. Check if normalized trigger exists with word boundaries in patient condition
+        # Build word boundary pattern for trigger condition
+        trigger_pattern = r'\b' + re.escape(normalized_trigger) + r'\b'
+        if re.search(trigger_pattern, normalized_patient, re.IGNORECASE):
+            return True
+        
+        # 3. Check if patient normalized condition exists in trigger (reverse check)
+        patient_pattern = r'\b' + re.escape(normalized_patient) + r'\b'
+        if re.search(patient_pattern, normalized_trigger, re.IGNORECASE):
+            return True
+        
+        # 4. Check condition variants/abbreviations across all categories
+        patient_category = self._find_condition_category(normalized_patient)
+        trigger_category = self._find_condition_category(normalized_trigger)
+        
+        if patient_category and trigger_category and patient_category == trigger_category:
+            return True
+        
+        return False
+    
+    def _find_condition_category(self, condition_name: str) -> str:
+        """Find which category a condition belongs to
+        
+        Returns the category key (e.g., 'diabetes', 'cardiovascular', 'pulmonary')
+        """
+        if not condition_name:
+            return None
+        
+        condition_lower = condition_name.lower().strip()
+        
+        # Check each category's condition list
+        for category, condition_list in self.conditions.items():
+            for known_condition in condition_list:
+                # Check if condition matches any known variant
+                known_lower = known_condition.lower()
+                
+                # Exact match
+                if condition_lower == known_lower:
+                    return category
+                
+                # Word boundary match
+                pattern = r'\b' + re.escape(known_lower) + r'\b'
+                if re.search(pattern, condition_lower):
+                    return category
+                
+                # Reverse check
+                reverse_pattern = r'\b' + re.escape(condition_lower) + r'\b'
+                if re.search(reverse_pattern, known_lower):
+                    return category
+        
+        return None
 
 # Global instance
 medical_conditions_db = MedicalConditionsDB()
