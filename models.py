@@ -1892,6 +1892,33 @@ class ScreeningPreset(db.Model):
                             continue
                 return None
             
+            # Helper function to normalize gender values to match form standards
+            def normalize_gender(data):
+                """
+                Normalize gender values to match ScreeningTypeForm standards:
+                - 'both' (default for null/empty)
+                - 'M' (Male Only)
+                - 'F' (Female Only)
+                """
+                gender = data.get('eligible_genders') or data.get('gender_criteria', 'both')
+                
+                if not gender or gender == '':
+                    return 'both'
+                
+                # Normalize to uppercase for comparison
+                gender_upper = str(gender).upper().strip()
+                
+                # Handle various female formats
+                if gender_upper in ('F', 'FEMALE', 'FEM', 'WOMEN', 'WOMAN'):
+                    return 'F'
+                
+                # Handle various male formats
+                if gender_upper in ('M', 'MALE', 'MEN', 'MAN'):
+                    return 'M'
+                
+                # Default to both for any other value
+                return 'both'
+            
             for st_data in screening_types_data:
                 try:
                     # Validate required fields
@@ -1908,7 +1935,7 @@ class ScreeningPreset(db.Model):
                     # This allows variants (same name, different criteria) to be created
                     keywords_json = json.dumps(st_data.get('keywords', []))
                     trigger_conditions_json = json.dumps(st_data.get('trigger_conditions', []))
-                    eligible_genders = st_data.get('eligible_genders') or st_data.get('gender_criteria', 'both')
+                    eligible_genders = normalize_gender(st_data)  # Normalize to 'F', 'M', or 'both'
                     min_age = get_age_value(st_data, ['min_age', 'age_min'])
                     max_age = get_age_value(st_data, ['max_age', 'age_max'])
                     frequency_years = get_frequency_years(st_data)
