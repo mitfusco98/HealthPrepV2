@@ -412,7 +412,11 @@ class ScreeningRefreshService:
         """
         Find FHIR documents that match this screening's keywords
         Similar to DocumentMatcher but for Epic FHIR documents
+        
+        CRITICAL FIX: Uses word boundary regex matching to prevent false positives
+        (e.g., "flu" won't match "fluent" or "influence")
         """
+        import re
         matches = []
         
         try:
@@ -430,22 +434,37 @@ class ScreeningRefreshService:
                 if not doc.ocr_text:
                     continue
                 
-                # Check if document text contains screening keywords
-                text_lower = doc.ocr_text.lower()
+                # Check if document text contains screening keywords using word boundary matching
+                # This prevents false positives like "flu" matching "fluent"
+                matched = False
                 for keyword in keywords:
-                    if keyword.lower() in text_lower:
-                        # Use document_date with fallback to creation_date
-                        doc_date = doc.document_date or doc.creation_date
-                        if doc_date and hasattr(doc_date, 'date'):
-                            doc_date = doc_date.date()
-                        
-                        matches.append({
-                            'document': doc,
-                            'document_date': doc_date,
-                            'confidence': 0.9,  # High confidence for keyword match
-                            'source': 'fhir'
-                        })
-                        break  # Found a match, no need to check other keywords
+                    # Handle multi-word keywords: require sequential word matching
+                    if ' ' in keyword:
+                        # Multi-word: escape each word and require sequential matching with whitespace
+                        escaped_words = [re.escape(word) for word in keyword.split()]
+                        pattern = r'\b' + r'\s+'.join(escaped_words) + r'\b'
+                    else:
+                        # Single word: exact word boundary matching
+                        pattern = r'\b' + re.escape(keyword) + r'\b'
+                    
+                    # Check for match with case-insensitive search
+                    if re.search(pattern, doc.ocr_text, re.IGNORECASE):
+                        logger.debug(f"FHIR document {doc.id} matched keyword: '{keyword}'")
+                        matched = True
+                        break
+                
+                if matched:
+                    # Use document_date with fallback to creation_date
+                    doc_date = doc.document_date or doc.creation_date
+                    if doc_date and hasattr(doc_date, 'date'):
+                        doc_date = doc_date.date()
+                    
+                    matches.append({
+                        'document': doc,
+                        'document_date': doc_date,
+                        'confidence': 0.9,  # High confidence for keyword match
+                        'source': 'fhir'
+                    })
             
             logger.debug(f"Found {len(matches)} FHIR document matches for screening {screening.id}")
             return matches
