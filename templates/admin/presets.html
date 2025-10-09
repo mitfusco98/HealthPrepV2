@@ -110,62 +110,89 @@
                                 {% for st in preset.get_screening_types() %}
                                 <div class="screening-type-item">
                                     <div class="d-flex justify-content-between align-items-start mb-2">
-                                        <strong>{{ st.name }}</strong>
+                                        <strong>{{ st.get('name', st.name if st.name is defined else 'Unnamed') }}</strong>
                                         <div>
-                                            {% if st.eligible_genders and st.eligible_genders != 'both' %}
-                                                <span class="badge bg-info badge-sm">{{ st.eligible_genders }}</span>
-                                            {% endif %}
-                                            {% if st.frequency_years %}
-                                                <span class="badge bg-primary badge-sm">
-                                                    {% if st.frequency_years == 1.0 %}
-                                                        Annual
-                                                    {% elif st.frequency_years == 0.5 %}
-                                                        Semi-annual
-                                                    {% elif st.frequency_years >= 1.0 %}
-                                                        {{ st.frequency_years|int }} years
+                                            {% set gender = st.get('eligible_genders', st.get('gender_criteria', 'both')) %}
+                                            {% if gender and gender != 'both' %}
+                                                <span class="badge bg-info badge-sm">
+                                                    {% if gender == 'female' %}
+                                                        Female Only
+                                                    {% elif gender == 'male' %}
+                                                        Male Only
                                                     {% else %}
-                                                        {{ (st.frequency_years * 12)|int }} months
+                                                        {{ gender|title }}
+                                                    {% endif %}
+                                                </span>
+                                            {% endif %}
+                                            
+                                            {% set freq_years = st.get('frequency_years') %}
+                                            {% set freq_value = st.get('frequency_value') %}
+                                            {% set freq_unit = st.get('frequency_unit', 'years') %}
+                                            
+                                            {% if freq_years %}
+                                                <span class="badge bg-primary badge-sm">
+                                                    {% if freq_years == 1.0 %}
+                                                        Annual
+                                                    {% elif freq_years == 0.5 %}
+                                                        Semi-annual
+                                                    {% elif freq_years >= 1.0 %}
+                                                        {{ freq_years|int }} years
+                                                    {% else %}
+                                                        {{ (freq_years * 12)|int }} months
+                                                    {% endif %}
+                                                </span>
+                                            {% elif freq_value %}
+                                                <span class="badge bg-primary badge-sm">
+                                                    {% if freq_value == 1 and freq_unit == 'years' %}
+                                                        Annual
+                                                    {% else %}
+                                                        {{ freq_value }} {{ freq_unit }}
                                                     {% endif %}
                                                 </span>
                                             {% endif %}
                                         </div>
                                     </div>
 
-                                    {% if st.min_age or st.max_age %}
+                                    {% set min_age = st.get('min_age', st.get('age_min')) %}
+                                    {% set max_age = st.get('max_age', st.get('age_max')) %}
+                                    
+                                    {% if min_age or max_age %}
                                     <div class="mb-2">
                                         <small class="text-muted">Age Range:</small>
                                         <small>
-                                            {% if st.min_age and st.max_age %}
-                                                {{ st.min_age }}-{{ st.max_age }} years
-                                            {% elif st.min_age %}
-                                                {{ st.min_age }}+ years
+                                            {% if min_age and max_age %}
+                                                {{ min_age }}-{{ max_age }} years
+                                            {% elif min_age %}
+                                                {{ min_age }}+ years
                                             {% else %}
-                                                Up to {{ st.max_age }} years
+                                                Up to {{ max_age }} years
                                             {% endif %}
                                         </small>
                                     </div>
                                     {% endif %}
 
-                                    {% if st.keywords %}
+                                    {% set keywords = st.get('keywords', []) %}
+                                    {% if keywords %}
                                     <div class="mb-2">
-                                        <small class="text-muted">Keywords ({{ st.keywords|length }}):</small><br>
-                                        {% for keyword in st.keywords[:5] %}
+                                        <small class="text-muted">Keywords ({{ keywords|length }}):</small><br>
+                                        {% for keyword in keywords[:5] %}
                                             <span class="keyword-tag">{{ keyword }}</span>
                                         {% endfor %}
-                                        {% if st.keywords|length > 5 %}
-                                            <span class="keyword-tag">... {{ st.keywords|length - 5 }} more</span>
+                                        {% if keywords|length > 5 %}
+                                            <span class="keyword-tag">... {{ keywords|length - 5 }} more</span>
                                         {% endif %}
                                     </div>
                                     {% endif %}
 
-                                    {% if st.trigger_conditions %}
+                                    {% set conditions = st.get('trigger_conditions', []) %}
+                                    {% if conditions %}
                                     <div>
-                                        <small class="text-muted">Conditions ({{ st.trigger_conditions|length }}):</small><br>
-                                        {% for condition in st.trigger_conditions[:3] %}
+                                        <small class="text-muted">Conditions ({{ conditions|length }}):</small><br>
+                                        {% for condition in conditions[:3] %}
                                             <span class="condition-tag">{{ condition }}</span>
                                         {% endfor %}
-                                        {% if st.trigger_conditions|length > 3 %}
-                                            <span class="condition-tag">... {{ st.trigger_conditions|length - 3 }} more</span>
+                                        {% if conditions|length > 3 %}
+                                            <span class="condition-tag">... {{ conditions|length - 3 }} more</span>
                                         {% endif %}
                                     </div>
                                     {% endif %}
