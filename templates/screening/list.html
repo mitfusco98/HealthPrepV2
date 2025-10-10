@@ -410,13 +410,31 @@
                 </form>
             </div>
 
-            <!-- Document Confidence Legend -->
-            <div class="confidence-legend mb-3">
-                <strong>Document Confidence:</strong>
-                <span class="badge confidence-high">High</span>
-                <span class="badge confidence-medium">Medium</span>
-                <span class="badge confidence-low">Low</span>
+            <!-- Document Confidence Legend & Appointment Prioritization Info -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="confidence-legend">
+                    <strong>Document Confidence:</strong>
+                    <span class="badge confidence-high">High</span>
+                    <span class="badge confidence-medium">Medium</span>
+                    <span class="badge confidence-low">Low</span>
+                </div>
+                {% if appointment_prioritization.enabled %}
+                <div class="alert alert-info mb-0 py-2 px-3" style="font-size: 0.85rem;">
+                    <i class="fas fa-calendar-check me-2"></i>
+                    <strong>Appointment Prioritization Active:</strong> 
+                    Showing patients with appointments in next {{ appointment_prioritization.window_days }} days first
+                    {% if appointment_prioritization.priority_count_on_page > 0 %}
+                    ({{ appointment_prioritization.priority_count_on_page }} on this page)
+                    {% endif %}
+                </div>
+                {% endif %}
             </div>
+            
+            {% if pagination and pagination.total_screenings > 0 %}
+            <div class="mb-2 text-muted" style="font-size: 0.9rem;">
+                Showing {{ pagination.start_idx }}-{{ pagination.end_idx }} of {{ pagination.total_screenings }} screenings
+            </div>
+            {% endif %}
 
             <!-- Screening Results -->
             {% if screenings %}
@@ -434,10 +452,15 @@
                     </thead>
                     <tbody>
                         {% for screening in screenings %}
-                        <tr>
+                        <tr {% if appointment_prioritization.enabled and screening.patient_id in appointment_prioritization.priority_patient_ids %}style="background-color: rgba(13, 110, 253, 0.15) !important;"{% endif %}>
                             <!-- Patient Information -->
                             <td class="patient-info">
-                                <div class="patient-name">{{ screening.patient.full_name }}</div>
+                                <div class="patient-name">
+                                    {% if appointment_prioritization.enabled and screening.patient_id in appointment_prioritization.priority_patient_ids %}
+                                    <i class="fas fa-star text-warning me-1" title="Has upcoming appointment"></i>
+                                    {% endif %}
+                                    {{ screening.patient.full_name }}
+                                </div>
                                 <div class="patient-details">
                                     MRN: {{ screening.patient.mrn }}<br>
                                     Age: {{ screening.patient.age }}
@@ -520,6 +543,59 @@
                     </tbody>
                 </table>
             </div>
+            
+            <!-- Pagination Controls -->
+            {% if pagination and pagination.total_pages > 1 %}
+            <nav aria-label="Screening list pagination" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    <!-- Previous Button -->
+                    <li class="page-item {% if pagination.page == 1 %}disabled{% endif %}">
+                        <a class="page-link" href="?page={{ pagination.page - 1 }}{% if filters.patient %}&patient={{ filters.patient }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.screening_type %}&screening_type={{ filters.screening_type }}{% endif %}" 
+                           {% if pagination.page == 1 %}tabindex="-1"{% endif %}>
+                            <i class="fas fa-chevron-left"></i> Previous
+                        </a>
+                    </li>
+                    
+                    <!-- Page Numbers -->
+                    {% set start_page = [1, pagination.page - 2]|max %}
+                    {% set end_page = [pagination.total_pages, pagination.page + 2]|min %}
+                    
+                    {% if start_page > 1 %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if filters.patient %}&patient={{ filters.patient }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.screening_type %}&screening_type={{ filters.screening_type }}{% endif %}">1</a>
+                    </li>
+                    {% if start_page > 2 %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                    {% endif %}
+                    
+                    {% for page_num in range(start_page, end_page + 1) %}
+                    <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                        <a class="page-link" href="?page={{ page_num }}{% if filters.patient %}&patient={{ filters.patient }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.screening_type %}&screening_type={{ filters.screening_type }}{% endif %}">
+                            {{ page_num }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                    
+                    {% if end_page < pagination.total_pages %}
+                    {% if end_page < pagination.total_pages - 1 %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ pagination.total_pages }}{% if filters.patient %}&patient={{ filters.patient }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.screening_type %}&screening_type={{ filters.screening_type }}{% endif %}">{{ pagination.total_pages }}</a>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Next Button -->
+                    <li class="page-item {% if pagination.page == pagination.total_pages %}disabled{% endif %}">
+                        <a class="page-link" href="?page={{ pagination.page + 1 }}{% if filters.patient %}&patient={{ filters.patient }}{% endif %}{% if filters.status %}&status={{ filters.status }}{% endif %}{% if filters.screening_type %}&screening_type={{ filters.screening_type }}{% endif %}"
+                           {% if pagination.page == pagination.total_pages %}tabindex="-1"{% endif %}>
+                            Next <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            {% endif %}
             {% else %}
             <div class="text-center py-5">
                 <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>

@@ -126,7 +126,7 @@ def screening_list():
         if screening_type_filter:
             query = query.filter(ScreeningType.name == screening_type_filter)
 
-        # Get all screenings and sort by priority: complete and due_soon first, then due, then others
+        # Get all screenings
         all_screenings = query.all()
         
         # Define status priority (lower number = higher priority, shown at top)
@@ -137,13 +137,47 @@ def screening_list():
             'overdue': 3
         }
         
-        # Sort by status priority first, then by patient name, then screening type name
-        screenings = sorted(all_screenings, 
+        # Check if appointment-based prioritization is enabled
+        priority_patient_ids = set()
+        appointment_prioritization_enabled = False
+        
+        if current_user.organization and current_user.organization.appointment_based_prioritization:
+            try:
+                from services.appointment_prioritization import AppointmentBasedPrioritization
+                prioritization_service = AppointmentBasedPrioritization(current_user.org_id)
+                priority_patient_ids = set(prioritization_service.get_priority_patients())
+                appointment_prioritization_enabled = True
+                logger.info(f"Appointment prioritization enabled: {len(priority_patient_ids)} priority patients")
+            except Exception as e:
+                logger.error(f"Error getting priority patients: {str(e)}")
+        
+        # Sort by appointment priority (if enabled), then status priority, then patient name, then screening type name
+        all_sorted_screenings = sorted(all_screenings, 
                           key=lambda s: (
+                              0 if (appointment_prioritization_enabled and s.patient_id in priority_patient_ids) else 1,
                               status_priority.get(s.status, 99),
                               s.patient.name.lower() if s.patient.name else '',
                               s.screening_type.name.lower() if s.screening_type.name else ''
                           ))
+        
+        # Pagination
+        page = request.args.get('page', 1, type=int)
+        per_page = 50  # Show 50 screenings per page
+        total_screenings = len(all_sorted_screenings)
+        total_pages = (total_screenings + per_page - 1) // per_page if total_screenings > 0 else 1
+        
+        # Clamp page number to valid range [1, total_pages]
+        page = max(1, min(page, total_pages))
+        
+        # Calculate start and end indices for current page
+        start_idx = (page - 1) * per_page
+        end_idx = min(start_idx + per_page, total_screenings)
+        
+        # Get screenings for current page
+        screenings = all_sorted_screenings[start_idx:end_idx]
+        
+        # Calculate priority patient count on current page
+        priority_count_on_page = sum(1 for s in screenings if s.patient_id in priority_patient_ids) if appointment_prioritization_enabled else 0
 
         # Get filter options - FILTER BY ORGANIZATION
         patients = Patient.query.filter_by(org_id=current_user.org_id).order_by(Patient.name).all()
@@ -201,6 +235,20 @@ def screening_list():
                                  'patient': patient_filter,
                                  'status': status_filter,
                                  'screening_type': screening_type_filter
+                             },
+                             pagination={
+                                 'page': page,
+                                 'per_page': per_page,
+                                 'total_pages': total_pages,
+                                 'total_screenings': total_screenings,
+                                 'start_idx': start_idx + 1,
+                                 'end_idx': end_idx
+                             },
+                             appointment_prioritization={
+                                 'enabled': appointment_prioritization_enabled,
+                                 'priority_patient_ids': priority_patient_ids,
+                                 'priority_count_on_page': priority_count_on_page,
+                                 'window_days': current_user.organization.prioritization_window_days if current_user.organization else 14
                              })
 
     except Exception as e:
