@@ -10,6 +10,7 @@ from models import (
     Patient, Screening, ScreeningType, Document, 
     PrepSheetSettings, PatientCondition, db
 )
+from core.criteria import EligibilityCriteria
 # from core.screening_engine import ScreeningEngine  # Will implement when needed
 
 class SelectiveRefreshManager:
@@ -22,6 +23,7 @@ class SelectiveRefreshManager:
         self.logger = logging.getLogger(__name__)
         # self.screening_engine = ScreeningEngine()  # Will implement when needed
         self.change_tracker = ChangeTracker()
+        self.criteria = EligibilityCriteria()
         
     def sync_emr_changes(self, emr_changes: Dict) -> Dict:
         """
@@ -298,24 +300,12 @@ class SelectiveRefreshManager:
             if not screening_type:
                 continue
             
-            # Get all patients and check eligibility
-            patients = Patient.query.all()
+            # Get all patients from the same organization
+            patients = Patient.query.filter_by(org_id=screening_type.org_id).all()
             
             for patient in patients:
-                # Basic eligibility check - would be more sophisticated in production
-                eligible = True
-                
-                # Check age eligibility
-                if screening_type.min_age and patient.age < screening_type.min_age:
-                    eligible = False
-                if screening_type.max_age and patient.age > screening_type.max_age:
-                    eligible = False
-                
-                # Check gender eligibility
-                if screening_type.eligible_genders != 'both' and patient.gender != screening_type.eligible_genders:
-                    eligible = False
-                
-                if eligible:
+                # Use full eligibility criteria system (age, gender, trigger conditions, keywords)
+                if self.criteria.is_patient_eligible(patient, screening_type):
                     # Create new screening
                     screening = Screening()
                     screening.patient_id = patient.id
@@ -327,6 +317,11 @@ class SelectiveRefreshManager:
                     
                     db.session.add(screening)
                     new_screenings.append(screening)
+                    
+                    self.logger.debug(
+                        f"Created screening for patient {patient.id} - "
+                        f"screening type '{screening_type.name}' (includes trigger conditions)"
+                    )
         
         return new_screenings
     
