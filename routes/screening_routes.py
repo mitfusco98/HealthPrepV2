@@ -112,10 +112,11 @@ def screening_list():
 
         # Apply filters
         if patient_filter:
+            from sqlalchemy import func
             query = query.filter(
                 db.or_(
-                    Patient.name.ilike(f'%{patient_filter}%'),
-                    Patient.mrn.ilike(f'%{patient_filter}%')
+                    func.lower(Patient.name).like(f'%{patient_filter.lower()}%'),
+                    func.lower(Patient.mrn).like(f'%{patient_filter.lower()}%')
                 )
             )
 
@@ -791,7 +792,7 @@ def import_preset():
 
 @screening_bp.route('/api/screening-keywords/<int:screening_type_id>', methods=['GET', 'POST'])
 @login_required
-def manage_screening_keywords(screening_type_id):
+def manage_screening_keywords(screening_type_id):  # type: ignore
     """Get or update keywords for a screening type (tag-based system)"""
     screening_type = ScreeningType.query.get_or_404(screening_type_id)
     

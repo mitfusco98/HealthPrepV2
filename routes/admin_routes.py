@@ -552,7 +552,7 @@ def get_dashboard_data():
             (ScreeningPreset.org_id == current_user.org_id) | 
             (ScreeningPreset.preset_scope == 'global') |
             (ScreeningPreset.shared == True)
-        ).order_by(ScreeningPreset.updated_at.desc()).all()
+        ).order_by(desc(ScreeningPreset.updated_at)).all()  # type: ignore
     except Exception:
         recent_presets = []
     
@@ -1413,7 +1413,7 @@ def view_presets():
         presets = ScreeningPreset.query.filter(
             (ScreeningPreset.org_id == org_id) | 
             (ScreeningPreset.preset_scope == 'global')
-        ).order_by(ScreeningPreset.updated_at.desc()).all()
+        ).order_by(desc(ScreeningPreset.updated_at)).all()  # type: ignore
         
         return render_template('admin/presets.html', presets=presets)
         
@@ -1913,8 +1913,9 @@ def admin_documents():
         
         if patient_search:
             # Case-insensitive patient name search
+            from sqlalchemy import func
             patients_query = patients_query.filter(
-                Patient.name.ilike(f'%{patient_search}%')
+                func.lower(Patient.name).like(f'%{patient_search.lower()}%')
             )
         
         # Order by name for consistent pagination
@@ -2126,14 +2127,13 @@ def dismiss_document_match():
             return jsonify({'success': False, 'error': 'Match already dismissed'}), 400
         
         # Create dismissal record
-        dismissal = DismissedDocumentMatch(
-            document_id=document_id,
-            fhir_document_id=fhir_document_id,
-            screening_id=screening_id,
-            org_id=current_user.org_id,
-            dismissed_by=current_user.id,
-            dismissal_reason=reason or None
-        )
+        dismissal = DismissedDocumentMatch()  # type: ignore
+        dismissal.document_id = document_id
+        dismissal.fhir_document_id = fhir_document_id
+        dismissal.screening_id = screening_id
+        dismissal.org_id = current_user.org_id
+        dismissal.dismissed_by = current_user.id
+        dismissal.dismissal_reason = reason or None
         
         db.session.add(dismissal)
         db.session.commit()
