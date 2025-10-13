@@ -651,7 +651,7 @@ def dashboard_analytics():
     try:
         data = get_dashboard_data()
         data['active_tab'] = 'analytics'
-        return render_template('admin/dashboard.html', **data)
+        return render_template('admin/analytics.html', **data)
     except Exception as e:
         logger.error(f"Error in dashboard analytics: {str(e)}")
         flash('Error loading dashboard', 'error')
