@@ -532,16 +532,19 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 console.log('Dismiss response:', data);
                 if (data.success) {
-                    console.log('✓ Match dismissed successfully - reloading to:', patientFragment);
-                    window.location = window.location.pathname + window.location.search + patientFragment;
+                    console.log('✓ Match dismissed successfully - forcing page reload');
+                    // Force a full page reload to refresh all data
+                    window.location.reload(true);
                 } else {
                     console.error('Error dismissing match:', data.error);
-                    window.location = window.location.pathname + window.location.search + patientFragment;
+                    alert('Error: ' + (data.error || 'Failed to dismiss match'));
+                    window.location.reload(true);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                window.location = window.location.pathname + window.location.search + patientFragment;
+                alert('Error dismissing match. Please try again.');
+                window.location.reload(true);
             });
             return; // Stop processing this click
         }
@@ -580,16 +583,19 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 console.log('Restore response:', data);
                 if (data.success) {
-                    console.log('✓ Match restored successfully - reloading to:', patientFragment);
-                    window.location = window.location.pathname + window.location.search + patientFragment;
+                    console.log('✓ Match restored successfully - forcing page reload');
+                    // Force a full page reload to refresh all data
+                    window.location.reload(true);
                 } else {
                     console.error('Error restoring match:', data.error);
-                    window.location = window.location.pathname + window.location.search + patientFragment;
+                    alert('Error: ' + (data.error || 'Failed to restore match'));
+                    window.location.reload(true);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                window.location = window.location.pathname + window.location.search + patientFragment;
+                alert('Error restoring match. Please try again.');
+                window.location.reload(true);
             });
         }
     });

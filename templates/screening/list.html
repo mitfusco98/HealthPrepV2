@@ -129,38 +129,38 @@
 
 /* IMPROVEMENT 3: Optimized column widths */
 .col-patient {
-    width: 200px;
-    min-width: 200px;
-    max-width: 200px;
-}
-
-.col-screening-type {
     width: 180px;
     min-width: 180px;
     max-width: 180px;
 }
 
+.col-screening-type {
+    width: 160px;
+    min-width: 160px;
+    max-width: 160px;
+}
+
 .col-status {
-    width: 90px;
-    min-width: 90px;
-    max-width: 90px;
+    width: 85px;
+    min-width: 85px;
+    max-width: 85px;
 }
 
 .col-last-completed {
-    width: 110px;
-    min-width: 110px;
-    max-width: 110px;
-}
-
-.col-frequency {
     width: 100px;
     min-width: 100px;
     max-width: 100px;
 }
 
+.col-frequency {
+    width: 90px;
+    min-width: 90px;
+    max-width: 90px;
+}
+
 .col-documents {
     width: auto;
-    min-width: 300px;
+    min-width: 400px;
 }
 
 .patient-info {
@@ -192,10 +192,10 @@
 }
 
 .documents-list .badge {
-    font-size: 0.65rem;
-    margin: 1px 2px 2px 0;
-    padding: 0.25rem 0.4rem;
-    max-width: 140px;
+    font-size: 0.7rem;
+    margin: 2px 3px 2px 0;
+    padding: 0.3rem 0.5rem;
+    max-width: 180px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -225,12 +225,12 @@
 }
 
 /* Apply column widths to table body cells */
-.screening-table-compact td:nth-child(1) { width: 200px; max-width: 200px; }
-.screening-table-compact td:nth-child(2) { width: 180px; max-width: 180px; }
-.screening-table-compact td:nth-child(3) { width: 90px; max-width: 90px; }
-.screening-table-compact td:nth-child(4) { width: 110px; max-width: 110px; }
-.screening-table-compact td:nth-child(5) { width: 100px; max-width: 100px; }
-.screening-table-compact td:nth-child(6) { width: auto; min-width: 300px; }
+.screening-table-compact td:nth-child(1) { width: 180px; max-width: 180px; }
+.screening-table-compact td:nth-child(2) { width: 160px; max-width: 160px; }
+.screening-table-compact td:nth-child(3) { width: 85px; max-width: 85px; }
+.screening-table-compact td:nth-child(4) { width: 100px; max-width: 100px; }
+.screening-table-compact td:nth-child(5) { width: 90px; max-width: 90px; }
+.screening-table-compact td:nth-child(6) { width: auto; min-width: 400px; }
 
 /* Ensure table layout respects column widths */
 .screening-table-compact {
@@ -410,24 +410,24 @@
                 </form>
             </div>
 
-            <!-- Document Confidence Legend & Appointment Prioritization Info -->
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div class="confidence-legend">
-                    <strong>Document Confidence:</strong>
-                    <span class="badge confidence-high">High</span>
-                    <span class="badge confidence-medium">Medium</span>
-                    <span class="badge confidence-low">Low</span>
-                </div>
-                {% if appointment_prioritization.enabled %}
-                <div class="alert alert-info mb-0 py-2 px-3" style="font-size: 0.85rem;">
-                    <i class="fas fa-calendar-check me-2"></i>
-                    <strong>Appointment Prioritization Active:</strong> 
-                    Showing patients with appointments in next {{ appointment_prioritization.window_days }} days first
-                    {% if appointment_prioritization.priority_count_on_page > 0 %}
-                    ({{ appointment_prioritization.priority_count_on_page }} on this page)
-                    {% endif %}
-                </div>
+            <!-- Appointment Prioritization Info -->
+            {% if appointment_prioritization.enabled %}
+            <div class="alert alert-info mb-3 py-2 px-3" style="font-size: 0.85rem;">
+                <i class="fas fa-calendar-check me-2"></i>
+                <strong>Appointment Prioritization Active:</strong> 
+                Showing patients with appointments in next {{ appointment_prioritization.window_days }} days first
+                {% if appointment_prioritization.priority_count_on_page > 0 %}
+                ({{ appointment_prioritization.priority_count_on_page }} on this page)
                 {% endif %}
+            </div>
+            {% endif %}
+            
+            <!-- Document Confidence Legend -->
+            <div class="confidence-legend mb-3">
+                <strong>Document Confidence:</strong>
+                <span class="badge confidence-high">High</span>
+                <span class="badge confidence-medium">Medium</span>
+                <span class="badge confidence-low">Low</span>
             </div>
             
             {% if pagination and pagination.total_screenings > 0 %}
