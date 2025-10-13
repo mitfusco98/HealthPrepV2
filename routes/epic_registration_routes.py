@@ -26,23 +26,9 @@ def epic_registration():
         # Get current Epic registration status
         registration_status = organization.epic_registration_status or 'not_started'
         
-        # Calculate registration progress
-        progress_percentage = 0
-        if registration_status == 'not_started':
-            progress_percentage = 0
-        elif registration_status == 'in_progress':
-            progress_percentage = 25
-        elif registration_status == 'pending_approval':
-            progress_percentage = 60  # Epic is reviewing (1 hour wait)
-        elif registration_status == 'approved':
-            progress_percentage = 80
-        elif registration_status == 'active':
-            progress_percentage = 100
-        
         context = {
             'organization': organization,
             'registration_status': registration_status,
-            'progress_percentage': progress_percentage,
             'epic_scopes': [
                 'patient/Patient.read',
                 'patient/Observation.read',
