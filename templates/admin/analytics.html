@@ -1,6 +1,6 @@
 {% extends 'base_admin.html' %}
 
-{% block title %}Customer Analytics - HealthPrep Admin{% endblock %}
+{% block title %}Analytics - HealthPrep Admin{% endblock %}
 
 {% block content %}
 <!-- Analytics Header -->
@@ -8,257 +8,215 @@
     <div>
         <h2>
             <i class="fas fa-chart-bar me-2"></i>
-            Customer Value Analytics
+            Analytics & ROI
         </h2>
-        <p class="text-muted mb-0">Comprehensive analytics and ROI metrics</p>
-    </div>
-    <div class="btn-group btn-group-sm">
-        <button class="btn btn-outline-secondary active">Monthly</button>
-        <button class="btn btn-outline-secondary">Quarterly</button>
-        <button class="btn btn-outline-secondary">Yearly</button>
+        <p class="text-muted mb-0">PHI detection and labor savings metrics</p>
     </div>
 </div>
 
-<!-- Key Metrics Row -->
-<div class="row mb-4">
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <i class="fas fa-dollar-sign fa-2x text-success mb-3"></i>
-                <h4 class="mb-1">${{ analytics.system_performance.monthly_revenue or '24,890' }}</h4>
-                <p class="text-muted mb-0">Monthly Revenue</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <i class="fas fa-clock fa-2x text-info mb-3"></i>
-                <h4 class="mb-1">{{ analytics.time_saved.hours_saved or '1,240' }}h</h4>
-                <p class="text-muted mb-0">Time Saved</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <i class="fas fa-users fa-2x text-primary mb-3"></i>
-                <h4 class="mb-1">{{ analytics.system_performance.active_customers or '147' }}</h4>
-                <p class="text-muted mb-0">Active Customers</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-3 col-md-6 mb-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <i class="fas fa-percentage fa-2x text-warning mb-3"></i>
-                <h4 class="mb-1">{{ analytics.compliance_gaps.improvement_percentage or '92.3' }}%</h4>
-                <p class="text-muted mb-0">Compliance Improvement</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Charts Row -->
-<div class="row mb-4">
-    <div class="col-lg-8">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0">
-                    <i class="fas fa-chart-line me-2"></i>
-                    Revenue & Growth Trends
-                </h6>
-            </div>
-            <div class="card-body">
-                <div class="text-center py-5">
-                    <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
-                    <h5 class="text-muted">Analytics Chart</h5>
-                    <p class="text-muted">Interactive chart showing revenue and customer growth over time</p>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-4">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0">
-                    <i class="fas fa-pie-chart me-2"></i>
-                    Customer Breakdown
-                </h6>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between">
-                        <span>Small Practices</span>
-                        <span class="badge bg-primary">78</span>
-                    </div>
-                    <div class="progress mt-1" style="height: 4px;">
-                        <div class="progress-bar bg-primary" style="width: 53%"></div>
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between">
-                        <span>Medium Practices</span>
-                        <span class="badge bg-success">42</span>
-                    </div>
-                    <div class="progress mt-1" style="height: 4px;">
-                        <div class="progress-bar bg-success" style="width: 29%"></div>
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between">
-                        <span>Large Practices</span>
-                        <span class="badge bg-warning">27</span>
-                    </div>
-                    <div class="progress mt-1" style="height: 4px;">
-                        <div class="progress-bar bg-warning" style="width: 18%"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ROI and Performance -->
-<div class="row mb-4">
-    <div class="col-lg-6">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0">
-                    <i class="fas fa-chart-area me-2"></i>
-                    ROI Analysis
-                </h6>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-6">
-                        <div class="text-center border-end">
-                            <h4 class="text-success mb-1">{{ analytics.roi_report.roi_percentage or '340' }}%</h4>
-                            <small class="text-muted">Average ROI</small>
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="text-center">
-                            <h4 class="text-info mb-1">${{ analytics.roi_report.cost_savings or '127,500' }}</h4>
-                            <small class="text-muted">Cost Savings</small>
-                        </div>
-                    </div>
-                </div>
-                <hr>
-                <div class="small">
-                    <div class="d-flex justify-content-between mb-2">
-                        <span>Implementation Efficiency</span>
-                        <span class="text-success">+23%</span>
-                    </div>
-                    <div class="d-flex justify-content-between mb-2">
-                        <span>Error Reduction</span>
-                        <span class="text-success">-41%</span>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                        <span>Processing Speed</span>
-                        <span class="text-success">+67%</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-6">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0">
-                    <i class="fas fa-tasks me-2"></i>
-                    System Performance
-                </h6>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between">
-                        <span>System Uptime</span>
-                        <span class="text-success">99.7%</span>
-                    </div>
-                    <div class="progress mt-1" style="height: 6px;">
-                        <div class="progress-bar bg-success" style="width: 99.7%"></div>
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between">
-                        <span>Processing Accuracy</span>
-                        <span class="text-success">97.8%</span>
-                    </div>
-                    <div class="progress mt-1" style="height: 6px;">
-                        <div class="progress-bar bg-success" style="width: 97.8%"></div>
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between">
-                        <span>Customer Satisfaction</span>
-                        <span class="text-success">94.2%</span>
-                    </div>
-                    <div class="progress mt-1" style="height: 6px;">
-                        <div class="progress-bar bg-success" style="width: 94.2%"></div>
-                    </div>
-                </div>
-                <div class="text-center mt-4">
-                    <button class="btn btn-outline-primary btn-sm">
-                        <i class="fas fa-download me-1"></i>
-                        Export Report
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Executive Summary -->
+<!-- Main Content Row -->
 <div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0">
-                    <i class="fas fa-clipboard-list me-2"></i>
-                    Executive Summary
-                </h6>
+    <!-- PHI Detection Breakdown -->
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-shield-alt me-2"></i>
+                    PHI Detection Breakdown
+                </h5>
             </div>
             <div class="card-body">
-                {% if analytics.roi_report.executive_summary %}
-                    <div class="row">
-                        <div class="col-md-8">
-                            <p>{{ analytics.roi_report.executive_summary }}</p>
+                <p class="text-muted mb-3">Total PHI items redacted across all documents</p>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>PHI Type</th>
+                                <th class="text-end">Count</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <i class="fas fa-id-card text-danger me-2"></i>
+                                    Social Security Numbers
+                                </td>
+                                <td class="text-end">
+                                    <span class="badge bg-danger">{{ phi_breakdown.ssn_count if phi_breakdown else 0 }}</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <i class="fas fa-phone text-info me-2"></i>
+                                    Phone Numbers
+                                </td>
+                                <td class="text-end">
+                                    <span class="badge bg-info">{{ phi_breakdown.phone_count if phi_breakdown else 0 }}</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <i class="fas fa-envelope text-warning me-2"></i>
+                                    Email Addresses
+                                </td>
+                                <td class="text-end">
+                                    <span class="badge bg-warning">{{ phi_breakdown.email_count if phi_breakdown else 0 }}</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <i class="fas fa-hospital text-primary me-2"></i>
+                                    Medical Record Numbers
+                                </td>
+                                <td class="text-end">
+                                    <span class="badge bg-primary">{{ phi_breakdown.mrn_count if phi_breakdown else 0 }}</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <i class="fas fa-user text-success me-2"></i>
+                                    Patient Names
+                                </td>
+                                <td class="text-end">
+                                    <span class="badge bg-success">{{ phi_breakdown.name_count if phi_breakdown else 0 }}</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <i class="fas fa-map-marker-alt text-secondary me-2"></i>
+                                    Addresses
+                                </td>
+                                <td class="text-end">
+                                    <span class="badge bg-secondary">{{ phi_breakdown.address_count if phi_breakdown else 0 }}</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <th>Total PHI Items Redacted</th>
+                                <th class="text-end">
+                                    <span class="badge bg-dark fs-6">
+                                        {{ (phi_breakdown.ssn_count|default(0) + phi_breakdown.phone_count|default(0) + phi_breakdown.email_count|default(0) + phi_breakdown.mrn_count|default(0) + phi_breakdown.name_count|default(0) + phi_breakdown.address_count|default(0)) }}
+                                    </span>
+                                </th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Labor Savings Calculation -->
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-calculator me-2"></i>
+                    Labor Savings Calculation Breakdown
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">ROI calculation based on prep sheets generated</p>
+                
+                <!-- Live Prep Sheet Count -->
+                <div class="alert alert-info mb-4">
+                    <div class="row align-items-center">
+                        <div class="col-8">
+                            <h6 class="mb-0">
+                                <i class="fas fa-file-medical me-2"></i>
+                                Prep Sheets Created
+                            </h6>
+                            <small class="text-muted">Total generated by the system</small>
                         </div>
-                        <div class="col-md-4">
-                            <div class="alert alert-success">
-                                <h6 class="alert-heading">Key Highlight</h6>
-                                <p class="mb-0">HealthPrep has delivered measurable value to healthcare practices through streamlined screening processes and improved compliance rates.</p>
-                            </div>
+                        <div class="col-4 text-end">
+                            <h3 class="mb-0">{{ stats.total_screenings if stats else 0 }}</h3>
                         </div>
                     </div>
-                {% else %}
-                    <div class="text-center py-4">
-                        <i class="fas fa-chart-pie fa-3x text-muted mb-3"></i>
-                        <h5 class="text-muted">Analytics Overview</h5>
-                        <p class="text-muted">HealthPrep's comprehensive analytics show strong ROI across all customer segments with significant time savings and improved compliance rates. Our platform continues to deliver measurable value to healthcare practices nationwide.</p>
-                        <div class="row mt-4">
-                            <div class="col-md-4">
-                                <div class="text-success">
-                                    <i class="fas fa-arrow-up me-1"></i>
-                                    <strong>23% efficiency improvement</strong>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="text-info">
-                                    <i class="fas fa-shield-alt me-1"></i>
-                                    <strong>41% error reduction</strong>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="text-warning">
-                                    <i class="fas fa-clock me-1"></i>
-                                    <strong>67% faster processing</strong>
-                                </div>
-                            </div>
+                </div>
+
+                <!-- Calculation Breakdown -->
+                <div class="mb-4">
+                    <h6 class="border-bottom pb-2 mb-3">Time Savings Calculation</h6>
+                    
+                    <div class="row mb-3">
+                        <div class="col-8">
+                            <span class="text-muted">Minutes saved per prep sheet:</span>
+                        </div>
+                        <div class="col-4 text-end">
+                            <strong>15 min</strong>
                         </div>
                     </div>
-                {% endif %}
+                    
+                    <div class="row mb-3">
+                        <div class="col-8">
+                            <span class="text-muted">Total prep sheets:</span>
+                        </div>
+                        <div class="col-4 text-end">
+                            <strong>{{ stats.total_screenings if stats else 0 }}</strong>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3 border-top pt-2">
+                        <div class="col-8">
+                            <strong>Total time saved:</strong>
+                        </div>
+                        <div class="col-4 text-end">
+                            <strong class="text-success">{{ ((stats.total_screenings if stats else 0) * 15 / 60)|round(1) }} hours</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cost Savings Calculation -->
+                <div class="mb-3">
+                    <h6 class="border-bottom pb-2 mb-3">Cost Savings Calculation</h6>
+                    
+                    <div class="row mb-3">
+                        <div class="col-8">
+                            <span class="text-muted">Average MA hourly rate:</span>
+                        </div>
+                        <div class="col-4 text-end">
+                            <strong>$25/hr</strong>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-8">
+                            <span class="text-muted">Hours saved:</span>
+                        </div>
+                        <div class="col-4 text-end">
+                            <strong>{{ ((stats.total_screenings if stats else 0) * 15 / 60)|round(1) }} hrs</strong>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3 border-top pt-2">
+                        <div class="col-8">
+                            <strong>Total labor cost savings:</strong>
+                        </div>
+                        <div class="col-4 text-end">
+                            <h4 class="mb-0 text-success">
+                                ${{ (((stats.total_screenings if stats else 0) * 15 / 60) * 25)|round(2) }}
+                            </h4>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ROI Summary -->
+                <div class="alert alert-success mb-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">Return on Investment</h6>
+                            <small>Based on automated prep sheet generation</small>
+                        </div>
+                        <div class="text-end">
+                            <h3 class="mb-0">
+                                <i class="fas fa-dollar-sign"></i>{{ (((stats.total_screenings if stats else 0) * 15 / 60) * 25)|round(0)|int }}
+                            </h3>
+                            <small>Total Savings</small>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
