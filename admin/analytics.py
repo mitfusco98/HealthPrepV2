@@ -112,6 +112,9 @@ class HealthPrepAnalytics:
         # Assume each gap closed prevents a potential issue worth $500
         compliance_value = compliance_data['gaps_closed'] * 500
         
+        # Get total screenings count
+        total_screenings = Screening.query.count()
+        
         return {
             'time_savings': time_saved,
             'compliance_improvements': compliance_data,
@@ -124,7 +127,8 @@ class HealthPrepAnalytics:
                 'documents_per_hour': self._calculate_processing_efficiency(),
                 'average_prep_time': 10,  # Estimated 10 seconds per prep sheet
                 'accuracy_rate': self._calculate_accuracy_rate()
-            }
+            },
+            'total_screenings': total_screenings
         }
     
     def _calculate_processing_efficiency(self):

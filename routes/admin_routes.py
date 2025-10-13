@@ -653,7 +653,8 @@ def dashboard_analytics():
         data['active_tab'] = 'analytics'
         return render_template('admin/analytics.html', **data)
     except Exception as e:
-        logger.error(f"Error in dashboard analytics: {str(e)}")
+        import traceback
+        logger.error(f"Error in dashboard analytics: {str(e)}\n{traceback.format_exc()}")
         flash('Error loading dashboard', 'error')
         return render_template('error/500.html'), 500
 
