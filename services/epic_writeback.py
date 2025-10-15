@@ -10,8 +10,7 @@ from io import BytesIO
 from weasyprint import HTML, CSS
 from flask import render_template_string
 from emr.fhir_client import FHIRClient
-from models import Patient, Organization
-from admin.audit_logger import log_admin_event
+from models import Patient, Organization, log_admin_event
 
 logger = logging.getLogger(__name__)
 

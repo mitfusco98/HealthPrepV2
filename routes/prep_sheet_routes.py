@@ -434,3 +434,122 @@ def prep_sheet_settings():
         logger.error(f"Error in prep sheet settings: {str(e)}")
         flash('Error loading prep sheet settings', 'error')
         return render_template('error/500.html'), 500
+
+@prep_sheet_bp.route('/generate-to-epic/<int:patient_id>', methods=['POST'])
+@login_required
+@non_admin_required
+def generate_to_epic(patient_id):
+    """Generate prep sheet and write to Epic as DocumentReference"""
+    try:
+        from services.epic_writeback import EpicWriteBackService
+        
+        patient = Patient.query.get_or_404(patient_id)
+        
+        # Check Epic connection is configured
+        if not current_user.organization.epic_client_id:
+            return jsonify({
+                'success': False,
+                'error': 'Epic integration not configured'
+            }), 400
+        
+        # Generate prep sheet HTML
+        generator = PrepSheetGenerator()
+        prep_result = generator.generate_prep_sheet(patient_id)
+        
+        if not prep_result.get('success'):
+            return jsonify({
+                'success': False,
+                'error': prep_result.get('error', 'Prep sheet generation failed')
+            }), 500
+        
+        # Render to HTML
+        prep_html = render_template('prep_sheet/prep_sheet.html', **prep_result['data'])
+        
+        # Write to Epic
+        epic_service = EpicWriteBackService(current_user.org_id)
+        write_result = epic_service.write_prep_sheet_to_epic(
+            patient_id=patient_id,
+            prep_sheet_html=prep_html,
+            user_id=current_user.id,
+            user_ip=request.remote_addr
+        )
+        
+        if write_result.get('success'):
+            return jsonify({
+                'success': True,
+                'message': f'Prep sheet successfully written to Epic',
+                'epic_document_id': write_result.get('epic_document_id'),
+                'filename': write_result.get('filename'),
+                'timestamp': write_result.get('timestamp')
+            })
+        else:
+            error_msg = write_result.get('error', 'Unknown error')
+            status_code = 401 if write_result.get('connection_error') else 500
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'connection_error': write_result.get('connection_error', False)
+            }), status_code
+            
+    except Exception as e:
+        logger.error(f"Error writing prep sheet to Epic: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@prep_sheet_bp.route('/bulk-generate-to-epic', methods=['POST'])
+@login_required
+@non_admin_required
+def bulk_generate_to_epic():
+    """Bulk generate prep sheets and write to Epic using appointment prioritization window"""
+    try:
+        from services.epic_writeback import EpicWriteBackService
+        from services.appointment_prioritization import AppointmentBasedPrioritization
+        
+        # Check Epic connection
+        if not current_user.organization.epic_client_id:
+            return jsonify({
+                'success': False,
+                'error': 'Epic integration not configured'
+            }), 400
+        
+        # Get appointment window settings
+        prioritization = AppointmentBasedPrioritization(current_user.org_id)
+        
+        # Get patients in appointment window
+        patients_in_window = prioritization.get_patients_in_window()
+        
+        if not patients_in_window:
+            return jsonify({
+                'success': False,
+                'error': 'No patients found in appointment window'
+            }), 400
+        
+        patient_ids = [p['patient_id'] for p in patients_in_window]
+        
+        # Bulk write to Epic
+        epic_service = EpicWriteBackService(current_user.org_id)
+        generator = PrepSheetGenerator()
+        
+        result = epic_service.bulk_write_prep_sheets(
+            patient_ids=patient_ids,
+            prep_sheet_generator=generator,
+            user_id=current_user.id,
+            user_ip=request.remote_addr
+        )
+        
+        return jsonify({
+            'success': True,
+            'success_count': result['success_count'],
+            'failed_count': result['failed_count'],
+            'total': result['total'],
+            'results': result['results']
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in bulk Epic prep sheet generation: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
