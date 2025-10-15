@@ -77,6 +77,13 @@ class EpicWriteBackService:
             if not patient:
                 return {'success': False, 'error': f'Patient {patient_id} not found'}
             
+            # Validate Epic patient ID is present
+            if not patient.epic_patient_id:
+                return {
+                    'success': False, 
+                    'error': f'Patient {patient.full_name} (MRN: {patient.mrn}) does not have an Epic patient ID. Please sync with Epic first.'
+                }
+            
             # Initialize FHIR client
             self._initialize_fhir_client()
             
@@ -98,8 +105,8 @@ class EpicWriteBackService:
                 timestamp=timestamp
             )
             
-            # Write to Epic
-            result = self.fhir_client.create_document_reference(document_reference)
+            # Write to Epic with retry on 401
+            result = self._write_document_with_retry(document_reference)
             
             if result and result.get('id'):
                 epic_doc_id = result.get('id')
@@ -139,6 +146,43 @@ class EpicWriteBackService:
         except Exception as e:
             self.logger.error(f"Error writing prep sheet to Epic: {str(e)}")
             return {'success': False, 'error': str(e)}
+    
+    def _write_document_with_retry(self, document_reference):
+        """
+        Write DocumentReference to Epic with automatic retry on 401 (expired token)
+        
+        Args:
+            document_reference: FHIR DocumentReference structure
+            
+        Returns:
+            dict: Epic API response or None
+        """
+        try:
+            # First attempt
+            result = self.fhir_client.create_document_reference(document_reference)
+            return result
+            
+        except Exception as e:
+            # Check if it's a 401 error (expired token)
+            if hasattr(e, 'response') and hasattr(e.response, 'status_code') and e.response.status_code == 401:
+                self.logger.warning("Received 401 error, attempting token refresh and retry...")
+                
+                # Refresh token
+                if self.fhir_client.refresh_access_token():
+                    # Retry the write operation
+                    try:
+                        result = self.fhir_client.create_document_reference(document_reference)
+                        self.logger.info("Successfully wrote DocumentReference after token refresh")
+                        return result
+                    except Exception as retry_error:
+                        self.logger.error(f"Retry failed after token refresh: {str(retry_error)}")
+                        raise
+                else:
+                    self.logger.error("Token refresh failed, cannot retry DocumentReference write")
+                    raise
+            else:
+                # Not a 401 error, re-raise
+                raise
     
     def _html_to_pdf(self, html_content, patient, timestamp):
         """
@@ -215,7 +259,7 @@ class EpicWriteBackService:
                 "text": "Medical Preparation Sheet"
             },
             "subject": {
-                "reference": f"Patient/{patient.epic_patient_id}" if patient.epic_patient_id else f"Patient/{patient.mrn}",
+                "reference": f"Patient/{patient.epic_patient_id}",
                 "display": patient.full_name
             },
             "date": timestamp_dt.isoformat(),
