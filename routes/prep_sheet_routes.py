@@ -517,16 +517,14 @@ def bulk_generate_to_epic():
         # Get appointment window settings
         prioritization = AppointmentBasedPrioritization(current_user.org_id)
         
-        # Get patients in appointment window
-        patients_in_window = prioritization.get_patients_in_window()
+        # Get patients in appointment window (returns list of patient IDs)
+        patient_ids = prioritization.get_priority_patients()
         
-        if not patients_in_window:
+        if not patient_ids:
             return jsonify({
                 'success': False,
                 'error': 'No patients found in appointment window'
             }), 400
-        
-        patient_ids = [p['patient_id'] for p in patients_in_window]
         
         # Bulk write to Epic
         epic_service = EpicWriteBackService(current_user.org_id)
