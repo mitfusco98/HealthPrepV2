@@ -410,15 +410,21 @@
                 </form>
             </div>
 
-            <!-- Appointment Prioritization Info -->
+            <!-- Appointment Prioritization Info with Bulk Prep Generation -->
             {% if appointment_prioritization.enabled %}
-            <div class="alert alert-info mb-3 py-2 px-3" style="font-size: 0.85rem;">
-                <i class="fas fa-calendar-check me-2"></i>
-                <strong>Appointment Prioritization Active:</strong> 
-                Showing patients with appointments in next {{ appointment_prioritization.window_days }} days first
-                {% if appointment_prioritization.priority_count_on_page > 0 %}
-                ({{ appointment_prioritization.priority_count_on_page }} on this page)
-                {% endif %}
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="alert alert-info mb-0 py-2 px-3 flex-grow-1" style="font-size: 0.85rem;">
+                    <i class="fas fa-calendar-check me-2"></i>
+                    <strong>Appointment Prioritization Active:</strong> 
+                    Showing patients with appointments in next {{ appointment_prioritization.window_days }} days first
+                    {% if appointment_prioritization.priority_count_on_page > 0 %}
+                    ({{ appointment_prioritization.priority_count_on_page }} on this page)
+                    {% endif %}
+                </div>
+                <button type="button" class="btn btn-success ms-3" onclick="bulkGeneratePrepSheetsToEpic()" id="bulkPrepBtn">
+                    <i class="fas fa-file-medical me-2"></i>
+                    Generate Prep Sheets for Window
+                </button>
             </div>
             {% endif %}
             
@@ -533,9 +539,13 @@
                                             <span class="text-muted small">No matches</span>
                                         {% endif %}
                                     </div>
-                                    <a href="#" class="btn prep-sheet-btn btn-medical-primary ms-2" onclick="alert('Prep sheet temporarily disabled')" title="Generate Prep Sheet">
+                                    <button type="button" class="btn prep-sheet-btn btn-medical-primary ms-2" 
+                                            onclick="generatePrepSheetToEpic({{ screening.patient_id }})" 
+                                            title="Generate Prep Sheet to Epic"
+                                            data-patient-id="{{ screening.patient_id }}"
+                                            data-patient-name="{{ screening.patient.full_name }}">
                                         <i class="fas fa-file-medical"></i>
-                                    </a>
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -781,5 +791,121 @@ setInterval(function() {
         });
     }
 }, 5 * 60 * 1000);
+
+// Generate prep sheet to Epic for individual patient
+function generatePrepSheetToEpic(patientId) {
+    const button = event.target.closest('button');
+    const patientName = button.dataset.patientName;
+    const originalHtml = button.innerHTML;
+    
+    if (!confirm(`Generate prep sheet to Epic for ${patientName}?`)) {
+        return;
+    }
+    
+    // Show loading state
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    button.disabled = true;
+    
+    fetch(`/prep-sheet/generate-to-epic/${patientId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message with timestamp
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-success alert-dismissible fade show';
+            alertDiv.innerHTML = `
+                <i class="fas fa-check-circle me-2"></i>
+                Prep sheet successfully written to Epic for ${patientName}
+                <br><small>Filename: ${data.filename} | Epic Document ID: ${data.epic_document_id}</small>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            const container = document.querySelector('.container-fluid');
+            container.insertBefore(alertDiv, container.firstChild);
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => alertDiv.remove(), 5000);
+        } else {
+            // Handle connection error specially
+            if (data.connection_error) {
+                alert(`Epic Connection Error: ${data.error}\n\nPlease verify your Epic OAuth connection is valid and refresh the tokens if needed.`);
+            } else {
+                alert(`Error: ${data.error}`);
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while generating prep sheet');
+    })
+    .finally(() => {
+        // Restore button state
+        button.innerHTML = originalHtml;
+        button.disabled = false;
+    });
+}
+
+// Bulk generate prep sheets for appointment window
+function bulkGeneratePrepSheetsToEpic() {
+    const button = document.getElementById('bulkPrepBtn');
+    const originalHtml = button.innerHTML;
+    
+    if (!confirm('Generate prep sheets to Epic for all patients in the appointment window?\n\nThis will create timestamped PDF prep sheets in Epic for each patient.')) {
+        return;
+    }
+    
+    // Show loading state
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating...';
+    button.disabled = true;
+    
+    fetch('/prep-sheet/bulk-generate-to-epic', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show detailed results
+            const resultsHtml = `
+                <div class="alert alert-success alert-dismissible fade show">
+                    <h5><i class="fas fa-check-circle me-2"></i>Bulk Prep Sheet Generation Complete</h5>
+                    <hr>
+                    <p class="mb-2">
+                        <strong>Total Patients:</strong> ${data.total}<br>
+                        <strong>Successful:</strong> ${data.success_count}<br>
+                        <strong>Failed:</strong> ${data.failed_count}
+                    </p>
+                    ${data.failed_count > 0 ? `
+                        <p class="mb-0"><small>Check console for detailed error information.</small></p>
+                    ` : ''}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            const container = document.querySelector('.container-fluid');
+            container.insertBefore(document.createRange().createContextualFragment(resultsHtml), container.firstChild);
+            
+            // Log detailed results to console
+            console.log('Bulk prep sheet generation results:', data.results);
+        } else {
+            alert(`Error: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred during bulk prep sheet generation');
+    })
+    .finally(() => {
+        // Restore button state
+        button.innerHTML = originalHtml;
+        button.disabled = false;
+    });
+}
 </script>
 {% endblock %}
