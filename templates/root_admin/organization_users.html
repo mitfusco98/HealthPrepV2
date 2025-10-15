@@ -1,0 +1,288 @@
+{% extends "root_admin/base_root_admin.html" %}
+
+{% block title %}{{ organization.display_name or organization.name }} Users - Root Admin{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('root_admin.dashboard') }}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('root_admin.organizations') }}">Organizations</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('root_admin.view_organization', org_id=organization.id) }}">{{ organization.display_name or organization.name }}</a></li>
+                <li class="breadcrumb-item active">Users</li>
+            </ol>
+        </nav>
+        
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-users text-danger me-2"></i>{{ organization.display_name or organization.name }} Users
+            </h1>
+            <a href="{{ url_for('root_admin.create_user') }}?org_id={{ organization.id }}" class="btn btn-danger">
+                <i class="fas fa-plus me-1"></i>Add User
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Organization Info Summary -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <div class="row">
+                <div class="col-md-3">
+                    <strong>Organization:</strong> {{ organization.display_name or organization.name }}
+                </div>
+                <div class="col-md-3">
+                    <strong>Users:</strong> {{ users|length }} / {{ organization.max_users }}
+                </div>
+                <div class="col-md-3">
+                    <strong>Status:</strong> 
+                    {% if organization.setup_status == 'live' %}
+                        <span class="badge bg-success">Live</span>
+                    {% elif organization.setup_status == 'trial' %}
+                        <span class="badge bg-warning">Trial</span>
+                    {% elif organization.setup_status == 'incomplete' %}
+                        <span class="badge bg-secondary">Setup Incomplete</span>
+                    {% else %}
+                        <span class="badge bg-danger">Suspended</span>
+                    {% endif %}
+                </div>
+                <div class="col-md-3">
+                    <a href="{{ url_for('root_admin.view_organization', org_id=organization.id) }}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-arrow-left me-1"></i>Back to Organization
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Users Table -->
+<div class="card root-admin-card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-list me-2"></i>
+            Organization Users ({{ users|length }})
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if users %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover" id="orgUsersTable">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Last Login</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>
+                            <strong>{{ user.username }}</strong>
+                            {% if user.id == current_user.id %}
+                                <span class="badge bg-info ms-1">You</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ user.email }}</td>
+                        <td>
+                            <span class="badge bg-{{ 'danger' if user.role == 'admin' else 'primary' if user.role == 'MA' else 'secondary' }}">
+                                {{ user.role_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ 'success' if user.is_active_user else 'danger' }}">
+                                {{ 'Active' if user.is_active_user else 'Inactive' }}
+                            </span>
+                        </td>
+                        <td>
+                            <small class="text-muted">
+                                {{ user.created_at.strftime('%m/%d/%Y') if user.created_at else 'N/A' }}
+                            </small>
+                        </td>
+                        <td>
+                            <small class="text-muted">
+                                {{ user.last_login.strftime('%m/%d/%Y %H:%M') if user.last_login else 'Never' }}
+                            </small>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('root_admin.edit_user', user_id=user.id) }}" 
+                                   class="btn btn-outline-primary" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                {% if not user.is_root_admin_user() %}
+                                <button type="button" class="btn btn-outline-warning" 
+                                        onclick="toggleUserStatus({{ user.id }}, '{{ user.username }}', {{ 'true' if user.is_active_user else 'false' }})" 
+                                        title="{{ 'Deactivate' if user.is_active_user else 'Activate' }}">
+                                    <i class="fas {{ 'fa-user-slash' if user.is_active_user else 'fa-user-check' }}"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-danger" 
+                                        onclick="deleteUser({{ user.id }}, '{{ user.username }}')" 
+                                        title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                {% else %}
+                                <span class="badge bg-dark">Protected</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-users fa-4x text-muted mb-3"></i>
+            <h5 class="text-muted">No Users in This Organization</h5>
+            <p class="text-muted">Get started by adding your first user to {{ organization.display_name or organization.name }}</p>
+            <a href="{{ url_for('root_admin.create_user') }}?org_id={{ organization.id }}" class="btn btn-danger">
+                <i class="fas fa-plus me-1"></i>Add First User
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- User Statistics -->
+{% if users %}
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card root-admin-card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    User Statistics
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <strong>Total Users:</strong> {{ users|length }}
+                    </li>
+                    <li class="mb-2">
+                        <strong>Active Users:</strong> 
+                        {{ users|selectattr('is_active_user')|list|length }}
+                    </li>
+                    <li class="mb-2">
+                        <strong>Admin Users:</strong> 
+                        {{ users|selectattr('role', 'equalto', 'admin')|list|length }}
+                    </li>
+                    <li class="mb-2">
+                        <strong>MA Users:</strong> 
+                        {{ users|selectattr('role', 'equalto', 'MA')|list|length }}
+                    </li>
+                    <li class="mb-2">
+                        <strong>Nurse Users:</strong> 
+                        {{ users|selectattr('role', 'equalto', 'nurse')|list|length }}
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card root-admin-card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    User Role Information
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <span class="badge bg-danger me-2">Administrator</span>
+                        Full organization access, user management, settings
+                    </li>
+                    <li class="mb-2">
+                        <span class="badge bg-primary me-2">Medical Assistant</span>
+                        Screening management, prep sheet generation
+                    </li>
+                    <li class="mb-2">
+                        <span class="badge bg-secondary me-2">Nurse</span>
+                        Screening management, limited configuration
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Toggle user active status
+function toggleUserStatus(userId, username, isActive) {
+    const action = isActive ? 'deactivate' : 'activate';
+    if (confirm(`Are you sure you want to ${action} user "${username}"?`)) {
+        fetch(`/root-admin/users/${userId}/toggle-status`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'Failed to update user status'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while updating user status');
+        });
+    }
+}
+
+// Delete user
+function deleteUser(userId, username) {
+    if (confirm(`Are you sure you want to delete user "${username}"?\n\nThis action cannot be undone.`)) {
+        fetch(`/root-admin/users/${userId}/delete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'Failed to delete user'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while deleting user');
+        });
+    }
+}
+
+// Enable DataTable if available
+$(document).ready(function() {
+    if ($.fn.DataTable) {
+        $('#orgUsersTable').DataTable({
+            order: [[0, 'asc']],
+            pageLength: 25,
+            language: {
+                search: "Search users:",
+                lengthMenu: "Show _MENU_ users per page"
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
