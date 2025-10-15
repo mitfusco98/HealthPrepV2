@@ -821,10 +821,14 @@ function generatePrepSheetToEpic(patientId) {
     button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     button.disabled = true;
     
+    // Get CSRF token from meta tag
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    
     fetch(`/prep-sheet/generate-to-epic/${patientId}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
         }
     })
     .then(response => response.json())
@@ -877,10 +881,14 @@ function bulkGeneratePrepSheetsToEpic() {
     button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Generating...';
     button.disabled = true;
     
+    // Get CSRF token from meta tag
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    
     fetch('/prep-sheet/bulk-generate-to-epic', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
         }
     })
     .then(response => response.json())
