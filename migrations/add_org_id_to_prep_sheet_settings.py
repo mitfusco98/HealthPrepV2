@@ -20,9 +20,12 @@ from pathlib import Path
 # Add parent directory to path to import app modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app import app, db
+from app import create_app, db
 from models import PrepSheetSettings, Organization
 from sqlalchemy import text, inspect
+
+# Create app instance
+app = create_app()
 
 
 def check_column_exists(table_name, column_name):
