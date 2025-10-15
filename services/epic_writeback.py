@@ -7,6 +7,7 @@ import logging
 import base64
 import os
 import json
+import copy
 from datetime import datetime
 from io import BytesIO
 from weasyprint import HTML, CSS
@@ -126,11 +127,12 @@ class EpicWriteBackService:
                 self.logger.warning("📄 DocumentReference Structure (would be sent to Epic):")
                 self.logger.warning("-" * 80)
                 
-                # Log the complete DocumentReference (excluding base64 content for readability)
-                doc_ref_display = document_reference.copy()
+                # Log the complete DocumentReference (excluding base64 PDF content for PHI protection)
+                doc_ref_display = copy.deepcopy(document_reference)
                 if 'content' in doc_ref_display and len(doc_ref_display['content']) > 0:
                     if 'attachment' in doc_ref_display['content'][0]:
-                        doc_ref_display['content'][0]['attachment']['data'] = f"<BASE64_PDF_{len(pdf_base64)}_CHARS>"
+                        # Replace actual PDF data with placeholder to avoid PHI in logs
+                        doc_ref_display['content'][0]['attachment']['data'] = f"<BASE64_PDF_DATA_REDACTED_{len(pdf_base64)}_CHARS>"
                 
                 self.logger.warning(json.dumps(doc_ref_display, indent=2))
                 self.logger.warning("=" * 80)
