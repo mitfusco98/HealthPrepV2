@@ -7,6 +7,7 @@ from routes.auth_routes import non_admin_required
 
 from datetime import datetime
 import logging
+import os
 
 from models import ScreeningType, Screening, Patient
 from core.engine import ScreeningEngine
@@ -249,7 +250,8 @@ def screening_list():
                                  'priority_patient_ids': priority_patient_ids,
                                  'priority_count_on_page': priority_count_on_page,
                                  'window_days': current_user.organization.prioritization_window_days if current_user.organization else 14
-                             })
+                             },
+                             epic_dry_run=os.environ.get('EPIC_DRY_RUN', 'false').lower() == 'true')
 
     except Exception as e:
         logger.error(f"Screening list error: {str(e)}")

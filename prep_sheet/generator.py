@@ -114,7 +114,13 @@ class PrepSheetGenerator:
         This applies the broad medical data cutoffs configured in /screening/settings
         which control how far back to look for data in each category (labs, imaging, consults, hospital)
         """
-        settings = self._get_prep_settings()
+        # Get patient's organization for settings lookup
+        patient = Patient.query.get(patient_id)
+        if not patient or not patient.org_id:
+            self.logger.error(f"Patient {patient_id} not found or missing org_id")
+            return {}
+        
+        settings = self._get_prep_settings(patient.org_id)
         
         # Calculate cutoff dates for each data type using prep sheet settings
         lab_cutoff = self._calculate_cutoff_date(settings.labs_cutoff_months, patient_id)
@@ -342,13 +348,15 @@ class PrepSheetGenerator:
             # Standard months-based cutoff
             return date.today() - relativedelta(months=months)
     
-    def _get_prep_settings(self):
-        """Get prep sheet settings"""
-        settings = PrepSheetSettings.query.first()
+    def _get_prep_settings(self, org_id):
+        """Get prep sheet settings for organization"""
+        settings = PrepSheetSettings.query.filter_by(org_id=org_id).first()
         if not settings:
-            settings = PrepSheetSettings()
+            # Create default settings for this organization
+            settings = PrepSheetSettings(org_id=org_id)
             db.session.add(settings)
             db.session.commit()
+            self.logger.info(f"Created default PrepSheetSettings for org_id={org_id}")
         return settings
     
     def _get_status_badge_class(self, status):

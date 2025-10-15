@@ -360,13 +360,13 @@ def manage_templates():
 @login_required
 @non_admin_required
 def prep_sheet_settings():
-    """Prep sheet generation settings"""
+    """Prep sheet generation settings - organization-scoped"""
     try:
         if request.method == 'POST':
-            # Update prep sheet settings
-            settings = PrepSheetSettings.query.first()
+            # Update prep sheet settings for current organization
+            settings = PrepSheetSettings.query.filter_by(org_id=current_user.org_id).first()
             if not settings:
-                settings = PrepSheetSettings()
+                settings = PrepSheetSettings(org_id=current_user.org_id)
                 db.session.add(settings)
                 before_values = {
                     'labs_cutoff_months': None,
@@ -419,10 +419,10 @@ def prep_sheet_settings():
             flash('Prep sheet settings updated successfully', 'success')
             return redirect(url_for('prep_sheet.prep_sheet_settings'))
         
-        # GET request - show current settings
-        settings = PrepSheetSettings.query.first()
+        # GET request - show current settings for organization
+        settings = PrepSheetSettings.query.filter_by(org_id=current_user.org_id).first()
         if not settings:
-            settings = PrepSheetSettings()
+            settings = PrepSheetSettings(org_id=current_user.org_id)
         
         form = PrepSheetSettingsForm(obj=settings)
         

@@ -1427,15 +1427,19 @@ ChecklistSettings = ScreeningSettings
 
 # Additional models for system functionality
 class PrepSheetSettings(db.Model):
-    """Prep sheet configuration"""
+    """Prep sheet configuration - organization-scoped for multi-tenancy"""
     __tablename__ = 'prep_sheet_settings'
 
     id = db.Column(db.Integer, primary_key=True)
+    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False, index=True)
     labs_cutoff_months = db.Column(db.Integer, default=12)  # 0 = To Last Appointment
     imaging_cutoff_months = db.Column(db.Integer, default=12)  # 0 = To Last Appointment
     consults_cutoff_months = db.Column(db.Integer, default=12)  # 0 = To Last Appointment
     hospital_cutoff_months = db.Column(db.Integer, default=12)  # 0 = To Last Appointment
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationship
+    organization = db.relationship('Organization', backref='prep_sheet_settings')
 
     def get_cutoff_description(self, data_type):
         """Get human-readable description of cutoff setting"""

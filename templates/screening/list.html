@@ -345,6 +345,21 @@
         </div>
     </div>
 
+    <!-- Epic Dry-Run Mode Banner -->
+    {% if epic_dry_run %}
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <h5 class="alert-heading">
+            <i class="fas fa-flask me-2"></i>Epic Dry-Run Mode Enabled
+        </h5>
+        <p class="mb-0">
+            <strong>Testing Mode:</strong> Prep sheet generation will simulate Epic writes without actually sending data. 
+            All DocumentReference structures will be logged for inspection. 
+            Check the application logs to view the exact payloads that would be sent to Epic.
+        </p>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
     <!-- Tab Navigation -->
     <ul class="nav nav-tabs mb-4" id="screeningTabs" role="tablist">
         <li class="nav-item" role="presentation">

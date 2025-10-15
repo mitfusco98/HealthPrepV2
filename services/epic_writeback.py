@@ -5,6 +5,8 @@ Handles writing prep sheets back to Epic as DocumentReference resources
 
 import logging
 import base64
+import os
+import json
 from datetime import datetime
 from io import BytesIO
 from weasyprint import HTML, CSS
@@ -26,6 +28,11 @@ class EpicWriteBackService:
         
         self.fhir_client = None
         self.logger = logger
+        
+        # Check for dry-run mode
+        self.dry_run = os.environ.get('EPIC_DRY_RUN', 'false').lower() == 'true'
+        if self.dry_run:
+            self.logger.warning("⚠️  EPIC DRY-RUN MODE ENABLED - No actual writes to Epic will occur")
     
     def _initialize_fhir_client(self):
         """Initialize FHIR client with Epic credentials"""
@@ -105,7 +112,55 @@ class EpicWriteBackService:
                 timestamp=timestamp
             )
             
-            # Write to Epic with retry on 401
+            # DRY-RUN MODE: Log payload without sending to Epic
+            if self.dry_run:
+                self.logger.warning("=" * 80)
+                self.logger.warning("🔍 DRY-RUN MODE: Epic Write-Back Simulation")
+                self.logger.warning("=" * 80)
+                self.logger.warning(f"Patient: {patient.full_name} (MRN: {patient.mrn})")
+                self.logger.warning(f"Epic Patient ID: {patient.epic_patient_id}")
+                self.logger.warning(f"Filename: {filename}")
+                self.logger.warning(f"PDF Size: {len(pdf_content)} bytes")
+                self.logger.warning(f"Base64 Size: {len(pdf_base64)} chars")
+                self.logger.warning("-" * 80)
+                self.logger.warning("📄 DocumentReference Structure (would be sent to Epic):")
+                self.logger.warning("-" * 80)
+                
+                # Log the complete DocumentReference (excluding base64 content for readability)
+                doc_ref_display = document_reference.copy()
+                if 'content' in doc_ref_display and len(doc_ref_display['content']) > 0:
+                    if 'attachment' in doc_ref_display['content'][0]:
+                        doc_ref_display['content'][0]['attachment']['data'] = f"<BASE64_PDF_{len(pdf_base64)}_CHARS>"
+                
+                self.logger.warning(json.dumps(doc_ref_display, indent=2))
+                self.logger.warning("=" * 80)
+                
+                # Return mock success response
+                mock_epic_id = f"DRY-RUN-{timestamp}"
+                
+                log_admin_event(
+                    event_type='epic_prep_sheet_write_dry_run',
+                    user_id=user_id,
+                    org_id=self.organization.id,
+                    ip=user_ip,
+                    data={
+                        'patient_mrn': patient.mrn,
+                        'mock_epic_document_id': mock_epic_id,
+                        'filename': filename,
+                        'dry_run': True,
+                        'description': f'DRY-RUN: Simulated prep sheet write to Epic for patient {patient.mrn}'
+                    }
+                )
+                
+                return {
+                    'success': True,
+                    'epic_document_id': mock_epic_id,
+                    'filename': filename,
+                    'timestamp': timestamp,
+                    'dry_run': True
+                }
+            
+            # PRODUCTION MODE: Write to Epic with retry on 401
             result = self._write_document_with_retry(document_reference)
             
             if result and result.get('id'):
@@ -352,9 +407,16 @@ class EpicWriteBackService:
                 })
                 failed_count += 1
         
+        # Log summary
+        if self.dry_run:
+            self.logger.warning(f"🔍 DRY-RUN BULK SUMMARY: {success_count} simulated, {failed_count} failed out of {len(patient_ids)} total")
+        else:
+            self.logger.info(f"Bulk Epic write complete: {success_count} succeeded, {failed_count} failed out of {len(patient_ids)} total")
+        
         return {
             'success_count': success_count,
             'failed_count': failed_count,
             'total': len(patient_ids),
-            'results': results
+            'results': results,
+            'dry_run': self.dry_run
         }
