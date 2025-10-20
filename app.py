@@ -47,14 +47,19 @@ def create_app():
     # Add proxy fix for proper URL generation behind reverse proxy
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
-    # Configuration - SECRET_KEY is REQUIRED from environment
-    secret_key = os.environ.get('SECRET_KEY')
-    if not secret_key:
-        raise ValueError(
-            "SECRET_KEY environment variable is required for security. "
-            "Generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
-        )
-    app.config['SECRET_KEY'] = secret_key
+    # Validate all required secrets on startup
+    from utils.secrets_validator import validate_secrets_on_startup, SecretsValidationError
+    
+    try:
+        # Determine environment from FLASK_ENV or default to development
+        environment = os.environ.get('FLASK_ENV', 'development')
+        validate_secrets_on_startup(environment)
+    except SecretsValidationError as e:
+        logger.error(f"Secrets validation failed: {e}")
+        raise
+    
+    # Configuration - SECRET_KEY validated above
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
 
     # Database configuration with fallback
     database_url = os.environ.get('DATABASE_URL', 'sqlite:///instance/healthprep.db')
@@ -82,6 +87,13 @@ def create_app():
         'pool_pre_ping': True,
     }
 
+    # Configure security headers and HTTPS enforcement
+    from utils.security_headers import configure_security_middleware
+    
+    # Enable HTTPS enforcement in production only
+    is_production = os.environ.get('FLASK_ENV') == 'production'
+    configure_security_middleware(app, force_https=is_production)
+    
     # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)
