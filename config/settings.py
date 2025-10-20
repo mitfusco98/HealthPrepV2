@@ -8,8 +8,9 @@ from datetime import timedelta
 from models import User, ScreeningType
 
 class Config:
-    """Base configuration"""
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
+    """Base configuration - all secrets MUST come from environment variables"""
+    # SECRET_KEY is validated at app startup - no default fallback for security
+    SECRET_KEY = os.environ.get('SECRET_KEY')
 
     # Database configuration
     DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -100,30 +101,13 @@ config = {
 }
 
 def initialize_default_data():
-    """Initialize default data for the application"""
+    """
+    Initialize default screening types only.
+    
+    SECURITY NOTE: Default user creation has been REMOVED.
+    Users must be created through proper admin interfaces with secure passwords.
+    """
     from app import db
-
-    # Create default admin user if it doesn't exist
-    admin_user = User.query.filter_by(username='admin').first()
-    if not admin_user:
-        admin_user = User(
-            username='admin',
-            email='admin@example.com',
-            is_admin=True
-        )
-        admin_user.set_password('admin123')
-        db.session.add(admin_user)
-
-    # Create a basic user if it doesn't exist
-    basic_user = User.query.filter_by(username='user').first()
-    if not basic_user:
-        basic_user = User(
-            username='user',
-            email='user@example.com',
-            is_admin=False
-        )
-        basic_user.set_password('user123')
-        db.session.add(basic_user)
 
     # Create some default screening types
     default_screenings = [
@@ -161,9 +145,7 @@ def initialize_default_data():
 
     try:
         db.session.commit()
-        print("Default users created:")
-        print("  Admin: username='admin', password='admin123'")
-        print("  User: username='user', password='user123'")
+        print("Default screening types initialized (if not already present)")
     except Exception as e:
         db.session.rollback()
         raise e

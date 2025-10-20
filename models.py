@@ -14,6 +14,9 @@ from typing import Optional
 # Import db from app module
 from app import db
 
+# Import encryption utilities
+from utils.encryption import encrypt_field, decrypt_field, is_encryption_enabled
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,7 +33,7 @@ class Organization(db.Model):
 
     # Epic FHIR Configuration - Enhanced for multi-tenant production support
     epic_client_id = db.Column(db.String(100))  # Epic client ID
-    epic_client_secret = db.Column(db.String(255))  # Encrypted Epic client secret
+    _epic_client_secret = db.Column('epic_client_secret', db.String(500))  # Encrypted Epic client secret
     epic_fhir_url = db.Column(db.String(255))  # Epic FHIR base URL (sandbox default)
     epic_environment = db.Column(db.String(20), default='sandbox')  # sandbox, production
     
@@ -106,6 +109,29 @@ class Organization(db.Model):
     def can_add_users(self):
         """Check if organization can add more users"""
         return self.user_count < self.max_users
+    
+    @hybrid_property
+    def epic_client_secret(self):
+        """Get decrypted Epic client secret"""
+        if not self._epic_client_secret:
+            return None
+        try:
+            return decrypt_field(self._epic_client_secret)
+        except Exception as e:
+            logger.error(f"Failed to decrypt epic_client_secret for org {self.id}: {e}")
+            return None
+    
+    @epic_client_secret.setter
+    def epic_client_secret(self, value):
+        """Set and encrypt Epic client secret"""
+        if value is None:
+            self._epic_client_secret = None
+        else:
+            try:
+                self._epic_client_secret = encrypt_field(value)
+            except Exception as e:
+                logger.error(f"Failed to encrypt epic_client_secret for org {self.id}: {e}")
+                self._epic_client_secret = value
 
     def get_epic_config(self):
         """Get Epic configuration for this organization"""
@@ -245,8 +271,8 @@ class EpicCredentials(db.Model):
     org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
 
     # Token storage (encrypted at rest)
-    access_token = db.Column(db.Text)  # Encrypted access token
-    refresh_token = db.Column(db.Text)  # Encrypted refresh token
+    _access_token = db.Column('access_token', db.Text)  # Encrypted access token
+    _refresh_token = db.Column('refresh_token', db.Text)  # Encrypted refresh token
     token_expires_at = db.Column(db.DateTime)
     token_scope = db.Column(db.Text)  # FHIR scopes granted
 
@@ -261,6 +287,52 @@ class EpicCredentials(db.Model):
 
     # Relationships
     user = db.relationship('User', backref='epic_credentials')
+    
+    @hybrid_property
+    def access_token(self):
+        """Get decrypted access token"""
+        if not self._access_token:
+            return None
+        try:
+            return decrypt_field(self._access_token)
+        except Exception as e:
+            logger.error(f"Failed to decrypt access_token for epic_credentials {self.id}: {e}")
+            return None
+    
+    @access_token.setter
+    def access_token(self, value):
+        """Set and encrypt access token"""
+        if value is None:
+            self._access_token = None
+        else:
+            try:
+                self._access_token = encrypt_field(value)
+            except Exception as e:
+                logger.error(f"Failed to encrypt access_token for epic_credentials {self.id}: {e}")
+                self._access_token = value
+    
+    @hybrid_property
+    def refresh_token(self):
+        """Get decrypted refresh token"""
+        if not self._refresh_token:
+            return None
+        try:
+            return decrypt_field(self._refresh_token)
+        except Exception as e:
+            logger.error(f"Failed to decrypt refresh_token for epic_credentials {self.id}: {e}")
+            return None
+    
+    @refresh_token.setter
+    def refresh_token(self, value):
+        """Set and encrypt refresh token"""
+        if value is None:
+            self._refresh_token = None
+        else:
+            try:
+                self._refresh_token = encrypt_field(value)
+            except Exception as e:
+                logger.error(f"Failed to encrypt refresh_token for epic_credentials {self.id}: {e}")
+                self._refresh_token = value
 
     @property
     def is_expired(self):

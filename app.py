@@ -47,8 +47,14 @@ def create_app():
     # Add proxy fix for proper URL generation behind reverse proxy
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
-    # Configuration
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+    # Configuration - SECRET_KEY is REQUIRED from environment
+    secret_key = os.environ.get('SECRET_KEY')
+    if not secret_key:
+        raise ValueError(
+            "SECRET_KEY environment variable is required for security. "
+            "Generate one with: python -c 'import secrets; print(secrets.token_hex(32))'"
+        )
+    app.config['SECRET_KEY'] = secret_key
 
     # Database configuration with fallback
     database_url = os.environ.get('DATABASE_URL', 'sqlite:///instance/healthprep.db')
