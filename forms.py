@@ -1,8 +1,30 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
-from wtforms import StringField, TextAreaField, IntegerField, SelectField, BooleanField, DateField, PasswordField, SubmitField, FloatField
+from wtforms import StringField, TextAreaField, IntegerField, SelectField, BooleanField, DateField, PasswordField, SubmitField, FloatField, ValidationError
 from wtforms.validators import DataRequired, Email, Length, NumberRange, Optional, EqualTo
 from wtforms.widgets import TextArea
+import re
+
+def validate_password_complexity(form, field):
+    """
+    Custom validator for password complexity requirements.
+    Ensures password has:
+    - Minimum 8 characters
+    - At least one letter (a-z or A-Z)
+    - At least one number (0-9)
+    """
+    password = field.data
+    if not password:
+        return  # Let DataRequired handle empty passwords
+    
+    if len(password) < 8:
+        raise ValidationError('Password must be at least 8 characters long')
+    
+    if not re.search(r'[a-zA-Z]', password):
+        raise ValidationError('Password must contain at least one letter')
+    
+    if not re.search(r'[0-9]', password):
+        raise ValidationError('Password must contain at least one number')
 
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
@@ -21,7 +43,7 @@ class RegisterForm(FlaskForm):
     ])
     password = PasswordField('Password', validators=[
         DataRequired(),
-        Length(min=6, message='Password must be at least 6 characters long')
+        validate_password_complexity
     ])
     password_confirm = PasswordField('Confirm Password', validators=[
         DataRequired(),
@@ -33,7 +55,7 @@ class ChangePasswordForm(FlaskForm):
     current_password = PasswordField('Current Password', validators=[DataRequired()])
     new_password = PasswordField('New Password', validators=[
         DataRequired(),
-        Length(min=6, message='Password must be at least 6 characters long')
+        validate_password_complexity
     ])
     confirm_password = PasswordField('Confirm New Password', validators=[
         DataRequired(),
