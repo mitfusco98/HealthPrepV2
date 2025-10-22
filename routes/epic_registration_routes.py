@@ -232,3 +232,46 @@ def get_prioritization_stats():
             'success': False,
             'error': str(e)
         })
+
+@epic_registration_bp.route('/admin/epic/reset-credentials', methods=['POST'])
+@login_required
+def reset_epic_credentials():
+    """
+    Reset corrupted Epic credentials
+    Clears epic_client_secret and epic_credentials tokens that cannot be decrypted
+    """
+    try:
+        organization = current_user.organization
+        if not organization:
+            return jsonify({'success': False, 'error': 'Organization not found'})
+        
+        # Import here to avoid circular imports
+        from app import db
+        from models import EpicCredentials
+        
+        # Clear epic_client_secret (will be re-entered by user)
+        organization._epic_client_secret = None
+        
+        # Clear all epic_credentials tokens for this organization
+        EpicCredentials.query.filter_by(org_id=organization.id).delete()
+        
+        # Reset Epic connection status
+        organization.is_epic_connected = False
+        organization.last_epic_error = 'Credentials reset due to decryption failure'
+        organization.epic_token_expiry = None
+        
+        db.session.commit()
+        
+        logger.info(f"Epic credentials reset for organization {organization.name}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Epic credentials have been reset. Please re-enter your Epic Client ID and Client Secret to reconnect.'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error resetting Epic credentials: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Failed to reset credentials: {str(e)}'
+        })
