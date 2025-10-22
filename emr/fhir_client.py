@@ -21,8 +21,9 @@ class FHIRClient:
         self.auth_url = 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize'
         self.token_url = 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token'
         
-        self.client_id = 'default_client_id'
-        self.client_secret = 'default_secret'
+        # NO DEFAULT CREDENTIALS - must be provided via organization config or environment
+        self.client_id = None
+        self.client_secret = None
         self.redirect_uri = redirect_uri or 'http://localhost:5000/oauth/epic-callback'
         
         # Store organization reference for connection status updates (per blueprint)
@@ -31,18 +32,21 @@ class FHIRClient:
         # Override with organization-specific config if provided
         if organization_config:
             self.base_url = organization_config.get('epic_fhir_url', self.base_url)
-            self.client_id = organization_config.get('epic_client_id', self.client_id)
-            self.client_secret = organization_config.get('epic_client_secret', self.client_secret)
+            self.client_id = organization_config.get('epic_client_id')
+            self.client_secret = organization_config.get('epic_client_secret')
             
             # Derive auth and token URLs from base URL
             base_oauth = self.base_url.replace('/api/FHIR/R4/', '/')
             self.auth_url = f"{base_oauth}oauth2/authorize"
             self.token_url = f"{base_oauth}oauth2/token"
         
-        # Use environment variables as fallback
-        self.base_url = os.environ.get('FHIR_BASE_URL', self.base_url)
-        self.client_id = os.environ.get('FHIR_CLIENT_ID', self.client_id)
-        self.client_secret = os.environ.get('FHIR_CLIENT_SECRET', self.client_secret)
+        # Use environment variables as fallback (only if org config didn't provide them)
+        if not self.client_id:
+            self.client_id = os.environ.get('FHIR_CLIENT_ID')
+        if not self.client_secret:
+            self.client_secret = os.environ.get('FHIR_CLIENT_SECRET')
+        if 'FHIR_BASE_URL' in os.environ:
+            self.base_url = os.environ.get('FHIR_BASE_URL')
         
         # Token management
         self.access_token = None
@@ -74,6 +78,13 @@ class FHIRClient:
         Generate Epic's authorization URL for SMART on FHIR OAuth2 flow
         User's browser should be directed to this URL to start authentication
         """
+        # Validate credentials are configured
+        if not self.client_id:
+            raise ValueError(
+                "Epic client_id is not configured. Please configure Epic credentials "
+                "via organization settings or environment variables."
+            )
+        
         if not state:
             state = secrets.token_urlsafe(32)
         
@@ -105,6 +116,13 @@ class FHIRClient:
         Exchange authorization code for access token
         Called from OAuth callback endpoint after user authorizes
         """
+        # Validate credentials are configured
+        if not self.client_id or not self.client_secret:
+            raise ValueError(
+                "Epic credentials are not configured. Please configure Epic client_id "
+                "and client_secret via organization settings or environment variables."
+            )
+        
         try:
             data = {
                 'grant_type': 'authorization_code',
@@ -166,6 +184,13 @@ class FHIRClient:
         if not self.refresh_token:
             error_msg = "No refresh token available for token refresh"
             self.logger.warning(error_msg)
+            self._update_organization_status(False, error_msg)
+            return False
+        
+        # Validate credentials are configured
+        if not self.client_id or not self.client_secret:
+            error_msg = "Epic credentials not configured - cannot refresh token"
+            self.logger.error(error_msg)
             self._update_organization_status(False, error_msg)
             return False
         
