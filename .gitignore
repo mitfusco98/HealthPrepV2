@@ -1,7 +1,14 @@
-# NEVER commit private keys
+# NEVER commit private keys or credential files
 *.key
 *.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
 secrets/
+credentials/
+.env.local
+.env.production
 
 # Python
 __pycache__/
