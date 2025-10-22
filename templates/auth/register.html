@@ -51,7 +51,7 @@
                     
                     <div class="mb-3">
                         {{ form.password.label(class="form-label") }}
-                        {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else "")) }}
+                        {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), id="password") }}
                         {% if form.password.errors %}
                             <div class="invalid-feedback">
                                 {% for error in form.password.errors %}
@@ -59,9 +59,29 @@
                                 {% endfor %}
                             </div>
                         {% endif %}
-                        <div class="form-text">
-                            <i class="fas fa-lock me-1"></i>
-                            Minimum 6 characters
+                        
+                        <!-- Password Strength Indicator -->
+                        <div class="password-strength mt-2" id="password-strength" style="display: none;">
+                            <div class="progress" style="height: 5px;">
+                                <div class="progress-bar" id="strength-bar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <small class="text-muted" id="strength-text"></small>
+                        </div>
+                        
+                        <!-- Password Requirements Checklist -->
+                        <div class="password-requirements mt-2">
+                            <small class="text-muted d-block mb-1"><i class="fas fa-info-circle me-1"></i>Password must contain:</small>
+                            <ul class="list-unstyled small mb-0">
+                                <li id="req-length" class="text-muted">
+                                    <i class="fas fa-circle"></i> At least 8 characters
+                                </li>
+                                <li id="req-letter" class="text-muted">
+                                    <i class="fas fa-circle"></i> At least one letter
+                                </li>
+                                <li id="req-number" class="text-muted">
+                                    <i class="fas fa-circle"></i> At least one number
+                                </li>
+                            </ul>
                         </div>
                     </div>
                     
@@ -146,6 +166,81 @@ document.addEventListener('DOMContentLoaded', function() {
     // Password strength indicator
     const passwordField = document.getElementById('password');
     const confirmField = document.getElementById('password_confirm');
+    const strengthBar = document.getElementById('strength-bar');
+    const strengthText = document.getElementById('strength-text');
+    const strengthContainer = document.getElementById('password-strength');
+    
+    // Password requirement indicators
+    const reqLength = document.getElementById('req-length');
+    const reqLetter = document.getElementById('req-letter');
+    const reqNumber = document.getElementById('req-number');
+    
+    // Real-time password strength checking
+    passwordField.addEventListener('input', function() {
+        const password = passwordField.value;
+        
+        if (password.length === 0) {
+            strengthContainer.style.display = 'none';
+            resetRequirements();
+            return;
+        }
+        
+        strengthContainer.style.display = 'block';
+        
+        // Check requirements
+        const hasLength = password.length >= 8;
+        const hasLetter = /[a-zA-Z]/.test(password);
+        const hasNumber = /[0-9]/.test(password);
+        
+        // Update requirement indicators
+        updateRequirement(reqLength, hasLength);
+        updateRequirement(reqLetter, hasLetter);
+        updateRequirement(reqNumber, hasNumber);
+        
+        // Calculate strength
+        let strength = 0;
+        if (hasLength) strength += 33;
+        if (hasLetter) strength += 33;
+        if (hasNumber) strength += 34;
+        
+        // Update strength bar
+        strengthBar.style.width = strength + '%';
+        
+        // Update color and text based on strength
+        if (strength < 66) {
+            strengthBar.className = 'progress-bar bg-danger';
+            strengthText.textContent = 'Weak password';
+            strengthText.className = 'text-danger small';
+        } else if (strength < 100) {
+            strengthBar.className = 'progress-bar bg-warning';
+            strengthText.textContent = 'Fair password';
+            strengthText.className = 'text-warning small';
+        } else {
+            strengthBar.className = 'progress-bar bg-success';
+            strengthText.textContent = 'Strong password';
+            strengthText.className = 'text-success small';
+        }
+    });
+    
+    function updateRequirement(element, isMet) {
+        if (isMet) {
+            element.classList.remove('text-muted');
+            element.classList.add('text-success');
+            element.querySelector('i').className = 'fas fa-check-circle';
+        } else {
+            element.classList.remove('text-success');
+            element.classList.add('text-muted');
+            element.querySelector('i').className = 'fas fa-circle';
+        }
+    }
+    
+    function resetRequirements() {
+        [reqLength, reqLetter, reqNumber].forEach(element => {
+            element.classList.remove('text-success');
+            element.classList.add('text-muted');
+            element.querySelector('i').className = 'fas fa-circle';
+        });
+    }
     
     // Show loading state on form submission
     const form = document.querySelector('form');
@@ -208,5 +303,24 @@ body {
 
 .is-invalid {
     border-color: #dc3545;
+}
+
+.password-requirements li {
+    transition: all 0.3s ease;
+    font-size: 0.875rem;
+    margin-bottom: 0.25rem;
+}
+
+.password-requirements li i {
+    font-size: 0.5rem;
+    margin-right: 0.5rem;
+}
+
+.progress {
+    background-color: #e9ecef;
+}
+
+.progress-bar {
+    transition: width 0.3s ease, background-color 0.3s ease;
 }
 </style>
