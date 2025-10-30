@@ -79,10 +79,24 @@ class Organization(db.Model):
     process_non_scheduled_patients = db.Column(db.Boolean, default=False)  # Process patients without appointments after priority patients
     last_appointment_sync = db.Column(db.DateTime)  # Last time appointments were synced from Epic
 
+    # Organization Details for Onboarding
+    site = db.Column(db.String(200))  # Specific site/location name
+    specialty = db.Column(db.String(100))  # Medical specialty (e.g., "Family Practice", "Internal Medicine")
+    
+    # Stripe Billing Integration
+    stripe_customer_id = db.Column(db.String(100), unique=True)  # Stripe customer ID
+    stripe_subscription_id = db.Column(db.String(100))  # Stripe subscription ID
+    subscription_status = db.Column(db.String(20), default='trialing')  # trialing, active, past_due, canceled, incomplete
+    trial_start_date = db.Column(db.DateTime)  # When trial period started
+    billing_email = db.Column(db.String(120))  # Email for billing notifications (can differ from contact_email)
+    
+    # Onboarding Status Management
+    onboarding_status = db.Column(db.String(30), default='pending_approval')  # pending_approval, approved, active, suspended
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    trial_expires = db.Column(db.DateTime)  # For trial accounts
+    trial_expires = db.Column(db.DateTime)  # For trial accounts (14 days from trial_start_date)
 
     # Relationships
     users = db.relationship('User', backref='organization', lazy=True)
@@ -375,6 +389,18 @@ class User(UserMixin, db.Model):
     last_activity = db.Column(db.DateTime, default=datetime.utcnow)
     failed_login_attempts = db.Column(db.Integer, default=0)
     locked_until = db.Column(db.DateTime)
+    
+    # Security Questions (Admin 2FA)
+    security_question_1 = db.Column(db.String(200))  # "What year did you graduate high school?"
+    security_answer_1_hash = db.Column(db.String(255))  # Hashed answer
+    security_question_2 = db.Column(db.String(200))  # "What is your mother's maiden name?"
+    security_answer_2_hash = db.Column(db.String(255))  # Hashed answer
+    
+    # Password Management
+    is_temp_password = db.Column(db.Boolean, default=False)  # Force password change on login
+    password_reset_token = db.Column(db.String(100))  # Token for password reset link
+    password_reset_expires = db.Column(db.DateTime)  # Expiry time for reset token
+    email_verified = db.Column(db.Boolean, default=False)  # Email verification status
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -395,6 +421,57 @@ class User(UserMixin, db.Model):
     def check_password(self, password):
         """Check password against hash"""
         return check_password_hash(self.password_hash, password)
+    
+    # Security Question Methods
+    def set_security_answer_1(self, answer):
+        """Set and hash security answer 1"""
+        if answer:
+            self.security_answer_1_hash = generate_password_hash(answer.strip().lower())
+    
+    def set_security_answer_2(self, answer):
+        """Set and hash security answer 2"""
+        if answer:
+            self.security_answer_2_hash = generate_password_hash(answer.strip().lower())
+    
+    def check_security_answer_1(self, answer):
+        """Check security answer 1"""
+        if not self.security_answer_1_hash or not answer:
+            return False
+        return check_password_hash(self.security_answer_1_hash, answer.strip().lower())
+    
+    def check_security_answer_2(self, answer):
+        """Check security answer 2"""
+        if not self.security_answer_2_hash or not answer:
+            return False
+        return check_password_hash(self.security_answer_2_hash, answer.strip().lower())
+    
+    def has_security_questions(self):
+        """Check if user has set up security questions"""
+        return bool(self.security_question_1 and self.security_answer_1_hash and 
+                   self.security_question_2 and self.security_answer_2_hash)
+    
+    # Password Reset Methods
+    def generate_password_reset_token(self):
+        """Generate password reset token with 1 hour expiry"""
+        import secrets
+        self.password_reset_token = secrets.token_urlsafe(32)
+        self.password_reset_expires = datetime.utcnow() + timedelta(hours=1)
+        return self.password_reset_token
+    
+    def check_password_reset_token(self, token):
+        """Check if reset token is valid and not expired"""
+        if not self.password_reset_token or not self.password_reset_expires:
+            return False
+        if self.password_reset_token != token:
+            return False
+        if datetime.utcnow() > self.password_reset_expires:
+            return False
+        return True
+    
+    def clear_password_reset_token(self):
+        """Clear password reset token after use"""
+        self.password_reset_token = None
+        self.password_reset_expires = None
 
     def is_admin_user(self):
         """Check if user has admin privileges"""
