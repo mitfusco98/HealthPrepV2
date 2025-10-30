@@ -1,0 +1,86 @@
+{% extends 'base_user.html' %}
+
+{% block title %}Verify Security Questions - HealthPrep{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-warning text-dark">
+                <h4 class="mb-0">
+                    <i class="fas fa-question-circle me-2"></i>
+                    Answer Security Questions
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-shield-alt me-2"></i>
+                    Please answer your security questions to verify your identity.
+                </div>
+                
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-graduation-cap me-2"></i>
+                            {{ form.answer_1.label.text }}
+                        </label>
+                        {{ form.answer_1(class="form-control" + (" is-invalid" if form.answer_1.errors else ""), placeholder="e.g., 2010") }}
+                        {% if form.answer_1.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.answer_1.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <small class="text-muted">Enter a 4-digit year</small>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">
+                            <i class="fas fa-user me-2"></i>
+                            {{ form.answer_2.label.text }}
+                        </label>
+                        {{ form.answer_2(class="form-control" + (" is-invalid" if form.answer_2.errors else ""), placeholder="e.g., Smith") }}
+                        {% if form.answer_2.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.answer_2.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <small class="text-muted">Case-insensitive</small>
+                    </div>
+                    
+                    <div class="d-grid mb-3">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-check me-2"></i>
+                            Verify & Continue
+                        </button>
+                    </div>
+                    
+                    <div class="text-center">
+                        <a href="{{ url_for('password_reset.forgot_password') }}" class="text-muted">
+                            <i class="fas fa-arrow-left me-1"></i>
+                            Start Over
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+body {
+    background: var(--hp-bg-primary);
+    min-height: 100vh;
+}
+
+.card {
+    border: none;
+    border-radius: 15px;
+}
+</style>
+{% endblock %}

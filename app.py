@@ -129,16 +129,29 @@ def create_app():
         from flask_login import current_user
         from flask import request, redirect, url_for
 
-        # Skip for static files, auth routes, and API routes
+        # Skip for static files, auth routes, signup routes, password reset, and API routes
         if (request.endpoint and
             (request.endpoint.startswith('static') or
              request.endpoint.startswith('auth.') or
+             request.endpoint.startswith('signup.') or
+             request.endpoint.startswith('first_login.') or
+             request.endpoint.startswith('password_reset.') or
              request.endpoint.startswith('api.'))):
             return
 
-        # If user is authenticated and trying to access wrong dashboard
+        # If user is authenticated, check first login requirements
         if current_user.is_authenticated:
             current_endpoint = request.endpoint
+            
+            # Force password change for users with temporary passwords
+            if current_user.is_temp_password:
+                if current_endpoint != 'first_login.change_password':
+                    return redirect(url_for('first_login.change_password'))
+            
+            # Force security question setup if not completed
+            elif not current_user.security_question_1_answer or not current_user.security_question_2_answer:
+                if current_endpoint != 'first_login.setup_security_questions':
+                    return redirect(url_for('first_login.setup_security_questions'))
 
             # Root admin trying to access regular admin dashboard (but not root admin dashboard)
             if (current_user.is_root_admin_user() and
@@ -255,10 +268,14 @@ def register_blueprints(app):
     from routes.epic_public_routes import epic_public_bp
     from routes.phi_test_routes import phi_test_bp
     from routes.signup_routes import signup_bp
+    from routes.first_login_routes import first_login_bp
+    from routes.password_reset_routes import password_reset_bp
     from ui.routes import ui_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(signup_bp)  # Public signup at /signup
+    app.register_blueprint(first_login_bp)  # First login flow at /first-login
+    app.register_blueprint(password_reset_bp)  # Password reset at /forgot-password
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(root_admin_bp, url_prefix='/root-admin')
     app.register_blueprint(screening_bp, url_prefix='/screening')

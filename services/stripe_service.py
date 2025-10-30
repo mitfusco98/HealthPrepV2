@@ -72,13 +72,10 @@ class StripeService:
             if trial_days is None:
                 trial_days = StripeService.TRIAL_DAYS
             
-            # Calculate trial end date
-            trial_end = datetime.utcnow() + timedelta(days=trial_days)
-            
+            # Use trial_period_days only (cannot use both trial_period_days and trial_end)
             subscription_params = {
                 'customer': customer_id,
                 'trial_period_days': trial_days,
-                'trial_end': int(trial_end.timestamp()),
                 'payment_behavior': 'default_incomplete',
                 'payment_settings': {
                     'save_default_payment_method': 'on_subscription'

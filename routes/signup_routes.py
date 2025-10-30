@@ -129,18 +129,23 @@ def signup_submit():
         success_url = url_for('signup.signup_success', _external=True)
         cancel_url = url_for('signup.signup_cancel', _external=True)
         
-        checkout_url = StripeService.create_checkout_session(
-            organization=org,
-            success_url=success_url,
-            cancel_url=cancel_url
-        )
-        
-        if not checkout_url:
+        try:
+            checkout_url = StripeService.create_checkout_session(
+                organization=org,
+                success_url=success_url,
+                cancel_url=cancel_url
+            )
+            
+            if not checkout_url:
+                raise Exception("Stripe checkout session creation returned None")
+                
+        except Exception as stripe_error:
             # Rollback if Stripe fails
+            logger.error(f"Stripe checkout creation failed: {str(stripe_error)}")
             db.session.delete(admin_user)
             db.session.delete(org)
             db.session.commit()
-            flash('Unable to process payment setup. Please try again later.', 'error')
+            flash('Unable to process payment setup. Please try again later or contact support.', 'error')
             return redirect(url_for('signup.signup_form'))
         
         logger.info(f"New organization signup initiated: {org_name} (ID: {org.id})")

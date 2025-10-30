@@ -1,0 +1,57 @@
+{% extends 'base_user.html' %}
+
+{% block title %}Reset Email Sent - HealthPrep{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-envelope me-2"></i>
+                    Check Your Email
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-success">
+                    <h5><i class="fas fa-check-circle me-2"></i>Reset Link Sent!</h5>
+                    <p class="mb-0">We've sent a password reset link to <strong>{{ email }}</strong></p>
+                </div>
+                
+                <div class="alert alert-info">
+                    <h6>Next Steps:</h6>
+                    <ol class="mb-0">
+                        <li>Check your email inbox (and spam folder)</li>
+                        <li>Click the reset link in the email</li>
+                        <li>Set your new password</li>
+                    </ol>
+                </div>
+                
+                <p class="text-muted">
+                    <i class="fas fa-clock me-1"></i>
+                    The reset link will expire in 1 hour for security.
+                </p>
+                
+                <div class="text-center mt-4">
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-primary">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Back to Login
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+body {
+    background: var(--hp-bg-primary);
+    min-height: 100vh;
+}
+
+.card {
+    border: none;
+    border-radius: 15px;
+}
+</style>
+{% endblock %}
