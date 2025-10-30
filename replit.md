@@ -50,3 +50,5 @@ A comprehensive Epic Prep Sheet Write-Back System allows manual PDF generation w
 - **Flask-Login:** For user authentication.
 - **Werkzeug:** For password hashing.
 - **Bootstrap:** For responsive UI design.
+- **Stripe:** Payment processing ($100/month flat-rate subscription with 14-day trial)
+- **Resend:** Transactional email service (not yet configured - needs RESEND_API_KEY and FROM_EMAIL environment variables)
