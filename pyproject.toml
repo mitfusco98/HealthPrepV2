@@ -35,4 +35,5 @@ dependencies = [
     "requests",
     "psutil>=7.0.0",
     "weasyprint>=66.0",
+    "stripe>=13.1.0",
 ]

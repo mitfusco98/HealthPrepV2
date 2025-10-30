@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+
+{% block title %}Sign Up - HealthPrep{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Sign Up for HealthPrep</h3>
+                    <p class="mb-0 small">Start your 14-day free trial - No commitment, cancel anytime</p>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <h5><i class="fas fa-info-circle"></i> What You Get</h5>
+                        <ul class="mb-0">
+                            <li><strong>14-day free trial</strong> with full access to all features</li>
+                            <li><strong>$100/month flat rate</strong> after trial - unlimited patients, documents, and users</li>
+                            <li>Epic FHIR integration for seamless EMR sync</li>
+                            <li>Automated medical screening prep sheets</li>
+                            <li>HIPAA-compliant document processing</li>
+                        </ul>
+                    </div>
+
+                    <form method="POST" action="{{ url_for('signup.signup_submit') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        
+                        <!-- Organization Information -->
+                        <h5 class="mt-4 mb-3 text-primary">
+                            <i class="fas fa-building"></i> Organization Information
+                        </h5>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="org_name" class="form-label">Organization Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="org_name" name="org_name" required>
+                                <small class="text-muted">Your practice or clinic name</small>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="site" class="form-label">Site/Location</label>
+                                <input type="text" class="form-control" id="site" name="site">
+                                <small class="text-muted">Specific site or branch name</small>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="specialty" class="form-label">Specialty</label>
+                                <select class="form-control" id="specialty" name="specialty">
+                                    <option value="">Select specialty...</option>
+                                    <option value="Family Practice">Family Practice</option>
+                                    <option value="Internal Medicine">Internal Medicine</option>
+                                    <option value="Pediatrics">Pediatrics</option>
+                                    <option value="OB/GYN">OB/GYN</option>
+                                    <option value="Cardiology">Cardiology</option>
+                                    <option value="Endocrinology">Endocrinology</option>
+                                    <option value="Gastroenterology">Gastroenterology</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="phone" class="form-label">Phone Number</label>
+                                <input type="tel" class="form-control" id="phone" name="phone">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="address" class="form-label">Address</label>
+                            <textarea class="form-control" id="address" name="address" rows="2"></textarea>
+                        </div>
+                        
+                        <!-- Contact Information -->
+                        <h5 class="mt-4 mb-3 text-primary">
+                            <i class="fas fa-envelope"></i> Contact Information
+                        </h5>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="contact_email" class="form-label">Admin Email <span class="text-danger">*</span></label>
+                                <input type="email" class="form-control" id="contact_email" name="contact_email" required>
+                                <small class="text-muted">Your login credentials will be sent here</small>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="billing_email" class="form-label">Billing Email</label>
+                                <input type="email" class="form-control" id="billing_email" name="billing_email">
+                                <small class="text-muted">Leave blank to use admin email</small>
+                            </div>
+                        </div>
+                        
+                        <!-- Epic FHIR Credentials -->
+                        <h5 class="mt-4 mb-3 text-primary">
+                            <i class="fas fa-link"></i> Epic FHIR Integration
+                        </h5>
+                        
+                        <div class="alert alert-warning">
+                            <strong>Epic Integration Required:</strong> To use HealthPrep, you need Epic FHIR credentials from your Epic representative. 
+                            If you don't have these yet, please contact Epic support or your account manager.
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="epic_client_id" class="form-label">Epic Client ID <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="epic_client_id" name="epic_client_id" required>
+                            <small class="text-muted">Provided by Epic (e.g., e57377e2-dfd5-4675-9659-...)</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="epic_client_secret" class="form-label">Epic Client Secret <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="epic_client_secret" name="epic_client_secret" required>
+                            <small class="text-muted">Your Epic client secret (kept encrypted and secure)</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="epic_fhir_url" class="form-label">Epic FHIR URL</label>
+                            <input type="url" class="form-control" id="epic_fhir_url" name="epic_fhir_url" 
+                                   value="https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/">
+                            <small class="text-muted">Default: Epic sandbox URL (update later for production)</small>
+                        </div>
+                        
+                        <!-- Terms and Submit -->
+                        <div class="mt-4 mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="terms" required>
+                                <label class="form-check-label" for="terms">
+                                    I agree to the Terms of Service and Privacy Policy <span class="text-danger">*</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-credit-card"></i> Next Step: Payment Setup</h6>
+                            <p class="mb-0">After submitting, you'll be redirected to Stripe to securely enter your payment information. 
+                            Your card will not be charged during the 14-day trial. Cancel anytime with no fees.</p>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-rocket"></i> Start Free Trial
+                            </button>
+                        </div>
+                        
+                        <div class="text-center mt-3">
+                            <p class="text-muted">
+                                Already have an account? <a href="{{ url_for('auth.login') }}">Log in</a>
+                            </p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -254,9 +254,11 @@ def register_blueprints(app):
     from routes.epic_registration_routes import epic_registration_bp
     from routes.epic_public_routes import epic_public_bp
     from routes.phi_test_routes import phi_test_bp
+    from routes.signup_routes import signup_bp
     from ui.routes import ui_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(signup_bp)  # Public signup at /signup
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(root_admin_bp, url_prefix='/root-admin')
     app.register_blueprint(screening_bp, url_prefix='/screening')

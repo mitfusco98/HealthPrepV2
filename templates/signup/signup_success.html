@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block title %}Signup Successful - HealthPrep{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h3 class="mb-0"><i class="fas fa-check-circle"></i> Welcome to HealthPrep!</h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-success">
+                        <h4>Your account has been created successfully!</h4>
+                        <p class="mb-0">Your 14-day free trial has started.</p>
+                    </div>
+                    
+                    <h5 class="mt-4">What Happens Next?</h5>
+                    <ol class="mb-4">
+                        <li class="mb-2">
+                            <strong>Check your email ({{ email }})</strong><br>
+                            <small class="text-muted">You'll receive your login credentials and a welcome message.</small>
+                        </li>
+                        <li class="mb-2">
+                            <strong>Admin Approval</strong><br>
+                            <small class="text-muted">Our team will review and approve your organization within 1 business day. You'll receive an email when approved.</small>
+                        </li>
+                        <li class="mb-2">
+                            <strong>Log In & Set Up</strong><br>
+                            <small class="text-muted">Once approved, log in to change your password, set up security questions, and configure Epic OAuth.</small>
+                        </li>
+                        <li class="mb-2">
+                            <strong>Start Using HealthPrep</strong><br>
+                            <small class="text-muted">Begin processing patient screenings and generating prep sheets.</small>
+                        </li>
+                    </ol>
+                    
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-calendar"></i> Trial Information</h6>
+                        <ul class="mb-0">
+                            <li>Your 14-day free trial gives you full access to all features</li>
+                            <li>No charges until the trial ends</li>
+                            <li>After trial: $100/month with unlimited patients, documents, and users</li>
+                            <li>Cancel anytime with no penalty</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-sign-in-alt"></i> Go to Login Page
+                        </a>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="text-center">
+                        <p class="text-muted">
+                            <strong>Need help?</strong> Contact our support team at support@healthprep.app
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
