@@ -166,3 +166,4 @@ localPort = 46807
 externalPort = 8008
 
 [agent]
+integrations = ["flask_stripe:1.0.0"]

@@ -1,0 +1,427 @@
+"""
+Stripe Service for Subscription Management
+Handles subscription creation, updates, and webhook processing
+"""
+import os
+import logging
+from datetime import datetime, timedelta
+from typing import Optional, Dict
+import stripe
+
+from models import Organization, db
+
+logger = logging.getLogger(__name__)
+
+# Initialize Stripe with API key
+stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
+
+
+class StripeService:
+    """Service for managing Stripe subscriptions"""
+    
+    # Subscription product configuration
+    SUBSCRIPTION_PRICE = 10000  # $100.00 in cents
+    TRIAL_DAYS = 14
+    PRODUCT_NAME = "HealthPrep Subscription"
+    
+    @staticmethod
+    def create_customer(organization: Organization, email: str) -> Optional[str]:
+        """
+        Create Stripe customer for organization
+        
+        Args:
+            organization: Organization model instance
+            email: Billing email address
+            
+        Returns:
+            Stripe customer ID or None if error
+        """
+        try:
+            customer = stripe.Customer.create(
+                email=email,
+                name=organization.name,
+                metadata={
+                    'org_id': organization.id,
+                    'org_name': organization.name,
+                    'site': organization.site or '',
+                    'specialty': organization.specialty or ''
+                }
+            )
+            
+            logger.info(f"Created Stripe customer {customer.id} for organization {organization.id}")
+            return customer.id
+            
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe customer creation failed: {str(e)}")
+            return None
+    
+    @staticmethod
+    def create_subscription(customer_id: str, price_id: str = None, trial_days: int = None) -> Optional[Dict]:
+        """
+        Create subscription with trial period
+        
+        Args:
+            customer_id: Stripe customer ID
+            price_id: Stripe price ID (if None, uses test mode)
+            trial_days: Number of trial days (default: 14)
+            
+        Returns:
+            Subscription object dict or None if error
+        """
+        try:
+            if trial_days is None:
+                trial_days = StripeService.TRIAL_DAYS
+            
+            # Calculate trial end date
+            trial_end = datetime.utcnow() + timedelta(days=trial_days)
+            
+            subscription_params = {
+                'customer': customer_id,
+                'trial_period_days': trial_days,
+                'trial_end': int(trial_end.timestamp()),
+                'payment_behavior': 'default_incomplete',
+                'payment_settings': {
+                    'save_default_payment_method': 'on_subscription'
+                }
+            }
+            
+            # Add price if provided (production), otherwise create ad-hoc price (development)
+            if price_id:
+                subscription_params['items'] = [{'price': price_id}]
+            else:
+                # Development mode: create ad-hoc price
+                subscription_params['items'] = [{
+                    'price_data': {
+                        'currency': 'usd',
+                        'product_data': {
+                            'name': StripeService.PRODUCT_NAME,
+                        },
+                        'recurring': {
+                            'interval': 'month',
+                        },
+                        'unit_amount': StripeService.SUBSCRIPTION_PRICE,
+                    },
+                }]
+            
+            subscription = stripe.Subscription.create(**subscription_params)
+            
+            logger.info(f"Created subscription {subscription.id} for customer {customer_id}")
+            return subscription
+            
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe subscription creation failed: {str(e)}")
+            return None
+    
+    @staticmethod
+    def create_checkout_session(
+        organization: Organization,
+        success_url: str,
+        cancel_url: str,
+        price_id: str = None
+    ) -> Optional[str]:
+        """
+        Create Stripe Checkout session for subscription signup
+        
+        Args:
+            organization: Organization model instance
+            success_url: URL to redirect after successful payment
+            cancel_url: URL to redirect if payment cancelled
+            price_id: Stripe price ID (optional)
+            
+        Returns:
+            Checkout session URL or None if error
+        """
+        try:
+            # Create or get customer
+            if not organization.stripe_customer_id:
+                customer_id = StripeService.create_customer(
+                    organization,
+                    organization.billing_email or organization.contact_email
+                )
+                if not customer_id:
+                    return None
+                organization.stripe_customer_id = customer_id
+                db.session.commit()
+            else:
+                customer_id = organization.stripe_customer_id
+            
+            # Create checkout session
+            checkout_params = {
+                'customer': customer_id,
+                'mode': 'subscription',
+                'success_url': success_url,
+                'cancel_url': cancel_url,
+                'subscription_data': {
+                    'trial_period_days': StripeService.TRIAL_DAYS,
+                    'metadata': {
+                        'org_id': organization.id,
+                        'org_name': organization.name
+                    }
+                },
+                'metadata': {
+                    'org_id': organization.id
+                }
+            }
+            
+            # Add line items
+            if price_id:
+                checkout_params['line_items'] = [{
+                    'price': price_id,
+                    'quantity': 1
+                }]
+            else:
+                # Development mode: ad-hoc pricing
+                checkout_params['line_items'] = [{
+                    'price_data': {
+                        'currency': 'usd',
+                        'product_data': {
+                            'name': StripeService.PRODUCT_NAME,
+                            'description': 'Unlimited patients, documents, and users - $100/month'
+                        },
+                        'recurring': {
+                            'interval': 'month'
+                        },
+                        'unit_amount': StripeService.SUBSCRIPTION_PRICE
+                    },
+                    'quantity': 1
+                }]
+            
+            session = stripe.checkout.Session.create(**checkout_params)
+            
+            logger.info(f"Created checkout session {session.id} for organization {organization.id}")
+            return session.url
+            
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe checkout session creation failed: {str(e)}")
+            return None
+    
+    @staticmethod
+    def cancel_subscription(subscription_id: str) -> bool:
+        """
+        Cancel subscription at period end
+        
+        Args:
+            subscription_id: Stripe subscription ID
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            stripe.Subscription.modify(
+                subscription_id,
+                cancel_at_period_end=True
+            )
+            logger.info(f"Cancelled subscription {subscription_id} at period end")
+            return True
+            
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe subscription cancellation failed: {str(e)}")
+            return False
+    
+    @staticmethod
+    def update_payment_method(customer_id: str, payment_method_id: str) -> bool:
+        """
+        Update customer's default payment method
+        
+        Args:
+            customer_id: Stripe customer ID
+            payment_method_id: New payment method ID
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Attach payment method to customer
+            stripe.PaymentMethod.attach(
+                payment_method_id,
+                customer=customer_id
+            )
+            
+            # Set as default
+            stripe.Customer.modify(
+                customer_id,
+                invoice_settings={
+                    'default_payment_method': payment_method_id
+                }
+            )
+            
+            logger.info(f"Updated payment method for customer {customer_id}")
+            return True
+            
+        except stripe.error.StripeError as e:
+            logger.error(f"Payment method update failed: {str(e)}")
+            return False
+    
+    @staticmethod
+    def get_subscription(subscription_id: str) -> Optional[Dict]:
+        """
+        Get subscription details
+        
+        Args:
+            subscription_id: Stripe subscription ID
+            
+        Returns:
+            Subscription dict or None if error
+        """
+        try:
+            subscription = stripe.Subscription.retrieve(subscription_id)
+            return subscription
+            
+        except stripe.error.StripeError as e:
+            logger.error(f"Failed to retrieve subscription: {str(e)}")
+            return None
+    
+    @staticmethod
+    def handle_webhook_event(event: Dict) -> bool:
+        """
+        Handle Stripe webhook events
+        
+        Args:
+            event: Stripe event dict
+            
+        Returns:
+            True if handled successfully, False otherwise
+        """
+        event_type = event['type']
+        data = event['data']['object']
+        
+        try:
+            if event_type == 'checkout.session.completed':
+                return StripeService._handle_checkout_completed(data)
+            
+            elif event_type == 'customer.subscription.created':
+                return StripeService._handle_subscription_created(data)
+            
+            elif event_type == 'customer.subscription.updated':
+                return StripeService._handle_subscription_updated(data)
+            
+            elif event_type == 'customer.subscription.deleted':
+                return StripeService._handle_subscription_deleted(data)
+            
+            elif event_type == 'invoice.payment_succeeded':
+                return StripeService._handle_payment_succeeded(data)
+            
+            elif event_type == 'invoice.payment_failed':
+                return StripeService._handle_payment_failed(data)
+            
+            else:
+                logger.info(f"Unhandled webhook event type: {event_type}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Webhook event handling failed: {str(e)}")
+            return False
+    
+    @staticmethod
+    def _handle_checkout_completed(session: Dict) -> bool:
+        """Handle successful checkout session completion"""
+        org_id = session['metadata'].get('org_id')
+        if not org_id:
+            logger.warning("Checkout session missing org_id metadata")
+            return False
+        
+        org = Organization.query.get(org_id)
+        if not org:
+            logger.error(f"Organization {org_id} not found for checkout session")
+            return False
+        
+        # Update organization with subscription details
+        org.stripe_subscription_id = session.get('subscription')
+        org.subscription_status = 'trialing'
+        org.trial_start_date = datetime.utcnow()
+        org.trial_expires = datetime.utcnow() + timedelta(days=StripeService.TRIAL_DAYS)
+        
+        db.session.commit()
+        logger.info(f"Checkout completed for organization {org_id}")
+        return True
+    
+    @staticmethod
+    def _handle_subscription_created(subscription: Dict) -> bool:
+        """Handle subscription creation"""
+        customer_id = subscription['customer']
+        
+        # Find organization by customer ID
+        org = Organization.query.filter_by(stripe_customer_id=customer_id).first()
+        if not org:
+            logger.warning(f"No organization found for customer {customer_id}")
+            return False
+        
+        org.stripe_subscription_id = subscription['id']
+        org.subscription_status = subscription['status']
+        
+        db.session.commit()
+        logger.info(f"Subscription created for organization {org.id}")
+        return True
+    
+    @staticmethod
+    def _handle_subscription_updated(subscription: Dict) -> bool:
+        """Handle subscription updates"""
+        subscription_id = subscription['id']
+        
+        # Find organization by subscription ID
+        org = Organization.query.filter_by(stripe_subscription_id=subscription_id).first()
+        if not org:
+            logger.warning(f"No organization found for subscription {subscription_id}")
+            return False
+        
+        org.subscription_status = subscription['status']
+        
+        # Handle trial ending
+        if subscription['status'] == 'active' and org.setup_status == 'trial':
+            org.setup_status = 'live'
+        
+        db.session.commit()
+        logger.info(f"Subscription updated for organization {org.id}: status={subscription['status']}")
+        return True
+    
+    @staticmethod
+    def _handle_subscription_deleted(subscription: Dict) -> bool:
+        """Handle subscription cancellation"""
+        subscription_id = subscription['id']
+        
+        org = Organization.query.filter_by(stripe_subscription_id=subscription_id).first()
+        if not org:
+            return False
+        
+        org.subscription_status = 'canceled'
+        org.setup_status = 'suspended'
+        
+        db.session.commit()
+        logger.info(f"Subscription deleted for organization {org.id}")
+        return True
+    
+    @staticmethod
+    def _handle_payment_succeeded(invoice: Dict) -> bool:
+        """Handle successful payment"""
+        subscription_id = invoice.get('subscription')
+        if not subscription_id:
+            return True
+        
+        org = Organization.query.filter_by(stripe_subscription_id=subscription_id).first()
+        if not org:
+            return False
+        
+        org.subscription_status = 'active'
+        if org.setup_status in ['trial', 'suspended']:
+            org.setup_status = 'live'
+        
+        db.session.commit()
+        logger.info(f"Payment succeeded for organization {org.id}")
+        return True
+    
+    @staticmethod
+    def _handle_payment_failed(invoice: Dict) -> bool:
+        """Handle failed payment"""
+        subscription_id = invoice.get('subscription')
+        if not subscription_id:
+            return True
+        
+        org = Organization.query.filter_by(stripe_subscription_id=subscription_id).first()
+        if not org:
+            return False
+        
+        org.subscription_status = 'past_due'
+        
+        db.session.commit()
+        logger.warning(f"Payment failed for organization {org.id}")
+        return True
