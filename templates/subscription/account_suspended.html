@@ -1,0 +1,40 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Account Suspended - HealthPrep{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center mt-5">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-body text-center p-5">
+                    <i class="fas fa-ban text-danger mb-4" style="font-size: 4rem;"></i>
+                    <h2 class="mb-3">Account Suspended</h2>
+                    <p class="text-muted mb-4">
+                        Your HealthPrep account has been suspended.
+                    </p>
+                    
+                    <div class="alert alert-danger mb-4">
+                        <strong>Access Restricted</strong><br>
+                        <small>
+                            Your organization's access to HealthPrep has been temporarily suspended.
+                            Please contact our support team for assistance.
+                        </small>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <a href="mailto:support@healthprep.com" class="btn btn-primary btn-lg">
+                            <i class="fas fa-envelope me-2"></i>
+                            Contact Support
+                        </a>
+                        <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-sign-out-alt me-2"></i>
+                            Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

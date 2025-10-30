@@ -107,10 +107,18 @@ class Organization(db.Model):
     @property
     def is_active(self):
         """Check if organization is active"""
+        # Check setup status
         if self.setup_status == 'suspended':
             return False
+        
+        # Check trial expiration
         if self.setup_status == 'trial' and self.trial_expires and self.trial_expires < datetime.utcnow():
             return False
+        
+        # Check subscription status - block canceled or terminated subscriptions
+        if self.subscription_status in ['canceled', 'incomplete_expired', 'unpaid']:
+            return False
+        
         return True
 
     @property

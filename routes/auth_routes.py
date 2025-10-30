@@ -300,3 +300,21 @@ def has_permission(permission):
 
     user_permissions = get_user_permissions(current_user)
     return permission in user_permissions
+
+@auth_bp.route('/subscription-expired')
+@login_required
+def subscription_expired():
+    """Trial expired page"""
+    return render_template('subscription/trial_expired.html')
+
+@auth_bp.route('/account-suspended')
+@login_required
+def account_suspended():
+    """Account suspended page"""
+    return render_template('subscription/account_suspended.html')
+
+@auth_bp.route('/payment-required')
+@login_required
+def payment_required():
+    """Payment required page"""
+    return render_template('subscription/payment_required.html')

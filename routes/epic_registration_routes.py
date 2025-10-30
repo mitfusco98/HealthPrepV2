@@ -26,9 +26,30 @@ def epic_registration():
         # Get current Epic registration status
         registration_status = organization.epic_registration_status or 'not_started'
         
+        # Calculate trial days remaining
+        trial_days_remaining = None
+        if organization.trial_expires:
+            delta = organization.trial_expires - datetime.utcnow()
+            trial_days_remaining = max(0, delta.days)
+        
+        # Determine billing status
+        billing_status = 'active'  # Default
+        if organization.subscription_status == 'trialing':
+            # Compare trial_expires directly to datetime.utcnow() for accuracy
+            if organization.trial_expires and organization.trial_expires < datetime.utcnow():
+                billing_status = 'trial_expired'
+            else:
+                billing_status = 'trial_active'
+        elif organization.subscription_status in ['canceled', 'incomplete_expired', 'unpaid']:
+            billing_status = 'canceled'
+        elif organization.subscription_status in ['past_due', 'incomplete']:
+            billing_status = 'payment_issue'
+        
         context = {
             'organization': organization,
             'registration_status': registration_status,
+            'trial_days_remaining': trial_days_remaining,
+            'billing_status': billing_status,
             'epic_scopes': [
                 'patient/Patient.read',
                 'patient/Observation.read',

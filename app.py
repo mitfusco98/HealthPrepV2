@@ -271,6 +271,7 @@ def register_blueprints(app):
     from routes.first_login_routes import first_login_bp
     from routes.password_reset_routes import password_reset_bp
     from routes.org_approval_routes import org_approval_bp
+    from routes.webhook_routes import webhook_bp
     from ui.routes import ui_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -278,6 +279,7 @@ def register_blueprints(app):
     app.register_blueprint(first_login_bp)  # First login flow at /first-login
     app.register_blueprint(password_reset_bp)  # Password reset at /forgot-password
     app.register_blueprint(org_approval_bp)  # Organization approval routes
+    app.register_blueprint(webhook_bp)  # Webhook handlers at /webhooks
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(root_admin_bp, url_prefix='/root-admin')
     app.register_blueprint(screening_bp, url_prefix='/screening')
@@ -299,6 +301,7 @@ def register_blueprints(app):
     csrf.exempt(emr_sync_bp)  # Exempt EMR webhooks from CSRF
     csrf.exempt(fuzzy_bp)  # Exempt fuzzy detection API from CSRF
     csrf.exempt(smart_auth_bp)  # Exempt SMART auth from CSRF for OAuth callbacks
+    csrf.exempt(webhook_bp)  # Exempt Stripe webhooks from CSRF
 
     # Configure additional CSRF exemptions
     configure_csrf_exemptions(app)
@@ -347,6 +350,12 @@ def register_template_utilities(app):
     def inject_csrf_token():
         from flask_wtf.csrf import generate_csrf
         return dict(csrf_token=lambda: generate_csrf())
+    
+    @app.context_processor
+    def inject_subscription_status():
+        """Inject subscription status into all templates"""
+        from middleware.subscription_check import get_subscription_context
+        return get_subscription_context()
 
 # Configure CSRF protection to exempt API routes
 def configure_csrf_exemptions(app):

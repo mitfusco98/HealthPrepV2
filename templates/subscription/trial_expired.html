@@ -1,0 +1,47 @@
+{% extends 'base_admin.html' %}
+
+{% block title %}Trial Expired - HealthPrep{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center mt-5">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-body text-center p-5">
+                    <i class="fas fa-clock text-warning mb-4" style="font-size: 4rem;"></i>
+                    <h2 class="mb-3">Your Free Trial Has Expired</h2>
+                    <p class="text-muted mb-4">
+                        Thank you for trying HealthPrep! Your 14-day free trial has ended.
+                        To continue using our platform, please update your payment method.
+                    </p>
+                    
+                    <div class="alert alert-info mb-4">
+                        <strong>What happens next?</strong><br>
+                        <small>
+                            Update your payment information to reactivate your account and continue
+                            accessing all HealthPrep features.
+                        </small>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <a href="https://billing.stripe.com/p/login/test_00000000000000" target="_blank" class="btn btn-primary btn-lg">
+                            <i class="fas fa-credit-card me-2"></i>
+                            Update Payment Method
+                        </a>
+                        <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-sign-out-alt me-2"></i>
+                            Logout
+                        </a>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <p class="text-muted small mb-0">
+                        Need help? <a href="mailto:support@healthprep.com">Contact Support</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

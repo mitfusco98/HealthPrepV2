@@ -116,6 +116,77 @@
         {% endif %}
     {% endwith %}
 
+    <!-- Subscription Status Banner -->
+    {% if show_trial_banner and trial_days_remaining is not none %}
+        <div class="container mt-3">
+            {% if not trial_is_expired %}
+                <div class="alert alert-warning border-warning">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <i class="fas fa-clock me-2"></i>
+                            {% if trial_days_remaining > 0 %}
+                                <strong>Trial Ending Soon:</strong> Your free trial expires in <strong>{{ trial_days_remaining }} day{{ 's' if trial_days_remaining != 1 else '' }}</strong>.
+                            {% else %}
+                                <strong>Trial Ends Today:</strong> Your free trial expires later today.
+                            {% endif %}
+                            Update your payment method to continue using HealthPrep without interruption.
+                        </div>
+                        <a href="https://billing.stripe.com/p/login/test_00000000000000" target="_blank" class="btn btn-sm btn-warning">
+                            <i class="fas fa-credit-card me-1"></i> Update Payment
+                        </a>
+                    </div>
+                </div>
+            {% else %}
+                <div class="alert alert-danger border-danger">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Trial Expired:</strong> Your free trial has ended. 
+                            Update your payment method to restore full access.
+                        </div>
+                        <a href="https://billing.stripe.com/p/login/test_00000000000000" target="_blank" class="btn btn-sm btn-danger">
+                            <i class="fas fa-credit-card me-1"></i> Update Payment Now
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    {% if show_payment_warning %}
+        <div class="container mt-3">
+            <div class="alert alert-danger border-danger">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <strong>Payment Required:</strong> Your payment is past due. 
+                        Please update your payment method to restore full access.
+                    </div>
+                    <a href="https://billing.stripe.com/p/login/test_00000000000000" target="_blank" class="btn btn-sm btn-danger">
+                        <i class="fas fa-credit-card me-1"></i> Update Payment Method
+                    </a>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if show_canceled_warning %}
+        <div class="container mt-3">
+            <div class="alert alert-danger border-danger">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <i class="fas fa-ban me-2"></i>
+                        <strong>Subscription Canceled:</strong> Your subscription has been canceled. 
+                        Please contact support to reactivate your account.
+                    </div>
+                    <a href="mailto:support@healthprep.com" class="btn btn-sm btn-danger">
+                        <i class="fas fa-envelope me-1"></i> Contact Support
+                    </a>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
     <!-- Main content -->
     <main class="container-fluid my-4">
         {% block content %}{% endblock %}
