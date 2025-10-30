@@ -39,11 +39,15 @@ def dashboard():
     try:
         # Get all organizations
         organizations = Organization.query.order_by(Organization.created_at.desc()).all()
+        
+        # Get pending organizations for approval
+        pending_orgs = Organization.query.filter_by(onboarding_status='pending_approval').order_by(Organization.created_at.desc()).all()
 
         # Get system-wide statistics
         total_orgs = len(organizations)
         active_orgs = sum(1 for org in organizations if org.is_active)
         trial_orgs = sum(1 for org in organizations if org.setup_status == 'trial')
+        pending_orgs_count = len(pending_orgs)
 
         # Get user statistics across all organizations
         total_users = User.query.filter(User.org_id != None).count()
@@ -60,6 +64,7 @@ def dashboard():
             'total_organizations': total_orgs,
             'active_organizations': active_orgs,
             'trial_organizations': trial_orgs,
+            'pending_organizations': pending_orgs_count,
             'total_users': total_users,
             'admin_users': admin_users,
             'total_presets': total_presets,
@@ -68,6 +73,7 @@ def dashboard():
 
         return render_template('root_admin/dashboard.html', 
                              organizations=organizations,
+                             pending_orgs=pending_orgs,
                              stats=stats,
                              recent_logs=recent_logs)
 

@@ -92,6 +92,8 @@ class Organization(db.Model):
     
     # Onboarding Status Management
     onboarding_status = db.Column(db.String(30), default='pending_approval')  # pending_approval, approved, active, suspended
+    approved_at = db.Column(db.DateTime)  # When organization was approved
+    approved_by = db.Column(db.Integer, db.ForeignKey('users.id'))  # Root admin who approved
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

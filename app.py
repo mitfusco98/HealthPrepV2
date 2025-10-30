@@ -270,12 +270,14 @@ def register_blueprints(app):
     from routes.signup_routes import signup_bp
     from routes.first_login_routes import first_login_bp
     from routes.password_reset_routes import password_reset_bp
+    from routes.org_approval_routes import org_approval_bp
     from ui.routes import ui_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(signup_bp)  # Public signup at /signup
     app.register_blueprint(first_login_bp)  # First login flow at /first-login
     app.register_blueprint(password_reset_bp)  # Password reset at /forgot-password
+    app.register_blueprint(org_approval_bp)  # Organization approval routes
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(root_admin_bp, url_prefix='/root-admin')
     app.register_blueprint(screening_bp, url_prefix='/screening')

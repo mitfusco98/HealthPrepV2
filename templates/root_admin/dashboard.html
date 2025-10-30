@@ -150,6 +150,122 @@
 </div>
 {% endif %}
 
+<!-- Pending Organizations Section -->
+{% if pending_orgs %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card root-admin-card border-warning">
+            <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-hourglass-half me-2"></i>Pending Organizations - Awaiting Approval
+                    <span class="badge bg-dark ms-2">{{ stats.pending_organizations }}</span>
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Organization</th>
+                                <th>Contact</th>
+                                <th>Epic Credentials</th>
+                                <th>Trial Status</th>
+                                <th>Signup Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for org in pending_orgs %}
+                            <tr>
+                                <td>
+                                    <strong>{{ org.name }}</strong>
+                                    {% if org.site %}<br><small class="text-muted">{{ org.site }}</small>{% endif %}
+                                    {% if org.specialty %}<br><span class="badge bg-secondary">{{ org.specialty }}</span>{% endif %}
+                                </td>
+                                <td>
+                                    {{ org.contact_email }}<br>
+                                    {% if org.phone %}<small class="text-muted">{{ org.phone }}</small>{% endif %}
+                                </td>
+                                <td>
+                                    <div class="small">
+                                        {% if org.epic_client_id %}
+                                            <i class="fas fa-key text-success"></i> Client ID: {{ org.epic_client_id[:20] }}...<br>
+                                        {% else %}
+                                            <i class="fas fa-key text-muted"></i> <em>Not provided</em><br>
+                                        {% endif %}
+                                        <i class="fas fa-link text-primary"></i> {{ org.epic_environment|upper if org.epic_environment else 'SANDBOX' }}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if org.subscription_status == 'trialing' %}
+                                        <span class="badge bg-info">Trial Active</span><br>
+                                        <small class="text-muted">
+                                            {% if org.trial_expires %}
+                                                Expires: {{ org.trial_expires.strftime('%m/%d/%Y') }}
+                                            {% endif %}
+                                        </small>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ org.subscription_status|title }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ org.created_at.strftime('%m/%d/%Y %I:%M %p') }}</td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <form method="POST" action="{{ url_for('org_approval.approve_organization', org_id=org.id) }}" style="display: inline;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-sm btn-success" 
+                                                    onclick="return confirm('Approve {{ org.name }}? This will activate all users and send a welcome email.')">
+                                                <i class="fas fa-check"></i> Approve
+                                            </button>
+                                        </form>
+                                        <button type="button" class="btn btn-sm btn-danger" 
+                                                data-bs-toggle="modal" data-bs-target="#rejectModal{{ org.id }}">
+                                            <i class="fas fa-times"></i> Reject
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            
+                            <!-- Rejection Modal -->
+                            <div class="modal fade" id="rejectModal{{ org.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header bg-danger text-white">
+                                            <h5 class="modal-title">Reject Organization</h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form method="POST" action="{{ url_for('org_approval.reject_organization', org_id=org.id) }}">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <div class="modal-body">
+                                                <p>Are you sure you want to reject <strong>{{ org.name }}</strong>?</p>
+                                                <div class="mb-3">
+                                                    <label for="rejection_reason{{ org.id }}" class="form-label">Rejection Reason:</label>
+                                                    <textarea class="form-control" id="rejection_reason{{ org.id }}" 
+                                                              name="rejection_reason" rows="3" required
+                                                              placeholder="Please provide a reason for rejection..."></textarea>
+                                                </div>
+                                                <div class="alert alert-warning">
+                                                    <small>An email will be sent to {{ org.contact_email }} with this reason.</small>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <button type="submit" class="btn btn-danger">Reject Organization</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Organizations and Activity -->
 <div class="row">
     <!-- Organizations -->

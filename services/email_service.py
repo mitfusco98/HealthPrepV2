@@ -238,38 +238,88 @@ class EmailService:
         
         return EmailService._send_email(email, subject, html_body)
     
+    
     @staticmethod
-    def send_organization_approved_email(email: str, org_name: str, login_url: str) -> bool:
+    def send_organization_approved_email(email: str, username: str, org_name: str) -> bool:
         """
         Send organization approval notification
         
         Args:
             email: Recipient email address
+            username: User's username
             org_name: Organization name
-            login_url: URL to login page
             
         Returns:
             True if sent successfully, False otherwise
         """
-        subject = f"HealthPrep - {org_name} Approved!"
+        subject = f"HealthPrep - Your Organization Has Been Approved!"
         
         html_body = f"""
         <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6;">
             <h2>Welcome to HealthPrep!</h2>
-            <p>Great news! Your organization <strong>{org_name}</strong> has been approved and is now active.</p>
+            <p>Great news, {username}!</p>
+            
+            <p>Your organization <strong>{org_name}</strong> has been approved and is now active.</p>
             
             <h3>You can now:</h3>
             <ul>
                 <li>Log in to your account</li>
-                <li>Set up your Epic FHIR integration</li>
+                <li>Configure your Epic FHIR integration</li>
+                <li>Add additional users to your organization</li>
                 <li>Start processing patient screenings</li>
-                <li>Invite team members</li>
             </ul>
             
-            <p><a href="{login_url}" style="background-color: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Log In Now</a></p>
+            <p>Your 14-day free trial is still active with full access to all features.</p>
             
-            <p>Your 14-day free trial is active. Enjoy full access to all features!</p>
+            <h3>Next Steps:</h3>
+            <ol>
+                <li>Log in to HealthPrep</li>
+                <li>Complete Epic OAuth setup in the admin panel</li>
+                <li>Upload or sync your first patient data</li>
+            </ol>
+            
+            <p>If you have any questions, please don't hesitate to contact our support team.</p>
+            
+            <p>Best regards,<br>The HealthPrep Team</p>
+        </body>
+        </html>
+        """
+        
+        return EmailService._send_email(email, subject, html_body)
+    
+    @staticmethod
+    def send_organization_rejected_email(email: str, username: str, org_name: str, rejection_reason: str) -> bool:
+        """
+        Send organization rejection notification
+        
+        Args:
+            email: Recipient email address
+            username: User's username
+            org_name: Organization name
+            rejection_reason: Reason for rejection
+            
+        Returns:
+            True if sent successfully, False otherwise
+        """
+        subject = f"HealthPrep - Organization Application Status"
+        
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+            <h2>Organization Application Update</h2>
+            <p>Hello {username},</p>
+            
+            <p>Thank you for your interest in HealthPrep.</p>
+            
+            <p>Unfortunately, we are unable to approve your organization <strong>{org_name}</strong> at this time.</p>
+            
+            <h3>Reason:</h3>
+            <p>{rejection_reason}</p>
+            
+            <p>If you believe this was an error or would like to discuss this decision, please contact our support team.</p>
+            
+            <p>Your payment method has not been charged.</p>
             
             <p>Best regards,<br>The HealthPrep Team</p>
         </body>
