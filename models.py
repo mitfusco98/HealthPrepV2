@@ -101,7 +101,8 @@ class Organization(db.Model):
     trial_expires = db.Column(db.DateTime)  # For trial accounts (14 days from trial_start_date)
 
     # Relationships
-    users = db.relationship('User', backref='organization', lazy=True)
+    users = db.relationship('User', foreign_keys='User.org_id', backref='organization', lazy=True)
+    approver = db.relationship('User', foreign_keys=[approved_by], backref='approved_organizations', lazy=True)
     epic_credentials = db.relationship('EpicCredentials', backref='organization', lazy=True, cascade='all, delete-orphan')
 
     @property
