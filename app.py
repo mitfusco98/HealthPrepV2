@@ -148,8 +148,8 @@ def create_app():
                 if current_endpoint != 'first_login.change_password':
                     return redirect(url_for('first_login.change_password'))
             
-            # Force security question setup if not completed
-            elif not current_user.security_question_1_answer or not current_user.security_question_2_answer:
+            # Force security question setup if not completed (skip for root admins)
+            elif not current_user.is_root_admin and (not current_user.security_answer_1_hash or not current_user.security_answer_2_hash):
                 if current_endpoint != 'first_login.setup_security_questions':
                     return redirect(url_for('first_login.setup_security_questions'))
 
