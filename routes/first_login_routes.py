@@ -44,7 +44,13 @@ def change_password():
         logger.info(f"User {current_user.username} changed temporary password")
         
         flash('Password changed successfully!', 'success')
-        return redirect(url_for('first_login.setup_security_questions'))
+        
+        # Only redirect to security questions if user is an admin
+        if current_user.is_admin or current_user.is_root_admin:
+            return redirect(url_for('first_login.setup_security_questions'))
+        else:
+            # Regular users go straight to dashboard
+            return redirect(url_for('ui.dashboard'))
     
     return render_template('first_login/change_password.html', form=form)
 
@@ -52,10 +58,20 @@ def change_password():
 @first_login_bp.route('/first-login/security-questions', methods=['GET', 'POST'])
 @login_required
 def setup_security_questions():
-    """Set up security questions for account recovery"""
+    """Set up security questions for account recovery (admin users only)"""
+    # Non-admin users don't need security questions
+    if not current_user.is_admin and not current_user.is_root_admin:
+        return redirect(url_for('ui.dashboard'))
+    
     # Check if user has already set up security questions
-    if current_user.security_question_1_answer and current_user.security_question_2_answer:
-        return redirect(url_for('index'))
+    if current_user.security_answer_1_hash and current_user.security_answer_2_hash:
+        # Already set up, redirect to appropriate dashboard
+        if current_user.is_root_admin:
+            return redirect(url_for('root_admin.dashboard'))
+        elif current_user.is_admin:
+            return redirect(url_for('admin.dashboard'))
+        else:
+            return redirect(url_for('ui.dashboard'))
     
     # Check if user still has temp password (must change password first)
     if current_user.is_temp_password:
@@ -69,17 +85,24 @@ def setup_security_questions():
         answer2 = form.security_answer_2.data
         
         if answer1 and answer2:
-            current_user.security_question_1_answer = generate_password_hash(
+            current_user.security_answer_1_hash = generate_password_hash(
                 answer1.strip().lower()
             )
-            current_user.security_question_2_answer = generate_password_hash(
+            current_user.security_answer_2_hash = generate_password_hash(
                 answer2.strip().lower()
             )
         db.session.commit()
         
-        logger.info(f"User {current_user.username} set up security questions")
+        logger.info(f"Admin user {current_user.username} set up security questions")
         
         flash('Security questions set up successfully! Your account is now fully configured.', 'success')
-        return redirect(url_for('index'))
+        
+        # Redirect to appropriate dashboard
+        if current_user.is_root_admin:
+            return redirect(url_for('root_admin.dashboard'))
+        elif current_user.is_admin:
+            return redirect(url_for('admin.dashboard'))
+        else:
+            return redirect(url_for('ui.dashboard'))
     
     return render_template('first_login/security_questions.html', form=form)
