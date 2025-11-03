@@ -11,6 +11,56 @@ from models import log_admin_event
 logger = logging.getLogger(__name__)
 auth_bp = Blueprint('auth', __name__)
 
+
+def _requires_login_security_questions(user):
+    """
+    Determine if a user requires security question verification at login
+    
+    Rules:
+    - Regular users (MA, nurse): Never require security questions
+    - Org admins: Can bypass if Epic OAuth is active OR recent successful login (last 7 days)
+    - Root admins: Always require at least one security question (no bypass ever)
+    
+    Args:
+        user: User object
+        
+    Returns:
+        bool: True if security questions are required, 'force_setup' if questions not set
+    """
+    from datetime import datetime, timedelta
+    
+    # Regular users never need security questions at login
+    if not user.is_admin and not user.is_root_admin:
+        return False
+    
+    # Root admins always require security questions
+    if user.is_root_admin:
+        # If they don't have questions set up, force them to set up
+        if not user.has_security_questions():
+            return 'force_setup'
+        return True
+    
+    # Org admins: Check if they have security questions first
+    if user.is_admin:
+        if not user.has_security_questions():
+            # Org admins without questions can proceed (questions are optional for them)
+            return False
+        
+        # Bypass if Epic OAuth is active for their organization
+        if user.organization and user.organization.epic_oauth_active:
+            logger.info(f"Bypassing security questions for {user.username}: Epic OAuth active")
+            return False
+        
+        # Bypass if recent successful login (within last 7 days)
+        if user.last_login:
+            days_since_login = (datetime.utcnow() - user.last_login).days
+            if days_since_login <= 7:
+                logger.info(f"Bypassing security questions for {user.username}: Recent login ({days_since_login} days ago)")
+                return False
+    
+    return True
+
+
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     """User login page"""
@@ -38,6 +88,20 @@ def login():
             if not user.is_active_user:
                 flash('Your account has been deactivated. Please contact your administrator.', 'error')
                 return render_template('auth/login.html', form=form)
+
+            # Check if login-time security questions are required
+            security_check = _requires_login_security_questions(user)
+            if security_check == 'force_setup':
+                # Root admin without security questions must set them up
+                flash('You must set up security questions before you can log in. Please contact support or use the password reset flow.', 'error')
+                logger.warning(f"Root admin {user.username} attempted login without security questions")
+                return render_template('auth/login.html', form=form)
+            elif security_check:
+                # Store user ID in session for security question verification
+                session['login_pending_user_id'] = user.id
+                session['login_pending_next'] = request.args.get('next')
+                logger.info(f"Security question verification required for user: {user.username}")
+                return redirect(url_for('auth.verify_login_security'))
 
             # Record successful login
             user.record_login_attempt(success=True)
@@ -133,6 +197,91 @@ def logout():
     logout_user()
     flash('You have been logged out.', 'info')
     return redirect(url_for('auth.login'))
+
+
+@auth_bp.route('/verify-login-security', methods=['GET', 'POST'])
+def verify_login_security():
+    """Verify security questions for admin users at login"""
+    # Check if there's a pending login
+    user_id = session.get('login_pending_user_id')
+    if not user_id:
+        flash('Invalid session. Please log in again.', 'error')
+        return redirect(url_for('auth.login'))
+    
+    from models import User
+    from app import db
+    
+    user = User.query.get(user_id)
+    if not user:
+        session.clear()
+        flash('Invalid session. Please log in again.', 'error')
+        return redirect(url_for('auth.login'))
+    
+    if request.method == 'POST':
+        # Get security answers from form
+        answer_1 = request.form.get('answer_1', '').strip()
+        answer_2 = request.form.get('answer_2', '').strip()
+        
+        # Root admins must answer at least one question correctly
+        # Org admins must answer both questions correctly (when bypass doesn't apply)
+        if user.is_root_admin:
+            # Root admin: At least one correct answer required
+            answer_1_correct = user.verify_security_answer_1(answer_1) if answer_1 else False
+            answer_2_correct = user.verify_security_answer_2(answer_2) if answer_2 else False
+            
+            if answer_1_correct or answer_2_correct:
+                # Successful verification
+                user.record_login_attempt(success=True)
+                login_user(user)
+                
+                # Clear session
+                next_page = session.get('login_pending_next')
+                session.pop('login_pending_user_id', None)
+                session.pop('login_pending_next', None)
+                
+                logger.info(f"Root admin {user.username} verified security questions successfully")
+                flash('Login successful!', 'success')
+                
+                if next_page:
+                    return redirect(next_page)
+                else:
+                    return redirect(url_for('root_admin.dashboard'))
+            else:
+                flash('At least one security answer must be correct. Please try again.', 'error')
+                logger.warning(f"Failed security verification for root admin: {user.username}")
+        else:
+            # Org admin: Both answers must be correct
+            answer_1_correct = user.verify_security_answer_1(answer_1)
+            answer_2_correct = user.verify_security_answer_2(answer_2)
+            
+            if answer_1_correct and answer_2_correct:
+                # Successful verification
+                user.record_login_attempt(success=True)
+                login_user(user)
+                
+                # Clear session
+                next_page = session.get('login_pending_next')
+                session.pop('login_pending_user_id', None)
+                session.pop('login_pending_next', None)
+                
+                logger.info(f"Org admin {user.username} verified security questions successfully")
+                flash('Login successful!', 'success')
+                
+                if next_page:
+                    return redirect(next_page)
+                else:
+                    return redirect(url_for('admin.dashboard'))
+            else:
+                flash('Security answers are incorrect. Please try again.', 'error')
+                logger.warning(f"Failed security verification for org admin: {user.username}")
+    
+    # Display security questions
+    return render_template('auth/verify_login_security.html',
+                         user=user,
+                         question_1=user.security_question_1,
+                         question_2=user.security_question_2,
+                         is_root_admin=user.is_root_admin)
+
 
 @auth_bp.route('/profile')
 @login_required
