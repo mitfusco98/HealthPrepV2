@@ -27,10 +27,13 @@ class EmailService:
             hostname = os.environ.get('REPLIT_CONNECTORS_HOSTNAME')
             x_replit_token = None
             
-            if os.environ.get('REPL_IDENTITY'):
-                x_replit_token = 'repl ' + os.environ.get('REPL_IDENTITY')
-            elif os.environ.get('WEB_REPL_RENEWAL'):
-                x_replit_token = 'depl ' + os.environ.get('WEB_REPL_RENEWAL')
+            repl_identity = os.environ.get('REPL_IDENTITY')
+            web_repl_renewal = os.environ.get('WEB_REPL_RENEWAL')
+            
+            if repl_identity:
+                x_replit_token = 'repl ' + repl_identity
+            elif web_repl_renewal:
+                x_replit_token = 'depl ' + web_repl_renewal
             
             if not hostname or not x_replit_token:
                 logger.warning("Resend connector not configured (missing hostname or token)")
@@ -57,7 +60,7 @@ class EmailService:
             
             settings = items[0].get('settings', {})
             api_key = settings.get('api_key')
-            from_email = settings.get('from_email', 'noreply@healthprep.app')
+            from_email = settings.get('from_email', 'fuscodigitalsolutions@gmail.com')
             
             if not api_key:
                 logger.error("Resend API key not found in connector settings")
@@ -203,7 +206,7 @@ class EmailService:
         return EmailService._send_email(email, subject, html_body)
     
     @staticmethod
-    def send_payment_success_email(email: str, org_name: str, amount: float, invoice_url: str = None) -> bool:
+    def send_payment_success_email(email: str, org_name: str, amount: float, invoice_url: Optional[str] = None) -> bool:
         """
         Send payment success receipt
         
