@@ -1,22 +1,73 @@
 """
 Email Service for Transactional Emails
 Handles password resets, welcome emails, trial reminders, and payment notifications
-Note: Resend integration was dismissed - using manual SMTP/API key configuration
+Uses Replit's Resend connector for secure API key management
 """
 import os
 import logging
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple
 from datetime import datetime
+import requests
 
 logger = logging.getLogger(__name__)
-
-# Email configuration - will use Resend API when configured
-RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
-FROM_EMAIL = os.environ.get('FROM_EMAIL', 'noreply@healthprep.app')
 
 
 class EmailService:
     """Service for sending transactional emails"""
+    
+    @staticmethod
+    def _get_resend_credentials() -> Tuple[Optional[str], Optional[str]]:
+        """
+        Get Resend API credentials from Replit connector
+        
+        Returns:
+            Tuple of (api_key, from_email) or (None, None) if not configured
+        """
+        try:
+            hostname = os.environ.get('REPLIT_CONNECTORS_HOSTNAME')
+            x_replit_token = None
+            
+            if os.environ.get('REPL_IDENTITY'):
+                x_replit_token = 'repl ' + os.environ.get('REPL_IDENTITY')
+            elif os.environ.get('WEB_REPL_RENEWAL'):
+                x_replit_token = 'depl ' + os.environ.get('WEB_REPL_RENEWAL')
+            
+            if not hostname or not x_replit_token:
+                logger.warning("Resend connector not configured (missing hostname or token)")
+                return None, None
+            
+            response = requests.get(
+                f'https://{hostname}/api/v2/connection?include_secrets=true&connector_names=resend',
+                headers={
+                    'Accept': 'application/json',
+                    'X_REPLIT_TOKEN': x_replit_token
+                }
+            )
+            
+            if response.status_code != 200:
+                logger.error(f"Failed to fetch Resend credentials: {response.status_code}")
+                return None, None
+            
+            data = response.json()
+            items = data.get('items', [])
+            
+            if not items:
+                logger.warning("Resend connector not set up")
+                return None, None
+            
+            settings = items[0].get('settings', {})
+            api_key = settings.get('api_key')
+            from_email = settings.get('from_email', 'noreply@healthprep.app')
+            
+            if not api_key:
+                logger.error("Resend API key not found in connector settings")
+                return None, None
+            
+            return api_key, from_email
+            
+        except Exception as e:
+            logger.error(f"Error fetching Resend credentials: {str(e)}")
+            return None, None
     
     @staticmethod
     def send_welcome_email(email: str, username: str, temp_password: str, org_name: str) -> bool:
@@ -331,7 +382,7 @@ class EmailService:
     @staticmethod
     def _send_email(to_email: str, subject: str, html_body: str) -> bool:
         """
-        Internal method to send email via Resend API or fallback
+        Internal method to send email via Resend API
         
         Args:
             to_email: Recipient email address
@@ -341,26 +392,23 @@ class EmailService:
         Returns:
             True if sent successfully, False otherwise
         """
-        # TODO: Implement Resend API integration when RESEND_API_KEY is configured
-        # For now, log the email content (development mode)
+        # Get credentials from Resend connector
+        api_key, from_email = EmailService._get_resend_credentials()
         
-        if not RESEND_API_KEY:
-            logger.warning(f"Email sending disabled (no RESEND_API_KEY): {subject} to {to_email}")
-            logger.info(f"Email content:\n{html_body}")
+        if not api_key:
+            logger.warning(f"Email sending disabled (Resend not configured): {subject} to {to_email}")
+            logger.debug(f"Email content:\n{html_body}")
             return False
         
         try:
-            # When Resend is configured, use their API
-            import requests
-            
             response = requests.post(
                 'https://api.resend.com/emails',
                 headers={
-                    'Authorization': f'Bearer {RESEND_API_KEY}',
+                    'Authorization': f'Bearer {api_key}',
                     'Content-Type': 'application/json'
                 },
                 json={
-                    'from': FROM_EMAIL,
+                    'from': from_email,
                     'to': to_email,
                     'subject': subject,
                     'html': html_body
