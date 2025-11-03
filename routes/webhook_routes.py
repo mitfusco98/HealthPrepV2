@@ -95,69 +95,27 @@ def _send_webhook_notifications(event: dict):
             return
         
         # Send appropriate notification
-        if event_type == 'checkout.session.completed':
-            EmailService.send_welcome_email(
-                to_email=org.billing_email,
-                org_name=org.name,
-                trial_days=14
-            )
-            logger.info(f"Sent welcome email to {org.billing_email}")
-        
-        elif event_type == 'customer.subscription.updated':
-            status = data['status']
-            if status == 'active' and org.subscription_status == 'trialing':
-                # Trial ended, subscription activated
-                EmailService.send_custom_email(
-                    to_email=org.billing_email,
-                    subject='Your HealthPrep Trial Has Ended - Subscription Active',
-                    template_name='subscription_activated',
-                    context={
-                        'org_name': org.name,
-                        'monthly_amount': '$100.00'
-                    }
-                )
-                logger.info(f"Sent subscription activated email to {org.billing_email}")
-        
-        elif event_type == 'invoice.payment_succeeded':
+        if event_type == 'invoice.payment_succeeded':
             # Payment successful notification
-            EmailService.send_custom_email(
-                to_email=org.billing_email,
-                subject='Payment Successful - HealthPrep Subscription',
-                template_name='payment_success',
-                context={
-                    'org_name': org.name,
-                    'amount': f"${data.get('amount_paid', 0) / 100:.2f}",
-                    'invoice_date': data.get('created', '')
-                }
+            amount = data.get('amount_paid', 0) / 100
+            invoice_url = data.get('hosted_invoice_url')
+            EmailService.send_payment_success_email(
+                email=org.billing_email,
+                org_name=org.name,
+                amount=amount,
+                invoice_url=invoice_url
             )
             logger.info(f"Sent payment success email to {org.billing_email}")
         
         elif event_type == 'invoice.payment_failed':
             # Payment failed notification
-            EmailService.send_custom_email(
-                to_email=org.billing_email,
-                subject='Payment Failed - Action Required',
-                template_name='payment_failed',
-                context={
-                    'org_name': org.name,
-                    'amount': f"${data.get('amount_due', 0) / 100:.2f}",
-                    'next_retry': data.get('next_payment_attempt', '')
-                }
+            amount = data.get('amount_due', 0) / 100
+            EmailService.send_payment_failed_email(
+                email=org.billing_email,
+                org_name=org.name,
+                amount=amount
             )
             logger.warning(f"Sent payment failed email to {org.billing_email}")
-        
-        elif event_type == 'customer.subscription.deleted':
-            # Subscription cancelled notification
-            EmailService.send_custom_email(
-                to_email=org.billing_email,
-                subject='Your HealthPrep Subscription Has Been Cancelled',
-                template_name='subscription_cancelled',
-                context={
-                    'org_name': org.name,
-                    'cancelled_date': data.get('canceled_at', '')
-                }
-            )
-            logger.info(f"Sent subscription cancelled email to {org.billing_email}")
             
     except Exception as e:
         logger.error(f"Failed to send webhook notification: {str(e)}")

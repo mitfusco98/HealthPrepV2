@@ -134,13 +134,12 @@ class EmailService:
         Args:
             email: Recipient email address
             username: User's username
-            reset_token: Password reset token
-            reset_url: Base URL for password reset
+            reset_token: Password reset token (included for logging/backwards compatibility)
+            reset_url: Complete reset URL with token already included
             
         Returns:
             True if sent successfully, False otherwise
         """
-        reset_link = f"{reset_url}?token={reset_token}"
         subject = "HealthPrep - Password Reset Request"
         
         html_body = f"""
@@ -151,7 +150,7 @@ class EmailService:
             
             <p>We received a request to reset your password. Click the link below to reset your password:</p>
             
-            <p><a href="{reset_link}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Reset Password</a></p>
+            <p><a href="{reset_url}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Reset Password</a></p>
             
             <p>This link will expire in 1 hour.</p>
             
