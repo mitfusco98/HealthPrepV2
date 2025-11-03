@@ -216,6 +216,7 @@
             </div>
             <form id="editUserForm" method="POST" action="">
                 <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <input type="hidden" id="editUserId" name="user_id" value="">
 
                     <div class="mb-3">
