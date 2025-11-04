@@ -228,8 +228,8 @@ def verify_login_security():
         # Org admins must answer both questions correctly (when bypass doesn't apply)
         if user.is_root_admin:
             # Root admin: At least one correct answer required
-            answer_1_correct = user.verify_security_answer_1(answer_1) if answer_1 else False
-            answer_2_correct = user.verify_security_answer_2(answer_2) if answer_2 else False
+            answer_1_correct = user.check_security_answer_1(answer_1) if answer_1 else False
+            answer_2_correct = user.check_security_answer_2(answer_2) if answer_2 else False
             
             if answer_1_correct or answer_2_correct:
                 # Successful verification
@@ -253,8 +253,8 @@ def verify_login_security():
                 logger.warning(f"Failed security verification for root admin: {user.username}")
         else:
             # Org admin: Both answers must be correct
-            answer_1_correct = user.verify_security_answer_1(answer_1)
-            answer_2_correct = user.verify_security_answer_2(answer_2)
+            answer_1_correct = user.check_security_answer_1(answer_1)
+            answer_2_correct = user.check_security_answer_2(answer_2)
             
             if answer_1_correct and answer_2_correct:
                 # Successful verification
