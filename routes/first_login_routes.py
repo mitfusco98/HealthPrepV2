@@ -85,6 +85,11 @@ def setup_security_questions():
         answer2 = form.security_answer_2.data
         
         if answer1 and answer2:
+            # Store the hard-coded question text
+            current_user.security_question_1 = "What year did you graduate high school?"
+            current_user.security_question_2 = "What is your mother's maiden name?"
+            
+            # Store hashed answers
             current_user.security_answer_1_hash = generate_password_hash(
                 answer1.strip().lower()
             )
