@@ -92,10 +92,12 @@ def login():
             # Check if login-time security questions are required
             security_check = _requires_login_security_questions(user)
             if security_check == 'force_setup':
-                # Root admin without security questions must set them up
-                flash('You must set up security questions before you can log in. Please contact support or use the password reset flow.', 'error')
-                logger.warning(f"Root admin {user.username} attempted login without security questions")
-                return render_template('auth/login.html', form=form)
+                # Root admin without security questions - log them in and redirect to setup
+                user.record_login_attempt(success=True)
+                login_user(user)
+                logger.info(f"Root admin {user.username} logged in without security questions, redirecting to setup")
+                flash('Please set up your security questions to complete your account setup.', 'warning')
+                return redirect(url_for('first_login.setup_security_questions'))
             elif security_check:
                 # Store user ID in session for security question verification
                 session['login_pending_user_id'] = user.id
