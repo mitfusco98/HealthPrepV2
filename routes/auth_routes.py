@@ -18,8 +18,8 @@ def _requires_login_security_questions(user):
     
     Rules:
     - Regular users (MA, nurse): Never require security questions
-    - Org admins: Can bypass if Epic OAuth is active OR recent successful login (last 7 days)
-    - Root admins: Always require at least one security question (no bypass ever)
+    - Org admins: MUST set up security questions; can bypass if Epic OAuth is active OR recent successful login (last 1 hour)
+    - Root admins: Always require security questions (no bypass ever)
     
     Args:
         user: User object
@@ -40,22 +40,23 @@ def _requires_login_security_questions(user):
             return 'force_setup'
         return True
     
-    # Org admins: Check if they have security questions first
+    # Org admins: Must have security questions set up
     if user.is_admin:
         if not user.has_security_questions():
-            # Org admins without questions can proceed (questions are optional for them)
-            return False
+            # Force org admins to set up security questions (just like root admins)
+            return 'force_setup'
         
         # Bypass if Epic OAuth is active for their organization
         if user.organization and user.organization.epic_oauth_active:
             logger.info(f"Bypassing security questions for {user.username}: Epic OAuth active")
             return False
         
-        # Bypass if recent successful login (within last 7 days)
+        # Bypass if recent successful login (within last 1 hour)
         if user.last_login:
-            days_since_login = (datetime.utcnow() - user.last_login).days
-            if days_since_login <= 7:
-                logger.info(f"Bypassing security questions for {user.username}: Recent login ({days_since_login} days ago)")
+            time_since_login = datetime.utcnow() - user.last_login
+            hours_since_login = time_since_login.total_seconds() / 3600
+            if hours_since_login <= 1:
+                logger.info(f"Bypassing security questions for {user.username}: Recent login ({hours_since_login:.1f} hours ago)")
                 return False
     
     return True
