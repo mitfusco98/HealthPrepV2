@@ -108,6 +108,20 @@ def login():
             # Record successful login
             user.record_login_attempt(success=True)
             login_user(user)
+            
+            # Log the login event to audit log
+            from models import log_admin_event
+            log_admin_event(
+                event_type='user_login',
+                user_id=user.id,
+                org_id=getattr(user, 'org_id', 1),
+                ip=request.remote_addr,
+                data={
+                    'username': user.username,
+                    'role': user.role,
+                    'description': f'Successful login: {user.username}'
+                }
+            )
 
             flash('Login successful!', 'success')
 
@@ -236,6 +250,21 @@ def verify_login_security():
                 user.record_login_attempt(success=True)
                 login_user(user)
                 
+                # Log the login event to audit log
+                from models import log_admin_event
+                log_admin_event(
+                    event_type='user_login',
+                    user_id=user.id,
+                    org_id=getattr(user, 'org_id', 1),
+                    ip=request.remote_addr,
+                    data={
+                        'username': user.username,
+                        'role': user.role,
+                        'security_verified': True,
+                        'description': f'Successful login with security verification: {user.username}'
+                    }
+                )
+                
                 # Clear session
                 next_page = session.get('login_pending_next')
                 session.pop('login_pending_user_id', None)
@@ -260,6 +289,21 @@ def verify_login_security():
                 # Successful verification
                 user.record_login_attempt(success=True)
                 login_user(user)
+                
+                # Log the login event to audit log
+                from models import log_admin_event
+                log_admin_event(
+                    event_type='user_login',
+                    user_id=user.id,
+                    org_id=getattr(user, 'org_id', 1),
+                    ip=request.remote_addr,
+                    data={
+                        'username': user.username,
+                        'role': user.role,
+                        'security_verified': True,
+                        'description': f'Successful login with security verification: {user.username}'
+                    }
+                )
                 
                 # Clear session
                 next_page = session.get('login_pending_next')

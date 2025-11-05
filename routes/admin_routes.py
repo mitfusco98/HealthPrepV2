@@ -903,34 +903,42 @@ def toggle_admin_status(user_id):
 @login_required
 @admin_required
 def create_user():
-    """Create new user via AJAX"""
+    """Create new user with automated onboarding via email"""
     try:
-        username = request.form.get('username')
+        from services.email_service import send_welcome_email
+        import re
+        
         email = request.form.get('email')
-        password = request.form.get('password')
         role = request.form.get('role', 'nurse')
         is_active = request.form.get('is_active') == 'on'
 
         # Validate input
-        if not username or not email or not password:
-            flash('All fields are required', 'error')
+        if not email:
+            flash('Email is required', 'error')
             return redirect(url_for('admin.users'))
 
+        # Auto-generate username from email (part before @)
+        username = email.split('@')[0].lower()
+        # Replace common separators with dots for consistency
+        username = re.sub(r'[._-]+', '.', username)
+        
         # Get current user's organization
         org_id = getattr(current_user, 'org_id', 1)  # Default to org 1 if not set
 
-        # Check if user already exists within the same organization
-        existing_user = User.query.filter_by(username=username, org_id=org_id).first()
-        if existing_user:
-            flash('Username already exists in this organization', 'error')
-            return redirect(url_for('admin.users'))
+        # Check if username already exists - if so, append a number
+        base_username = username
+        counter = 1
+        while User.query.filter_by(username=username, org_id=org_id).first():
+            username = f"{base_username}{counter}"
+            counter += 1
 
+        # Check if email already exists within the same organization
         existing_email = User.query.filter_by(email=email, org_id=org_id).first()
         if existing_email:
             flash('Email already exists in this organization', 'error')
             return redirect(url_for('admin.users'))
 
-        # Create new user
+        # Create new user with temporary password flag
         new_user = User()
         new_user.username = username
         new_user.email = email
@@ -938,10 +946,24 @@ def create_user():
         new_user.is_admin = (role == 'admin')  # Set is_admin based on role
         new_user.is_active_user = is_active
         new_user.org_id = org_id  # Assign to current user's organization
-        new_user.set_password(password)
+        
+        # Generate a secure random temporary password
+        import secrets
+        temp_password = secrets.token_urlsafe(16)
+        new_user.set_password(temp_password)
+        new_user.is_temp_password = True  # Flag for password reset on first login
         
         db.session.add(new_user)
         db.session.commit()
+
+        # Send welcome email with password setup link
+        try:
+            send_welcome_email(new_user.email, new_user.username)
+            logger.info(f"Welcome email sent to {new_user.email}")
+        except Exception as email_error:
+            logger.error(f"Failed to send welcome email to {new_user.email}: {str(email_error)}")
+            flash(f'User created successfully, but failed to send welcome email. Please manually send password reset link.', 'warning')
+            return redirect(url_for('admin.users'))
 
         # Capture created values for logging
         created_values = {
@@ -967,7 +989,7 @@ def create_user():
             }
         )
 
-        flash(f'User {username} created successfully', 'success')
+        flash(f'User {username} created successfully! A welcome email with password setup instructions has been sent to {email}.', 'success')
         return redirect(url_for('admin.users'))
 
     except Exception as e:
@@ -990,23 +1012,16 @@ def edit_user(user_id):
             flash('Access denied', 'error')
             return redirect(url_for('admin.users'))
 
-        username = request.form.get('username')
         email = request.form.get('email')
-        password = request.form.get('password')
         role = request.form.get('role')
         is_active = request.form.get('is_active') == 'on'
 
         # Validate input
-        if not username or not email or not role:
-            flash('Username, email and role are required', 'error')
+        if not email or not role:
+            flash('Email and role are required', 'error')
             return redirect(url_for('admin.users'))
 
-        # Check for duplicate username/email within organization (excluding current user)
-        existing_user = User.query.filter_by(username=username, org_id=org_id).filter(User.id != user_id).first()
-        if existing_user:
-            flash('Username already exists in this organization', 'error')
-            return redirect(url_for('admin.users'))
-
+        # Check for duplicate email within organization (excluding current user)
         existing_email = User.query.filter_by(email=email, org_id=org_id).filter(User.id != user_id).first()
         if existing_email:
             flash('Email already exists in this organization', 'error')
@@ -1021,18 +1036,11 @@ def edit_user(user_id):
             'is_active_user': user.is_active_user
         }
 
-        # Update user
-        user.username = username
+        # Update user (username cannot be changed)
         user.email = email
         user.role = role
         user.is_admin = (role == 'admin')
         user.is_active_user = is_active
-        
-        # Update password if provided
-        password_changed = False
-        if password:
-            user.set_password(password)
-            password_changed = True
         
         # Capture after values for logging
         after_values = {
@@ -1040,8 +1048,7 @@ def edit_user(user_id):
             'email': user.email,
             'role': user.role,
             'is_admin': user.is_admin,
-            'is_active_user': user.is_active_user,
-            'password_changed': password_changed
+            'is_active_user': user.is_active_user
         }
         
         db.session.commit()

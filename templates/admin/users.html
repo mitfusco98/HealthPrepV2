@@ -159,21 +159,18 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST" action="{{ url_for('admin.create_user') }}" id="addUserForm">
+                <div class="modal-body">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                    <div class="mb-3">
-                        <label for="addUsername" class="form-label">Username <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="addUsername" name="username" required>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Automated Onboarding:</strong> Enter the user's work email. We'll auto-generate their username and send a welcome email with instructions to set their password.
                     </div>
 
                     <div class="mb-3">
-                        <label for="addEmail" class="form-label">Email <span class="text-danger">*</span></label>
-                        <input type="email" class="form-control" id="addEmail" name="email" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="addPassword" class="form-label">Password <span class="text-danger">*</span></label>
-                        <input type="password" class="form-control" id="addPassword" name="password" required minlength="6">
-                        <div class="form-text">Minimum 6 characters</div>
+                        <label for="addEmail" class="form-label">Work Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="addEmail" name="email" required placeholder="user@example.com">
+                        <div class="form-text">Username will be auto-generated from email (e.g., john.smith@clinic.com → john.smith)</div>
                     </div>
 
                     <div class="mb-3">
@@ -191,6 +188,7 @@
                             Active User
                         </label>
                     </div>
+                </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-primary">
@@ -221,18 +219,13 @@
 
                     <div class="mb-3">
                         <label for="editUsername" class="form-label">Username</label>
-                        <input type="text" class="form-control" id="editUsername" name="username" required>
+                        <input type="text" class="form-control" id="editUsername" name="username" readonly disabled>
+                        <div class="form-text">Username cannot be changed</div>
                     </div>
 
                     <div class="mb-3">
                         <label for="editEmail" class="form-label">Email</label>
                         <input type="email" class="form-control" id="editEmail" name="email" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="editPassword" class="form-label">Password (leave blank to keep current)</label>
-                        <input type="password" class="form-control" id="editPassword" name="password">
-                        <small class="form-text text-muted">Only enter a password if you want to change it</small>
                     </div>
 
                     <div class="mb-3">
@@ -249,6 +242,11 @@
                         <label class="form-check-label" for="editIsActive">
                             Active User
                         </label>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Password Reset:</strong> To reset this user's password, use the "Send Password Reset Email" button below.
                     </div>
                 </div>
                 <div class="modal-footer">
