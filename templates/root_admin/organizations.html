@@ -132,7 +132,11 @@
                                                 <i class="fas fa-edit"></i>
                                             </a>
                                             <button type="button" class="btn btn-outline-danger" 
-                                                    onclick="showDeleteModal({{ org.id }}, '{{ org.name }}', {{ org.user_count }})" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#deleteModal"
+                                                    data-org-id="{{ org.id }}"
+                                                    data-org-name="{{ org.name }}"
+                                                    data-user-count="{{ org.user_count }}"
                                                     title="Delete">
                                                 <i class="fas fa-trash"></i>
                                             </button>
@@ -230,17 +234,36 @@
 <script>
 let deleteOrgId = null;
 
-function showDeleteModal(orgId, orgName, userCount) {
-    deleteOrgId = orgId;
-    document.getElementById('deleteOrgName').textContent = orgName;
-    document.getElementById('deleteUserCount').textContent = userCount;
+// Listen for modal show event to populate data
+document.addEventListener('DOMContentLoaded', function() {
+    const deleteModal = document.getElementById('deleteModal');
     
-    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
-    modal.show();
-}
+    if (deleteModal) {
+        deleteModal.addEventListener('show.bs.modal', function (event) {
+            // Button that triggered the modal
+            const button = event.relatedTarget;
+            
+            // Extract info from data-* attributes
+            deleteOrgId = button.getAttribute('data-org-id');
+            const orgName = button.getAttribute('data-org-name');
+            const userCount = button.getAttribute('data-user-count');
+            
+            // Update modal content
+            document.getElementById('deleteOrgName').textContent = orgName;
+            document.getElementById('deleteUserCount').textContent = userCount;
+            
+            console.log('Delete modal opened for org:', deleteOrgId, orgName);
+        });
+    }
+});
 
 function confirmDelete() {
-    if (!deleteOrgId) return;
+    if (!deleteOrgId) {
+        console.error('No organization ID set for deletion');
+        return;
+    }
+    
+    console.log('Attempting to delete organization:', deleteOrgId);
     
     const confirmBtn = document.getElementById('confirmDeleteBtn');
     confirmBtn.disabled = true;
@@ -250,14 +273,16 @@ function confirmDelete() {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token() }}'
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
         }
     })
     .then(response => response.json())
     .then(data => {
+        console.log('Delete response:', data);
         if (data.success) {
             // Close modal and reload page
-            bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+            const modalInstance = bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
+            if (modalInstance) modalInstance.hide();
             location.reload();
         } else {
             alert('Error: ' + data.error);
@@ -266,6 +291,7 @@ function confirmDelete() {
         }
     })
     .catch(error => {
+        console.error('Delete error:', error);
         alert('Error deleting organization');
         confirmBtn.disabled = false;
         confirmBtn.innerHTML = '<i class="fas fa-trash me-1"></i>Delete Organization';
