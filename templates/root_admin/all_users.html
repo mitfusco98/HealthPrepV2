@@ -85,6 +85,13 @@
                         <td>
                             <div class="btn-group btn-group-sm">
                                 {% if not user.is_root_admin_user() %}
+                                {% if user.is_admin_user() %}
+                                <button type="button" class="btn btn-outline-info" 
+                                        onclick="resetSecurityQuestions({{ user.id }}, '{{ user.username }}')" 
+                                        title="Reset Security Questions">
+                                    <i class="fas fa-key"></i>
+                                </button>
+                                {% endif %}
                                 <button type="button" class="btn btn-outline-warning" 
                                         onclick="toggleUserStatus({{ user.id }}, '{{ user.username }}', {{ 'true' if user.is_active_user else 'false' }})" 
                                         title="{{ 'Deactivate' if user.is_active_user else 'Activate' }}">
@@ -248,6 +255,30 @@ function deleteUser(userId, username) {
         })
         .catch(error => {
             alert('Error deleting user');
+        });
+    }
+}
+
+function resetSecurityQuestions(userId, username) {
+    if (confirm(`Reset security questions for admin user "${username}"?\n\nThey will be required to set new security questions on their next login.`)) {
+        fetch(`/root-admin/users/${userId}/reset-security-questions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error resetting security questions');
         });
     }
 }
