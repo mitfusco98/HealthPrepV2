@@ -5,7 +5,7 @@ Handles approval/rejection of new organization signups
 import logging
 from flask import Blueprint, request, flash, redirect, url_for, jsonify
 from flask_login import login_required, current_user
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from models import User, Organization, db, log_admin_event
 from services.email_service import EmailService
@@ -40,11 +40,15 @@ def approve_organization(org_id):
             flash(f'{org.name} is already approved.', 'info')
             return redirect(url_for('root_admin.dashboard'))
         
-        # Update organization status
+        # Update organization status and start trial
         org.onboarding_status = 'approved'
         org.setup_status = 'trial'  # Activate trial (is_active @property will return True)
         org.approved_at = datetime.utcnow()
         org.approved_by = current_user.id
+        
+        # Set trial dates - trial starts NOW (on approval), not at signup
+        org.trial_start_date = datetime.utcnow()
+        org.trial_expires = datetime.utcnow() + timedelta(days=14)
         
         # Activate all users in this organization
         org_users = User.query.filter_by(org_id=org_id).all()

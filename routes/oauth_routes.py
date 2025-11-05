@@ -26,6 +26,26 @@ def require_admin(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def require_approved_organization(f):
+    """Decorator to require organization approval before Epic integration access"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            abort(401)
+        
+        org = current_user.organization
+        if not org:
+            flash('No organization found for your account.', 'error')
+            return redirect(url_for('index'))
+        
+        # Check if organization is pending approval
+        if org.onboarding_status == 'pending_approval':
+            flash('Epic FHIR integration is not available until your organization is approved by our team. You will receive an email notification when your trial begins.', 'warning')
+            return redirect(url_for('admin.dashboard'))
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
 oauth_bp = Blueprint('oauth', __name__)
 logger = logging.getLogger(__name__)
 
@@ -33,6 +53,7 @@ logger = logging.getLogger(__name__)
 @oauth_bp.route('/epic-authorize-debug')
 @login_required
 @require_admin
+@require_approved_organization
 def epic_authorize_debug():
     """
     Debug endpoint to show Epic authorization URL without redirecting
@@ -87,6 +108,7 @@ def epic_authorize_debug():
 @oauth_bp.route('/epic-oauth-debug')
 @login_required
 @require_admin
+@require_approved_organization
 def epic_oauth_debug():
     """
     Debug Epic OAuth parameters without redirecting
@@ -247,6 +269,7 @@ def smart_launch():
 @oauth_bp.route('/epic-authorize')
 @login_required
 @require_admin
+@require_approved_organization
 def epic_authorize():
     """
     Start Epic OAuth2 authorization flow
@@ -515,6 +538,7 @@ def epic_callback():
 @oauth_bp.route('/epic-disconnect', methods=['POST'])
 @login_required
 @require_admin
+@require_approved_organization
 def epic_disconnect():
     """
     Disconnect Epic OAuth2 session
@@ -578,6 +602,7 @@ def epic_clear_sessions():
 @oauth_bp.route('/check-epic-credentials')
 @login_required
 @require_admin
+@require_approved_organization
 def check_epic_credentials():
     """
     Check if organization has Epic credentials configured (for UI validation)
@@ -622,6 +647,7 @@ def check_epic_credentials():
 @oauth_bp.route('/epic-status')
 @login_required
 @require_admin
+@require_approved_organization
 def epic_status():
     """
     Check Epic OAuth2 connection status

@@ -447,95 +447,40 @@ def view_preset_details(preset_id):
 @login_required
 @root_admin_required
 def organizations():
-    """List all organizations"""
+    """List all organizations with filtering and pagination"""
     try:
-        organizations = Organization.query.order_by(Organization.created_at.desc()).all()
-        return render_template('root_admin/organizations.html', organizations=organizations)
+        # Get filter parameter
+        status_filter = request.args.get('status', 'all')
+        page = request.args.get('page', 1, type=int)
+        per_page = 20
+        
+        # Build query based on filter
+        query = Organization.query
+        
+        if status_filter == 'pending':
+            query = query.filter(Organization.onboarding_status == 'pending_approval')
+        elif status_filter == 'trial':
+            query = query.filter(Organization.setup_status == 'trial')
+        elif status_filter == 'active':
+            query = query.filter(Organization.setup_status == 'live')
+        elif status_filter == 'suspended':
+            query = query.filter(Organization.setup_status == 'suspended')
+        
+        # Paginate results
+        pagination = query.order_by(Organization.created_at.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+        
+        return render_template('root_admin/organizations.html', 
+                             organizations=pagination.items,
+                             pagination=pagination,
+                             status_filter=status_filter)
     except Exception as e:
         logger.error(f"Error loading organizations: {str(e)}")
         flash('Error loading organizations', 'error')
         return render_template('error/500.html'), 500
 
-@root_admin_bp.route('/organizations/create', methods=['GET', 'POST'])
-@login_required
-@root_admin_required
-def create_organization():
-    """Create new organization"""
-    if request.method == 'POST':
-        try:
-            name = request.form.get('name')
-            display_name = request.form.get('display_name')
-            contact_email = request.form.get('contact_email')
-            address = request.form.get('address')
-            phone = request.form.get('phone')
-            max_users = request.form.get('max_users', 10, type=int)
-
-            # Admin user details
-            admin_username = request.form.get('admin_username')
-            admin_email = request.form.get('admin_email')
-            admin_password = request.form.get('admin_password')
-
-            # Validate input
-            if not name or not admin_username or not admin_email or not admin_password:
-                flash('Organization name and admin details are required', 'error')
-                return render_template('root_admin/create_organization.html')
-
-            # Check if organization name already exists
-            existing_org = Organization.query.filter_by(name=name).first()
-            if existing_org:
-                flash('Organization name already exists', 'error')
-                return render_template('root_admin/create_organization.html')
-
-            # Create organization
-            org = Organization(
-                name=name,
-                display_name=display_name or name,
-                contact_email=contact_email,
-                address=address,
-                phone=phone,
-                max_users=max_users,
-                setup_status='incomplete'
-            )
-            db.session.add(org)
-            db.session.flush()  # Get the org.id
-
-            # Create admin user for the organization
-            admin_user = User(
-                username=admin_username,
-                email=admin_email,
-                role='admin',
-                is_admin=True,
-                org_id=org.id,
-                created_by=current_user.id
-            )
-            admin_user.set_password(admin_password)
-            db.session.add(admin_user)
-
-            db.session.commit()
-
-            # Log the action
-            log_admin_event(
-                event_type='create_organization',
-                user_id=current_user.id,
-                org_id=org.id,
-                ip=flask_request.remote_addr,
-                data={
-                    'organization_name': name,
-                    'admin_username': admin_username,
-                    'description': f'Created organization: {name} with admin: {admin_username}'
-                }
-            )
-
-            flash(f'Organization "{name}" created successfully with admin user "{admin_username}"', 'success')
-            return redirect(url_for('root_admin.organizations'))
-
-        except Exception as e:
-            db.session.rollback()
-            logger.error(f"Error creating organization: {str(e)}")
-            flash('Error creating organization', 'error')
-            return redirect(url_for('root_admin.organizations'))
-
-    return render_template('root_admin/create_organization.html')
+# DEPRECATED: /organizations/create route removed - use self-service signup flow instead
 
 @root_admin_bp.route('/organizations/<int:org_id>')
 @login_required
@@ -627,40 +572,42 @@ def edit_organization(org_id):
 @login_required
 @root_admin_required
 def delete_organization(org_id):
-    """Delete organization (with safety checks)"""
+    """Delete organization with cascade deletion of users"""
     try:
         org = Organization.query.get_or_404(org_id)
-
-        # Safety check - don't delete if has users
-        user_count = User.query.filter_by(org_id=org_id).count()
-        if user_count > 0:
-            return jsonify({
-                'success': False, 
-                'error': f'Cannot delete organization with {user_count} users. Remove users first.'
-            }), 400
-
         org_name = org.name
-
+        
+        # Get user count for logging
+        org_users = User.query.filter_by(org_id=org_id).all()
+        user_count = len(org_users)
+        
+        # Delete all users in this organization first
+        for user in org_users:
+            db.session.delete(user)
+        
         # Log before deletion
         log_admin_event(
             event_type='delete_organization',
             user_id=current_user.id,
-            org_id=org_id,
+            org_id=(current_user.org_id or 1),  # Use rootadmin's org for logging
             ip=flask_request.remote_addr,
             data={
                 'organization_name': org_name,
-                'description': f'Deleted organization: {org_name}'
+                'organization_id': org_id,
+                'users_deleted': user_count,
+                'description': f'Deleted organization: {org_name} ({user_count} users cascade deleted)'
             }
         )
-
+        
+        # Delete organization
         db.session.delete(org)
         db.session.commit()
-
+        
         return jsonify({
             'success': True, 
-            'message': f'Organization "{org_name}" deleted successfully'
+            'message': f'Organization "{org_name}" and {user_count} associated user(s) deleted successfully'
         })
-
+    
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error deleting organization {org_id}: {str(e)}")
@@ -688,14 +635,21 @@ def organization_users(org_id):
 @login_required
 @root_admin_required
 def all_users():
-    """View all users across all organizations"""
+    """View all users across all organizations with pagination"""
     try:
-        # Get users with organization info
-        users = db.session.query(User, Organization).join(
+        page = request.args.get('page', 1, type=int)
+        per_page = 50
+        
+        # Get users with organization info and paginate
+        pagination = db.session.query(User, Organization).join(
             Organization, User.org_id == Organization.id
-        ).order_by(Organization.name, User.username).all()
+        ).order_by(Organization.name, User.username).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
 
-        return render_template('root_admin/all_users.html', users=users)
+        return render_template('root_admin/all_users.html', 
+                             users=pagination.items,
+                             pagination=pagination)
 
     except Exception as e:
         logger.error(f"Error loading all users: {str(e)}")
@@ -819,65 +773,7 @@ def create_user():
         flash('Error creating user', 'error')
         return redirect(url_for('root_admin.all_users'))
 
-@root_admin_bp.route('/users/<int:user_id>/edit', methods=['GET', 'POST'])
-@login_required
-@root_admin_required
-def edit_user(user_id):
-    """Edit user details"""
-    try:
-        user = User.query.get_or_404(user_id)
-
-        if request.method == 'POST':
-            # Update user details
-            user.email = request.form.get('email')
-            user.role = request.form.get('role')
-            user.is_active_user = request.form.get('is_active') == 'on'
-
-            # Handle organization change
-            new_org_id = request.form.get('org_id', type=int)
-            if new_org_id != user.org_id:
-                new_org = Organization.query.get_or_404(new_org_id)
-                current_user_count = User.query.filter_by(org_id=new_org_id).count()
-                if current_user_count >= new_org.max_users:
-                    flash(f'Target organization "{new_org.name}" has reached its user limit ({new_org.max_users})', 'error')
-                    return render_template('root_admin/edit_user.html', 
-                                         user=user, 
-                                         organizations=Organization.query.order_by(Organization.name).all())
-                user.org_id = new_org_id
-
-            # Handle password change
-            new_password = request.form.get('new_password')
-            if new_password:
-                user.set_password(new_password)
-
-            db.session.commit()
-
-            # Log the action
-            log_admin_event(
-                event_type='edit_user',
-                user_id=current_user.id,
-                org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
-                ip=flask_request.remote_addr,
-                data={
-                    'target_user_id': user.id,
-                    'target_username': user.username,
-                    'target_org_id': user.org_id,
-                    'description': f'Updated user {user.username}'
-                }
-            )
-
-            flash(f'User "{user.username}" updated successfully', 'success')
-            return redirect(url_for('root_admin.all_users'))
-
-        # GET request - show edit form
-        organizations = Organization.query.order_by(Organization.name).all()
-        return render_template('root_admin/edit_user.html', user=user, organizations=organizations)
-
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error editing user {user_id}: {str(e)}")
-        flash('Error updating user', 'error')
-        return redirect(url_for('root_admin.all_users'))
+# DEPRECATED: /users/<id>/edit route removed - users managed through organization admin dashboard
 
 @root_admin_bp.route('/users/<int:user_id>/delete', methods=['POST'])
 @login_required

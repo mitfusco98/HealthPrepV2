@@ -23,6 +23,28 @@ sync_manager = EMRSyncManager()
 change_listener = EMRChangeListener()
 logger = logging.getLogger(__name__)
 
+def require_approved_organization(f):
+    """Decorator to require organization approval before Epic/EMR integration access"""
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            from flask import abort
+            abort(401)
+        
+        org = current_user.organization
+        if not org:
+            flash('No organization found for your account.', 'error')
+            return redirect(url_for('index'))
+        
+        # Check if organization is pending approval
+        if org.onboarding_status == 'pending_approval':
+            flash('Epic FHIR integration is not available until your organization is approved by our team. You will receive an email notification when your trial begins.', 'warning')
+            return redirect(url_for('admin.dashboard' if current_user.role == 'admin' else 'ui.dashboard'))
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
 @emr_sync_bp.route('/dashboard')
 @login_required
 @non_admin_required
@@ -42,7 +64,8 @@ def emr_dashboard():
 
 @emr_sync_bp.route('/sync', methods=['POST'])
 @login_required
-@non_admin_required  
+@non_admin_required
+@require_approved_organization
 def sync_emr_data():
     """EMR sync for dashboard - pulls NEW documents and processes them"""
     try:

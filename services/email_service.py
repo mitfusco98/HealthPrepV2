@@ -164,6 +164,64 @@ class EmailService:
         return EmailService._send_email(email, subject, html_body)
     
     @staticmethod
+    def send_admin_welcome_email(email: str, username: str, org_name: str, password_setup_url: str) -> bool:
+        """
+        Send welcome email to new organization admin with password setup link
+        
+        Args:
+            email: Recipient email address
+            username: User's username
+            org_name: Organization name
+            password_setup_url: URL to set up password
+            
+        Returns:
+            True if sent successfully, False otherwise
+        """
+        subject = f"Welcome to HealthPrep - Set Up Your Account"
+        
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+            <h2>Welcome to HealthPrep!</h2>
+            <p>Thank you for signing up with HealthPrep for <strong>{org_name}</strong>!</p>
+            
+            <h3>Set Up Your Account:</h3>
+            <p>Your account has been created with username: <strong>{username}</strong></p>
+            <p>Click the button below to set up your password and security questions:</p>
+            
+            <p><a href="{password_setup_url}" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Set Up Password</a></p>
+            
+            <p><small>This link will expire in 48 hours.</small></p>
+            
+            <h3>What's Next?</h3>
+            <p>While your organization is being reviewed by our team, you can:</p>
+            <ul>
+                <li>Complete your account setup (password & security questions)</li>
+                <li>Add team members to your organization</li>
+                <li>Configure screening types and prep sheet settings</li>
+                <li>Review Epic FHIR integration documentation</li>
+            </ul>
+            
+            <p><strong>Note:</strong> Epic FHIR integration will be enabled once your organization is approved by our team. You'll receive an email notification when your 14-day trial begins.</p>
+            
+            <h3>Your Subscription:</h3>
+            <ul>
+                <li><strong>14-day free trial</strong> (starts upon approval)</li>
+                <li><strong>$100/month</strong> after trial - unlimited patients, documents, and users</li>
+                <li>Full Epic FHIR integration for seamless EMR sync</li>
+                <li>Cancel anytime with no long-term commitment</li>
+            </ul>
+            
+            <p>If you have any questions, please don't hesitate to contact our support team.</p>
+            
+            <p>Best regards,<br>The HealthPrep Team</p>
+        </body>
+        </html>
+        """
+        
+        return EmailService._send_email(email, subject, html_body)
+    
+    @staticmethod
     def send_trial_reminder_email(email: str, org_name: str, days_remaining: int) -> bool:
         """
         Send trial expiration reminder
@@ -313,24 +371,25 @@ class EmailService:
             <h2>Welcome to HealthPrep!</h2>
             <p>Great news, {username}!</p>
             
-            <p>Your organization <strong>{org_name}</strong> has been approved and is now active.</p>
+            <p>Your organization <strong>{org_name}</strong> has been approved and your <strong>14-day free trial has begun</strong>!</p>
             
-            <h3>You can now:</h3>
+            <h3>Your Trial is Now Active:</h3>
             <ul>
-                <li>Log in to your account</li>
-                <li>Configure your Epic FHIR integration</li>
-                <li>Add additional users to your organization</li>
-                <li>Start processing patient screenings</li>
+                <li><strong>Full access</strong> to all HealthPrep features for 14 days</li>
+                <li><strong>Unlimited</strong> patients, documents, and users</li>
+                <li><strong>Epic FHIR integration</strong> now enabled</li>
+                <li><strong>No charge</strong> during your trial period</li>
             </ul>
             
-            <p>Your 14-day free trial is still active with full access to all features.</p>
-            
-            <h3>Next Steps:</h3>
+            <h3>Get Started:</h3>
             <ol>
                 <li>Log in to HealthPrep</li>
-                <li>Complete Epic OAuth setup in the admin panel</li>
-                <li>Upload or sync your first patient data</li>
+                <li>Complete Epic OAuth setup to connect your EMR</li>
+                <li>Sync your first patient data</li>
+                <li>Generate automated screening prep sheets</li>
             </ol>
+            
+            <p>After your 14-day trial, your subscription will continue at $100/month (flat rate, no hidden fees). You can cancel anytime.</p>
             
             <p>If you have any questions, please don't hesitate to contact our support team.</p>
             

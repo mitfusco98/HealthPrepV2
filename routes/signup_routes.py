@@ -75,6 +75,7 @@ def signup_submit():
             return redirect(url_for('signup.signup_form'))
         
         # Create organization (pending approval)
+        # Trial dates will be set when root admin approves the organization
         org = Organization(
             name=org_name,
             display_name=org_name,
@@ -88,10 +89,8 @@ def signup_submit():
             epic_client_secret=epic_client_secret,  # Will be encrypted by model
             epic_fhir_url=epic_fhir_url,
             epic_environment='sandbox',
-            setup_status='incomplete',  # Will be changed to 'trial' after Stripe checkout
-            onboarding_status='pending_approval',  # Root admin must approve
-            trial_start_date=datetime.utcnow(),
-            trial_expires=datetime.utcnow() + timedelta(days=14),
+            setup_status='incomplete',  # Will be 'trial' after approval by root admin
+            onboarding_status='pending_approval',  # Root admin must approve to start trial
             max_users=10
         )
         
@@ -102,25 +101,33 @@ def signup_submit():
         username = generate_username_from_email(contact_email)
         temp_password = generate_temp_password()
         
-        # Create admin user
+        # Create admin user - active immediately so they can set up while pending approval
         admin_user = User(
             username=username,
             email=contact_email,
             role='admin',
             is_admin=True,
             org_id=org.id,
-            is_temp_password=True,  # Force password change on first login
-            is_active_user=False,  # Will be activated when org is approved
+            is_temp_password=True,  # Will use password reset flow to set real password
+            is_active_user=True,  # Active immediately - can login and configure while pending
             email_verified=False
         )
-        admin_user.set_password(temp_password)
+        # No password set - user will set via password reset link in welcome email
         
         db.session.add(admin_user)
+        db.session.flush()  # Get user ID for password reset token
+        
+        # Generate password reset token for welcome email
+        import secrets as sec
+        reset_token = sec.token_urlsafe(32)
+        admin_user.password_reset_token = reset_token
+        admin_user.password_reset_expires = datetime.utcnow() + timedelta(hours=48)  # 48-hour window
+        
         db.session.commit()
         
-        # Store temp password and org info in session for Stripe checkout
+        # Store org info in session for Stripe checkout
         session['signup_org_id'] = org.id
-        session['signup_temp_password'] = temp_password
+        session['signup_reset_token'] = reset_token
         session['signup_username'] = username
         session['signup_email'] = contact_email
         session['signup_org_name'] = org_name
@@ -165,41 +172,44 @@ def signup_success():
     """Handle successful Stripe checkout"""
     try:
         org_id = session.get('signup_org_id')
-        temp_password = session.get('signup_temp_password')
+        reset_token = session.get('signup_reset_token')
         username = session.get('signup_username')
         email = session.get('signup_email')
         org_name = session.get('signup_org_name')
         
-        if not all([org_id, temp_password, username, email]):
+        if not all([org_id, reset_token, username, email]):
             flash('Invalid signup session. Please try again.', 'error')
             return redirect(url_for('signup.signup_form'))
         
-        # Update organization status
+        # Update organization status - payment confirmed, pending approval
         org = Organization.query.get(org_id)
         if org:
-            org.setup_status = 'trial'
-            org.subscription_status = 'trialing'
+            org.subscription_status = 'trialing'  # Stripe subscription active
+            # setup_status stays 'incomplete' until approval
             db.session.commit()
             
-            # Send welcome email
-            EmailService.send_welcome_email(
+            # Send welcome email with password setup link
+            from flask import url_for as flask_url_for
+            password_setup_url = flask_url_for('password_reset.reset_password', token=reset_token, _external=True)
+            
+            EmailService.send_admin_welcome_email(
                 email=email,
                 username=username,
-                temp_password=temp_password,
-                org_name=org_name
+                org_name=org_name,
+                password_setup_url=password_setup_url
             )
             
             logger.info(f"Signup completed for organization: {org_name} (ID: {org_id})")
         
         # Clear session data
         session.pop('signup_org_id', None)
-        session.pop('signup_temp_password', None)
+        session.pop('signup_reset_token', None)
         session.pop('signup_username', None)
         session.pop('signup_email', None)
         session.pop('signup_org_name', None)
         
-        flash('Thank you for signing up! Check your email for login credentials.', 'success')
-        flash('Your organization is pending approval by our admin team. You will receive an email when approved.', 'info')
+        flash('Thank you for signing up! Check your email to set up your password.', 'success')
+        flash('You can log in and configure your organization while awaiting approval. Epic integration will be enabled once approved.', 'info')
         
         return render_template('signup/signup_success.html', 
                              org_name=org_name,

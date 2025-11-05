@@ -9,10 +9,45 @@
             <h1>
                 <i class="fas fa-building text-danger me-2"></i>Organizations
             </h1>
-            <a href="{{ url_for('root_admin.create_organization') }}" class="btn btn-danger">
-                <i class="fas fa-plus me-1"></i>Create Organization
-            </a>
         </div>
+    </div>
+</div>
+
+<!-- Status Filter Tabs -->
+<div class="row mb-3">
+    <div class="col-12">
+        <ul class="nav nav-tabs">
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'all' %}active{% endif %}" 
+                   href="{{ url_for('root_admin.organizations', status='all') }}">
+                    <i class="fas fa-list me-1"></i> All Organizations
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'pending' %}active{% endif %}" 
+                   href="{{ url_for('root_admin.organizations', status='pending') }}">
+                    <i class="fas fa-clock me-1"></i> Pending Approval
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'trial' %}active{% endif %}" 
+                   href="{{ url_for('root_admin.organizations', status='trial') }}">
+                    <i class="fas fa-hourglass-half me-1"></i> Trial
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'active' %}active{% endif %}" 
+                   href="{{ url_for('root_admin.organizations', status='active') }}">
+                    <i class="fas fa-check-circle me-1"></i> Active
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'suspended' %}active{% endif %}" 
+                   href="{{ url_for('root_admin.organizations', status='suspended') }}">
+                    <i class="fas fa-ban me-1"></i> Suspended
+                </a>
+            </li>
+        </ul>
     </div>
 </div>
 
@@ -27,9 +62,10 @@
                                 <tr>
                                     <th>Organization</th>
                                     <th>Contact</th>
+                                    <th>Onboarding</th>
                                     <th>Status</th>
                                     <th>Users</th>
-                                    <th>Epic Config</th>
+                                    <th>Epic</th>
                                     <th>Created</th>
                                     <th>Actions</th>
                                 </tr>
@@ -40,24 +76,33 @@
                                     <td>
                                         <div>
                                             <strong>{{ org.display_name or org.name }}</strong>
-                                            {% if org.display_name and org.display_name != org.name %}
-                                                <br><small class="text-muted">{{ org.name }}</small>
+                                            {% if org.site %}
+                                                <br><small class="text-muted"><i class="fas fa-map-marker-alt"></i> {{ org.site }}</small>
                                             {% endif %}
                                         </div>
                                     </td>
                                     <td>
                                         {% if org.contact_email %}
-                                            <div>{{ org.contact_email }}</div>
+                                            <div><i class="fas fa-envelope"></i> {{ org.contact_email }}</div>
                                         {% endif %}
                                         {% if org.phone %}
-                                            <small class="text-muted">{{ org.phone }}</small>
+                                            <small class="text-muted"><i class="fas fa-phone"></i> {{ org.phone }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if org.onboarding_status == 'pending_approval' %}
+                                            <span class="badge bg-warning text-dark">Pending</span>
+                                        {% elif org.onboarding_status == 'approved' %}
+                                            <span class="badge bg-success">Approved</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ org.onboarding_status }}</span>
                                         {% endif %}
                                     </td>
                                     <td>
                                         {% if org.setup_status == 'live' %}
-                                            <span class="badge bg-success">Live</span>
+                                            <span class="badge bg-success">Active</span>
                                         {% elif org.setup_status == 'trial' %}
-                                            <span class="badge bg-warning">Trial</span>
+                                            <span class="badge bg-info">Trial</span>
                                         {% elif org.setup_status == 'incomplete' %}
                                             <span class="badge bg-secondary">Setup</span>
                                         {% else %}
@@ -70,16 +115,12 @@
                                     </td>
                                     <td>
                                         {% if org.epic_client_id %}
-                                            <span class="badge bg-success">
-                                                <i class="fas fa-check"></i> Configured
-                                            </span>
+                                            <span class="badge bg-success"><i class="fas fa-check"></i></span>
                                         {% else %}
-                                            <span class="badge bg-secondary">
-                                                <i class="fas fa-times"></i> Not Set
-                                            </span>
+                                            <span class="badge bg-secondary"><i class="fas fa-times"></i></span>
                                         {% endif %}
                                     </td>
-                                    <td>{{ org.created_at.strftime('%Y-%m-%d') }}</td>
+                                    <td><small>{{ org.created_at.strftime('%Y-%m-%d') }}</small></td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
                                             <a href="{{ url_for('root_admin.view_organization', org_id=org.id) }}" 
@@ -91,7 +132,7 @@
                                                 <i class="fas fa-edit"></i>
                                             </a>
                                             <button type="button" class="btn btn-outline-danger" 
-                                                    onclick="deleteOrganization({{ org.id }}, '{{ org.name }}')" 
+                                                    onclick="showDeleteModal({{ org.id }}, '{{ org.name }}', {{ org.user_count }})" 
                                                     title="Delete">
                                                 <i class="fas fa-trash"></i>
                                             </button>
@@ -102,16 +143,83 @@
                             </tbody>
                         </table>
                     </div>
+                    
+                    <!-- Pagination -->
+                    {% if pagination.pages > 1 %}
+                    <nav aria-label="Organizations pagination">
+                        <ul class="pagination justify-content-center">
+                            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('root_admin.organizations', status=status_filter, page=pagination.prev_num) if pagination.has_prev else '#' }}">
+                                    <i class="fas fa-chevron-left"></i> Previous
+                                </a>
+                            </li>
+                            
+                            {% for page_num in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+                                {% if page_num %}
+                                    <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                                        <a class="page-link" href="{{ url_for('root_admin.organizations', status=status_filter, page=page_num) }}">{{ page_num }}</a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                                <a class="page-link" href="{{ url_for('root_admin.organizations', status=status_filter, page=pagination.next_num) if pagination.has_next else '#' }}">
+                                    Next <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                    <div class="text-center text-muted">
+                        <small>Showing {{ pagination.total }} organization(s) (Page {{ pagination.page }} of {{ pagination.pages }})</small>
+                    </div>
+                    {% endif %}
                 {% else %}
                     <div class="text-center py-5">
                         <i class="fas fa-building fa-4x text-muted mb-3"></i>
-                        <h4 class="text-muted">No Organizations</h4>
-                        <p class="text-muted">Get started by creating your first organization</p>
-                        <a href="{{ url_for('root_admin.create_organization') }}" class="btn btn-danger">
-                            <i class="fas fa-plus me-1"></i>Create First Organization
-                        </a>
+                        <h4 class="text-muted">No Organizations Found</h4>
+                        <p class="text-muted">
+                            {% if status_filter != 'all' %}
+                                No organizations with this status. Try a different filter.
+                            {% else %}
+                                Organizations will appear here after signup.
+                            {% endif %}
+                        </p>
                     </div>
                 {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Confirm Deletion
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Are you sure you want to delete organization <strong id="deleteOrgName"></strong>?</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    <strong>Warning:</strong> This will permanently delete:
+                    <ul class="mb-0 mt-2">
+                        <li><strong id="deleteUserCount"></strong> associated user account(s)</li>
+                        <li>All organization data and settings</li>
+                    </ul>
+                </div>
+                <p class="text-danger mb-0"><strong>This action cannot be undone!</strong></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn" onclick="confirmDelete()">
+                    <i class="fas fa-trash me-1"></i>Delete Organization
+                </button>
             </div>
         </div>
     </div>
@@ -120,28 +228,48 @@
 
 {% block scripts %}
 <script>
-function deleteOrganization(orgId, orgName) {
-    if (confirm(`Are you sure you want to delete organization "${orgName}"?\n\nThis action cannot be undone.`)) {
-        fetch(`/root-admin/organizations/${orgId}/delete`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token() }}'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert(data.message);
-                location.reload();
-            } else {
-                alert('Error: ' + data.error);
-            }
-        })
-        .catch(error => {
-            alert('Error deleting organization');
-        });
-    }
+let deleteOrgId = null;
+
+function showDeleteModal(orgId, orgName, userCount) {
+    deleteOrgId = orgId;
+    document.getElementById('deleteOrgName').textContent = orgName;
+    document.getElementById('deleteUserCount').textContent = userCount;
+    
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
+
+function confirmDelete() {
+    if (!deleteOrgId) return;
+    
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Deleting...';
+    
+    fetch(`/root-admin/organizations/${deleteOrgId}/delete`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Close modal and reload page
+            bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="fas fa-trash me-1"></i>Delete Organization';
+        }
+    })
+    .catch(error => {
+        alert('Error deleting organization');
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = '<i class="fas fa-trash me-1"></i>Delete Organization';
+    });
 }
 </script>
 {% endblock %}
