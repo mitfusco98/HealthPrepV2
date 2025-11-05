@@ -553,6 +553,26 @@ class User(UserMixin, db.Model):
             'nurse': 'Nurse'
         }
         return role_names.get(self.role, self.role.title())
+    
+    @property
+    def user_status(self):
+        """Get user onboarding/activation status"""
+        if not self.is_active_user:
+            return 'inactive'
+        elif self.is_temp_password:
+            return 'pending'
+        else:
+            return 'active'
+    
+    @property
+    def status_display(self):
+        """Get display name for user status"""
+        status_names = {
+            'pending': 'Pending Setup',
+            'active': 'Active',
+            'inactive': 'Inactive'
+        }
+        return status_names.get(self.user_status, 'Unknown')
 
     def __repr__(self):
         return f'<User {self.username}>'
