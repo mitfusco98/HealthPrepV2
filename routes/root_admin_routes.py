@@ -894,6 +894,53 @@ def delete_user_route(user_id):
     """Delete user route - calls the existing delete_user function"""
     return delete_user(user_id)
 
+@root_admin_bp.route('/users/<int:user_id>/reset-security-questions', methods=['POST'])
+@login_required
+@root_admin_required
+def reset_security_questions(user_id):
+    """Reset security questions for a user (admin users only)"""
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        # Only allow resetting for admin users
+        if not user.is_admin_user():
+            return jsonify({
+                'success': False,
+                'error': 'Security questions can only be reset for administrator users'
+            }), 400
+        
+        # Clear security question hashes
+        user.security_answer_1_hash = None
+        user.security_answer_2_hash = None
+        
+        db.session.commit()
+        
+        # Log the action
+        log_admin_event(
+            event_type='reset_security_questions',
+            user_id=current_user.id,
+            org_id=(current_user.org_id or 1),
+            ip=flask_request.remote_addr,
+            data={
+                'target_user_id': user.id,
+                'target_username': user.username,
+                'target_org_id': user.org_id,
+                'description': f'Reset security questions for admin user: {user.username}'
+            }
+        )
+        
+        logger.info(f"Root admin {current_user.username} reset security questions for user {user.username}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Security questions reset for {user.username}. They will be prompted to set new questions on next login.'
+        })
+    
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error resetting security questions for user {user_id}: {str(e)}")
+        return jsonify({'success': False, 'error': 'Error resetting security questions'}), 500
+
 # Duplicate edit_organization route removed - keeping only the one added at the end
 
 # Duplicate delete_organization route removed - keeping only the one added at the end
