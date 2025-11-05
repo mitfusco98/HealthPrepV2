@@ -15,11 +15,7 @@
             <div class="card-body">
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle me-2"></i>
-                    {% if is_root_admin %}
-                        As a <strong>Root Administrator</strong>, you must correctly answer at least one security question to proceed.
-                    {% else %}
-                        As an <strong>Administrator</strong>, you must correctly answer both security questions to proceed.
-                    {% endif %}
+                    As an <strong>Administrator</strong>, you must correctly answer <strong>both</strong> security questions to proceed.
                 </div>
                 
                 <form method="POST">
@@ -34,7 +30,7 @@
                                class="form-control" 
                                id="answer_1" 
                                name="answer_1" 
-                               {% if not is_root_admin %}required{% endif %}
+                               required
                                autocomplete="off"
                                placeholder="Enter your answer">
                     </div>
@@ -49,17 +45,10 @@
                                class="form-control" 
                                id="answer_2" 
                                name="answer_2" 
-                               {% if not is_root_admin %}required{% endif %}
+                               required
                                autocomplete="off"
                                placeholder="Enter your answer">
                     </div>
-                    
-                    {% if is_root_admin %}
-                    <div class="alert alert-warning small">
-                        <i class="fas fa-exclamation-triangle me-1"></i>
-                        <strong>Note:</strong> You must answer at least one question correctly to continue.
-                    </div>
-                    {% endif %}
                     
                     <div class="d-grid mb-3">
                         <button type="submit" class="btn btn-primary">
