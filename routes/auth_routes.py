@@ -114,7 +114,7 @@ def login():
             log_admin_event(
                 event_type='user_login',
                 user_id=user.id,
-                org_id=getattr(user, 'org_id', 1),
+                org_id=(user.org_id or 1),
                 ip=request.remote_addr,
                 data={
                     'username': user.username,
@@ -238,14 +238,13 @@ def verify_login_security():
         answer_1 = request.form.get('answer_1', '').strip()
         answer_2 = request.form.get('answer_2', '').strip()
         
-        # Root admins must answer at least one question correctly
-        # Org admins must answer both questions correctly (when bypass doesn't apply)
+        # Both root admins and org admins must answer BOTH questions correctly
+        answer_1_correct = user.check_security_answer_1(answer_1) if answer_1 else False
+        answer_2_correct = user.check_security_answer_2(answer_2) if answer_2 else False
+        
         if user.is_root_admin:
-            # Root admin: At least one correct answer required
-            answer_1_correct = user.check_security_answer_1(answer_1) if answer_1 else False
-            answer_2_correct = user.check_security_answer_2(answer_2) if answer_2 else False
-            
-            if answer_1_correct or answer_2_correct:
+            # Root admin: Both answers must be correct
+            if answer_1_correct and answer_2_correct:
                 # Successful verification
                 user.record_login_attempt(success=True)
                 login_user(user)
@@ -255,7 +254,7 @@ def verify_login_security():
                 log_admin_event(
                     event_type='user_login',
                     user_id=user.id,
-                    org_id=getattr(user, 'org_id', 1),
+                    org_id=(user.org_id or 1),
                     ip=request.remote_addr,
                     data={
                         'username': user.username,
@@ -278,13 +277,10 @@ def verify_login_security():
                 else:
                     return redirect(url_for('root_admin.dashboard'))
             else:
-                flash('At least one security answer must be correct. Please try again.', 'error')
+                flash('Both security answers must be correct. Please try again.', 'error')
                 logger.warning(f"Failed security verification for root admin: {user.username}")
         else:
             # Org admin: Both answers must be correct
-            answer_1_correct = user.check_security_answer_1(answer_1)
-            answer_2_correct = user.check_security_answer_2(answer_2)
-            
             if answer_1_correct and answer_2_correct:
                 # Successful verification
                 user.record_login_attempt(success=True)
@@ -295,7 +291,7 @@ def verify_login_security():
                 log_admin_event(
                     event_type='user_login',
                     user_id=user.id,
-                    org_id=getattr(user, 'org_id', 1),
+                    org_id=(user.org_id or 1),
                     ip=request.remote_addr,
                     data={
                         'username': user.username,
@@ -318,7 +314,7 @@ def verify_login_security():
                 else:
                     return redirect(url_for('admin.dashboard'))
             else:
-                flash('Security answers are incorrect. Please try again.', 'error')
+                flash('Both security answers must be correct. Please try again.', 'error')
                 logger.warning(f"Failed security verification for org admin: {user.username}")
     
     # Display security questions
