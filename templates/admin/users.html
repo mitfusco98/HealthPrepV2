@@ -59,8 +59,8 @@
                             </span>
                         </td>
                         <td>
-                            <span class="badge bg-{{ 'success' if user.is_active_user else 'danger' }}">
-                                {{ 'Active' if user.is_active_user else 'Inactive' }}
+                            <span class="badge bg-{{ 'warning' if user.user_status == 'pending' else ('success' if user.user_status == 'active' else 'danger') }}">
+                                {{ user.status_display }}
                             </span>
                         </td>
                         <td>
