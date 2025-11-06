@@ -1,0 +1,37 @@
+INFO:routes.auth_routes:Admin admin attempting login without security questions, forcing setup
+INFO:werkzeug:10.81.12.86 - - [06/Nov/2025 20:01:10] "POST /auth/login HTTP/1.1" 302 -
+INFO:werkzeug:10.81.12.86 - - [06/Nov/2025 20:01:10] "GET /first-login/security-questions HTTP/1.1" 200 -
+INFO:werkzeug:10.81.12.86 - - [06/Nov/2025 20:01:10] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.6.50 - - [06/Nov/2025 20:01:10] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.4.94 - - [06/Nov/2025 20:01:10] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.11.40 - - [06/Nov/2025 20:01:10] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.2.132 - - [06/Nov/2025 20:01:10] "GET /static/css/medical_styles.css HTTP/1.1" 304 -
+INFO:routes.first_login_routes:Admin user admin set up security questions
+INFO:werkzeug:10.81.2.132 - - [06/Nov/2025 20:01:27] "POST /first-login/security-questions HTTP/1.1" 500 -
+Traceback (most recent call last):
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/werkzeug/middleware/proxy_fix.py", line 183, in __call__
+    return self.app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1514, in wsgi_app
+    response = self.handle_exception(e)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/routes/first_login_routes.py", line 132, in setup_security_questions
+    login_user(user)
+NameError: name 'login_user' is not defined
+INFO:werkzeug:172.31.87.2 - - [06/Nov/2025 20:01:27] "GET /first-login/security-questions?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.87.2 - - [06/Nov/2025 20:01:27] "GET /first-login/security-questions?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1" 304 -
