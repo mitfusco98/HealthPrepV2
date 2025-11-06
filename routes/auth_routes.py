@@ -46,10 +46,15 @@ def _requires_login_security_questions(user):
             # Force org admins to set up security questions (just like root admins)
             return 'force_setup'
         
-        # Bypass if Epic OAuth is active for their organization
-        if user.organization and user.organization.epic_oauth_active:
-            logger.info(f"Bypassing security questions for {user.username}: Epic OAuth active")
-            return False
+        # Bypass if Epic OAuth is active (valid, non-expired tokens) for their organization
+        if user.organization:
+            epic_creds = user.organization.epic_credentials
+            if epic_creds:
+                # Get most recent credential
+                latest_cred = max(epic_creds, key=lambda c: c.updated_at)
+                if latest_cred and not latest_cred.is_expired:
+                    logger.info(f"Bypassing security questions for {user.username}: Epic OAuth active with valid tokens")
+                    return False
         
         # Bypass if recent successful login (within last 1 hour)
         if user.last_login:
