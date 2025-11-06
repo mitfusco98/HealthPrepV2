@@ -572,30 +572,55 @@ def edit_organization(org_id):
 @login_required
 @root_admin_required
 def delete_organization(org_id):
-    """Delete organization with cascade deletion of users"""
+    """Delete organization with cascade deletion of users and data cleanup"""
     try:
+        from models import AdminLog, ScreeningPreset, Patient, Screening
+        
         org = Organization.query.get_or_404(org_id)
         org_name = org.name
+        
+        # Prevent deletion of root admin organization (org_id=1)
+        if org_id == 1:
+            return jsonify({'success': False, 'error': 'Cannot delete root admin organization'}), 400
         
         # Get user count for logging
         org_users = User.query.filter_by(org_id=org_id).all()
         user_count = len(org_users)
         
-        # Delete all users in this organization first
+        # CRITICAL: Reassign admin_logs to root admin org (org_id=1) for audit trail preservation
+        # This prevents NOT NULL constraint violation and maintains HIPAA compliance
+        admin_logs = AdminLog.query.filter_by(org_id=org_id).all()
+        for log in admin_logs:
+            log.org_id = 1  # Reassign to root admin context
+            log.action_details = f"[ORG DELETED: {org_name}] " + (log.action_details or "")
+        
+        logger.info(f"Reassigned {len(admin_logs)} audit log entries from org {org_id} to root admin context")
+        
+        # Delete organization-scoped data
+        # Screening presets
+        ScreeningPreset.query.filter_by(org_id=org_id).delete()
+        
+        # Patients and their screenings (cascade via relationship)
+        patients = Patient.query.filter_by(org_id=org_id).all()
+        for patient in patients:
+            db.session.delete(patient)
+        
+        # Delete all users in this organization
         for user in org_users:
             db.session.delete(user)
         
-        # Log before deletion
+        # Log before deletion (this log will go to root admin org)
         log_admin_event(
             event_type='delete_organization',
             user_id=current_user.id,
-            org_id=(current_user.org_id or 1),  # Use rootadmin's org for logging
+            org_id=1,  # Root admin context for this action
             ip=flask_request.remote_addr,
             data={
                 'organization_name': org_name,
                 'organization_id': org_id,
                 'users_deleted': user_count,
-                'description': f'Deleted organization: {org_name} ({user_count} users cascade deleted)'
+                'audit_logs_preserved': len(admin_logs),
+                'description': f'Deleted organization: {org_name} ({user_count} users, {len(admin_logs)} audit logs preserved)'
             }
         )
         
@@ -603,9 +628,11 @@ def delete_organization(org_id):
         db.session.delete(org)
         db.session.commit()
         
+        logger.info(f"Successfully deleted organization {org_name} (ID: {org_id})")
+        
         return jsonify({
             'success': True, 
-            'message': f'Organization "{org_name}" and {user_count} associated user(s) deleted successfully'
+            'message': f'Organization "{org_name}" and {user_count} associated user(s) deleted successfully. {len(admin_logs)} audit logs preserved.'
         })
     
     except Exception as e:
@@ -666,6 +693,8 @@ def system_logs():
         page = request.args.get('page', 1, type=int)
         org_id = request.args.get('org_id', type=int)
         event_type = request.args.get('event_type', '')
+        date_from = request.args.get('date_from', '')
+        date_to = request.args.get('date_to', '')
 
         # Build query
         query = AdminLog.query
@@ -674,6 +703,20 @@ def system_logs():
             query = query.filter(AdminLog.org_id == org_id)
         if event_type:
             query = query.filter(AdminLog.event_type == event_type)
+        if date_from:
+            try:
+                from datetime import datetime
+                from_date = datetime.strptime(date_from, '%Y-%m-%d')
+                query = query.filter(AdminLog.timestamp >= from_date)
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                from datetime import datetime
+                to_date = datetime.strptime(date_to, '%Y-%m-%d')
+                query = query.filter(AdminLog.timestamp <= to_date)
+            except ValueError:
+                pass
 
         logs_pagination = query.order_by(AdminLog.timestamp.desc()).paginate(
             page=page, per_page=100, error_out=False
@@ -688,12 +731,121 @@ def system_logs():
                              logs=logs_pagination,
                              organizations=organizations,
                              event_types=event_types,
-                             filters={'org_id': org_id, 'event_type': event_type})
+                             filters={'org_id': org_id, 'event_type': event_type, 'date_from': date_from, 'date_to': date_to})
 
     except Exception as e:
         logger.error(f"Error loading system logs: {str(e)}")
         flash('Error loading logs', 'error')
         return render_template('error/500.html'), 500
+
+@root_admin_bp.route('/logs/export')
+@login_required
+@root_admin_required
+def export_logs():
+    """Export audit logs to CSV for HIPAA compliance"""
+    try:
+        import csv
+        from io import StringIO
+        from datetime import datetime
+        
+        # Get filter parameters (same as system_logs view)
+        org_id = request.args.get('org_id', type=int)
+        event_type = request.args.get('event_type', '')
+        date_from = request.args.get('date_from', '')
+        date_to = request.args.get('date_to', '')
+        
+        # Build query
+        query = AdminLog.query
+        
+        if org_id:
+            query = query.filter(AdminLog.org_id == org_id)
+        if event_type:
+            query = query.filter(AdminLog.event_type == event_type)
+        if date_from:
+            try:
+                from_date = datetime.strptime(date_from, '%Y-%m-%d')
+                query = query.filter(AdminLog.timestamp >= from_date)
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                to_date = datetime.strptime(date_to, '%Y-%m-%d')
+                query = query.filter(AdminLog.timestamp <= to_date)
+            except ValueError:
+                pass
+        
+        # Get all matching logs
+        logs = query.order_by(AdminLog.timestamp.desc()).all()
+        
+        # Create CSV in memory
+        si = StringIO()
+        writer = csv.writer(si)
+        
+        # Write header
+        writer.writerow([
+            'Timestamp',
+            'Event Type',
+            'User ID',
+            'Username',
+            'Organization ID',
+            'Organization Name',
+            'IP Address',
+            'Patient ID',
+            'Resource Type',
+            'Resource ID',
+            'Action Details',
+            'Event Data'
+        ])
+        
+        # Write data rows
+        for log in logs:
+            writer.writerow([
+                log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                log.event_type or '',
+                log.user_id or '',
+                log.user.username if log.user else '',
+                log.org_id or '',
+                log.organization.name if log.organization else '',
+                log.ip_address or '',
+                log.patient_id or '',
+                log.resource_type or '',
+                log.resource_id or '',
+                log.action_details or '',
+                str(log.event_data) if log.event_data else ''
+            ])
+        
+        # Log the export action
+        log_admin_event(
+            event_type='export_audit_logs',
+            user_id=current_user.id,
+            org_id=(current_user.org_id or 1),
+            ip=flask_request.remote_addr,
+            data={
+                'logs_exported': len(logs),
+                'filter_org_id': org_id,
+                'filter_event_type': event_type,
+                'description': f'Exported {len(logs)} audit log entries to CSV'
+            }
+        )
+        
+        # Prepare response
+        output = si.getvalue()
+        si.close()
+        
+        # Generate filename with timestamp
+        filename = f"audit_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        
+        from flask import make_response
+        response = make_response(output)
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+        response.headers['Content-Type'] = 'text/csv'
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error exporting logs: {str(e)}")
+        flash('Error exporting logs', 'error')
+        return redirect(url_for('root_admin.system_logs'))
 
 @root_admin_bp.route('/users/create', methods=['GET', 'POST'])
 @login_required
