@@ -546,14 +546,15 @@ def edit_organization(org_id):
 
             db.session.commit()
 
-            # Log the action
+            # Log the action (use root admin's org_id, not target org)
             log_admin_event(
                 event_type='edit_organization',
                 user_id=current_user.id,
-                org_id=org_id,
+                org_id=(current_user.org_id or 1),
                 ip=flask_request.remote_addr,
                 data={
                     'organization_name': org.name,
+                    'target_org_id': org_id,
                     'description': f'Updated organization: {org.name}'
                 }
             )
