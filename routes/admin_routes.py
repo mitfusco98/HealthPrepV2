@@ -487,8 +487,10 @@ def get_dashboard_data():
     dashboard_stats = analytics.get_roi_metrics()
     
     # Get recent activity - ORGANIZATION SCOPED
+    # Exclude system logs (org_id=0) and only show current org's logs
     recent_logs = AdminLog.query.filter(
-        AdminLog.org_id == current_user.org_id
+        AdminLog.org_id == current_user.org_id,
+        AdminLog.org_id > 0  # Exclude system org logs
     ).order_by(AdminLog.timestamp.desc()).limit(10).all()
     
     # Get system health indicators
@@ -680,7 +682,11 @@ def logs():
         }
         
         # Get filtered logs - ORGANIZATION SCOPED
-        query = AdminLog.query.filter(AdminLog.org_id == current_user.org_id)
+        # Exclude system logs (org_id=0) and only show current org's logs
+        query = AdminLog.query.filter(
+            AdminLog.org_id == current_user.org_id,
+            AdminLog.org_id > 0  # Exclude system org logs
+        )
         if event_type:
             query = query.filter(AdminLog.event_type == event_type)
         if user_id:
