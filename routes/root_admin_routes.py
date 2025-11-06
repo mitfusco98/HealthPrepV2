@@ -574,7 +574,7 @@ def edit_organization(org_id):
 def delete_organization(org_id):
     """Delete organization with cascade deletion of users and data cleanup"""
     try:
-        from models import AdminLog, ScreeningPreset, Patient, Screening
+        from models import AdminLog, ScreeningPreset, Patient, Screening, PrepSheetSettings
         
         org = Organization.query.get_or_404(org_id)
         org_name = org.name
@@ -596,16 +596,19 @@ def delete_organization(org_id):
         
         logger.info(f"Reassigned {len(admin_logs)} audit log entries from org {org_id} to root admin context")
         
-        # Delete organization-scoped data
-        # Screening presets
+        # Delete organization-scoped data (order matters for foreign key constraints)
+        # 1. Prep sheet settings
+        PrepSheetSettings.query.filter_by(org_id=org_id).delete()
+        
+        # 2. Screening presets
         ScreeningPreset.query.filter_by(org_id=org_id).delete()
         
-        # Patients and their screenings (cascade via relationship)
+        # 3. Patients and their screenings (cascade via relationship)
         patients = Patient.query.filter_by(org_id=org_id).all()
         for patient in patients:
             db.session.delete(patient)
         
-        # Delete all users in this organization
+        # 4. Delete all users in this organization
         for user in org_users:
             db.session.delete(user)
         
