@@ -752,11 +752,14 @@ def export_logs():
         format_type = request.args.get('format', 'json')
         days = request.args.get('days', 30, type=int)
 
-        # Export logs directly from AdminLog model
+        # Export logs directly from AdminLog model - ORGANIZATION SCOPED
         from datetime import timedelta
         start_date = datetime.utcnow() - timedelta(days=days)
         
-        logs = AdminLog.query.filter(AdminLog.timestamp >= start_date).order_by(AdminLog.timestamp.desc()).all()
+        logs = AdminLog.query.filter(
+            AdminLog.timestamp >= start_date,
+            AdminLog.org_id == current_user.org_id
+        ).order_by(AdminLog.timestamp.desc()).all()
         export_data = []
         for log in logs:
             export_data.append({
