@@ -4,7 +4,7 @@ Forces users with temporary passwords to set permanent credentials
 """
 import logging
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session
-from flask_login import login_required, current_user
+from flask_login import login_required, current_user, login_user
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from models import db
