@@ -22,6 +22,11 @@
             <div class="card-body">
                 <form method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <!-- Organization Information -->
+                    <h5 class="mt-3 mb-3 text-danger">
+                        <i class="fas fa-building"></i> Organization Information
+                    </h5>
+                    
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -42,11 +47,30 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="contact_email" class="form-label">Contact Email</label>
-                                <input type="email" class="form-control" id="contact_email" name="contact_email" 
-                                       value="{{ organization.contact_email or '' }}" placeholder="admin@organization.com">
+                                <label for="site" class="form-label">Site/Location</label>
+                                <input type="text" class="form-control" id="site" name="site" 
+                                       value="{{ organization.site or '' }}" placeholder="Specific site or branch name">
                             </div>
                         </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="specialty" class="form-label">Specialty</label>
+                                <select class="form-control" id="specialty" name="specialty">
+                                    <option value="">Select specialty...</option>
+                                    <option value="Family Practice" {% if organization.specialty == 'Family Practice' %}selected{% endif %}>Family Practice</option>
+                                    <option value="Internal Medicine" {% if organization.specialty == 'Internal Medicine' %}selected{% endif %}>Internal Medicine</option>
+                                    <option value="Pediatrics" {% if organization.specialty == 'Pediatrics' %}selected{% endif %}>Pediatrics</option>
+                                    <option value="OB/GYN" {% if organization.specialty == 'OB/GYN' %}selected{% endif %}>OB/GYN</option>
+                                    <option value="Cardiology" {% if organization.specialty == 'Cardiology' %}selected{% endif %}>Cardiology</option>
+                                    <option value="Endocrinology" {% if organization.specialty == 'Endocrinology' %}selected{% endif %}>Endocrinology</option>
+                                    <option value="Gastroenterology" {% if organization.specialty == 'Gastroenterology' %}selected{% endif %}>Gastroenterology</option>
+                                    <option value="Other" {% if organization.specialty == 'Other' %}selected{% endif %}>Other</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="phone" class="form-label">Phone Number</label>
@@ -54,14 +78,85 @@
                                        value="{{ organization.phone or '' }}" placeholder="+1 (555) 123-4567">
                             </div>
                         </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="address" class="form-label">Address</label>
+                                <textarea class="form-control" id="address" name="address" rows="2" 
+                                          placeholder="Organization address">{{ organization.address or '' }}</textarea>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label for="address" class="form-label">Address</label>
-                        <textarea class="form-control" id="address" name="address" rows="3" 
-                                  placeholder="Organization address">{{ organization.address or '' }}</textarea>
+                    <!-- Contact Information -->
+                    <h5 class="mt-4 mb-3 text-danger">
+                        <i class="fas fa-envelope"></i> Contact Information
+                    </h5>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="contact_email" class="form-label">Admin Email</label>
+                                <input type="email" class="form-control" id="contact_email" name="contact_email" 
+                                       value="{{ organization.contact_email or '' }}" placeholder="admin@organization.com">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="billing_email" class="form-label">Billing Email</label>
+                                <input type="email" class="form-control" id="billing_email" name="billing_email" 
+                                       value="{{ organization.billing_email or '' }}" placeholder="billing@organization.com">
+                                <small class="form-text text-muted">Leave blank to use admin email</small>
+                            </div>
+                        </div>
                     </div>
 
+                    <!-- Epic FHIR Integration -->
+                    <h5 class="mt-4 mb-3 text-danger">
+                        <i class="fas fa-link"></i> Epic FHIR Integration
+                    </h5>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="epic_client_id" class="form-label">Epic Client ID</label>
+                                <input type="text" class="form-control" id="epic_client_id" name="epic_client_id" 
+                                       value="{{ organization.epic_client_id or '' }}" placeholder="e57377e2-dfd5-4675-9659-...">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="epic_client_secret" class="form-label">Epic Client Secret</label>
+                                <input type="password" class="form-control" id="epic_client_secret" name="epic_client_secret" 
+                                       placeholder="Enter new secret to update (leave blank to keep existing)">
+                                <small class="form-text text-muted">Only enter if changing</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="epic_fhir_url" class="form-label">Epic FHIR URL</label>
+                                <input type="url" class="form-control" id="epic_fhir_url" name="epic_fhir_url" 
+                                       value="{{ organization.epic_fhir_url or '' }}" placeholder="https://fhir.epic.com/...">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="epic_environment" class="form-label">Environment</label>
+                                <select class="form-select" id="epic_environment" name="epic_environment">
+                                    <option value="sandbox" {% if organization.epic_environment == 'sandbox' %}selected{% endif %}>Sandbox</option>
+                                    <option value="production" {% if organization.epic_environment == 'production' %}selected{% endif %}>Production</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Settings -->
+                    <h5 class="mt-4 mb-3 text-danger">
+                        <i class="fas fa-cog"></i> System Settings
+                    </h5>
+                    
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -83,8 +178,29 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="custom_presets_enabled" name="custom_presets_enabled" 
+                                       {% if organization.custom_presets_enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="custom_presets_enabled">
+                                    Custom Presets Enabled
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="auto_sync_enabled" name="auto_sync_enabled" 
+                                       {% if organization.auto_sync_enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="auto_sync_enabled">
+                                    Auto Sync Enabled
+                                </label>
+                            </div>
+                        </div>
+                    </div>
 
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
                         <a href="{{ url_for('root_admin.organizations') }}" class="btn btn-secondary me-md-2">Cancel</a>
                         <button type="submit" class="btn btn-danger">
                             <i class="fas fa-save me-1"></i>Update Organization

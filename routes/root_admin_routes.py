@@ -524,9 +524,12 @@ def edit_organization(org_id):
         org = Organization.query.get_or_404(org_id)
 
         if request.method == 'POST':
-            org.name = request.form.get('name')
+            # Don't update name - it's readonly and causes NULL constraint issues
             org.display_name = request.form.get('display_name')
+            org.site = request.form.get('site')
+            org.specialty = request.form.get('specialty')
             org.contact_email = request.form.get('contact_email')
+            org.billing_email = request.form.get('billing_email')
             org.address = request.form.get('address')
             org.phone = request.form.get('phone')
             org.max_users = request.form.get('max_users', type=int)
@@ -542,7 +545,7 @@ def edit_organization(org_id):
             # Only update secret if provided
             epic_secret = request.form.get('epic_client_secret')
             if epic_secret:
-                org.epic_client_secret = epic_secret  # In production, this should be encrypted
+                org.epic_client_secret = epic_secret  # Encrypted by model
 
             db.session.commit()
 
