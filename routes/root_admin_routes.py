@@ -856,7 +856,7 @@ def export_logs():
         log_admin_event(
             event_type='export_audit_logs',
             user_id=current_user.id,
-            org_id=(current_user.org_id or 1),
+            org_id=0,  # System Organization - all root admin actions
             ip=flask_request.remote_addr,
             data={
                 'logs_exported': len(logs),
@@ -1109,7 +1109,7 @@ def reset_security_questions(user_id):
         log_admin_event(
             event_type='reset_security_questions',
             user_id=current_user.id,
-            org_id=(current_user.org_id or 1),
+            org_id=0,  # System Organization - all root admin actions
             ip=flask_request.remote_addr,
             data={
                 'target_user_id': user.id,

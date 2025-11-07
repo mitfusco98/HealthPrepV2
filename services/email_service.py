@@ -453,6 +453,14 @@ class EmailService:
         Returns:
             True if sent successfully, False otherwise
         """
+        # Check if email sending is enabled (default: enabled)
+        email_enabled = os.environ.get('RESEND_ENABLED', 'true').lower() == 'true'
+        
+        if not email_enabled:
+            logger.info(f"Email sending bypassed (RESEND_ENABLED=false): {subject} to {to_email}")
+            logger.debug(f"Email content (not sent):\n{html_body}")
+            return True  # Return success to allow workflows to continue
+        
         # Get credentials from Resend connector
         api_key, from_email = EmailService._get_resend_credentials()
         
