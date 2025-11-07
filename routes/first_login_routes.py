@@ -132,17 +132,12 @@ def setup_security_questions():
             login_user(user)
             
             # Log the login event
-            # Root admin events go to system org (0), never to tenant orgs
+            # Root admin logs to org_id=0 (System Org), org admins log to their org_id
             from models import log_admin_event
-            if user.is_root_admin:
-                log_org_id = 0  # System org for root admin events
-            else:
-                log_org_id = user.org_id or 1
-            
             log_admin_event(
                 event_type='user_login',
                 user_id=user.id,
-                org_id=log_org_id,
+                org_id=user.org_id,
                 ip=request.remote_addr,
                 data={
                     'username': user.username,

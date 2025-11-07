@@ -253,81 +253,46 @@ def verify_login_security():
         answer_1_correct = user.check_security_answer_1(answer_1) if answer_1 else False
         answer_2_correct = user.check_security_answer_2(answer_2) if answer_2 else False
         
-        if user.is_root_admin:
-            # Root admin: Both answers must be correct
-            if answer_1_correct and answer_2_correct:
-                # Successful verification
-                user.record_login_attempt(success=True)
-                login_user(user)
-                
-                # Log the login event to audit log
-                # Root admin events go to system org (0), never to tenant orgs
-                from models import log_admin_event
-                log_admin_event(
-                    event_type='user_login',
-                    user_id=user.id,
-                    org_id=0,  # System org for root admin events
-                    ip=request.remote_addr,
-                    data={
-                        'username': user.username,
-                        'role': user.role,
-                        'security_verified': True,
-                        'description': f'Successful login with security verification: {user.username}'
-                    }
-                )
-                
-                # Clear session
-                next_page = session.get('login_pending_next')
-                session.pop('login_pending_user_id', None)
-                session.pop('login_pending_next', None)
-                
-                logger.info(f"Root admin {user.username} verified security questions successfully")
-                flash('Login successful!', 'success')
-                
-                if next_page:
-                    return redirect(next_page)
-                else:
-                    return redirect(url_for('root_admin.dashboard'))
+        # Both root admins and org admins must answer BOTH questions correctly
+        if answer_1_correct and answer_2_correct:
+            # Successful verification
+            user.record_login_attempt(success=True)
+            login_user(user)
+            
+            # Log the login event to audit log
+            # Root admin logs to org_id=0 (System Org), org admins log to their org_id
+            from models import log_admin_event
+            log_admin_event(
+                event_type='user_login',
+                user_id=user.id,
+                org_id=user.org_id,
+                ip=request.remote_addr,
+                data={
+                    'username': user.username,
+                    'role': user.role,
+                    'security_verified': True,
+                    'description': f'Successful login with security verification: {user.username}'
+                }
+            )
+            
+            # Clear session
+            next_page = session.get('login_pending_next')
+            session.pop('login_pending_user_id', None)
+            session.pop('login_pending_next', None)
+            
+            logger.info(f"{user.role} {user.username} verified security questions successfully")
+            flash('Login successful!', 'success')
+            
+            # Redirect based on role
+            if next_page:
+                return redirect(next_page)
+            elif user.is_root_admin:
+                return redirect(url_for('root_admin.dashboard'))
             else:
-                flash('Both security answers must be correct. Please try again.', 'error')
-                logger.warning(f"Failed security verification for root admin: {user.username}")
+                return redirect(url_for('admin.dashboard'))
         else:
-            # Org admin: Both answers must be correct
-            if answer_1_correct and answer_2_correct:
-                # Successful verification
-                user.record_login_attempt(success=True)
-                login_user(user)
-                
-                # Log the login event to audit log
-                from models import log_admin_event
-                log_admin_event(
-                    event_type='user_login',
-                    user_id=user.id,
-                    org_id=(user.org_id or 1),
-                    ip=request.remote_addr,
-                    data={
-                        'username': user.username,
-                        'role': user.role,
-                        'security_verified': True,
-                        'description': f'Successful login with security verification: {user.username}'
-                    }
-                )
-                
-                # Clear session
-                next_page = session.get('login_pending_next')
-                session.pop('login_pending_user_id', None)
-                session.pop('login_pending_next', None)
-                
-                logger.info(f"Org admin {user.username} verified security questions successfully")
-                flash('Login successful!', 'success')
-                
-                if next_page:
-                    return redirect(next_page)
-                else:
-                    return redirect(url_for('admin.dashboard'))
-            else:
-                flash('Both security answers must be correct. Please try again.', 'error')
-                logger.warning(f"Failed security verification for org admin: {user.username}")
+            flash('Both security answers must be correct. Please try again.', 'error')
+            logger.warning(f"Failed security verification for {user.role}: {user.username}")
     
     # Display security questions
     return render_template('auth/verify_login_security.html',
