@@ -6,6 +6,7 @@ import json
 import logging
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from flask_login import login_required, current_user
+from middleware.subscription_check import subscription_required
 from models import db, ScreeningType, Organization
 from utils.fhir_mapping import FHIRResourceMapper, ScreeningTypeFHIREnhancer
 from emr.epic_integration import EpicScreeningIntegration
@@ -16,6 +17,7 @@ fhir_bp = Blueprint('fhir', __name__, url_prefix='/fhir')
 
 @fhir_bp.route('/screening-mapping', methods=['GET'])
 @login_required
+@subscription_required
 def screening_mapping():
     """Display FHIR mapping for screening types"""
     try:
@@ -43,6 +45,7 @@ def screening_mapping():
 
 @fhir_bp.route('/generate-mappings', methods=['POST'])
 @login_required
+@subscription_required
 def generate_mappings():
     """Generate FHIR mappings for screening types"""
     try:
@@ -154,6 +157,7 @@ def screening_type_mapping(screening_type_id):
 
 @fhir_bp.route('/epic-config', methods=['GET'])
 @login_required
+@subscription_required
 def epic_config():
     """Display Epic FHIR configuration for organization"""
     try:

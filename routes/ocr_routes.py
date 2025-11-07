@@ -3,6 +3,7 @@ OCR processing routes and document management
 """
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file
 from flask_login import login_required, current_user
+from middleware.subscription_check import subscription_required
 from datetime import datetime
 import logging
 import os
@@ -19,6 +20,7 @@ ocr_bp = Blueprint('ocr', __name__)
 
 @ocr_bp.route('/upload', methods=['GET', 'POST'])
 @login_required
+@subscription_required
 def upload_document():
     """Upload and process document through OCR"""
     try:
@@ -79,6 +81,7 @@ def upload_document():
 
 @ocr_bp.route('/document/<int:document_id>')
 @login_required
+@subscription_required
 def view_document(document_id):
     """View document with OCR results"""
     try:
@@ -126,6 +129,7 @@ def download_document(document_id):
 
 @ocr_bp.route('/processing-stats')
 @login_required
+@subscription_required
 def processing_stats():
     """OCR processing statistics dashboard"""
     try:
@@ -237,6 +241,7 @@ def api_validate_document():
 
 @ocr_bp.route('/batch-process', methods=['GET', 'POST'])
 @login_required
+@subscription_required
 def batch_process():
     """Batch process multiple documents"""
     try:

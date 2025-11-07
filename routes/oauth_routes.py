@@ -5,6 +5,7 @@ Handles OAuth2 authorization flow and token management
 
 from flask import Blueprint, request, redirect, url_for, session, flash, jsonify, current_app
 from flask_login import login_required, current_user
+from middleware.subscription_check import subscription_required
 import logging
 import secrets
 from datetime import datetime, timedelta
@@ -52,6 +53,7 @@ logger = logging.getLogger(__name__)
 
 @oauth_bp.route('/epic-authorize-debug')
 @login_required
+@subscription_required
 @require_admin
 @require_approved_organization
 def epic_authorize_debug():
@@ -107,6 +109,7 @@ def epic_authorize_debug():
 
 @oauth_bp.route('/epic-oauth-debug')
 @login_required
+@subscription_required
 @require_admin
 @require_approved_organization
 def epic_oauth_debug():
@@ -268,6 +271,7 @@ def smart_launch():
 
 @oauth_bp.route('/epic-authorize')
 @login_required
+@subscription_required
 @require_admin
 @require_approved_organization
 def epic_authorize():
@@ -361,6 +365,8 @@ def epic_authorize():
 
 
 @oauth_bp.route('/epic-callback')
+@login_required
+@subscription_required
 def epic_callback():
     """
     Handle Epic OAuth2 callback

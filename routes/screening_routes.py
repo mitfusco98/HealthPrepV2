@@ -3,6 +3,7 @@ Fixing the URL reference for 'dashboard' to 'ui.dashboard' in screening routes.
 """
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
+from middleware.subscription_check import subscription_required
 from routes.auth_routes import non_admin_required
 
 from datetime import datetime
@@ -39,6 +40,7 @@ screening_bp = Blueprint('screening', __name__)
 
 @screening_bp.route('/refresh', methods=['POST'])
 @login_required
+@subscription_required
 @non_admin_required
 def refresh_screenings():
     """Screening refresh for screening list - processes EXISTING documents with updated criteria"""
@@ -91,6 +93,7 @@ def refresh_screenings():
 
 @screening_bp.route('/list')
 @login_required
+@subscription_required
 @non_admin_required
 def screening_list():
     """Main screening list view"""
@@ -268,6 +271,7 @@ def screening_list():
 
 @screening_bp.route('/types')
 @login_required
+@subscription_required
 @non_admin_required
 def screening_types():
     """Screening types management"""
@@ -287,6 +291,7 @@ def screening_types():
 
 @screening_bp.route('/settings', methods=['GET', 'POST'])
 @login_required
+@subscription_required
 @non_admin_required
 def screening_settings():
     """Screening settings management"""
@@ -327,6 +332,7 @@ def screening_settings():
 
 @screening_bp.route('/type/add', methods=['GET', 'POST'])
 @login_required
+@subscription_required
 @non_admin_required
 def add_screening_type():
     """Add new screening type"""
@@ -397,6 +403,7 @@ def add_screening_type():
 
 @screening_bp.route('/type/<int:type_id>/edit', methods=['GET', 'POST'])
 @login_required
+@subscription_required
 @non_admin_required
 def edit_screening_type(type_id):
     """Edit existing screening type"""

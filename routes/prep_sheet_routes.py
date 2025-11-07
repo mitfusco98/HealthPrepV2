@@ -4,6 +4,7 @@ Prep sheet generation and management routes
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, make_response
 from flask_login import login_required, current_user
 from routes.auth_routes import non_admin_required
+from middleware.subscription_check import subscription_required
 from datetime import datetime
 import logging
 
@@ -19,6 +20,7 @@ prep_sheet_bp = Blueprint('prep_sheet', __name__)
 
 @prep_sheet_bp.route('/patient/<int:patient_id>')
 @login_required
+@subscription_required
 @non_admin_required
 def generate_for_patient(patient_id):
     """Generate prep sheet for a specific patient"""
@@ -53,6 +55,7 @@ def generate_for_patient(patient_id):
 
 @prep_sheet_bp.route('/appointment/<int:appointment_id>')
 @login_required
+@subscription_required
 def generate_for_appointment(appointment_id):
     """Generate prep sheet for a specific appointment"""
     try:
@@ -85,6 +88,7 @@ def generate_for_appointment(appointment_id):
 
 @prep_sheet_bp.route('/batch-generate', methods=['GET', 'POST'])
 @login_required
+@subscription_required
 @non_admin_required
 def batch_generate():
     """Batch generate prep sheets for multiple patients"""
@@ -166,6 +170,7 @@ def batch_generate():
 
 @prep_sheet_bp.route('/regenerate/<int:patient_id>')
 @login_required
+@subscription_required
 def regenerate(patient_id):
     """Regenerate prep sheet for a patient"""
     try:
@@ -199,6 +204,7 @@ def regenerate(patient_id):
 
 @prep_sheet_bp.route('/export/<int:patient_id>')
 @login_required
+@subscription_required
 def export_prep_sheet(patient_id):
     """Export prep sheet in various formats"""
     try:
@@ -437,6 +443,7 @@ def prep_sheet_settings():
 
 @prep_sheet_bp.route('/generate-to-epic/<int:patient_id>', methods=['POST'])
 @login_required
+@subscription_required
 @non_admin_required
 def generate_to_epic(patient_id):
     """Generate prep sheet and write to Epic as DocumentReference"""
@@ -500,6 +507,7 @@ def generate_to_epic(patient_id):
 
 @prep_sheet_bp.route('/bulk-generate-to-epic', methods=['POST'])
 @login_required
+@subscription_required
 @non_admin_required
 def bulk_generate_to_epic():
     """Bulk generate prep sheets and write to Epic using appointment prioritization window"""

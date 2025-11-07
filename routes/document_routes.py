@@ -8,6 +8,7 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file
 from flask_login import login_required, current_user
+from middleware.subscription_check import subscription_required
 
 from models import Patient, Document, AdminLog
 from ocr.processor import OCRProcessor
@@ -36,6 +37,7 @@ def ensure_upload_folder():
 
 @document_bp.route('/upload', methods=['GET', 'POST'])
 @login_required
+@subscription_required
 def upload_document():
     """Document upload page"""
     form = DocumentUploadForm()
@@ -148,6 +150,7 @@ def upload_document():
 
 @document_bp.route('/patient/<int:patient_id>')
 @login_required
+@subscription_required
 def document_list(patient_id):
     """List documents for a specific patient"""
     try:
@@ -170,6 +173,7 @@ def document_list(patient_id):
 
 @document_bp.route('/view/<int:document_id>')
 @login_required
+@subscription_required
 def view_document(document_id):
     """View document details and OCR text"""
     try:

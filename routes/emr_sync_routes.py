@@ -6,6 +6,7 @@ import json
 import logging
 from flask import Blueprint, request, jsonify, render_template, flash, redirect, url_for
 from flask_login import login_required, current_user
+from middleware.subscription_check import subscription_required
 from routes.auth_routes import non_admin_required
 from routes.oauth_routes import require_admin
 from datetime import datetime
@@ -47,6 +48,7 @@ def require_approved_organization(f):
 
 @emr_sync_bp.route('/dashboard')
 @login_required
+@subscription_required
 @non_admin_required
 def emr_dashboard():
     """EMR synchronization dashboard"""
@@ -64,6 +66,7 @@ def emr_dashboard():
 
 @emr_sync_bp.route('/sync', methods=['POST'])
 @login_required
+@subscription_required
 @non_admin_required
 @require_approved_organization
 def sync_emr_data():
@@ -372,6 +375,7 @@ def test_comprehensive_emr_connection():
 
 @emr_sync_bp.route('/sync/trigger', methods=['POST'])
 @login_required
+@subscription_required
 def trigger_sync():
     """Manually trigger EMR synchronization"""
     try:
@@ -455,6 +459,7 @@ def fhir_webhook():
 
 @emr_sync_bp.route('/api/sync/status')
 @login_required
+@subscription_required
 def sync_status():
     """Get current synchronization status"""
     try:
@@ -474,6 +479,7 @@ def sync_status():
 
 @emr_sync_bp.route('/api/sync/test', methods=['POST'])
 @login_required
+@subscription_required
 def test_sync():
     """Test EMR connection and sync configuration"""
     try:
