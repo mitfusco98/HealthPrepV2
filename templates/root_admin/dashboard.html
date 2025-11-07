@@ -168,7 +168,7 @@
                             <tr>
                                 <th>Organization</th>
                                 <th>Contact</th>
-                                <th>Epic Credentials</th>
+                                <th>Readiness Status</th>
                                 <th>Trial Status</th>
                                 <th>Signup Date</th>
                                 <th>Actions</th>
@@ -187,13 +187,36 @@
                                     {% if org.phone %}<small class="text-muted">{{ org.phone }}</small>{% endif %}
                                 </td>
                                 <td>
-                                    <div class="small">
-                                        {% if org.epic_client_id %}
-                                            <i class="fas fa-key text-success"></i> Client ID: {{ org.epic_client_id[:20] }}...<br>
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        {% if org.has_payment_info %}
+                                            <span class="badge bg-success" title="Payment information provided">
+                                                <i class="fas fa-credit-card"></i> Payment
+                                            </span>
                                         {% else %}
-                                            <i class="fas fa-key text-muted"></i> <em>Not provided</em><br>
+                                            <span class="badge bg-secondary" title="Payment information not provided">
+                                                <i class="fas fa-credit-card"></i> No Payment
+                                            </span>
                                         {% endif %}
-                                        <i class="fas fa-link text-primary"></i> {{ org.epic_environment|upper if org.epic_environment else 'SANDBOX' }}
+                                        
+                                        {% if org.has_epic_credentials %}
+                                            <span class="badge bg-success" title="Epic credentials configured">
+                                                <i class="fas fa-key"></i> Epic
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary" title="Epic credentials not configured">
+                                                <i class="fas fa-key"></i> No Epic
+                                            </span>
+                                        {% endif %}
+                                        
+                                        {% if org.live_user_count > 0 %}
+                                            <span class="badge bg-success" title="{{ org.live_user_count }} live user(s)">
+                                                <i class="fas fa-users"></i> {{ org.live_user_count }} Live
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary" title="No live users">
+                                                <i class="fas fa-users"></i> No Live Users
+                                            </span>
+                                        {% endif %}
                                     </div>
                                 </td>
                                 <td>

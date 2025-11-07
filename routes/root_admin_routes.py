@@ -160,7 +160,7 @@ def make_preset_global(preset_id):
         log_admin_event(
             event_type='preset_made_global',
             user_id=current_user.id,
-            org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
+            org_id=0,  # System Organization - all root admin actions
             ip=request.remote_addr,
             data={
                 'preset_id': preset_id,
@@ -200,7 +200,7 @@ def remove_global_preset(preset_id):
         log_admin_event(
             event_type='preset_global_removed',
             user_id=current_user.id,
-            org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
+            org_id=0,  # System Organization - all root admin actions
             ip=request.remote_addr,
             data={
                 'preset_id': preset_id,
@@ -230,7 +230,7 @@ def delete_universal_preset(preset_id):
         log_admin_event(
             event_type='universal_preset_deleted',
             user_id=current_user.id,
-            org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
+            org_id=0,  # System Organization - all root admin actions
             ip=request.remote_addr,
             data={
                 'preset_id': preset_id,
@@ -357,7 +357,7 @@ def approve_preset(preset_id):
         log_admin_event(
             event_type='approve_preset_global',
             user_id=current_user.id,
-            org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
+            org_id=0,  # System Organization - all root admin actions
             ip=flask_request.remote_addr,
             data={
                 'preset_name': preset.name,
@@ -396,7 +396,7 @@ def reject_preset(preset_id):
         log_admin_event(
             event_type='reject_preset_global',
             user_id=current_user.id,
-            org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
+            org_id=0,  # System Organization - all root admin actions
             ip=flask_request.remote_addr,
             data={
                 'preset_name': preset.name,
@@ -550,7 +550,7 @@ def edit_organization(org_id):
             log_admin_event(
                 event_type='edit_organization',
                 user_id=current_user.id,
-                org_id=(current_user.org_id or 1),
+                org_id=0,  # System Organization - all root admin actions
                 ip=flask_request.remote_addr,
                 data={
                     'organization_name': org.name,
@@ -583,22 +583,22 @@ def delete_organization(org_id):
         org = Organization.query.get_or_404(org_id)
         org_name = org.name
         
-        # Prevent deletion of root admin organization (org_id=1)
-        if org_id == 1:
-            return jsonify({'success': False, 'error': 'Cannot delete root admin organization'}), 400
+        # Prevent deletion of System Organization (org_id=0)
+        if org_id == 0:
+            return jsonify({'success': False, 'error': 'Cannot delete System Organization'}), 400
         
         # Get user count for logging
         org_users = User.query.filter_by(org_id=org_id).all()
         user_count = len(org_users)
         
-        # CRITICAL: Reassign admin_logs to root admin org (org_id=1) for audit trail preservation
+        # CRITICAL: Reassign admin_logs to System Organization (org_id=0) for audit trail preservation
         # This prevents NOT NULL constraint violation and maintains HIPAA compliance
         admin_logs = AdminLog.query.filter_by(org_id=org_id).all()
         for log in admin_logs:
-            log.org_id = 1  # Reassign to root admin context
+            log.org_id = 0  # Reassign to System Organization context
             log.action_details = f"[ORG DELETED: {org_name}] " + (log.action_details or "")
         
-        logger.info(f"Reassigned {len(admin_logs)} audit log entries from org {org_id} to root admin context")
+        logger.info(f"Reassigned {len(admin_logs)} audit log entries from org {org_id} to System Organization context")
         
         # Delete organization-scoped data (order matters for foreign key constraints)
         # 1. Dismissed document matches (depends on screenings)
@@ -651,7 +651,7 @@ def delete_organization(org_id):
         log_admin_event(
             event_type='delete_organization',
             user_id=current_user.id,
-            org_id=1,  # Root admin context for this action
+            org_id=0,  # System Organization - all root admin actions
             ip=flask_request.remote_addr,
             data={
                 'organization_name': org_name,
@@ -938,7 +938,7 @@ def create_user():
             log_admin_event(
                 event_type='create_user',
                 user_id=current_user.id,
-                org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
+                org_id=0,  # System Organization - all root admin actions
                 ip=flask_request.remote_addr,
                 data={
                     'created_user_id': user.id,
@@ -996,7 +996,7 @@ def delete_user(user_id):
         log_admin_event(
             event_type='delete_user',
             user_id=current_user.id,
-            org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
+            org_id=0,  # System Organization - all root admin actions
             ip=flask_request.remote_addr,
             data={
                 'deleted_user_id': user_id,
@@ -1056,7 +1056,7 @@ def toggle_user_status(user_id):
         log_admin_event(
             event_type='toggle_user_status',
             user_id=current_user.id,
-            org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
+            org_id=0,  # System Organization - all root admin actions
             ip=flask_request.remote_addr,
             data={
                 'target_user_id': user.id,
@@ -1172,7 +1172,7 @@ def promote_preset_globally(preset_id):
         log_admin_event(
             event_type='preset_made_global',
             user_id=current_user.id,
-            org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
+            org_id=0,  # System Organization - all root admin actions
             ip=request.remote_addr,
             data={
                 'preset_id': preset_id,
@@ -1229,7 +1229,7 @@ def api_promote_preset_globally(preset_id):
         log_admin_event(
             event_type='preset_promoted',
             user_id=current_user.id,
-            org_id=current_user.org_id if current_user.org_id else 1,  # Default org for root admin actions
+            org_id=0,  # System Organization - all root admin actions
             ip=request.remote_addr,
             data={
                 'preset_id': preset_id,

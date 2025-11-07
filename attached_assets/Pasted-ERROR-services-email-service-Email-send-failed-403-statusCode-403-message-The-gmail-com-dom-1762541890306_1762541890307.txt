@@ -1,0 +1,21 @@
+ERROR:services.email_service:Email send failed: 403 - {"statusCode":403,"message":"The gmail.com domain is not verified. Please, add and verify your domain on https://resend.com/domains","name":"validation_error"}
+INFO:routes.org_approval_routes:Organization Demo Clinic (ID: 4) rejected by rootadmin
+INFO:werkzeug:10.81.12.128 - - [07/Nov/2025 18:49:31] "POST /root-admin/organizations/4/reject HTTP/1.1" 302 -
+INFO:werkzeug:10.81.12.128 - - [07/Nov/2025 18:49:32] "GET /root-admin/dashboard HTTP/1.1" 200 -
+INFO:werkzeug:10.81.11.40 - - [07/Nov/2025 18:49:32] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.11.40 - - [07/Nov/2025 18:49:39] "GET /root-admin/organizations HTTP/1.1" 200 -
+INFO:werkzeug:10.81.12.128 - - [07/Nov/2025 18:49:39] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:routes.root_admin_routes:Reassigned 1 audit log entries from org 4 to root admin context
+INFO:routes.root_admin_routes:Successfully deleted organization Demo Clinic (ID: 4)
+INFO:werkzeug:10.81.12.128 - - [07/Nov/2025 18:49:44] "POST /root-admin/organizations/4/delete HTTP/1.1" 200 -
+INFO:werkzeug:10.81.12.128 - - [07/Nov/2025 18:49:44] "GET /root-admin/organizations HTTP/1.1" 200 -
+INFO:werkzeug:10.81.11.40 - - [07/Nov/2025 18:49:44] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.11.40 - - [07/Nov/2025 18:49:51] "GET /root-admin/organizations/0/edit HTTP/1.1" 200 -
+INFO:werkzeug:10.81.11.40 - - [07/Nov/2025 18:49:51] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:flask_wtf.csrf:The CSRF token is missing.
+INFO:werkzeug:10.81.11.40 - - [07/Nov/2025 18:50:27] "POST /root-admin/organizations/0/edit HTTP/1.1" 400 -
+INFO:werkzeug:10.81.12.128 - - [07/Nov/2025 18:50:28] "GET /static/css/medical_styles.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.11.40 - - [07/Nov/2025 18:50:28] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.10.24 - - [07/Nov/2025 18:50:28] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.12.128 - - [07/Nov/2025 18:50:28] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.12.128 - - [07/Nov/2025 18:50:28] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -

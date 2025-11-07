@@ -70,7 +70,7 @@ def approve_organization(org_id):
         log_admin_event(
             event_type='organization_approved',
             user_id=current_user.id,
-            org_id=org_id,
+            org_id=0,  # System Organization - all root admin actions
             ip=request.remote_addr,
             data={
                 'org_name': org.name,
@@ -95,9 +95,15 @@ def approve_organization(org_id):
 @login_required
 @root_admin_required
 def reject_organization(org_id):
-    """Reject a pending organization"""
+    """Reject and automatically delete a pending organization"""
     try:
+        from models import (AdminLog, ScreeningPreset, Patient, Screening, PrepSheetSettings,
+                           ScreeningType, Document, FHIRDocument, AsyncJob, FHIRApiCall,
+                           Appointment, DismissedDocumentMatch, EpicCredentials,
+                           ScreeningVariant, ScreeningProtocol)
+        
         org = Organization.query.get_or_404(org_id)
+        org_name = org.name
         rejection_reason = request.form.get('rejection_reason', 'No reason provided')
         
         # Check if already processed
@@ -105,42 +111,74 @@ def reject_organization(org_id):
             flash(f'{org.name} has already been processed.', 'info')
             return redirect(url_for('root_admin.dashboard'))
         
-        # Update organization status (use 'suspended' instead of 'rejected')
-        org.onboarding_status = 'suspended'
-        org.setup_status = 'suspended'  # Suspend org (is_active @property will return False)
+        # Prevent deletion of System Organization (org_id=0)
+        if org_id == 0:
+            flash('Cannot reject System Organization', 'error')
+            return redirect(url_for('root_admin.dashboard'))
         
-        # Deactivate all users in this organization
-        org_users = User.query.filter_by(org_id=org_id).all()
-        for user in org_users:
-            user.is_active_user = False
-        
-        db.session.commit()
-        
-        # Send rejection notification to admin user
+        # Get admin user for rejection email before deletion
         admin_user = User.query.filter_by(org_id=org_id, role='admin').first()
+        org_users = User.query.filter_by(org_id=org_id).all()
+        user_count = len(org_users)
+        
+        # Send rejection notification before deletion
         if admin_user:
             EmailService.send_organization_rejected_email(
                 email=admin_user.email,
                 username=admin_user.username,
-                org_name=org.name,
+                org_name=org_name,
                 rejection_reason=rejection_reason
             )
         
-        # Log the rejection
+        # CRITICAL: Reassign admin_logs to System Organization (org_id=0) for audit trail preservation
+        admin_logs = AdminLog.query.filter_by(org_id=org_id).all()
+        for log in admin_logs:
+            log.org_id = 0  # Reassign to System Organization context
+            log.action_details = f"[ORG REJECTED & DELETED: {org_name}] " + (log.action_details or "")
+        
+        # Delete organization-scoped data (order matters for foreign key constraints)
+        DismissedDocumentMatch.query.filter_by(org_id=org_id).delete()
+        Appointment.query.filter_by(org_id=org_id).delete()
+        FHIRApiCall.query.filter_by(org_id=org_id).delete()
+        AsyncJob.query.filter_by(org_id=org_id).delete()
+        PrepSheetSettings.query.filter_by(org_id=org_id).delete()
+        ScreeningPreset.query.filter_by(org_id=org_id).delete()
+        ScreeningVariant.query.filter_by(org_id=org_id).delete()
+        ScreeningProtocol.query.filter_by(org_id=org_id).delete()
+        Screening.query.filter_by(org_id=org_id).delete()
+        ScreeningType.query.filter_by(org_id=org_id).delete()
+        FHIRDocument.query.filter_by(org_id=org_id).delete()
+        Document.query.filter_by(org_id=org_id).delete()
+        Patient.query.filter_by(org_id=org_id).delete()
+        EpicCredentials.query.filter_by(org_id=org_id).delete()
+        
+        # Delete all users in this organization
+        for user in org_users:
+            db.session.delete(user)
+        
+        # Log the rejection and deletion to System Organization
         log_admin_event(
-            event_type='organization_rejected',
+            event_type='organization_rejected_deleted',
             user_id=current_user.id,
-            org_id=org_id,
+            org_id=0,  # System Organization - all root admin actions
             ip=request.remote_addr,
             data={
-                'org_name': org.name,
+                'organization_name': org_name,
+                'organization_id': org_id,
                 'rejected_by': current_user.username,
-                'reason': rejection_reason
+                'rejection_reason': rejection_reason,
+                'users_deleted': user_count,
+                'audit_logs_preserved': len(admin_logs),
+                'description': f'Rejected and deleted organization: {org_name} ({user_count} users, {len(admin_logs)} audit logs preserved). Reason: {rejection_reason}'
             }
         )
         
-        logger.info(f"Organization {org.name} (ID: {org_id}) rejected by {current_user.username}")
-        flash(f'Organization "{org.name}" has been rejected.', 'warning')
+        # Delete organization
+        db.session.delete(org)
+        db.session.commit()
+        
+        logger.info(f"Organization {org_name} (ID: {org_id}) rejected and deleted by {current_user.username}")
+        flash(f'Organization "{org_name}" has been rejected and deleted.', 'warning')
         
         return redirect(url_for('root_admin.dashboard'))
         

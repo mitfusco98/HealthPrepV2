@@ -135,6 +135,25 @@ class Organization(db.Model):
         """Check if organization can add more users"""
         return self.user_count < self.max_users
     
+    @property
+    def has_payment_info(self):
+        """Check if organization has provided payment information"""
+        return bool(self.stripe_customer_id)
+    
+    @property
+    def has_epic_credentials(self):
+        """Check if organization has configured Epic credentials"""
+        return bool(self.epic_client_id)
+    
+    @property
+    def live_user_count(self):
+        """Get count of users with permanent passwords (not temp passwords)"""
+        from sqlalchemy import func
+        return db.session.query(func.count(User.id)).filter(
+            User.org_id == self.id,
+            User.is_temp_password == False
+        ).scalar() or 0
+    
     @hybrid_property
     def epic_client_secret(self):
         """Get decrypted Epic client secret"""
