@@ -1,5 +1,15 @@
 # Health-Prep v2 - HIPAA-Compliant Healthcare Preparation System
 
+### Recent Changes (November 7, 2025)
+**Critical Bug Fixes & Improvements:**
+- **Audit Logging Fix**: Corrected all root admin log_admin_event calls to use `org_id=0` instead of falsy conditional logic that incorrectly logged to org_id=1. Affected functions: preset operations, organization management, user management, audit log export, security question reset.
+- **Organization Model Properties**: Added `has_payment_info`, `has_epic_credentials`, and `live_user_count` properties for dashboard status indicators showing organization readiness.
+- **Root Admin Dashboard**: Enhanced pending organizations table with visual status badges (Payment, Epic, Live Users) to quickly assess organization setup progress.
+- **Organization Rejection**: Modified rejection workflow to automatically delete rejected organizations and cascade cleanup of all related data (users, audit logs, credentials).
+- **Pre-Trial Configuration Access**: Removed subscription requirement from screening configuration routes (/list, /types, /settings, /type/add, /type/edit) to enable setup before trial activation, while keeping operational routes (/refresh, prep sheet generation) gated.
+- **CSRF Security**: Added missing CSRF token to organization edit form in root admin interface.
+- **Email Feature Flag**: Added RESEND_ENABLED environment variable to bypass email sending during testing (defaults to true for production).
+
 ### Overview
 Health-Prep v2 is a real-time medical preparation sheet generation engine designed for integration with FHIR-based EMRs like Epic. Its primary purpose is to parse patient documents and data, determine eligibility for medical screenings using customizable logic, and generate comprehensive prep sheets reflecting the patient's current care status. Key capabilities include an intelligent screening engine with fuzzy detection, dynamic status updates for compliance tracking, and robust prep sheet generation with enhanced medical data sections. The system also features advanced variant management, document relevancy filtering, interactive document links, and configurable time periods for medical data display, aiming to improve efficiency and compliance in healthcare preparation.
 
