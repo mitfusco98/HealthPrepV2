@@ -193,6 +193,31 @@ class StripeService:
             return None
     
     @staticmethod
+    def create_billing_portal_session(customer_id: str, return_url: str) -> Optional[str]:
+        """
+        Create Stripe Customer Portal session for billing management
+        
+        Args:
+            customer_id: Stripe customer ID
+            return_url: URL to return to after managing billing
+            
+        Returns:
+            Portal session URL or None if error
+        """
+        try:
+            session = stripe.billing_portal.Session.create(
+                customer=customer_id,
+                return_url=return_url
+            )
+            
+            logger.info(f"Created billing portal session for customer {customer_id}")
+            return session.url
+            
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe billing portal session creation failed: {str(e)}")
+            return None
+    
+    @staticmethod
     def cancel_subscription(subscription_id: str) -> bool:
         """
         Cancel subscription at period end

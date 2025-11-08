@@ -187,6 +187,16 @@
                                     {% if org.phone %}<small class="text-muted">{{ org.phone }}</small>{% endif %}
                                 </td>
                                 <td>
+                                    {% set is_ready = org.has_payment_info and org.has_epic_oauth_connected and org.live_user_count > 0 %}
+                                    
+                                    {% if is_ready %}
+                                        <div class="mb-2">
+                                            <span class="badge bg-success fw-bold" title="Organization ready for approval">
+                                                <i class="fas fa-check-circle"></i> READY FOR APPROVAL
+                                            </span>
+                                        </div>
+                                    {% endif %}
+                                    
                                     <div class="d-flex gap-2 flex-wrap">
                                         {% if org.has_payment_info %}
                                             <span class="badge bg-success" title="Payment information provided">
@@ -198,13 +208,13 @@
                                             </span>
                                         {% endif %}
                                         
-                                        {% if org.has_epic_credentials %}
-                                            <span class="badge bg-success" title="Epic credentials configured">
-                                                <i class="fas fa-key"></i> Epic
+                                        {% if org.has_epic_oauth_connected %}
+                                            <span class="badge bg-success" title="Epic OAuth connected with valid token">
+                                                <i class="fas fa-link"></i> Epic OAuth
                                             </span>
                                         {% else %}
-                                            <span class="badge bg-secondary" title="Epic credentials not configured">
-                                                <i class="fas fa-key"></i> No Epic
+                                            <span class="badge bg-secondary" title="Epic OAuth not connected - complete setup at /admin/epic/registration">
+                                                <i class="fas fa-unlink"></i> No OAuth
                                             </span>
                                         {% endif %}
                                         

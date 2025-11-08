@@ -146,6 +146,11 @@ class Organization(db.Model):
         return bool(self.epic_client_id)
     
     @property
+    def has_epic_oauth_connected(self):
+        """Check if organization has completed Epic OAuth and has valid connection"""
+        return bool(self.is_epic_connected)
+    
+    @property
     def live_user_count(self):
         """Get count of users with permanent passwords (not temp passwords)"""
         from sqlalchemy import func

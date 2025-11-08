@@ -131,7 +131,7 @@
                             {% endif %}
                             Update your payment method to continue using HealthPrep without interruption.
                         </div>
-                        <a href="https://billing.stripe.com/p/login/test_00000000000000" target="_blank" class="btn btn-sm btn-warning">
+                        <a href="{{ url_for('admin.billing_portal') }}" class="btn btn-sm btn-warning">
                             <i class="fas fa-credit-card me-1"></i> Update Payment
                         </a>
                     </div>
@@ -144,7 +144,7 @@
                             <strong>Trial Expired:</strong> Your free trial has ended. 
                             Update your payment method to restore full access.
                         </div>
-                        <a href="https://billing.stripe.com/p/login/test_00000000000000" target="_blank" class="btn btn-sm btn-danger">
+                        <a href="{{ url_for('admin.billing_portal') }}" class="btn btn-sm btn-danger">
                             <i class="fas fa-credit-card me-1"></i> Update Payment Now
                         </a>
                     </div>
@@ -162,7 +162,7 @@
                         <strong>Payment Required:</strong> Your payment is past due. 
                         Please update your payment method to restore full access.
                     </div>
-                    <a href="https://billing.stripe.com/p/login/test_00000000000000" target="_blank" class="btn btn-sm btn-danger">
+                    <a href="{{ url_for('admin.billing_portal') }}" class="btn btn-sm btn-danger">
                         <i class="fas fa-credit-card me-1"></i> Update Payment Method
                     </a>
                 </div>

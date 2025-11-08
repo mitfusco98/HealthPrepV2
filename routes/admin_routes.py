@@ -479,6 +479,45 @@ def dashboard():
     response.headers['Expires'] = '0'
     return response
 
+@admin_bp.route('/billing-portal')
+@login_required
+@admin_required
+def billing_portal():
+    """Redirect to Stripe Customer Portal for billing management"""
+    from models import Organization
+    from services.stripe_service import StripeService
+    
+    try:
+        # Get current organization
+        org = Organization.query.get(current_user.org_id)
+        
+        if not org:
+            flash('Organization not found', 'error')
+            return redirect(url_for('admin.dashboard'))
+        
+        # Check if organization has a Stripe customer ID
+        if not org.stripe_customer_id:
+            flash('No payment method on file. Please contact support.', 'warning')
+            return redirect(url_for('admin.dashboard'))
+        
+        # Create billing portal session
+        return_url = url_for('admin.dashboard', _external=True)
+        portal_url = StripeService.create_billing_portal_session(
+            org.stripe_customer_id,
+            return_url
+        )
+        
+        if portal_url:
+            return redirect(portal_url)
+        else:
+            flash('Unable to access billing portal. Please contact support.', 'error')
+            return redirect(url_for('admin.dashboard'))
+            
+    except Exception as e:
+        logger.error(f"Error accessing billing portal: {str(e)}")
+        flash('Error accessing billing portal', 'error')
+        return redirect(url_for('admin.dashboard'))
+
 def get_dashboard_data():
     """Helper function to get common dashboard data"""
     analytics = HealthPrepAnalytics()
