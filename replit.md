@@ -1,6 +1,12 @@
 # Health-Prep v2 - HIPAA-Compliant Healthcare Preparation System
 
-### Recent Changes (November 7, 2025)
+### Recent Changes (November 8, 2025)
+**Stripe Billing Portal & Epic OAuth Validation:**
+- **Stripe Billing Portal Fix**: Fixed broken Stripe billing links ("Update Payment", "Manage Billing") by creating `create_billing_portal_session()` method in StripeService and new `/admin/billing-portal` route that redirects to Stripe Customer Portal for billing management. Replaced 3 hardcoded test URLs in base_admin.html with proper `url_for('admin.billing_portal')` calls.
+- **Epic OAuth Connection Validation**: Added `has_epic_oauth_connected` property to Organization model that checks `is_epic_connected` field (validates actual OAuth token from /admin/epic/registration exists, not just credentials entered). This is distinct from `has_epic_credentials` which only verifies credentials are configured.
+- **Enhanced Root Admin Dashboard**: Updated pending organizations readiness status badges to show Epic OAuth connection status (green "Epic OAuth" badge when connected with valid token, gray "No OAuth" when not connected). Added prominent "READY FOR APPROVAL" badge combining all 3 readiness checks: payment info (stripe_customer_id), Epic OAuth connected (is_epic_connected=True), and live users (user_count with permanent passwords).
+
+### Previous Changes (November 7, 2025)
 **Critical Bug Fixes & Improvements:**
 - **Audit Logging Fix**: Corrected all root admin log_admin_event calls to use `org_id=0` instead of falsy conditional logic that incorrectly logged to org_id=1. Affected functions: preset operations, organization management, user management, audit log export, security question reset.
 - **Organization Model Properties**: Added `has_payment_info`, `has_epic_credentials`, and `live_user_count` properties for dashboard status indicators showing organization readiness.
