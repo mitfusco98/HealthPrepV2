@@ -1,6 +1,16 @@
 # Health-Prep v2 - HIPAA-Compliant Healthcare Preparation System
 
-### Recent Changes (November 8, 2025)
+### Recent Changes (November 11, 2025)
+**Approval-Based Stripe Trial System:**
+- **Stripe Setup Mode**: Refactored payment collection from immediate subscription to Setup Mode. Organizations now add payment information WITHOUT starting trial subscription. Changed `create_checkout_session()` to use `mode: 'setup'` instead of `mode: 'subscription'`.
+- **Webhook Handler Update**: Modified `_handle_checkout_completed()` to process SetupIntent, retrieve payment method, set it as customer default, and mark organization as `subscription_status='pending_approval'` instead of starting trial immediately.
+- **Trial Starts on Approval**: Created `start_trial_subscription()` method in StripeService that creates Stripe subscription with 14-day trial when root admin approves organization. Trial dates (trial_start_date, trial_expires) now set at approval, not at payment.
+- **Approval Route Enhancement**: Modified `approve_organization()` in org_approval_routes.py to call `start_trial_subscription()` when approving. Handles missing payment gracefully with manual trial dates and warning messages.
+- **Epic Registration Billing Link**: Fixed hardcoded Stripe test URL on `/admin/epic/registration` to use proper `url_for('admin.billing_portal')` route.
+
+**Flow Summary**: Signup → Add payment (Setup Mode) → Configure (users, Epic OAuth, screenings) → Root admin approves → 14-day trial STARTS
+
+### Previous Changes (November 8, 2025)
 **Stripe Billing Portal & Epic OAuth Validation:**
 - **Stripe Billing Portal Fix**: Fixed broken Stripe billing links ("Update Payment", "Manage Billing") by creating `create_billing_portal_session()` method in StripeService and new `/admin/billing-portal` route that redirects to Stripe Customer Portal for billing management. Replaced 3 hardcoded test URLs in base_admin.html with proper `url_for('admin.billing_portal')` calls.
 - **Epic OAuth Connection Validation**: Added `has_epic_oauth_connected` property to Organization model that checks `is_epic_connected` field (validates actual OAuth token from /admin/epic/registration exists, not just credentials entered). This is distinct from `has_epic_credentials` which only verifies credentials are configured.
