@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 
 from models import User, Organization, db, log_admin_event
 from services.email_service import EmailService
+from services.stripe_service import StripeService
 
 logger = logging.getLogger(__name__)
 
@@ -40,15 +41,11 @@ def approve_organization(org_id):
             flash(f'{org.name} is already approved.', 'info')
             return redirect(url_for('root_admin.dashboard'))
         
-        # Update organization status and start trial
+        # Update organization status
         org.onboarding_status = 'approved'
         org.setup_status = 'trial'  # Activate trial (is_active @property will return True)
         org.approved_at = datetime.utcnow()
         org.approved_by = current_user.id
-        
-        # Set trial dates - trial starts NOW (on approval), not at signup
-        org.trial_start_date = datetime.utcnow()
-        org.trial_expires = datetime.utcnow() + timedelta(days=14)
         
         # Activate all users in this organization
         org_users = User.query.filter_by(org_id=org_id).all()
@@ -56,6 +53,20 @@ def approve_organization(org_id):
             user.is_active_user = True
         
         db.session.commit()
+        
+        # Start Stripe subscription with 14-day trial (trial starts NOW, on approval)
+        if org.stripe_customer_id:
+            subscription_started = StripeService.start_trial_subscription(org)
+            if not subscription_started:
+                logger.warning(f"Failed to start Stripe subscription for organization {org_id}")
+                flash('Organization approved but Stripe subscription failed. Please check billing manually.', 'warning')
+        else:
+            logger.warning(f"Organization {org_id} approved without Stripe customer ID")
+            flash('Organization approved but no payment method on file. Trial dates set manually.', 'warning')
+            # Set trial dates manually if no Stripe
+            org.trial_start_date = datetime.utcnow()
+            org.trial_expires = datetime.utcnow() + timedelta(days=14)
+            db.session.commit()
         
         # Send approval notification to admin user
         admin_user = User.query.filter_by(org_id=org_id, role='admin').first()

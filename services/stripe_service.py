@@ -117,13 +117,13 @@ class StripeService:
         price_id: str = None
     ) -> Optional[str]:
         """
-        Create Stripe Checkout session for subscription signup
+        Create Stripe Checkout session for payment method setup (no subscription yet)
         
         Args:
             organization: Organization model instance
-            success_url: URL to redirect after successful payment
-            cancel_url: URL to redirect if payment cancelled
-            price_id: Stripe price ID (optional)
+            success_url: URL to redirect after successful payment method setup
+            cancel_url: URL to redirect if setup cancelled
+            price_id: Stripe price ID (optional, unused in setup mode)
             
         Returns:
             Checkout session URL or None if error
@@ -142,54 +142,26 @@ class StripeService:
             else:
                 customer_id = organization.stripe_customer_id
             
-            # Create checkout session
+            # Create checkout session in SETUP mode (collect payment method only)
             checkout_params = {
                 'customer': customer_id,
-                'mode': 'subscription',
+                'mode': 'setup',
                 'success_url': success_url,
                 'cancel_url': cancel_url,
-                'subscription_data': {
-                    'trial_period_days': StripeService.TRIAL_DAYS,
-                    'metadata': {
-                        'org_id': organization.id,
-                        'org_name': organization.name
-                    }
-                },
+                'payment_method_types': ['card'],
                 'metadata': {
-                    'org_id': organization.id
+                    'org_id': organization.id,
+                    'org_name': organization.name
                 }
             }
             
-            # Add line items
-            if price_id:
-                checkout_params['line_items'] = [{
-                    'price': price_id,
-                    'quantity': 1
-                }]
-            else:
-                # Development mode: ad-hoc pricing
-                checkout_params['line_items'] = [{
-                    'price_data': {
-                        'currency': 'usd',
-                        'product_data': {
-                            'name': StripeService.PRODUCT_NAME,
-                            'description': 'Unlimited patients, documents, and users - $100/month'
-                        },
-                        'recurring': {
-                            'interval': 'month'
-                        },
-                        'unit_amount': StripeService.SUBSCRIPTION_PRICE
-                    },
-                    'quantity': 1
-                }]
-            
             session = stripe.checkout.Session.create(**checkout_params)
             
-            logger.info(f"Created checkout session {session.id} for organization {organization.id}")
+            logger.info(f"Created setup checkout session {session.id} for organization {organization.id}")
             return session.url
             
         except stripe.error.StripeError as e:
-            logger.error(f"Stripe checkout session creation failed: {str(e)}")
+            logger.error(f"Stripe setup checkout session creation failed: {str(e)}")
             return None
     
     @staticmethod
@@ -294,6 +266,69 @@ class StripeService:
             return None
     
     @staticmethod
+    def start_trial_subscription(organization: Organization, price_id: str = None) -> bool:
+        """
+        Start subscription with 14-day trial for approved organization
+        Called when root admin approves an organization
+        
+        Args:
+            organization: Organization model instance
+            price_id: Stripe price ID (optional)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not organization.stripe_customer_id:
+                logger.error(f"Organization {organization.id} has no Stripe customer ID")
+                return False
+            
+            # Build subscription parameters
+            subscription_params = {
+                'customer': organization.stripe_customer_id,
+                'trial_period_days': StripeService.TRIAL_DAYS,
+                'metadata': {
+                    'org_id': organization.id,
+                    'org_name': organization.name
+                }
+            }
+            
+            # Add price/product
+            if price_id:
+                subscription_params['items'] = [{'price': price_id}]
+            else:
+                # Development mode: create ad-hoc price
+                subscription_params['items'] = [{
+                    'price_data': {
+                        'currency': 'usd',
+                        'product_data': {
+                            'name': StripeService.PRODUCT_NAME,
+                        },
+                        'recurring': {
+                            'interval': 'month',
+                        },
+                        'unit_amount': StripeService.SUBSCRIPTION_PRICE,
+                    },
+                }]
+            
+            # Create subscription
+            subscription = stripe.Subscription.create(**subscription_params)
+            
+            # Update organization
+            organization.stripe_subscription_id = subscription.id
+            organization.subscription_status = 'trialing'
+            organization.trial_start_date = datetime.utcnow()
+            organization.trial_expires = datetime.utcnow() + timedelta(days=StripeService.TRIAL_DAYS)
+            db.session.commit()
+            
+            logger.info(f"Started trial subscription {subscription.id} for organization {organization.id}")
+            return True
+            
+        except stripe.error.StripeError as e:
+            logger.error(f"Failed to start trial subscription: {str(e)}")
+            return False
+    
+    @staticmethod
     def handle_webhook_event(event: Dict) -> bool:
         """
         Handle Stripe webhook events
@@ -336,7 +371,7 @@ class StripeService:
     
     @staticmethod
     def _handle_checkout_completed(session: Dict) -> bool:
-        """Handle successful checkout session completion"""
+        """Handle successful checkout session completion (setup mode)"""
         org_id = session['metadata'].get('org_id')
         if not org_id:
             logger.warning("Checkout session missing org_id metadata")
@@ -353,17 +388,32 @@ class StripeService:
             org.stripe_customer_id = customer_id
             logger.info(f"Saved Stripe customer ID {customer_id} for organization {org_id}")
         
-        # Update organization with subscription details
-        subscription_id = session.get('subscription')
-        if subscription_id:
-            org.stripe_subscription_id = subscription_id
-            org.subscription_status = 'trialing'
-            org.trial_start_date = datetime.utcnow()
-            org.trial_expires = datetime.utcnow() + timedelta(days=StripeService.TRIAL_DAYS)
-            logger.info(f"Saved subscription {subscription_id} for organization {org_id}")
+        # In setup mode, we get a setup_intent instead of subscription
+        setup_intent_id = session.get('setup_intent')
+        if setup_intent_id:
+            try:
+                # Retrieve the setup intent to get the payment method
+                setup_intent = stripe.SetupIntent.retrieve(setup_intent_id)
+                payment_method_id = setup_intent.get('payment_method')
+                
+                if payment_method_id:
+                    # Set the default payment method for the customer
+                    stripe.Customer.modify(
+                        customer_id,
+                        invoice_settings={'default_payment_method': payment_method_id}
+                    )
+                    logger.info(f"Set default payment method {payment_method_id} for customer {customer_id}")
+                    
+                    # Mark that organization has payment info but no active subscription yet
+                    org.subscription_status = 'pending_approval'
+                    logger.info(f"Organization {org_id} payment method saved, awaiting approval")
+                    
+            except stripe.error.StripeError as e:
+                logger.error(f"Failed to process setup intent: {str(e)}")
+                return False
         
         db.session.commit()
-        logger.info(f"Checkout completed for organization {org_id}")
+        logger.info(f"Checkout setup completed for organization {org_id}")
         return True
     
     @staticmethod
