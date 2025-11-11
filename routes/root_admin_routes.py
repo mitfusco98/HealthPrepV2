@@ -524,10 +524,21 @@ def create_organization():
             flash('This email is already registered', 'error')
             return render_template('root_admin/create_organization.html')
         
+        # Get Epic and system settings from form
+        epic_client_id = request.form.get('epic_client_id', '').strip()
+        epic_client_secret = request.form.get('epic_client_secret', '').strip()
+        epic_fhir_url = request.form.get('epic_fhir_url', '').strip()
+        epic_environment = request.form.get('epic_environment', 'sandbox')
+        max_users = request.form.get('max_users', 10, type=int)
+        display_name = request.form.get('display_name', '').strip()
+        custom_presets_enabled = request.form.get('custom_presets_enabled') == 'on'
+        auto_sync_enabled = request.form.get('auto_sync_enabled') == 'on'
+        notes = request.form.get('notes', '').strip()
+        
         # Create organization with manual billing
         org = Organization(
             name=org_name,
-            display_name=org_name,
+            display_name=display_name or org_name,
             site=site,
             specialty=specialty,
             address=address,
@@ -538,8 +549,17 @@ def create_organization():
             setup_status='incomplete',
             onboarding_status='pending_approval',
             subscription_status='manual_billing',
-            max_users=10
+            max_users=max_users,
+            custom_presets_enabled=custom_presets_enabled,
+            auto_sync_enabled=auto_sync_enabled,
+            epic_client_id=epic_client_id or None,
+            epic_fhir_url=epic_fhir_url or None,
+            epic_environment=epic_environment
         )
+        
+        # Set encrypted secret if provided
+        if epic_client_secret:
+            org.epic_client_secret = epic_client_secret
         
         db.session.add(org)
         db.session.flush()
