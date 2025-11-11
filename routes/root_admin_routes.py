@@ -480,7 +480,132 @@ def organizations():
         flash('Error loading organizations', 'error')
         return render_template('error/500.html'), 500
 
-# DEPRECATED: /organizations/create route removed - use self-service signup flow instead
+@root_admin_bp.route('/organizations/create', methods=['GET', 'POST'])
+@login_required
+@root_admin_required
+def create_organization():
+    """Manually create organization for enterprise/custom billing"""
+    from utils.onboarding_helpers import (
+        generate_username_from_email,
+        create_password_reset_token,
+        get_password_reset_expiry
+    )
+    from services.email_service import EmailService
+    from flask import url_for as flask_url_for
+    
+    if request.method == 'GET':
+        return render_template('root_admin/create_organization.html')
+    
+    try:
+        # Collect organization information
+        org_name = request.form.get('org_name', '').strip()
+        contact_email = request.form.get('contact_email', '').strip()
+        site = request.form.get('site', '').strip()
+        specialty = request.form.get('specialty', '').strip()
+        address = request.form.get('address', '').strip()
+        phone = request.form.get('phone', '').strip()
+        billing_email = request.form.get('billing_email', '').strip() or contact_email
+        notes = request.form.get('notes', '').strip()
+        
+        # Validate required fields
+        if not org_name or not contact_email:
+            flash('Organization name and admin email are required', 'error')
+            return render_template('root_admin/create_organization.html')
+        
+        # Check if organization name already exists
+        existing_org = Organization.query.filter_by(name=org_name).first()
+        if existing_org:
+            flash('An organization with this name already exists', 'error')
+            return render_template('root_admin/create_organization.html')
+        
+        # Check if email already exists
+        existing_user = User.query.filter_by(email=contact_email).first()
+        if existing_user:
+            flash('This email is already registered', 'error')
+            return render_template('root_admin/create_organization.html')
+        
+        # Create organization with manual billing
+        org = Organization(
+            name=org_name,
+            display_name=org_name,
+            site=site,
+            specialty=specialty,
+            address=address,
+            phone=phone,
+            contact_email=contact_email,
+            billing_email=billing_email,
+            creation_method='manual',
+            setup_status='incomplete',
+            onboarding_status='pending_approval',
+            subscription_status='manual_billing',
+            max_users=10
+        )
+        
+        db.session.add(org)
+        db.session.flush()
+        
+        # Generate admin user credentials
+        username = generate_username_from_email(contact_email)
+        
+        # Create admin user
+        admin_user = User(
+            username=username,
+            email=contact_email,
+            role='admin',
+            is_admin=True,
+            org_id=org.id,
+            is_temp_password=True,
+            is_active_user=True,
+            email_verified=False
+        )
+        
+        db.session.add(admin_user)
+        db.session.flush()
+        
+        # Generate password reset token for welcome email
+        reset_token = create_password_reset_token()
+        admin_user.password_reset_token = reset_token
+        admin_user.password_reset_expires = get_password_reset_expiry(hours=48)
+        
+        db.session.commit()
+        
+        # Send welcome email with password setup link
+        password_setup_url = flask_url_for('password_reset.reset_password', token=reset_token, _external=True)
+        
+        EmailService.send_admin_welcome_email(
+            email=contact_email,
+            username=username,
+            org_name=org_name,
+            password_setup_url=password_setup_url
+        )
+        
+        # Log the action
+        log_admin_event(
+            event_type='create_manual_organization',
+            user_id=current_user.id,
+            org_id=0,
+            ip=flask_request.remote_addr,
+            data={
+                'organization_name': org_name,
+                'target_org_id': org.id,
+                'admin_email': contact_email,
+                'notes': notes,
+                'description': f'Manually created organization: {org_name} (custom billing)'
+            }
+        )
+        
+        logger.info(f"Manual organization created by root admin: {org_name} (ID: {org.id})")
+        
+        flash(f'Organization "{org_name}" created successfully. Welcome email sent to {contact_email}.', 'success')
+        flash('Organization is pending approval. Admin can configure while awaiting activation.', 'info')
+        
+        return redirect(url_for('root_admin.view_organization', org_id=org.id))
+    
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error creating manual organization: {str(e)}")
+        flash('Error creating organization. Please try again.', 'error')
+        return render_template('root_admin/create_organization.html')
 
 @root_admin_bp.route('/organizations/<int:org_id>')
 @login_required

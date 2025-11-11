@@ -187,7 +187,8 @@
                                     {% if org.phone %}<small class="text-muted">{{ org.phone }}</small>{% endif %}
                                 </td>
                                 <td>
-                                    {% set is_ready = org.has_payment_info and org.has_epic_oauth_connected and org.live_user_count > 0 %}
+                                    {% set payment_ready = org.creation_method == 'manual' or org.has_payment_info %}
+                                    {% set is_ready = payment_ready and org.has_epic_oauth_connected and org.live_user_count > 0 %}
                                     
                                     {% if is_ready %}
                                         <div class="mb-2">
@@ -198,7 +199,11 @@
                                     {% endif %}
                                     
                                     <div class="d-flex gap-2 flex-wrap">
-                                        {% if org.has_payment_info %}
+                                        {% if org.creation_method == 'manual' %}
+                                            <span class="badge bg-warning text-dark" title="Manual billing organization (custom pricing)">
+                                                <i class="fas fa-file-invoice"></i> Manual Billing
+                                            </span>
+                                        {% elif org.has_payment_info %}
                                             <span class="badge bg-success" title="Payment information provided">
                                                 <i class="fas fa-credit-card"></i> Payment
                                             </span>

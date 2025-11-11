@@ -4,32 +4,22 @@ Handles new organization registration with Stripe integration
 """
 import logging
 import secrets
-import string
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session
 from datetime import datetime, timedelta
 
 from models import Organization, User, db
 from services.stripe_service import StripeService
 from services.email_service import EmailService
+from utils.onboarding_helpers import (
+    generate_temp_password,
+    generate_username_from_email,
+    create_password_reset_token,
+    get_password_reset_expiry
+)
 
 logger = logging.getLogger(__name__)
 
 signup_bp = Blueprint('signup', __name__)
-
-
-def generate_temp_password(length=12):
-    """Generate a secure temporary password"""
-    alphabet = string.ascii_letters + string.digits + "!@#$%"
-    return ''.join(secrets.choice(alphabet) for _ in range(length))
-
-
-def generate_username_from_email(email):
-    """Generate username from email address"""
-    # Take part before @ and sanitize
-    username = email.split('@')[0]
-    # Remove special characters, keep only alphanumeric and underscores
-    username = ''.join(c if c.isalnum() or c == '_' else '_' for c in username)
-    return username[:50]  # Limit to 50 chars
 
 
 @signup_bp.route('/signup', methods=['GET'])
@@ -118,10 +108,9 @@ def signup_submit():
         db.session.flush()  # Get user ID for password reset token
         
         # Generate password reset token for welcome email
-        import secrets as sec
-        reset_token = sec.token_urlsafe(32)
+        reset_token = create_password_reset_token()
         admin_user.password_reset_token = reset_token
-        admin_user.password_reset_expires = datetime.utcnow() + timedelta(hours=48)  # 48-hour window
+        admin_user.password_reset_expires = get_password_reset_expiry(hours=48)
         
         db.session.commit()
         

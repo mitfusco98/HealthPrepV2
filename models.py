@@ -91,6 +91,7 @@ class Organization(db.Model):
     billing_email = db.Column(db.String(120))  # Email for billing notifications (can differ from contact_email)
     
     # Onboarding Status Management
+    creation_method = db.Column(db.String(20), default='self_service')  # self_service, manual (for enterprise/custom billing)
     onboarding_status = db.Column(db.String(30), default='pending_approval')  # pending_approval, approved, active, suspended
     approved_at = db.Column(db.DateTime)  # When organization was approved
     approved_by = db.Column(db.Integer, db.ForeignKey('users.id'))  # Root admin who approved
@@ -112,7 +113,11 @@ class Organization(db.Model):
         if self.setup_status == 'suspended':
             return False
         
-        # Check trial expiration
+        # Manual billing organizations are active if approved (no trial expiration check)
+        if self.creation_method == 'manual' and self.subscription_status == 'manual_billing':
+            return True
+        
+        # Check trial expiration for non-manual orgs
         if self.setup_status == 'trial' and self.trial_expires and self.trial_expires < datetime.utcnow():
             return False
         

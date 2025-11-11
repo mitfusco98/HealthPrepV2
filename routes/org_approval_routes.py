@@ -41,32 +41,47 @@ def approve_organization(org_id):
             flash(f'{org.name} is already approved.', 'info')
             return redirect(url_for('root_admin.dashboard'))
         
-        # Update organization status
-        org.onboarding_status = 'approved'
-        org.setup_status = 'trial'  # Activate trial (is_active @property will return True)
-        org.approved_at = datetime.utcnow()
-        org.approved_by = current_user.id
-        
         # Activate all users in this organization
         org_users = User.query.filter_by(org_id=org_id).all()
         for user in org_users:
             user.is_active_user = True
         
-        db.session.commit()
-        
-        # Start Stripe subscription with 14-day trial (trial starts NOW, on approval)
-        if org.stripe_customer_id:
-            subscription_started = StripeService.start_trial_subscription(org)
-            if not subscription_started:
-                logger.warning(f"Failed to start Stripe subscription for organization {org_id}")
-                flash('Organization approved but Stripe subscription failed. Please check billing manually.', 'warning')
-        else:
-            logger.warning(f"Organization {org_id} approved without Stripe customer ID")
-            flash('Organization approved but no payment method on file. Trial dates set manually.', 'warning')
-            # Set trial dates manually if no Stripe
-            org.trial_start_date = datetime.utcnow()
-            org.trial_expires = datetime.utcnow() + timedelta(days=14)
+        # Handle billing based on creation method
+        if org.creation_method == 'manual':
+            # Manual billing org - activate immediately (no trial period)
+            logger.info(f"Approving manual billing organization {org_id}")
+            org.onboarding_status = 'approved'
+            org.setup_status = 'live'  # Go straight to live status (no trial)
+            org.subscription_status = 'manual_billing'
+            org.approved_at = datetime.utcnow()
+            org.approved_by = current_user.id
             db.session.commit()
+            flash('Organization approved with manual billing. System activated.', 'info')
+        else:
+            # Self-service org - start Stripe subscription with 14-day trial (trial starts NOW, on approval)
+            org.onboarding_status = 'approved'
+            org.setup_status = 'trial'  # Activate trial (is_active @property will return True)
+            org.subscription_status = 'trialing'  # Ensure subscription_status is set
+            org.approved_at = datetime.utcnow()
+            org.approved_by = current_user.id
+            db.session.commit()
+            
+            if org.stripe_customer_id:
+                subscription_started = StripeService.start_trial_subscription(org)
+                if not subscription_started:
+                    logger.warning(f"Failed to start Stripe subscription for organization {org_id}")
+                    flash('Organization approved but Stripe subscription failed. Please check billing manually.', 'warning')
+                    # Fallback: ensure trial dates are set even if Stripe fails
+                    org.trial_start_date = datetime.utcnow()
+                    org.trial_expires = datetime.utcnow() + timedelta(days=14)
+                    db.session.commit()
+            else:
+                logger.warning(f"Organization {org_id} approved without Stripe customer ID")
+                flash('Organization approved but no payment method on file. Trial dates set manually.', 'warning')
+                # Set trial dates manually if no Stripe
+                org.trial_start_date = datetime.utcnow()
+                org.trial_expires = datetime.utcnow() + timedelta(days=14)
+                db.session.commit()
         
         # Send approval notification to admin user
         admin_user = User.query.filter_by(org_id=org_id, role='admin').first()
