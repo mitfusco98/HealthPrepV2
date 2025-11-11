@@ -1,6 +1,21 @@
 # Health-Prep v2 - HIPAA-Compliant Healthcare Preparation System
 
 ### Recent Changes (November 11, 2025)
+**Manual Organization Creation for Enterprise Sales:**
+- **Dual Onboarding Paths**: Added support for both self-service (Stripe billing, 14-day trial) and manual (enterprise sales, custom billing) organization creation methods.
+- **creation_method Field**: Added `creation_method` enum field to Organization model ('self_service' or 'manual') to distinguish onboarding paths. Migration script created and executed following project pattern.
+- **Manual Creation Route**: Created `/root-admin/organizations/create` allowing root admins to manually create organizations by specifying org name and admin email. System auto-generates username/temp password and sends onboarding email.
+- **Branching Approval Logic**: Modified `approve_organization()` to handle both creation methods:
+  - **Manual orgs**: Set to `setup_status='live'` and `subscription_status='manual_billing'` immediately (no trial period). Perpetually active for custom invoicing/contracts.
+  - **Self-service orgs**: Set to `setup_status='trial'` and `subscription_status='trialing'` with 14-day trial period via Stripe (existing flow). Added fallback trial dates if Stripe fails.
+- **Billing Portal Updates**: Modified `/admin/billing-portal` to block manual billing orgs from accessing Stripe portal, showing "Contact administrator for billing information" message instead.
+- **Dashboard Enhancements**: Updated root admin dashboard pending organizations table to display "Manual Billing" badges for manually-created orgs instead of payment status indicators.
+- **Shared Utilities**: Extracted onboarding logic (username generation, temp password, email sending) into `utils/onboarding_helpers.py` for code reuse between self-service signup and manual creation flows.
+
+**Flow Summary**: 
+- Self-service: Signup → Add payment (Setup Mode) → Configure (users, Epic OAuth, screenings) → Root admin approves → 14-day trial STARTS
+- Manual: Root admin creates → Admin receives email → Sets password → Configure → Root admin approves → Immediately ACTIVE (no trial)
+
 **Approval-Based Stripe Trial System:**
 - **Stripe Setup Mode**: Refactored payment collection from immediate subscription to Setup Mode. Organizations now add payment information WITHOUT starting trial subscription. Changed `create_checkout_session()` to use `mode: 'setup'` instead of `mode: 'subscription'`.
 - **Webhook Handler Update**: Modified `_handle_checkout_completed()` to process SetupIntent, retrieve payment method, set it as customer default, and mark organization as `subscription_status='pending_approval'` instead of starting trial immediately.
