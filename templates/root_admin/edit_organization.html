@@ -169,15 +169,41 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="setup_status" class="form-label">Setup Status</label>
-                                <select class="form-select" id="setup_status" name="setup_status" required>
+                                <select class="form-select" id="setup_status" name="setup_status" required onchange="handleStatusChange(this)">
                                     <option value="incomplete" {% if organization.setup_status == 'incomplete' %}selected{% endif %}>Incomplete</option>
                                     <option value="trial" {% if organization.setup_status == 'trial' %}selected{% endif %}>Trial</option>
                                     <option value="live" {% if organization.setup_status == 'live' %}selected{% endif %}>Live</option>
-                                    <option value="suspended" {% if organization.setup_status == 'suspended' %}selected{% endif %}>Suspended</option>
+                                    <option value="suspended" {% if organization.setup_status == 'suspended' %}selected{% endif %}>⛔ Suspended (Blocks All Access)</option>
                                 </select>
                             </div>
                         </div>
                     </div>
+                    
+                    {% if organization.setup_status == 'suspended' or organization.creation_method == 'manual' %}
+                    <div class="alert alert-danger" id="suspensionWarning" {% if organization.setup_status != 'suspended' %}style="display:none;"{% endif %}>
+                        <h6 class="alert-heading">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Suspension Warning
+                        </h6>
+                        <p class="mb-2">
+                            <strong>Setting status to "Suspended" will immediately:</strong>
+                        </p>
+                        <ul class="mb-2">
+                            <li>Block all users in this organization from logging in</li>
+                            <li>Disable access to all system features</li>
+                            <li>Prevent prep sheet generation and EMR synchronization</li>
+                            <li>Maintain all data (can be reactivated later)</li>
+                        </ul>
+                        <p class="mb-0">
+                            {% if organization.creation_method == 'manual' %}
+                            <span class="badge bg-warning text-dark">Manual Billing</span>
+                            This organization bypasses Stripe. Use suspension for access control when billing issues arise.
+                            {% else %}
+                            <span class="badge bg-info">Self-Service</span>
+                            For billing issues, subscription management via Stripe is preferred. Use suspension for policy violations or security concerns.
+                            {% endif %}
+                        </p>
+                    </div>
+                    {% endif %}
                     
                     <div class="row">
                         <div class="col-md-6">
@@ -313,5 +339,34 @@ function deleteOrganization(orgId, orgName) {
         });
     }
 }
+
+function handleStatusChange(selectElement) {
+    const suspensionWarning = document.getElementById('suspensionWarning');
+    if (selectElement.value === 'suspended') {
+        if (suspensionWarning) {
+            suspensionWarning.style.display = 'block';
+        }
+        if (!confirm('⚠️ WARNING: Suspending this organization will immediately block ALL users from accessing the system.\n\nThis includes:\n• Login access\n• Prep sheet generation\n• EMR synchronization\n• All system features\n\nData will be preserved and organization can be reactivated later.\n\nContinue with suspension?')) {
+            // Revert to previous value
+            selectElement.value = '{{ organization.setup_status }}';
+            if (suspensionWarning) {
+                suspensionWarning.style.display = 'none';
+            }
+        }
+    } else {
+        if (suspensionWarning) {
+            suspensionWarning.style.display = 'none';
+        }
+    }
+}
+
+// Show warning on page load if already suspended
+document.addEventListener('DOMContentLoaded', function() {
+    const statusSelect = document.getElementById('setup_status');
+    const suspensionWarning = document.getElementById('suspensionWarning');
+    if (statusSelect && statusSelect.value === 'suspended' && suspensionWarning) {
+        suspensionWarning.style.display = 'block';
+    }
+});
 </script>
 {% endblock %}
