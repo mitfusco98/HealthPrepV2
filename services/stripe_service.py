@@ -347,11 +347,20 @@ class StripeService:
             logger.error(f"Organization {org_id} not found for checkout session")
             return False
         
+        # Extract customer ID from the session
+        customer_id = session.get('customer')
+        if customer_id and not org.stripe_customer_id:
+            org.stripe_customer_id = customer_id
+            logger.info(f"Saved Stripe customer ID {customer_id} for organization {org_id}")
+        
         # Update organization with subscription details
-        org.stripe_subscription_id = session.get('subscription')
-        org.subscription_status = 'trialing'
-        org.trial_start_date = datetime.utcnow()
-        org.trial_expires = datetime.utcnow() + timedelta(days=StripeService.TRIAL_DAYS)
+        subscription_id = session.get('subscription')
+        if subscription_id:
+            org.stripe_subscription_id = subscription_id
+            org.subscription_status = 'trialing'
+            org.trial_start_date = datetime.utcnow()
+            org.trial_expires = datetime.utcnow() + timedelta(days=StripeService.TRIAL_DAYS)
+            logger.info(f"Saved subscription {subscription_id} for organization {org_id}")
         
         db.session.commit()
         logger.info(f"Checkout completed for organization {org_id}")

@@ -479,11 +479,11 @@ def dashboard():
     response.headers['Expires'] = '0'
     return response
 
-@admin_bp.route('/billing-portal')
+@admin_bp.route('/payment-setup')
 @login_required
 @admin_required
-def billing_portal():
-    """Redirect to Stripe Customer Portal for billing management"""
+def payment_setup():
+    """Create Stripe Checkout session for payment setup"""
     from models import Organization
     from services.stripe_service import StripeService
     
@@ -495,10 +495,58 @@ def billing_portal():
             flash('Organization not found', 'error')
             return redirect(url_for('admin.dashboard'))
         
-        # Check if organization has a Stripe customer ID
-        if not org.stripe_customer_id:
-            flash('No payment method on file. Please contact support.', 'warning')
+        # If already has payment info, redirect to billing portal
+        if org.stripe_customer_id:
+            return redirect(url_for('admin.billing_portal'))
+        
+        # Create Stripe Checkout session
+        success_url = url_for('admin.payment_success', _external=True)
+        cancel_url = url_for('admin.dashboard', _external=True)
+        
+        checkout_url = StripeService.create_checkout_session(
+            org,
+            success_url,
+            cancel_url
+        )
+        
+        if checkout_url:
+            return redirect(checkout_url)
+        else:
+            flash('Unable to create payment session. Please try again.', 'error')
             return redirect(url_for('admin.dashboard'))
+            
+    except Exception as e:
+        logger.error(f"Error creating payment setup session: {str(e)}")
+        flash('Error setting up payment', 'error')
+        return redirect(url_for('admin.dashboard'))
+
+@admin_bp.route('/payment-success')
+@login_required
+@admin_required
+def payment_success():
+    """Handle successful payment setup"""
+    flash('Payment information added successfully!', 'success')
+    return redirect(url_for('admin.dashboard'))
+
+@admin_bp.route('/billing-portal')
+@login_required
+@admin_required
+def billing_portal():
+    """Redirect to Stripe Customer Portal for billing management or payment setup"""
+    from models import Organization
+    from services.stripe_service import StripeService
+    
+    try:
+        # Get current organization
+        org = Organization.query.get(current_user.org_id)
+        
+        if not org:
+            flash('Organization not found', 'error')
+            return redirect(url_for('admin.dashboard'))
+        
+        # If no payment method, redirect to payment setup
+        if not org.stripe_customer_id:
+            return redirect(url_for('admin.payment_setup'))
         
         # Create billing portal session
         return_url = url_for('admin.dashboard', _external=True)
