@@ -89,6 +89,8 @@ def update_epic_registration():
             organization.epic_client_secret = data['epic_client_secret']
         if 'epic_fhir_url' in data:
             organization.epic_fhir_url = data['epic_fhir_url']
+        if 'epic_environment' in data:
+            organization.epic_environment = data['epic_environment']
         if 'epic_registration_status' in data:
             organization.epic_registration_status = data['epic_registration_status']
             if data['epic_registration_status'] == 'approved':

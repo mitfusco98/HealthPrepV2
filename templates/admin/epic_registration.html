@@ -150,6 +150,17 @@
                                 </small>
                             </div>
                             
+                            <div class="mb-3">
+                                <label class="form-label">Environment</label>
+                                <select class="form-select" id="epicEnvironment">
+                                    <option value="sandbox" {% if organization.epic_environment == 'sandbox' %}selected{% endif %}>Sandbox</option>
+                                    <option value="production" {% if organization.epic_environment == 'production' %}selected{% endif %}>Production</option>
+                                </select>
+                                <small class="form-text text-muted">
+                                    Select sandbox for testing or production for live patient data
+                                </small>
+                            </div>
+                            
                             <button type="button" class="btn btn-primary" onclick="saveAppInfo()">
                                 <i class="fas fa-save me-1"></i> Save App Information
                             </button>
@@ -467,6 +478,7 @@ function saveAppInfo() {
         epic_client_id: document.getElementById('epicClientId').value,
         epic_client_secret: document.getElementById('epicClientSecret').value,
         epic_fhir_url: document.getElementById('epicFhirUrl').value,
+        epic_environment: document.getElementById('epicEnvironment').value,
         epic_registration_status: 'in_progress'
     };
 
