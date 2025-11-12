@@ -115,6 +115,21 @@ def signup_submit():
         
         db.session.commit()
         
+        # Send welcome email with password setup link immediately (don't wait for Stripe)
+        password_setup_url = url_for('password_reset.reset_password', token=reset_token, _external=True)
+        
+        try:
+            EmailService.send_admin_welcome_email(
+                email=contact_email,
+                username=username,
+                org_name=org_name,
+                password_setup_url=password_setup_url
+            )
+            logger.info(f"Welcome email sent to {contact_email}")
+        except Exception as email_error:
+            logger.error(f"Failed to send welcome email: {str(email_error)}")
+            # Don't block signup if email fails - log and continue
+        
         # Store org info in session for Stripe checkout
         session['signup_org_id'] = org.id
         session['signup_reset_token'] = reset_token
@@ -177,18 +192,6 @@ def signup_success():
             org.subscription_status = 'trialing'  # Stripe subscription active
             # setup_status stays 'incomplete' until approval
             db.session.commit()
-            
-            # Send welcome email with password setup link
-            from flask import url_for as flask_url_for
-            password_setup_url = flask_url_for('password_reset.reset_password', token=reset_token, _external=True)
-            
-            EmailService.send_admin_welcome_email(
-                email=email,
-                username=username,
-                org_name=org_name,
-                password_setup_url=password_setup_url
-            )
-            
             logger.info(f"Signup completed for organization: {org_name} (ID: {org_id})")
         
         # Clear session data

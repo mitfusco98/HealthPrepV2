@@ -178,7 +178,8 @@ class Organization(db.Model):
     @epic_client_secret.setter
     def epic_client_secret(self, value):
         """Set and encrypt Epic client secret"""
-        if value is None:
+        # Treat None and empty strings as None (no encryption needed)
+        if not value or (isinstance(value, str) and not value.strip()):
             self._epic_client_secret = None
         else:
             try:
