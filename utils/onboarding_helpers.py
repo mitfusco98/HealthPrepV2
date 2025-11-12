@@ -4,6 +4,7 @@ Shared onboarding utilities for both self-service signup and manual organization
 import secrets
 import string
 from datetime import datetime, timedelta
+from werkzeug.security import generate_password_hash
 
 
 def generate_temp_password(length=12):
@@ -27,3 +28,14 @@ def create_password_reset_token():
 def get_password_reset_expiry(hours=48):
     """Get password reset token expiry datetime"""
     return datetime.utcnow() + timedelta(hours=hours)
+
+
+def generate_dummy_password_hash():
+    """
+    Generate a dummy/unusable password hash for users awaiting password setup.
+    This satisfies the database NOT NULL constraint while preventing login attempts.
+    The hash is replaced when the user sets their real password via the reset link.
+    """
+    # Generate a random string that will never match any user input
+    dummy_password = f"__UNUSABLE__{secrets.token_urlsafe(32)}__TEMP__"
+    return generate_password_hash(dummy_password)

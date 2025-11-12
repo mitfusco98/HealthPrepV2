@@ -14,7 +14,8 @@ from utils.onboarding_helpers import (
     generate_temp_password,
     generate_username_from_email,
     create_password_reset_token,
-    get_password_reset_expiry
+    get_password_reset_expiry,
+    generate_dummy_password_hash
 )
 
 logger = logging.getLogger(__name__)
@@ -100,9 +101,9 @@ def signup_submit():
             org_id=org.id,
             is_temp_password=True,  # Will use password reset flow to set real password
             is_active_user=True,  # Active immediately - can login and configure while pending
-            email_verified=False
+            email_verified=False,
+            password_hash=generate_dummy_password_hash()  # Dummy hash until user sets real password via reset link
         )
-        # No password set - user will set via password reset link in welcome email
         
         db.session.add(admin_user)
         db.session.flush()  # Get user ID for password reset token

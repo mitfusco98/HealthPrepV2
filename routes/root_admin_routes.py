@@ -488,7 +488,8 @@ def create_organization():
     from utils.onboarding_helpers import (
         generate_username_from_email,
         create_password_reset_token,
-        get_password_reset_expiry
+        get_password_reset_expiry,
+        generate_dummy_password_hash
     )
     from services.email_service import EmailService
     from flask import url_for as flask_url_for
@@ -576,7 +577,8 @@ def create_organization():
             org_id=org.id,
             is_temp_password=True,
             is_active_user=True,
-            email_verified=False
+            email_verified=False,
+            password_hash=generate_dummy_password_hash()  # Dummy hash until user sets real password via reset link
         )
         
         db.session.add(admin_user)
