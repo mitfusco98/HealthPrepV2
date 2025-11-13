@@ -103,6 +103,17 @@ def create_app():
     csrf.init_app(app)
     configure_csrf_exemptions(app)
     migrate.init_app(app, db)
+    
+    # Configure CORS for API endpoints
+    # Allow marketing website to call /api/signup endpoint
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": "*",  # Allow all origins for development; configure specific domains in production
+            "methods": ["GET", "POST", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Accept"],
+            "supports_credentials": False
+        }
+    })
 
     @login_manager.user_loader
     def load_user(user_id):

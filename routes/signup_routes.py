@@ -18,8 +18,10 @@ from utils.onboarding_helpers import (
     get_password_reset_expiry,
     generate_dummy_password_hash
 )
+from flask_wtf.csrf import CSRFProtect
 
 logger = logging.getLogger(__name__)
+csrf = CSRFProtect()
 
 signup_bp = Blueprint('signup', __name__)
 
@@ -208,10 +210,12 @@ def signup_submit():
 
 
 @signup_bp.route('/api/signup', methods=['POST'])
+@csrf.exempt
 def api_signup():
     """
     JSON API endpoint for external signup integration.
     Accepts JSON request body and returns JSON response.
+    CSRF exempt to allow external marketing website to call this API.
     """
     try:
         # Get JSON data
