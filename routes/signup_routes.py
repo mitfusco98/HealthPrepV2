@@ -18,10 +18,9 @@ from utils.onboarding_helpers import (
     get_password_reset_expiry,
     generate_dummy_password_hash
 )
-from flask_wtf.csrf import CSRFProtect
+from app import csrf
 
 logger = logging.getLogger(__name__)
-csrf = CSRFProtect()
 
 signup_bp = Blueprint('signup', __name__)
 
