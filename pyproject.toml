@@ -36,4 +36,5 @@ dependencies = [
     "psutil>=7.0.0",
     "weasyprint>=66.0",
     "stripe>=13.1.0",
+    "flask-cors>=6.0.1",
 ]

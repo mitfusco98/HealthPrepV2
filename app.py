@@ -5,6 +5,7 @@ Clean Flask application factory
 from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect
 from flask_migrate import Migrate
+from flask_cors import CORS
 from datetime import datetime
 import os
 import logging

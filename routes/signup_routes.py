@@ -4,8 +4,9 @@ Handles new organization registration with Stripe integration
 """
 import logging
 import secrets
-from flask import Blueprint, render_template, request, flash, redirect, url_for, session
+from flask import Blueprint, render_template, request, flash, redirect, url_for, session, jsonify
 from datetime import datetime, timedelta
+from typing import Tuple, Dict, Any
 
 from models import Organization, User, db
 from services.stripe_service import StripeService
@@ -23,50 +24,50 @@ logger = logging.getLogger(__name__)
 signup_bp = Blueprint('signup', __name__)
 
 
-@signup_bp.route('/signup', methods=['GET'])
-def signup_form():
-    """Display public signup form"""
-    return render_template('signup/signup.html')
-
-
-@signup_bp.route('/signup', methods=['POST'])
-def signup_submit():
-    """Process signup form submission"""
+def create_signup_organization(
+    org_name: str,
+    contact_email: str,
+    specialty: str,
+    epic_client_id: str,
+    epic_client_secret: str,
+    site: str = '',
+    address: str = '',
+    phone: str = '',
+    billing_email: str = '',
+    epic_fhir_url: str = '',
+    success_url: str = None,
+    cancel_url: str = None
+) -> Tuple[bool, Dict[str, Any]]:
+    """
+    Shared signup logic for both HTML form and JSON API.
+    
+    Returns:
+        Tuple of (success: bool, data: dict)
+        On success: (True, {"checkout_url": "...", "organization_id": 123, "reset_token": "..."})
+        On error: (False, {"error": "Error message"})
+    """
     try:
-        # Collect organization information
-        org_name = request.form.get('org_name', '').strip()
-        site = request.form.get('site', '').strip()
-        specialty = request.form.get('specialty', '').strip()
-        address = request.form.get('address', '').strip()
-        phone = request.form.get('phone', '').strip()
-        contact_email = request.form.get('contact_email', '').strip()
-        billing_email = request.form.get('billing_email', '').strip() or contact_email
-        
-        # Collect Epic FHIR credentials
-        epic_client_id = request.form.get('epic_client_id', '').strip()
-        epic_client_secret = request.form.get('epic_client_secret', '').strip()
-        epic_fhir_url = request.form.get('epic_fhir_url', '').strip() or \
-                       'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
-        
         # Validate required fields
-        if not all([org_name, contact_email, epic_client_id, epic_client_secret]):
-            flash('Please fill in all required fields', 'error')
-            return redirect(url_for('signup.signup_form'))
+        if not all([org_name, contact_email, epic_client_id, epic_client_secret, specialty]):
+            return False, {"error": "Missing required fields: organization_name, admin_email, specialty, epic_client_id, epic_client_secret"}
+        
+        # Set defaults
+        if not billing_email:
+            billing_email = contact_email
+        if not epic_fhir_url:
+            epic_fhir_url = 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
         
         # Check if organization name already exists
         existing_org = Organization.query.filter_by(name=org_name).first()
         if existing_org:
-            flash('An organization with this name already exists. Please choose a different name.', 'error')
-            return redirect(url_for('signup.signup_form'))
+            return False, {"error": "Organization name already exists"}
         
         # Check if email already exists
         existing_user = User.query.filter_by(email=contact_email).first()
         if existing_user:
-            flash('This email is already registered. Please use a different email or contact support.', 'error')
-            return redirect(url_for('signup.signup_form'))
+            return False, {"error": "Email address already registered"}
         
         # Create organization (pending approval)
-        # Trial dates will be set when root admin approves the organization
         org = Organization(
             name=org_name,
             display_name=org_name,
@@ -77,57 +78,51 @@ def signup_submit():
             contact_email=contact_email,
             billing_email=billing_email,
             epic_client_id=epic_client_id,
-            epic_client_secret=epic_client_secret,  # Will be encrypted by model
+            epic_client_secret=epic_client_secret,
             epic_fhir_url=epic_fhir_url,
             epic_environment='sandbox',
-            setup_status='incomplete',  # Will be 'trial' after approval by root admin
-            onboarding_status='pending_approval',  # Root admin must approve to start trial
+            setup_status='incomplete',
+            onboarding_status='pending_approval',
             max_users=10
         )
         
         db.session.add(org)
-        db.session.flush()  # Get org.id
+        db.session.flush()
         
         # Generate admin user credentials
         username = generate_username_from_email(contact_email)
-        temp_password = generate_temp_password()
         
-        # Create admin user - active immediately so they can set up while pending approval
+        # Create admin user
         admin_user = User(
             username=username,
             email=contact_email,
             role='admin',
             is_admin=True,
             org_id=org.id,
-            is_temp_password=True,  # Will use password reset flow to set real password
-            is_active_user=True,  # Active immediately - can login and configure while pending
+            is_temp_password=True,
+            is_active_user=True,
             email_verified=False,
-            password_hash=generate_dummy_password_hash()  # Dummy hash until user sets real password via reset link
+            password_hash=generate_dummy_password_hash()
         )
         
         db.session.add(admin_user)
-        db.session.flush()  # Get user ID for password reset token
+        db.session.flush()
         
-        # Generate password reset token for welcome email
+        # Generate password reset token
         reset_token = create_password_reset_token()
         admin_user.password_reset_token = reset_token
         admin_user.password_reset_expires = get_password_reset_expiry(hours=48)
         
         db.session.commit()
         
-        # Store org info in session for Stripe checkout
-        # Email will be sent AFTER successful Stripe checkout to avoid sending broken links if payment fails
-        session['signup_org_id'] = org.id
-        session['signup_reset_token'] = reset_token
-        session['signup_username'] = username
-        session['signup_email'] = contact_email
-        session['signup_org_name'] = org_name
-        
         # Create Stripe checkout session
-        success_url = url_for('signup.signup_success', _external=True)
-        cancel_url = url_for('signup.signup_cancel', _external=True)
-        
         try:
+            # Use provided URLs or generate default ones
+            if not success_url:
+                success_url = url_for('signup.signup_success', _external=True)
+            if not cancel_url:
+                cancel_url = url_for('signup.signup_cancel', _external=True)
+            
             checkout_url = StripeService.create_checkout_session(
                 organization=org,
                 success_url=success_url,
@@ -136,6 +131,17 @@ def signup_submit():
             
             if not checkout_url:
                 raise Exception("Stripe checkout session creation returned None")
+            
+            logger.info(f"New organization signup initiated: {org_name} (ID: {org.id})")
+            
+            return True, {
+                "checkout_url": checkout_url,
+                "organization_id": org.id,
+                "reset_token": reset_token,
+                "username": username,
+                "email": contact_email,
+                "org_name": org_name
+            }
                 
         except Exception as stripe_error:
             # Rollback if Stripe fails
@@ -143,19 +149,120 @@ def signup_submit():
             db.session.delete(admin_user)
             db.session.delete(org)
             db.session.commit()
-            flash('Unable to process payment setup. Please try again later or contact support.', 'error')
-            return redirect(url_for('signup.signup_form'))
-        
-        logger.info(f"New organization signup initiated: {org_name} (ID: {org.id})")
-        
-        # Redirect to Stripe checkout
-        return redirect(checkout_url)
+            return False, {"error": "Unable to process payment setup. Please try again later."}
     
     except Exception as e:
         db.session.rollback()
         logger.error(f"Signup error: {str(e)}")
-        flash('An error occurred during signup. Please try again.', 'error')
+        return False, {"error": "An error occurred during signup. Please try again."}
+
+
+@signup_bp.route('/signup', methods=['GET'])
+def signup_form():
+    """Display public signup form"""
+    return render_template('signup/signup.html')
+
+
+@signup_bp.route('/signup', methods=['POST'])
+def signup_submit():
+    """Process HTML form signup submission"""
+    # Collect form data
+    org_name = request.form.get('org_name', '').strip()
+    site = request.form.get('site', '').strip()
+    specialty = request.form.get('specialty', '').strip()
+    address = request.form.get('address', '').strip()
+    phone = request.form.get('phone', '').strip()
+    contact_email = request.form.get('contact_email', '').strip()
+    billing_email = request.form.get('billing_email', '').strip()
+    epic_client_id = request.form.get('epic_client_id', '').strip()
+    epic_client_secret = request.form.get('epic_client_secret', '').strip()
+    epic_fhir_url = request.form.get('epic_fhir_url', '').strip()
+    
+    # Call shared signup function
+    success, data = create_signup_organization(
+        org_name=org_name,
+        contact_email=contact_email,
+        specialty=specialty,
+        epic_client_id=epic_client_id,
+        epic_client_secret=epic_client_secret,
+        site=site,
+        address=address,
+        phone=phone,
+        billing_email=billing_email,
+        epic_fhir_url=epic_fhir_url
+    )
+    
+    if not success:
+        flash(data['error'], 'error')
         return redirect(url_for('signup.signup_form'))
+    
+    # Store signup data in session for success handler
+    session['signup_org_id'] = data['organization_id']
+    session['signup_reset_token'] = data['reset_token']
+    session['signup_username'] = data['username']
+    session['signup_email'] = data['email']
+    session['signup_org_name'] = data['org_name']
+    
+    # Redirect to Stripe checkout
+    return redirect(data['checkout_url'])
+
+
+@signup_bp.route('/api/signup', methods=['POST'])
+def api_signup():
+    """
+    JSON API endpoint for external signup integration.
+    Accepts JSON request body and returns JSON response.
+    """
+    try:
+        # Get JSON data
+        if not request.is_json:
+            return jsonify({"success": False, "error": "Content-Type must be application/json"}), 400
+        
+        data = request.get_json()
+        
+        # Validate terms_agreed field
+        if not data.get('terms_agreed'):
+            return jsonify({"success": False, "error": "You must agree to the terms and conditions"}), 400
+        
+        # Extract fields from JSON (using both field naming conventions)
+        org_name = data.get('organization_name', '').strip()
+        contact_email = data.get('admin_email', '').strip()
+        specialty = data.get('specialty', '').strip()
+        site = data.get('site_location', '').strip()
+        phone = data.get('phone_number', '').strip()
+        address = data.get('address', '').strip()
+        billing_email = data.get('billing_email', '').strip()
+        epic_client_id = data.get('epic_client_id', '').strip()
+        epic_client_secret = data.get('epic_client_secret', '').strip()
+        epic_fhir_url = data.get('epic_fhir_url', '').strip()
+        
+        # Call shared signup function
+        success, result = create_signup_organization(
+            org_name=org_name,
+            contact_email=contact_email,
+            specialty=specialty,
+            epic_client_id=epic_client_id,
+            epic_client_secret=epic_client_secret,
+            site=site,
+            address=address,
+            phone=phone,
+            billing_email=billing_email,
+            epic_fhir_url=epic_fhir_url
+        )
+        
+        if not success:
+            return jsonify({"success": False, "error": result['error']}), 400
+        
+        # Return JSON success response
+        return jsonify({
+            "success": True,
+            "checkout_url": result['checkout_url'],
+            "organization_id": result['organization_id']
+        }), 200
+    
+    except Exception as e:
+        logger.error(f"API signup error: {str(e)}")
+        return jsonify({"success": False, "error": "An unexpected error occurred"}), 500
 
 
 @signup_bp.route('/signup/success')
