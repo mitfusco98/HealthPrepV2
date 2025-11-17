@@ -56,17 +56,17 @@ def _process_signup_request():
         if not data.get('terms_agreed'):
             return jsonify({"success": False, "error": "You must agree to the terms and conditions"}), 400
         
-        # Extract fields from JSON
-        org_name = data.get('organization_name', '').strip()
-        contact_email = data.get('admin_email', '').strip()
-        specialty = data.get('specialty', '').strip()
-        site = data.get('site_location', '').strip()
-        phone = data.get('phone_number', '').strip()
-        address = data.get('address', '').strip()
-        billing_email = data.get('billing_email', '').strip()
-        epic_client_id = data.get('epic_client_id', '').strip()
-        epic_client_secret = data.get('epic_client_secret', '').strip()
-        epic_fhir_url = data.get('epic_fhir_url', '').strip()
+        # Extract fields from JSON with null-safe handling
+        org_name = (data.get('organization_name') or '').strip()
+        contact_email = (data.get('admin_email') or '').strip()
+        specialty = (data.get('specialty') or '').strip()
+        site = (data.get('site_location') or '').strip()
+        phone = (data.get('phone_number') or '').strip()
+        address = (data.get('address') or '').strip()
+        billing_email = (data.get('billing_email') or '').strip()
+        epic_client_id = (data.get('epic_client_id') or '').strip()
+        epic_client_secret = (data.get('epic_client_secret') or '').strip()
+        epic_fhir_url = (data.get('epic_fhir_url') or '').strip()
         
         # Call shared signup function
         success, result = create_signup_organization(
