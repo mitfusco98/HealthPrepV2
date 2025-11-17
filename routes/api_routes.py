@@ -18,6 +18,9 @@ from ocr.phi_filter import PHIFilter
 from prep_sheet.generator import PrepSheetGenerator
 from app import db, csrf
 
+# Import signup helper function
+from routes.signup_routes import create_signup_organization
+
 logger = logging.getLogger(__name__)
 
 api_bp = Blueprint('api', __name__)
@@ -38,6 +41,83 @@ def api_health():
         'version': '2.0',
         'timestamp': datetime.now().isoformat()
     })
+
+
+def _process_signup_request():
+    """Shared signup processing logic for both /signup and /register endpoints"""
+    try:
+        # Get JSON data
+        if not request.is_json:
+            return jsonify({"success": False, "error": "Content-Type must be application/json"}), 400
+        
+        data = request.get_json()
+        
+        # Validate terms_agreed field
+        if not data.get('terms_agreed'):
+            return jsonify({"success": False, "error": "You must agree to the terms and conditions"}), 400
+        
+        # Extract fields from JSON
+        org_name = data.get('organization_name', '').strip()
+        contact_email = data.get('admin_email', '').strip()
+        specialty = data.get('specialty', '').strip()
+        site = data.get('site_location', '').strip()
+        phone = data.get('phone_number', '').strip()
+        address = data.get('address', '').strip()
+        billing_email = data.get('billing_email', '').strip()
+        epic_client_id = data.get('epic_client_id', '').strip()
+        epic_client_secret = data.get('epic_client_secret', '').strip()
+        epic_fhir_url = data.get('epic_fhir_url', '').strip()
+        
+        # Call shared signup function
+        success, result = create_signup_organization(
+            org_name=org_name,
+            contact_email=contact_email,
+            specialty=specialty,
+            epic_client_id=epic_client_id,
+            epic_client_secret=epic_client_secret,
+            site=site,
+            address=address,
+            phone=phone,
+            billing_email=billing_email,
+            epic_fhir_url=epic_fhir_url
+        )
+        
+        if not success:
+            return jsonify({"success": False, "error": result['error']}), 400
+        
+        # Return JSON success response
+        return jsonify({
+            "success": True,
+            "checkout_url": result['checkout_url'],
+            "organization_id": result['organization_id']
+        }), 200
+    
+    except Exception as e:
+        logger.error(f"API signup error: {str(e)}")
+        return jsonify({"success": False, "error": "An unexpected error occurred"}), 500
+
+
+@api_bp.route('/signup', methods=['POST', 'OPTIONS'])
+@csrf.exempt
+def api_signup_endpoint():
+    """
+    JSON API endpoint for external signup integration (marketing website).
+    Accepts JSON request body and returns JSON response with Stripe checkout URL.
+    CSRF exempt to allow cross-origin requests from marketing website.
+    
+    This route is registered on api_bp (url_prefix='/api'), so the full path is /api/signup
+    """
+    return _process_signup_request()
+
+
+@api_bp.route('/register', methods=['POST', 'OPTIONS'])
+@csrf.exempt
+def api_register_endpoint():
+    """
+    Alternate signup endpoint to bypass Replit caching issues.
+    Identical functionality to /api/signup.
+    """
+    return _process_signup_request()
 
 @api_bp.route('/screening-keywords/<int:screening_type_id>', methods=['GET', 'POST'])
 @login_required

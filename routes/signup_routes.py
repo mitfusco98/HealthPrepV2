@@ -208,66 +208,6 @@ def signup_submit():
     return redirect(data['checkout_url'])
 
 
-@signup_bp.route('/api/signup', methods=['POST'])
-@csrf.exempt
-def api_signup():
-    """
-    JSON API endpoint for external signup integration.
-    Accepts JSON request body and returns JSON response.
-    CSRF exempt to allow external marketing website to call this API.
-    """
-    try:
-        # Get JSON data
-        if not request.is_json:
-            return jsonify({"success": False, "error": "Content-Type must be application/json"}), 400
-        
-        data = request.get_json()
-        
-        # Validate terms_agreed field
-        if not data.get('terms_agreed'):
-            return jsonify({"success": False, "error": "You must agree to the terms and conditions"}), 400
-        
-        # Extract fields from JSON (using both field naming conventions)
-        org_name = data.get('organization_name', '').strip()
-        contact_email = data.get('admin_email', '').strip()
-        specialty = data.get('specialty', '').strip()
-        site = data.get('site_location', '').strip()
-        phone = data.get('phone_number', '').strip()
-        address = data.get('address', '').strip()
-        billing_email = data.get('billing_email', '').strip()
-        epic_client_id = data.get('epic_client_id', '').strip()
-        epic_client_secret = data.get('epic_client_secret', '').strip()
-        epic_fhir_url = data.get('epic_fhir_url', '').strip()
-        
-        # Call shared signup function
-        success, result = create_signup_organization(
-            org_name=org_name,
-            contact_email=contact_email,
-            specialty=specialty,
-            epic_client_id=epic_client_id,
-            epic_client_secret=epic_client_secret,
-            site=site,
-            address=address,
-            phone=phone,
-            billing_email=billing_email,
-            epic_fhir_url=epic_fhir_url
-        )
-        
-        if not success:
-            return jsonify({"success": False, "error": result['error']}), 400
-        
-        # Return JSON success response
-        return jsonify({
-            "success": True,
-            "checkout_url": result['checkout_url'],
-            "organization_id": result['organization_id']
-        }), 200
-    
-    except Exception as e:
-        logger.error(f"API signup error: {str(e)}")
-        return jsonify({"success": False, "error": "An unexpected error occurred"}), 500
-
-
 @signup_bp.route('/signup/success')
 def signup_success():
     """Handle successful Stripe checkout"""
