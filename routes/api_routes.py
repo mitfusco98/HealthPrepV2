@@ -93,7 +93,9 @@ def _process_signup_request():
         }), 200
     
     except Exception as e:
+        import traceback
         logger.error(f"API signup error: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({"success": False, "error": "An unexpected error occurred"}), 500
 
 
