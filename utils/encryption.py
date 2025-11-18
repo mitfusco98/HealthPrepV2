@@ -112,9 +112,14 @@ class EncryptionService:
         
         if not self.is_enabled():
             logger.warning("Encryption not enabled - returning value as-is")
-            return ciphertext
+            return str(ciphertext) if ciphertext else None
         
         try:
+            # Validate input type
+            if not isinstance(ciphertext, (str, bytes)):
+                logger.error(f"Invalid ciphertext type: {type(ciphertext)}. Expected str or bytes.")
+                raise EncryptionError(f"Invalid ciphertext type: {type(ciphertext).__name__}")
+            
             ciphertext_bytes: bytes
             if isinstance(ciphertext, str):
                 ciphertext_bytes = ciphertext.encode('utf-8')

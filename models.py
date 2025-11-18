@@ -175,6 +175,11 @@ class Organization(db.Model):
             logger.error(f"Failed to decrypt epic_client_secret for org {self.id}: {e}")
             return None
     
+    @epic_client_secret.expression
+    def epic_client_secret(cls):
+        """Class-level expression for epic_client_secret (for queries)"""
+        return cls._epic_client_secret
+    
     @epic_client_secret.setter
     def epic_client_secret(self, value):
         """Set and encrypt Epic client secret"""
