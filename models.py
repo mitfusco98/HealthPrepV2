@@ -34,7 +34,7 @@ class Organization(db.Model):
     # Epic FHIR Configuration - Enhanced for multi-tenant production support
     epic_client_id = db.Column(db.String(100))  # Epic client ID
     _epic_client_secret = db.Column('epic_client_secret', db.String(500))  # Encrypted Epic client secret
-    epic_fhir_url = db.Column(db.String(255))  # Epic FHIR base URL (sandbox default)
+    epic_fhir_url = db.Column(db.String(255), nullable=True)  # Epic FHIR base URL (optional - required only if Epic credentials provided)
     epic_environment = db.Column(db.String(20), default='sandbox')  # sandbox, production
     
     # Production Epic Configuration (varies per organization)

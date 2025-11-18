@@ -67,6 +67,16 @@ def _process_signup_request():
         epic_client_id = (data.get('epic_client_id') or '').strip()
         epic_client_secret = (data.get('epic_client_secret') or '').strip()
         epic_fhir_url = (data.get('epic_fhir_url') or '').strip()
+        epic_environment = data.get('epic_environment', 'sandbox')
+        
+        # Epic credentials validation: all or nothing
+        epic_fields_provided = [bool(epic_client_id), bool(epic_client_secret), bool(epic_fhir_url)]
+        if any(epic_fields_provided) and not all(epic_fields_provided):
+            return jsonify({"success": False, "error": "All Epic FHIR credentials (Client ID, Client Secret, and FHIR URL) must be provided together"}), 400
+        
+        # Validate epic_fhir_url format if provided
+        if epic_fhir_url and (not epic_fhir_url.startswith(('http://', 'https://')) or len(epic_fhir_url.split('://')) < 2):
+            return jsonify({"success": False, "error": "Invalid epic_fhir_url format. Must be a valid URL starting with http:// or https://"}), 400
         
         # Call shared signup function
         success, result = create_signup_organization(
@@ -79,7 +89,8 @@ def _process_signup_request():
             address=address,
             phone=phone,
             billing_email=billing_email,
-            epic_fhir_url=epic_fhir_url
+            epic_fhir_url=epic_fhir_url,
+            epic_environment=epic_environment
         )
         
         if not success:

@@ -151,52 +151,85 @@
                 </h5>
             </div>
             <div class="card-body">
-                {% if organization.epic_client_id %}
-                    <div class="row">
-                        <div class="col-md-6">
-                            <dl class="row">
-                                <dt class="col-sm-4">Client ID:</dt>
-                                <dd class="col-sm-8"><code>{{ organization.epic_client_id }}</code></dd>
-                                
-                                <dt class="col-sm-4">FHIR URL:</dt>
-                                <dd class="col-sm-8">
-                                    {% if organization.epic_fhir_url %}
-                                        <code>{{ organization.epic_fhir_url }}</code>
-                                    {% else %}
-                                        <span class="text-muted">Not set</span>
-                                    {% endif %}
-                                </dd>
-                            </dl>
-                        </div>
-                        <div class="col-md-6">
-                            <dl class="row">
-                                <dt class="col-sm-4">Environment:</dt>
-                                <dd class="col-sm-8">
-                                    {% if organization.epic_environment == 'production' %}
-                                        <span class="badge bg-danger">Production</span>
-                                    {% else %}
-                                        <span class="badge bg-warning">Sandbox</span>
-                                    {% endif %}
-                                </dd>
-                                
-                                <dt class="col-sm-4">Secret:</dt>
-                                <dd class="col-sm-8">
-                                    {% if organization.epic_client_secret %}
-                                        <span class="badge bg-success">Configured</span>
-                                    {% else %}
-                                        <span class="badge bg-warning">Not Set</span>
-                                    {% endif %}
-                                </dd>
-                            </dl>
-                        </div>
+                {% set epic_configured = organization.epic_client_id and organization.epic_client_secret and organization.epic_fhir_url %}
+                
+                {% if not epic_configured %}
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <strong>Incomplete Epic Configuration:</strong> All three credentials (Client ID, Client Secret, and FHIR URL) are required for the system to function properly.
                     </div>
-                {% else %}
-                    <div class="text-center py-3">
-                        <i class="fas fa-exclamation-triangle fa-2x text-warning mb-2"></i>
-                        <p class="text-muted">Epic FHIR configuration not set up</p>
-                        <a href="{{ url_for('root_admin.edit_organization', org_id=organization.id) }}" class="btn btn-warning">
-                            Configure Epic Settings
-                        </a>
+                {% endif %}
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-5">Client ID:</dt>
+                            <dd class="col-sm-7">
+                                {% if organization.epic_client_id %}
+                                    <code>{{ organization.epic_client_id }}</code>
+                                {% else %}
+                                    <span class="badge bg-danger">Missing</span>
+                                {% endif %}
+                            </dd>
+                            
+                            <dt class="col-sm-5">Client Secret:</dt>
+                            <dd class="col-sm-7">
+                                {% if organization.epic_client_secret %}
+                                    <span class="badge bg-success">Configured (Encrypted)</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Missing</span>
+                                {% endif %}
+                            </dd>
+                            
+                            <dt class="col-sm-5">FHIR Base URL:</dt>
+                            <dd class="col-sm-7">
+                                {% if organization.epic_fhir_url %}
+                                    <code class="small">{{ organization.epic_fhir_url }}</code>
+                                {% else %}
+                                    <span class="badge bg-danger">Missing</span>
+                                {% endif %}
+                            </dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        <dl class="row">
+                            <dt class="col-sm-5">Environment:</dt>
+                            <dd class="col-sm-7">
+                                {% if organization.epic_environment == 'production' %}
+                                    <span class="badge bg-danger">Production</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Sandbox</span>
+                                {% endif %}
+                            </dd>
+                            
+                            <dt class="col-sm-5">Connection Status:</dt>
+                            <dd class="col-sm-7">
+                                {% if epic_configured %}
+                                    {% if organization.is_epic_connected %}
+                                        <span class="badge bg-success">Connected</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Not Connected</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-danger">Configuration Incomplete</span>
+                                {% endif %}
+                            </dd>
+                        </dl>
+                        
+                        {% if not epic_configured %}
+                            <div class="mt-3">
+                                <a href="{{ url_for('root_admin.edit_organization', org_id=organization.id) }}" class="btn btn-warning btn-sm">
+                                    <i class="fas fa-cog me-1"></i> Complete Epic Configuration
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if organization.epic_environment == 'production' and organization.epic_fhir_url %}
+                    <div class="alert alert-info mt-3 mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Production Endpoint:</strong> This organization uses a unique Epic FHIR endpoint specific to their healthcare system.
                     </div>
                 {% endif %}
             </div>

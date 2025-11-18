@@ -28,9 +28,18 @@ Creates a new organization and returns a Stripe checkout URL for payment setup.
 | `organization_name` | string | Name of the medical organization | "Downtown Medical Center" |
 | `admin_email` | string | Email address of the primary admin | "admin@downtown-medical.com" |
 | `specialty` | string | Medical specialty or practice type | "Cardiology" |
-| `epic_client_id` | string | Epic FHIR client ID | "abc123xyz" |
-| `epic_client_secret` | string | Epic FHIR client secret | "secret_key_here" |
 | `terms_agreed` | boolean | Must be `true` - indicates acceptance of terms | true |
+
+### Epic FHIR Credentials (All or Nothing)
+
+**⚠️ IMPORTANT:** Epic credentials must be provided as a complete set - all three fields together, or none at all.
+
+| Field | Type | Description | Example |
+|-------|------|-------------|---------|
+| `epic_client_id` | string | Epic FHIR client ID (required if any Epic credential provided) | "abc123xyz" |
+| `epic_client_secret` | string | Epic FHIR client secret (required if any Epic credential provided) | "secret_key_here" |
+| `epic_fhir_url` | string | Epic FHIR base URL (required if any Epic credential provided) | "https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/" (sandbox) or custom production URL |
+| `epic_environment` | string | Environment type: "sandbox" or "production" | "sandbox" (default) or "production" |
 
 ### Optional Fields
 
@@ -40,9 +49,21 @@ Creates a new organization and returns a Stripe checkout URL for payment setup.
 | `phone_number` | string | Contact phone number | "" | "555-1234" |
 | `address` | string | Physical address | "" | "123 Main St, City, ST 12345" |
 | `billing_email` | string | Separate billing email | Uses admin_email | "billing@downtown-medical.com" |
-| `epic_fhir_url` | string | Epic FHIR endpoint URL | "https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/" | Custom Epic endpoint |
 
-## Example Request
+### Epic FHIR Credentials Guidance
+
+**All-or-Nothing Rule:** 
+- If ANY Epic credential is provided (`epic_client_id`, `epic_client_secret`, OR `epic_fhir_url`), then ALL THREE must be provided
+- Organizations can signup WITHOUT Epic credentials and configure them later in the admin dashboard
+
+**Environment-Specific URLs:**
+- **Sandbox (default):** Use `https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/`
+- **Production:** Each hospital has a unique Epic FHIR endpoint (e.g., `https://hospital-name.epic.com/FHIR/api/FHIR/R4/`)
+- **Production organizations CANNOT use the sandbox URL** - they must provide their organization-specific FHIR endpoint from their Epic representative
+
+## Example Requests
+
+### Example 1: Signup WITH Epic Credentials (Sandbox)
 
 ```bash
 curl -X POST https://your-healthprep-domain.com/api/signup \
@@ -58,6 +79,39 @@ curl -X POST https://your-healthprep-domain.com/api/signup \
     "epic_client_id": "abc123xyz",
     "epic_client_secret": "secret_key_here",
     "epic_fhir_url": "https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/",
+    "epic_environment": "sandbox",
+    "terms_agreed": true
+  }'
+```
+
+### Example 2: Signup WITHOUT Epic Credentials (Configure Later)
+
+```bash
+curl -X POST https://your-healthprep-domain.com/api/signup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_name": "Uptown Family Practice",
+    "admin_email": "admin@uptown-family.com",
+    "specialty": "Family Medicine",
+    "site_location": "North Campus",
+    "phone_number": "555-5678",
+    "terms_agreed": true
+  }'
+```
+
+### Example 3: Production Organization with Custom FHIR URL
+
+```bash
+curl -X POST https://your-healthprep-domain.com/api/signup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "organization_name": "University Hospital System",
+    "admin_email": "admin@university-hospital.edu",
+    "specialty": "Multi-Specialty",
+    "epic_client_id": "prod_client_xyz",
+    "epic_client_secret": "prod_secret_here",
+    "epic_fhir_url": "https://university-hospital.epic.com/FHIR/api/FHIR/R4/",
+    "epic_environment": "production",
     "terms_agreed": true
   }'
 ```
@@ -106,7 +160,34 @@ curl -X POST https://your-healthprep-domain.com/api/signup \
 ```json
 {
   "success": false,
-  "error": "Missing required fields: organization_name, admin_email, specialty, epic_client_id, epic_client_secret"
+  "error": "Missing required fields: organization_name, admin_email, specialty"
+}
+```
+
+### 400 Bad Request - Incomplete Epic Credentials
+
+```json
+{
+  "success": false,
+  "error": "All Epic FHIR credentials (Client ID, Client Secret, and FHIR URL) must be provided together"
+}
+```
+
+### 400 Bad Request - Invalid FHIR URL Format
+
+```json
+{
+  "success": false,
+  "error": "Invalid epic_fhir_url format. Must be a valid URL starting with http:// or https://"
+}
+```
+
+### 400 Bad Request - Production Using Sandbox URL
+
+```json
+{
+  "success": false,
+  "error": "Production organizations cannot use the sandbox FHIR URL. Please provide your organization's unique Epic FHIR endpoint from your Epic representative."
 }
 ```
 

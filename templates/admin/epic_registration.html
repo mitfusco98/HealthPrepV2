@@ -119,12 +119,39 @@
                         <h5>App Information</h5>
                         <p class="text-muted">Configure your Epic app details and credentials</p>
                         
+                        <div class="alert alert-warning mb-3">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Required Configuration:</strong> All three Epic credentials (Client ID, Client Secret, and FHIR Base URL) are required. Each organization has a unique Epic FHIR endpoint URL.
+                        </div>
+                        
                         <form id="appInfoForm">
+                            <div class="mb-3">
+                                <label class="form-label">Environment <span class="text-danger">*</span></label>
+                                <select class="form-select" id="epicEnvironment">
+                                    <option value="sandbox" {% if organization.epic_environment == 'sandbox' %}selected{% endif %}>Sandbox (Testing)</option>
+                                    <option value="production" {% if organization.epic_environment == 'production' %}selected{% endif %}>Production (Live)</option>
+                                </select>
+                                <small class="form-text text-muted">
+                                    Sandbox for testing, production for live patient data
+                                </small>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">FHIR Base URL <span class="text-danger">*</span></label>
+                                <input type="url" class="form-control" id="epicFhirUrl" 
+                                       value="{{ organization.epic_fhir_url or '' }}" 
+                                       placeholder="https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/" required>
+                                <small class="form-text text-muted">
+                                    <strong>Sandbox:</strong> https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/<br>
+                                    <strong>Production:</strong> Your organization's unique Epic FHIR endpoint (e.g., https://hospital.epic.com/FHIR/api/...)
+                                </small>
+                            </div>
+                            
                             <div class="mb-3">
                                 <label class="form-label">Client ID <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="epicClientId" 
                                        value="{{ organization.epic_client_id or '' }}" 
-                                       placeholder="Your Epic Client ID" required>
+                                       placeholder="e57377e2-dfd5-4675-9659-..." required>
                                 <small class="form-text text-muted">
                                     Provided by Epic during app registration
                                 </small>
@@ -136,28 +163,7 @@
                                        value="{{ organization.epic_client_secret or '' }}" 
                                        placeholder="Your Epic Client Secret" required>
                                 <small class="form-text text-muted">
-                                    Provided by Epic during app registration
-                                </small>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label class="form-label">FHIR Base URL <span class="text-danger">*</span></label>
-                                <input type="url" class="form-control" id="epicFhirUrl" 
-                                       value="{{ organization.epic_fhir_url or '' }}" 
-                                       placeholder="https://fhir.epic.com/interconnect-fhir-oauth" required>
-                                <small class="form-text text-muted">
-                                    Epic FHIR endpoint URL for your organization
-                                </small>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label class="form-label">Environment</label>
-                                <select class="form-select" id="epicEnvironment">
-                                    <option value="sandbox" {% if organization.epic_environment == 'sandbox' %}selected{% endif %}>Sandbox</option>
-                                    <option value="production" {% if organization.epic_environment == 'production' %}selected{% endif %}>Production</option>
-                                </select>
-                                <small class="form-text text-muted">
-                                    Select sandbox for testing or production for live patient data
+                                    Provided by Epic (encrypted and stored securely)
                                 </small>
                             </div>
                             

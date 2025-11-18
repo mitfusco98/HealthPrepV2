@@ -115,45 +115,72 @@
             <div class="card root-admin-card mb-4">
                 <div class="card-header">
                     <h5 class="mb-0">
-                        <i class="fas fa-link me-2"></i>Epic FHIR Integration
+                        <i class="fas fa-link me-2"></i>Epic FHIR Integration <span class="badge bg-warning">Required for Production</span>
                     </h5>
                 </div>
                 <div class="card-body">
-                    <div class="alert alert-secondary">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Epic credentials can be configured now or later by the organization admin.
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Important:</strong> All three Epic credentials (Client ID, Client Secret, and FHIR URL) are required for the system to function. Each organization must have its own unique Epic FHIR endpoint URL.
                     </div>
                     
                     <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="epic_client_id" class="form-label">Epic Client ID</label>
-                            <input type="text" class="form-control" id="epic_client_id" name="epic_client_id" 
-                                   placeholder="e57377e2-dfd5-4675-9659-...">
-                            <div class="form-text">Optional - can be set during onboarding</div>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="epic_client_secret" class="form-label">Epic Client Secret</label>
-                            <input type="password" class="form-control" id="epic_client_secret" name="epic_client_secret" 
-                                   placeholder="Client secret from Epic registration">
-                            <div class="form-text">Optional - encrypted at rest</div>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-8 mb-3">
-                            <label for="epic_fhir_url" class="form-label">Epic FHIR URL</label>
-                            <input type="url" class="form-control" id="epic_fhir_url" name="epic_fhir_url" 
-                                   placeholder="https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4">
-                            <div class="form-text">Full FHIR endpoint URL</div>
-                        </div>
                         <div class="col-md-4 mb-3">
-                            <label for="epic_environment" class="form-label">Environment</label>
-                            <select class="form-select" id="epic_environment" name="epic_environment">
-                                <option value="sandbox" selected>Sandbox</option>
-                                <option value="production">Production</option>
+                            <label for="epic_environment" class="form-label">Environment <span class="text-danger">*</span></label>
+                            <select class="form-select" id="epic_environment" name="epic_environment" onchange="updateCreateOrgFhirUrl()">
+                                <option value="sandbox" selected>Sandbox (Testing)</option>
+                                <option value="production">Production (Live)</option>
                             </select>
                         </div>
                     </div>
+                    
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="epic_fhir_url" class="form-label">Epic FHIR Base URL <span class="text-danger">*</span></label>
+                            <input type="url" class="form-control" id="epic_fhir_url" name="epic_fhir_url" 
+                                   value="" required>
+                            <div class="form-text" id="fhir_url_help">Loading...</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="epic_client_id" class="form-label">Epic Client ID <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="epic_client_id" name="epic_client_id" 
+                                   placeholder="e57377e2-dfd5-4675-9659-..." required>
+                            <div class="form-text">Provided by Epic during app registration</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="epic_client_secret" class="form-label">Epic Client Secret <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="epic_client_secret" name="epic_client_secret" 
+                                   placeholder="Client secret from Epic registration" required>
+                            <div class="form-text">Encrypted at rest for security</div>
+                        </div>
+                    </div>
+                    
+                    <script>
+                    function updateCreateOrgFhirUrl() {
+                        const env = document.getElementById('epic_environment').value;
+                        const urlField = document.getElementById('epic_fhir_url');
+                        const helpText = document.getElementById('fhir_url_help');
+                        
+                        if (env === 'sandbox') {
+                            urlField.value = 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/';
+                            urlField.readOnly = true;
+                            urlField.classList.remove('is-invalid');
+                            helpText.textContent = 'Sandbox URL provided for testing environment.';
+                        } else {
+                            urlField.value = '';  // Clear the sandbox URL
+                            urlField.readOnly = false;  // Allow editing
+                            urlField.placeholder = 'https://hospital-name.epic.com/FHIR/api/...';
+                            helpText.textContent = 'Enter the organization\'s unique Epic FHIR endpoint URL from their Epic representative.';
+                            urlField.focus();  // Focus to prompt user to enter URL
+                        }
+                    }
+                    
+                    // Initialize on page load
+                    document.addEventListener('DOMContentLoaded', updateCreateOrgFhirUrl);
+                    </script>
                 </div>
             </div>
             

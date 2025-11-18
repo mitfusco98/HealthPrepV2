@@ -536,6 +536,25 @@ def create_organization():
         auto_sync_enabled = request.form.get('auto_sync_enabled') == 'on'
         notes = request.form.get('notes', '').strip()
         
+        # Epic credentials: all or nothing - if any provided, all must be provided
+        epic_fields_provided = [bool(epic_client_id), bool(epic_client_secret), bool(epic_fhir_url)]
+        if any(epic_fields_provided) and not all(epic_fields_provided):
+            flash('All Epic FHIR credentials (Client ID, Client Secret, and FHIR URL) must be provided together', 'error')
+            return render_template('root_admin/create_organization.html')
+        
+        # Validate Epic FHIR URL if provided
+        if epic_fhir_url:
+            # Check URL format
+            if not epic_fhir_url.startswith(('http://', 'https://')) or len(epic_fhir_url.split('://')) < 2:
+                flash('Invalid Epic FHIR URL format. Must be a valid URL starting with http:// or https://', 'error')
+                return render_template('root_admin/create_organization.html')
+            
+            # Production organizations cannot use sandbox URL
+            sandbox_url = 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
+            if epic_environment == 'production' and epic_fhir_url == sandbox_url:
+                flash('Production organizations cannot use the sandbox FHIR URL. Please provide your organization\'s unique Epic FHIR endpoint.', 'error')
+                return render_template('root_admin/create_organization.html')
+        
         # Create organization with manual billing
         org = Organization(
             name=org_name,

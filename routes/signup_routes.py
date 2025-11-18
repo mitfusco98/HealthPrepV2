@@ -36,6 +36,7 @@ def create_signup_organization(
     phone: str = '',
     billing_email: str = '',
     epic_fhir_url: str = '',
+    epic_environment: str = 'sandbox',
     success_url: str = None,
     cancel_url: str = None
 ) -> Tuple[bool, Dict[str, Any]]:
@@ -48,15 +49,28 @@ def create_signup_organization(
         On error: (False, {"error": "Error message"})
     """
     try:
-        # Validate required fields
-        if not all([org_name, contact_email, epic_client_id, epic_client_secret, specialty]):
-            return False, {"error": "Missing required fields: organization_name, admin_email, specialty, epic_client_id, epic_client_secret"}
+        # Validate required fields (organization basics)
+        if not all([org_name, contact_email, specialty]):
+            return False, {"error": "Missing required fields: organization_name, admin_email, specialty"}
+        
+        # Epic credentials: all or nothing - if any provided, all must be provided
+        epic_fields_provided = [bool(epic_client_id), bool(epic_client_secret), bool(epic_fhir_url)]
+        if any(epic_fields_provided) and not all(epic_fields_provided):
+            return False, {"error": "All Epic FHIR credentials (Client ID, Client Secret, and FHIR URL) must be provided together"}
+        
+        # Validate epic_fhir_url format if provided
+        if epic_fhir_url:
+            if not epic_fhir_url.startswith(('http://', 'https://')) or len(epic_fhir_url.split('://')) < 2:
+                return False, {"error": "Invalid epic_fhir_url format. Must be a valid URL starting with http:// or https://"}
+            
+            # Production organizations cannot use sandbox URL
+            sandbox_url = 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
+            if epic_environment == 'production' and epic_fhir_url == sandbox_url:
+                return False, {"error": "Production organizations cannot use the sandbox FHIR URL. Please provide your organization's unique Epic FHIR endpoint from your Epic representative."}
         
         # Set defaults
         if not billing_email:
             billing_email = contact_email
-        if not epic_fhir_url:
-            epic_fhir_url = 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
         
         # Check if organization name already exists
         existing_org = Organization.query.filter_by(name=org_name).first()
@@ -69,6 +83,7 @@ def create_signup_organization(
             return False, {"error": "Email address already registered"}
         
         # Create organization (pending approval)
+        # Convert empty strings to None for Epic credentials
         org = Organization(
             name=org_name,
             display_name=org_name,
@@ -78,10 +93,10 @@ def create_signup_organization(
             phone=phone,
             contact_email=contact_email,
             billing_email=billing_email,
-            epic_client_id=epic_client_id,
-            epic_client_secret=epic_client_secret,
-            epic_fhir_url=epic_fhir_url,
-            epic_environment='sandbox',
+            epic_client_id=epic_client_id or None,
+            epic_client_secret=epic_client_secret or None,
+            epic_fhir_url=epic_fhir_url or None,
+            epic_environment=epic_environment,
             setup_status='incomplete',
             onboarding_status='pending_approval',
             max_users=10
@@ -178,6 +193,7 @@ def signup_submit():
     epic_client_id = request.form.get('epic_client_id', '').strip()
     epic_client_secret = request.form.get('epic_client_secret', '').strip()
     epic_fhir_url = request.form.get('epic_fhir_url', '').strip()
+    epic_environment = request.form.get('epic_environment', 'sandbox')
     
     # Call shared signup function
     success, data = create_signup_organization(
@@ -190,7 +206,8 @@ def signup_submit():
         address=address,
         phone=phone,
         billing_email=billing_email,
-        epic_fhir_url=epic_fhir_url
+        epic_fhir_url=epic_fhir_url,
+        epic_environment=epic_environment
     )
     
     if not success:

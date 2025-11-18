@@ -115,11 +115,43 @@
                         </div>
                         
                         <div class="mb-3">
-                            <label for="epic_fhir_url" class="form-label">Epic FHIR URL</label>
-                            <input type="url" class="form-control" id="epic_fhir_url" name="epic_fhir_url" 
-                                   value="https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/">
-                            <small class="text-muted">Default: Epic sandbox URL (update later for production)</small>
+                            <label for="epic_environment" class="form-label">Epic Environment <span class="text-danger">*</span></label>
+                            <select class="form-control" id="epic_environment" name="epic_environment" onchange="updateEpicFhirUrl()" required>
+                                <option value="sandbox" selected>Sandbox (Testing)</option>
+                                <option value="production">Production (Live Patient Data)</option>
+                            </select>
+                            <small class="text-muted">Select sandbox for testing or production for live use</small>
                         </div>
+                        
+                        <div class="mb-3">
+                            <label for="epic_fhir_url" class="form-label">Epic FHIR Base URL <span class="text-danger">*</span></label>
+                            <input type="url" class="form-control" id="epic_fhir_url" name="epic_fhir_url" 
+                                   value="https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/" required>
+                            <small class="text-muted" id="epic_fhir_url_help">
+                                Sandbox URL provided. For production, enter your organization's unique Epic FHIR endpoint from your Epic representative.
+                            </small>
+                        </div>
+                        
+                        <script>
+                        function updateEpicFhirUrl() {
+                            const env = document.getElementById('epic_environment').value;
+                            const urlField = document.getElementById('epic_fhir_url');
+                            const helpText = document.getElementById('epic_fhir_url_help');
+                            
+                            if (env === 'sandbox') {
+                                urlField.value = 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/';
+                                urlField.readOnly = true;
+                                helpText.textContent = 'Sandbox URL provided. For production, select "Production" above.';
+                            } else {
+                                urlField.value = '';
+                                urlField.readOnly = false;
+                                urlField.placeholder = 'https://your-hospital.epic.com/FHIR/api/...';
+                                helpText.textContent = 'Enter your organization\'s unique Epic FHIR endpoint provided by your Epic representative.';
+                            }
+                        }
+                        // Initialize on page load
+                        document.addEventListener('DOMContentLoaded', updateEpicFhirUrl);
+                        </script>
                         
                         <!-- Terms and Submit -->
                         <div class="mt-4 mb-3">
