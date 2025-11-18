@@ -49,24 +49,18 @@ def create_signup_organization(
         On error: (False, {"error": "Error message"})
     """
     try:
-        # Validate required fields (organization basics)
-        if not all([org_name, contact_email, specialty]):
-            return False, {"error": "Missing required fields: organization_name, admin_email, specialty"}
+        # Validate required fields (organization basics + Epic credentials)
+        if not all([org_name, contact_email, specialty, epic_client_id, epic_client_secret, epic_fhir_url]):
+            return False, {"error": "Missing required fields: organization_name, admin_email, specialty, epic_client_id, epic_client_secret, epic_fhir_url"}
         
-        # Epic credentials: all or nothing - if any provided, all must be provided
-        epic_fields_provided = [bool(epic_client_id), bool(epic_client_secret), bool(epic_fhir_url)]
-        if any(epic_fields_provided) and not all(epic_fields_provided):
-            return False, {"error": "All Epic FHIR credentials (Client ID, Client Secret, and FHIR URL) must be provided together"}
+        # Validate epic_fhir_url format
+        if not epic_fhir_url.startswith(('http://', 'https://')) or len(epic_fhir_url.split('://')) < 2:
+            return False, {"error": "Invalid epic_fhir_url format. Must be a valid URL starting with http:// or https://"}
         
-        # Validate epic_fhir_url format if provided
-        if epic_fhir_url:
-            if not epic_fhir_url.startswith(('http://', 'https://')) or len(epic_fhir_url.split('://')) < 2:
-                return False, {"error": "Invalid epic_fhir_url format. Must be a valid URL starting with http:// or https://"}
-            
-            # Production organizations cannot use sandbox URL
-            sandbox_url = 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
-            if epic_environment == 'production' and epic_fhir_url == sandbox_url:
-                return False, {"error": "Production organizations cannot use the sandbox FHIR URL. Please provide your organization's unique Epic FHIR endpoint from your Epic representative."}
+        # Production organizations cannot use sandbox URL
+        sandbox_url = 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
+        if epic_environment == 'production' and epic_fhir_url == sandbox_url:
+            return False, {"error": "Production organizations cannot use the sandbox FHIR URL. Please provide your organization's unique Epic FHIR endpoint from your Epic representative."}
         
         # Set defaults
         if not billing_email:

@@ -28,18 +28,11 @@ Creates a new organization and returns a Stripe checkout URL for payment setup.
 | `organization_name` | string | Name of the medical organization | "Downtown Medical Center" |
 | `admin_email` | string | Email address of the primary admin | "admin@downtown-medical.com" |
 | `specialty` | string | Medical specialty or practice type | "Cardiology" |
-| `terms_agreed` | boolean | Must be `true` - indicates acceptance of terms | true |
-
-### Epic FHIR Credentials (All or Nothing)
-
-**⚠️ IMPORTANT:** Epic credentials must be provided as a complete set - all three fields together, or none at all.
-
-| Field | Type | Description | Example |
-|-------|------|-------------|---------|
-| `epic_client_id` | string | Epic FHIR client ID (required if any Epic credential provided) | "abc123xyz" |
-| `epic_client_secret` | string | Epic FHIR client secret (required if any Epic credential provided) | "secret_key_here" |
-| `epic_fhir_url` | string | Epic FHIR base URL (required if any Epic credential provided) | "https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/" (sandbox) or custom production URL |
+| `epic_client_id` | string | **REQUIRED** - Epic FHIR client ID | "abc123xyz" |
+| `epic_client_secret` | string | **REQUIRED** - Epic FHIR client secret | "secret_key_here" |
+| `epic_fhir_url` | string | **REQUIRED** - Epic FHIR base URL | "https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/" (sandbox) or custom production URL |
 | `epic_environment` | string | Environment type: "sandbox" or "production" | "sandbox" (default) or "production" |
+| `terms_agreed` | boolean | Must be `true` - indicates acceptance of terms | true |
 
 ### Optional Fields
 
@@ -52,9 +45,10 @@ Creates a new organization and returns a Stripe checkout URL for payment setup.
 
 ### Epic FHIR Credentials Guidance
 
-**All-or-Nothing Rule:** 
-- If ANY Epic credential is provided (`epic_client_id`, `epic_client_secret`, OR `epic_fhir_url`), then ALL THREE must be provided
-- Organizations can signup WITHOUT Epic credentials and configure them later in the admin dashboard
+**⚠️ REQUIRED FOR ALL SIGNUPS:** 
+- Organizations MUST obtain Epic FHIR credentials before signing up
+- All three Epic fields (`epic_client_id`, `epic_client_secret`, `epic_fhir_url`) are mandatory
+- Signup will fail if any Epic credential is missing
 
 **Environment-Specific URLs:**
 - **Sandbox (default):** Use `https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/`
@@ -84,22 +78,7 @@ curl -X POST https://your-healthprep-domain.com/api/signup \
   }'
 ```
 
-### Example 2: Signup WITHOUT Epic Credentials (Configure Later)
-
-```bash
-curl -X POST https://your-healthprep-domain.com/api/signup \
-  -H "Content-Type: application/json" \
-  -d '{
-    "organization_name": "Uptown Family Practice",
-    "admin_email": "admin@uptown-family.com",
-    "specialty": "Family Medicine",
-    "site_location": "North Campus",
-    "phone_number": "555-5678",
-    "terms_agreed": true
-  }'
-```
-
-### Example 3: Production Organization with Custom FHIR URL
+### Example 2: Production Organization with Custom FHIR URL
 
 ```bash
 curl -X POST https://your-healthprep-domain.com/api/signup \
@@ -164,12 +143,12 @@ curl -X POST https://your-healthprep-domain.com/api/signup \
 }
 ```
 
-### 400 Bad Request - Incomplete Epic Credentials
+### 400 Bad Request - Missing Epic Credentials
 
 ```json
 {
   "success": false,
-  "error": "All Epic FHIR credentials (Client ID, Client Secret, and FHIR URL) must be provided together"
+  "error": "Epic FHIR credentials are required: epic_client_id, epic_client_secret, and epic_fhir_url must all be provided"
 }
 ```
 
@@ -256,6 +235,8 @@ async function signupOrganization(formData) {
         phone_number: formData.phone,
         epic_client_id: formData.epicClientId,
         epic_client_secret: formData.epicClientSecret,
+        epic_fhir_url: formData.epicFhirUrl,  // REQUIRED
+        epic_environment: formData.epicEnvironment || 'sandbox',  // sandbox or production
         terms_agreed: formData.termsAccepted
       })
     });
@@ -282,8 +263,17 @@ async function signupOrganization(formData) {
   <input type="text" name="organization_name" required placeholder="Organization Name">
   <input type="email" name="admin_email" required placeholder="Admin Email">
   <input type="text" name="specialty" required placeholder="Specialty">
+  
+  <!-- Epic FHIR Credentials (REQUIRED) -->
+  <select name="epic_environment" required>
+    <option value="sandbox" selected>Sandbox (Testing)</option>
+    <option value="production">Production (Live)</option>
+  </select>
+  <input type="url" name="epic_fhir_url" required placeholder="Epic FHIR Base URL" 
+         value="https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/">
   <input type="text" name="epic_client_id" required placeholder="Epic Client ID">
   <input type="password" name="epic_client_secret" required placeholder="Epic Client Secret">
+  
   <input type="checkbox" name="terms_agreed" required> I agree to the terms
   <button type="submit">Sign Up</button>
 </form>
@@ -300,6 +290,8 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
       organization_name: formData.get('organization_name'),
       admin_email: formData.get('admin_email'),
       specialty: formData.get('specialty'),
+      epic_environment: formData.get('epic_environment'),
+      epic_fhir_url: formData.get('epic_fhir_url'),
       epic_client_id: formData.get('epic_client_id'),
       epic_client_secret: formData.get('epic_client_secret'),
       terms_agreed: formData.get('terms_agreed') === 'on'
