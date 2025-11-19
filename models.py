@@ -93,6 +93,8 @@ class Organization(db.Model):
     # Onboarding Status Management
     creation_method = db.Column(db.String(20), default='self_service')  # self_service, manual (for enterprise/custom billing)
     onboarding_status = db.Column(db.String(30), default='pending_approval')  # pending_approval, approved, active, suspended
+    signup_completion_token = db.Column(db.String(100), unique=True)  # One-time token for completing signup (API flow)
+    signup_completion_token_expires = db.Column(db.DateTime)  # Token expiry (24 hours)
     approved_at = db.Column(db.DateTime)  # When organization was approved
     approved_by = db.Column(db.Integer, db.ForeignKey('users.id'))  # Root admin who approved
 

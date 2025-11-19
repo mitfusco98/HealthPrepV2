@@ -372,6 +372,10 @@ class StripeService:
     @staticmethod
     def _handle_checkout_completed(session: Dict) -> bool:
         """Handle successful checkout session completion (setup mode)"""
+        from services.email_service import EmailService
+        from models import User
+        from flask import url_for
+        
         org_id = session['metadata'].get('org_id')
         if not org_id:
             logger.warning("Checkout session missing org_id metadata")
@@ -405,12 +409,30 @@ class StripeService:
                     logger.info(f"Set default payment method {payment_method_id} for customer {customer_id}")
                     
                     # Mark that organization has payment info but no active subscription yet
-                    org.subscription_status = 'pending_approval'
+                    org.subscription_status = 'payment_method_added'
                     logger.info(f"Organization {org_id} payment method saved, awaiting approval")
                     
             except stripe.error.StripeError as e:
                 logger.error(f"Failed to process setup intent: {str(e)}")
                 return False
+        
+        # Send welcome email to admin user (for API-based signups without session)
+        admin_user = User.query.filter_by(org_id=org.id, role='admin').first()
+        if admin_user and admin_user.password_reset_token:
+            try:
+                password_setup_url = url_for('password_reset.reset_password', 
+                                            token=admin_user.password_reset_token, 
+                                            _external=True)
+                
+                EmailService.send_admin_welcome_email(
+                    email=admin_user.email,
+                    username=admin_user.username,
+                    org_name=org.name,
+                    password_setup_url=password_setup_url
+                )
+                logger.info(f"Welcome email sent via webhook to {admin_user.email} for organization {org_id}")
+            except Exception as email_error:
+                logger.error(f"Failed to send welcome email via webhook: {str(email_error)}")
         
         db.session.commit()
         logger.info(f"Checkout setup completed for organization {org_id}")

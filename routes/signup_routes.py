@@ -96,6 +96,11 @@ def create_signup_organization(
             max_users=10
         )
         
+        # Generate signup completion token for API-based signups
+        signup_token = create_password_reset_token()
+        org.signup_completion_token = signup_token
+        org.signup_completion_token_expires = get_password_reset_expiry(hours=24)
+        
         db.session.add(org)
         db.session.flush()
         
@@ -128,8 +133,9 @@ def create_signup_organization(
         # Create Stripe checkout session
         try:
             # Use provided URLs or generate default ones
+            # For API signups, include token in success URL for session-less flow
             if not success_url:
-                success_url = url_for('signup.signup_success', _external=True)
+                success_url = url_for('signup.signup_success', token=signup_token, _external=True)
             if not cancel_url:
                 cancel_url = url_for('signup.signup_cancel', _external=True)
             
@@ -221,43 +227,76 @@ def signup_submit():
 
 @signup_bp.route('/signup/success')
 def signup_success():
-    """Handle successful Stripe checkout"""
+    """Handle successful Stripe checkout - supports both session-based (HTML form) and token-based (API) flows"""
     try:
-        org_id = session.get('signup_org_id')
-        reset_token = session.get('signup_reset_token')
-        username = session.get('signup_username')
-        email = session.get('signup_email')
-        org_name = session.get('signup_org_name')
+        # Try token-based flow first (API signups)
+        completion_token = request.args.get('token')
         
-        if not all([org_id, reset_token, username, email]):
-            flash('Invalid signup session. Please try again.', 'error')
-            return redirect(url_for('signup.signup_form'))
+        if completion_token:
+            # Token-based flow - find org by completion token
+            org = Organization.query.filter_by(signup_completion_token=completion_token).first()
+            
+            if not org or not org.signup_completion_token_expires or org.signup_completion_token_expires < datetime.utcnow():
+                flash('Invalid or expired signup link. Please contact support.', 'error')
+                return redirect(url_for('signup.signup_form'))
+            
+            # Get admin user for this organization
+            admin_user = User.query.filter_by(org_id=org.id, role='admin').first()
+            if not admin_user:
+                flash('Invalid signup data. Please contact support.', 'error')
+                return redirect(url_for('signup.signup_form'))
+            
+            org_id = org.id
+            org_name = org.name
+            email = admin_user.email
+            username = admin_user.username
+            reset_token = admin_user.password_reset_token
+            
+            # Clear the completion token so it can't be reused
+            org.signup_completion_token = None
+            org.signup_completion_token_expires = None
+            
+        else:
+            # Session-based flow (HTML form signups)
+            org_id = session.get('signup_org_id')
+            reset_token = session.get('signup_reset_token')
+            username = session.get('signup_username')
+            email = session.get('signup_email')
+            org_name = session.get('signup_org_name')
+            
+            if not all([org_id, reset_token, username, email]):
+                flash('Invalid signup session. Please try again.', 'error')
+                return redirect(url_for('signup.signup_form'))
+            
+            # Get organization
+            org = Organization.query.get(org_id)
+            if not org:
+                flash('Organization not found. Please contact support.', 'error')
+                return redirect(url_for('signup.signup_form'))
         
         # Update organization status - payment confirmed, pending approval
-        org = Organization.query.get(org_id)
-        if org:
-            org.subscription_status = 'trialing'  # Stripe subscription active
-            # setup_status stays 'incomplete' until approval
-            db.session.commit()
-            
-            # Send welcome email with password setup link (after Stripe checkout succeeds)
-            password_setup_url = url_for('password_reset.reset_password', token=reset_token, _external=True)
-            
-            try:
-                EmailService.send_admin_welcome_email(
-                    email=email,
-                    username=username,
-                    org_name=org_name,
-                    password_setup_url=password_setup_url
-                )
-                logger.info(f"Welcome email sent to {email}")
-            except Exception as email_error:
-                logger.error(f"Failed to send welcome email: {str(email_error)}")
-                flash('Account created successfully, but we had trouble sending your welcome email. Please contact support.', 'warning')
-            
-            logger.info(f"Signup completed for organization: {org_name} (ID: {org_id})")
+        org.subscription_status = 'payment_method_added'
+        # setup_status stays 'incomplete' until approval
+        db.session.commit()
         
-        # Clear session data
+        # Send welcome email with password setup link (after Stripe checkout succeeds)
+        password_setup_url = url_for('password_reset.reset_password', token=reset_token, _external=True)
+        
+        try:
+            EmailService.send_admin_welcome_email(
+                email=email,
+                username=username,
+                org_name=org_name,
+                password_setup_url=password_setup_url
+            )
+            logger.info(f"Welcome email sent to {email} for organization {org_id}")
+        except Exception as email_error:
+            logger.error(f"Failed to send welcome email: {str(email_error)}")
+            flash('Account created successfully, but we had trouble sending your welcome email. Please contact support.', 'warning')
+        
+        logger.info(f"Signup completed for organization: {org_name} (ID: {org_id})")
+        
+        # Clear session data (if session-based flow)
         session.pop('signup_org_id', None)
         session.pop('signup_reset_token', None)
         session.pop('signup_username', None)
