@@ -163,7 +163,7 @@ class StripeService:
             organization.stripe_subscription_id = subscription.id
             organization.subscription_status = subscription.status
             organization.trial_start_date = datetime.utcnow()
-            organization.trial_expires = datetime.fromtimestamp(subscription.trial_end) if subscription.get('trial_end') else datetime.utcnow() + timedelta(days=StripeService.TRIAL_DAYS)
+            organization.trial_expires = datetime.utcfromtimestamp(subscription.trial_end) if subscription.get('trial_end') else datetime.utcnow() + timedelta(days=StripeService.TRIAL_DAYS)
             
             db.session.commit()
             
@@ -330,69 +330,6 @@ class StripeService:
         except stripe.error.StripeError as e:
             logger.error(f"Failed to retrieve subscription: {str(e)}")
             return None
-    
-    @staticmethod
-    def start_trial_subscription(organization: Organization, price_id: str = None) -> bool:
-        """
-        Start subscription with 14-day trial for approved organization
-        Called when root admin approves an organization
-        
-        Args:
-            organization: Organization model instance
-            price_id: Stripe price ID (optional)
-            
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            if not organization.stripe_customer_id:
-                logger.error(f"Organization {organization.id} has no Stripe customer ID")
-                return False
-            
-            # Build subscription parameters
-            subscription_params = {
-                'customer': organization.stripe_customer_id,
-                'trial_period_days': StripeService.TRIAL_DAYS,
-                'metadata': {
-                    'org_id': organization.id,
-                    'org_name': organization.name
-                }
-            }
-            
-            # Add price/product
-            if price_id:
-                subscription_params['items'] = [{'price': price_id}]
-            else:
-                # Development mode: create ad-hoc price
-                subscription_params['items'] = [{
-                    'price_data': {
-                        'currency': 'usd',
-                        'product_data': {
-                            'name': StripeService.PRODUCT_NAME,
-                        },
-                        'recurring': {
-                            'interval': 'month',
-                        },
-                        'unit_amount': StripeService.SUBSCRIPTION_PRICE,
-                    },
-                }]
-            
-            # Create subscription
-            subscription = stripe.Subscription.create(**subscription_params)
-            
-            # Update organization
-            organization.stripe_subscription_id = subscription.id
-            organization.subscription_status = 'trialing'
-            organization.trial_start_date = datetime.utcnow()
-            organization.trial_expires = datetime.utcnow() + timedelta(days=StripeService.TRIAL_DAYS)
-            db.session.commit()
-            
-            logger.info(f"Started trial subscription {subscription.id} for organization {organization.id}")
-            return True
-            
-        except stripe.error.StripeError as e:
-            logger.error(f"Failed to start trial subscription: {str(e)}")
-            return False
     
     @staticmethod
     def handle_webhook_event(event: Dict) -> bool:
