@@ -156,6 +156,29 @@ def reject_organization(org_id):
                 rejection_reason=rejection_reason
             )
         
+        # Cleanup Stripe resources before deletion
+        if org.stripe_customer_id:
+            try:
+                # Cancel any active subscriptions
+                if org.stripe_subscription_id:
+                    logger.info(f"Cancelling Stripe subscription {org.stripe_subscription_id} for rejected org {org_id}")
+                    StripeService.cancel_subscription(org.stripe_subscription_id)
+                
+                # Archive the customer (mark as deleted in metadata, don't actually delete for audit trail)
+                logger.info(f"Archiving Stripe customer {org.stripe_customer_id} for rejected org {org_id}")
+                import stripe
+                stripe.Customer.modify(
+                    org.stripe_customer_id,
+                    metadata={
+                        'archived': 'true',
+                        'archived_at': datetime.utcnow().isoformat(),
+                        'rejection_reason': rejection_reason,
+                        'original_org_name': org_name
+                    }
+                )
+            except Exception as stripe_error:
+                logger.error(f"Error cleaning up Stripe resources for org {org_id}: {str(stripe_error)}")
+        
         # CRITICAL: Reassign admin_logs to System Organization (org_id=0) for audit trail preservation
         admin_logs = AdminLog.query.filter_by(org_id=org_id).all()
         for log in admin_logs:

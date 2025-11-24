@@ -37,6 +37,29 @@ class StripeService:
             Stripe customer ID or None if error
         """
         try:
+            # Check for existing customers with this email
+            existing_customers = stripe.Customer.list(email=email, limit=10)
+            
+            # Look for customer with valid org_id in metadata
+            for customer in existing_customers.data:
+                customer_org_id = customer.metadata.get('org_id')
+                if customer_org_id:
+                    # Check if this organization still exists in our database
+                    from models import Organization as OrgModel
+                    org_exists = OrgModel.query.filter_by(id=int(customer_org_id)).first()
+                    if org_exists and org_exists.id == organization.id:
+                        # Reuse existing customer for this org
+                        logger.info(f"Reusing existing Stripe customer {customer.id} for organization {organization.id}")
+                        return customer.id
+                    elif not org_exists:
+                        # Orphaned customer - archive it
+                        logger.warning(f"Archiving orphaned Stripe customer {customer.id} (org_id {customer_org_id} no longer exists)")
+                        try:
+                            stripe.Customer.modify(customer.id, metadata={'archived': 'true', 'archived_at': datetime.utcnow().isoformat()})
+                        except:
+                            pass
+            
+            # No reusable customer found - create new one
             customer = stripe.Customer.create(
                 email=email,
                 name=organization.name,
@@ -108,6 +131,49 @@ class StripeService:
         except stripe.error.StripeError as e:
             logger.error(f"Stripe subscription creation failed: {str(e)}")
             return None
+    
+    @staticmethod
+    def start_trial_subscription(organization: Organization, trial_days: int = None) -> bool:
+        """
+        Start a trial subscription for an approved organization
+        
+        Args:
+            organization: Organization model instance with stripe_customer_id
+            trial_days: Number of trial days (default: 14)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not organization.stripe_customer_id:
+                logger.error(f"Cannot start trial for org {organization.id} - no Stripe customer ID")
+                return False
+            
+            # Create subscription with trial
+            subscription = StripeService.create_subscription(
+                customer_id=organization.stripe_customer_id,
+                price_id=None,  # Use ad-hoc pricing for development
+                trial_days=trial_days or StripeService.TRIAL_DAYS
+            )
+            
+            if not subscription:
+                return False
+            
+            # Update organization with subscription info
+            organization.stripe_subscription_id = subscription.id
+            organization.subscription_status = subscription.status
+            organization.trial_start_date = datetime.utcnow()
+            organization.trial_expires = datetime.fromtimestamp(subscription.trial_end) if subscription.get('trial_end') else datetime.utcnow() + timedelta(days=StripeService.TRIAL_DAYS)
+            
+            db.session.commit()
+            
+            logger.info(f"Started trial subscription {subscription.id} for organization {organization.id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to start trial subscription for org {organization.id}: {str(e)}")
+            db.session.rollback()
+            return False
     
     @staticmethod
     def create_checkout_session(
