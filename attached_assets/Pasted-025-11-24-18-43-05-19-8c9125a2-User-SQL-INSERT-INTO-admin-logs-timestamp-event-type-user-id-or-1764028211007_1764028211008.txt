@@ -1,0 +1,109 @@
+025-11-24 18:43:05.19
+8c9125a2
+User
+[SQL: INSERT INTO admin_logs (timestamp, event_type, user_id, org_id, ip_address, patient_id, resource_type, resource_id, action_details, data, session_id, user_agent) VALUES (%(timestamp)s, %(event_type)s, %(user_id)s, %(org_id)s, %(ip_address)s, %(patient_id)s, %(resource_type)s, %(resource_id)s, %(action_details)s, %(data)s::JSON, %(session_id)s, %(user_agent)s) RETURNING admin_logs.id]
+2025-11-24 18:43:05.19
+8c9125a2
+User
+[parameters: {'timestamp': datetime.datetime(2025, 11, 24, 23, 43, 5, 149466), 'event_type': 'organization_rejected_deleted', 'user_id': 5, 'org_id': 0, 'ip_address': '34.172.232.11', 'patient_id': None, 'resource_type': None, 'resource_id': None, 'action_details': None, 'data': '{"organization_name": "default 3", "organization_id": 7, "rejected_by": "rootadmin", "rejection_reason": "a", "users_deleted": 1, "audit_logs_preserved": 0, "description": "Rejected and deleted organization: default 3 (1 users, 0 audit logs preserved). Reason: a"}', 'session_id': None, 'user_agent': None}]
+2025-11-24 18:43:05.19
+8c9125a2
+User
+ERROR:routes.org_approval_routes:Error rejecting organization 7: (psycopg2.errors.ForeignKeyViolation) insert or update on table "admin_logs" violates foreign key constraint "admin_logs_org_id_fkey"
+2025-11-24 18:43:05.19
+8c9125a2
+User
+DETAIL: Key (org_id)=(0) is not present in table "organizations".
+2025-11-24 18:43:05.19
+8c9125a2
+User
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2025-11-24 18:43:28.68
+8c9125a2
+User
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 4345, in flush
+
+2025-11-24 18:43:28.68
+8c9125a2
+User
+self.session.flush()
+2025-11-24 18:43:28.68
+8c9125a2
+User
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2032, in commit
+2025-11-24 18:43:28.68
+8c9125a2
+User
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+2025-11-24 18:43:28.68
+8c9125a2
+User
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/persistence.py", line 93, in save_obj
+2025-11-24 18:43:28.68
+8c9125a2
+User
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+2025-11-24 18:43:28.68
+8c9125a2
+User
+with util.safe_reraise():
+2025-11-24 18:43:28.68
+8c9125a2
+User
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 1313, in commit
+2025-11-24 18:43:28.68
+8c9125a2
+User
+response = self.full_dispatch_request()
+2025-11-24 18:43:28.68
+8c9125a2
+User
+File "", line 2, in commit
+2025-11-24 18:43:28.68
+8c9125a2
+User
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/unitofwork.py", line 466, in execute
+2025-11-24 18:43:28.68
+8c9125a2
+User
+cursor.execute(statement, parameters)
+2025-11-24 18:43:28.68
+8c9125a2
+User
+return cors_after_request(app.make_response(f(*args, **kwargs)))
+2025-11-24 18:43:28.68
+8c9125a2
+User
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-11-24 18:43:28.68
+8c9125a2
+User
+psycopg2.errors.ForeignKeyViolation: insert or update on table "admin_logs" violates foreign key constraint "admin_logs_org_id_fkey"
+2025-11-24 18:43:28.68
+8c9125a2
+User
+return self._proxied.commit()
+2025-11-24 18:43:28.68
+8c9125a2
+User
+_emit_insert_statements(
+2025-11-24 18:43:28.68
+8c9125a2
+User
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
+2025-11-24 18:43:28.68
+8c9125a2
+User
+^^^^^^^^^^^^^^^^^^^^
+2025-11-24 18:43:28.68
+8c9125a2
+User
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 944, in do_execute
+2025-11-24 18:43:28.68
+8c9125a2
+User
+The above exception was the direct cause of the following exception:
+2025-11-24 18:43:28.68
+8c9125a2
+User
+File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask_cors/extension.py", line 176, in wrapped_function

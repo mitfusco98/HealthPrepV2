@@ -204,6 +204,10 @@ def create_app():
         db.create_all()
         logger.info("Database tables created successfully")
         
+        # Ensure System Organization (org_id=0) exists for root admin audit logging
+        # This is required before root admin can log in or perform any actions
+        _ensure_system_organization(db, models.Organization)
+        
         # Process any existing unmatched documents on startup (disabled by default for performance)
         # Enable with environment variable: STARTUP_PROCESS_DOCS=true
         # Document processing should be triggered by EMR sync or screening list refresh instead
@@ -401,3 +405,40 @@ def configure_jinja_filters(app):
         except Exception as e:
             logger.error(f"Error formatting JSON for log data: {e}")
             return Markup(f'<pre>Error formatting data: {e}</pre>')
+
+
+def _ensure_system_organization(db, Organization):
+    """
+    Ensure System Organization (org_id=0) exists for root admin audit logging.
+    This is called during app startup to guarantee the organization exists
+    before any root admin actions can be performed.
+    
+    The System Organization is the "super-tenant" that:
+    - Houses the root admin user (org_id=0)
+    - Receives all root admin audit log entries
+    - Manages all other tenant organizations
+    """
+    try:
+        system_org = Organization.query.filter_by(id=0).first()
+        
+        if system_org:
+            logger.info("System Organization (org_id=0) verified")
+            return
+        
+        # Create System Organization with minimal required fields
+        system_org = Organization()
+        system_org.id = 0
+        system_org.name = "System Organization"
+        system_org.status = "completed"
+        system_org.is_trial = False
+        system_org.created_at = datetime.utcnow()
+        system_org.updated_at = datetime.utcnow()
+        
+        db.session.add(system_org)
+        db.session.commit()
+        logger.info("System Organization (org_id=0) created successfully")
+        
+    except Exception as e:
+        logger.error(f"Failed to ensure System Organization: {e}")
+        db.session.rollback()
+        raise
