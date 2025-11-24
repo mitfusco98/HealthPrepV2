@@ -120,7 +120,7 @@ def login():
             if user.is_root_admin:
                 log_org_id = 0  # System org for root admin events
             else:
-                log_org_id = user.org_id or 1
+                log_org_id = user.org_id  # Org admins must have valid org_id
             
             log_admin_event(
                 event_type='user_login',
@@ -262,10 +262,15 @@ def verify_login_security():
             # Log the login event to audit log
             # Root admin logs to org_id=0 (System Org), org admins log to their org_id
             from models import log_admin_event
+            if user.is_root_admin:
+                log_org_id = 0  # System org for root admin events
+            else:
+                log_org_id = user.org_id  # Org admins must have valid org_id
+            
             log_admin_event(
                 event_type='user_login',
                 user_id=user.id,
-                org_id=user.org_id,
+                org_id=log_org_id,
                 ip=request.remote_addr,
                 data={
                     'username': user.username,
@@ -327,11 +332,17 @@ def change_password():
             db.session.commit()
 
             # Log password change
+            # Root admin events go to system org (0), org admins log to their org
+            if current_user.is_root_admin:
+                log_org_id = 0  # System org for root admin events
+            else:
+                log_org_id = current_user.org_id  # Org admins must have valid org_id
+            
             try:
                 log_admin_event(
                     event_type='password_changed',
                     user_id=current_user.id,
-                    org_id=getattr(current_user, 'org_id', 1),
+                    org_id=log_org_id,
                     ip=request.remote_addr,
                     data={'username': current_user.username, 'user_agent': request.user_agent.string, 'description': f'Password changed for user {current_user.username}'}
                 )
