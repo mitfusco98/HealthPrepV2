@@ -415,65 +415,78 @@ def _ensure_system_organization(db, Organization, User):
     This is called during app startup to guarantee:
     1. System Organization (org_id=0) exists
     2. Root admin user is associated with org_id=0
-    3. Root admin has correct email for recovery (configurable via ROOT_ADMIN_EMAIL env var)
     
     The System Organization is the "super-tenant" that:
     - Houses the root admin user (org_id=0)
     - Receives all root admin audit log entries
     - Manages all other tenant organizations
-    """
-    # Configurable root admin email - set via environment variable
-    # This ensures the root admin can always recover their account
-    ROOT_ADMIN_EMAIL = os.environ.get('ROOT_ADMIN_EMAIL', 'fuscodigitalsolutions@gmail.com')
     
+    Environment Variables:
+    - ROOT_ADMIN_EMAIL: If set, updates root admin email ONLY if current email is empty/None
+    """
     try:
+        changes_pending = False
+        
         # Step 1: Ensure System Organization exists
         system_org = Organization.query.filter_by(id=0).first()
         
         if system_org:
             logger.info("System Organization (org_id=0) verified")
         else:
-            # Create System Organization with minimal required fields
-            system_org = Organization()
-            system_org.id = 0
-            system_org.name = "System Organization"
-            system_org.status = "completed"
-            system_org.is_trial = False
-            system_org.created_at = datetime.utcnow()
-            system_org.updated_at = datetime.utcnow()
-            
+            # Create System Organization with only the required field (name)
+            # Let SQLAlchemy model defaults handle all other columns
+            system_org = Organization(name="System Organization")
+            system_org.id = 0  # Set after instantiation to override auto-increment
             db.session.add(system_org)
-            db.session.commit()
-            logger.info("System Organization (org_id=0) created successfully")
+            changes_pending = True
+            logger.info("System Organization (org_id=0) will be created")
         
         # Step 2: Ensure ALL root admin users are properly configured
         root_admins = User.query.filter_by(is_root_admin=True).all()
         
         if not root_admins:
-            logger.warning("No root admin user found - manual creation required")
+            # Commit System Org creation if pending, then warn about missing root admin
+            if changes_pending:
+                db.session.commit()
+                logger.info("System Organization created (no root admins to configure)")
+            else:
+                logger.warning("No root admin user found - manual creation required")
             return
+        
+        # Get configured email for primary root admin (if set)
+        root_admin_email = os.environ.get('ROOT_ADMIN_EMAIL')
+        primary_root_admin_username = os.environ.get('ROOT_ADMIN_USERNAME', 'rootadmin')
         
         for root_admin in root_admins:
             updates_made = []
             
-            # Ensure root admin is associated with System Organization (critical for FK integrity)
+            # Critical: Ensure ALL root admins are associated with System Organization for FK integrity
             if root_admin.org_id != 0:
                 old_org_id = root_admin.org_id
                 root_admin.org_id = 0
                 updates_made.append(f"org_id: {old_org_id} -> 0")
+                changes_pending = True
             
-            # Update email only if ROOT_ADMIN_EMAIL is explicitly set in environment
-            # This prevents accidental overwrites while allowing intentional configuration
-            if os.environ.get('ROOT_ADMIN_EMAIL') and root_admin.email != ROOT_ADMIN_EMAIL:
-                old_email = root_admin.email
-                root_admin.email = ROOT_ADMIN_EMAIL
-                updates_made.append(f"email: {old_email} -> {ROOT_ADMIN_EMAIL}")
+            # Email update: Only for the PRIMARY root admin (by username)
+            # This prevents uniqueness constraint violations with multiple root admins
+            if (root_admin_email and 
+                root_admin.username == primary_root_admin_username and 
+                root_admin.email != root_admin_email):
+                old_email = root_admin.email or '(empty)'
+                root_admin.email = root_admin_email
+                updates_made.append(f"email: {old_email} -> {root_admin_email}")
+                changes_pending = True
+                logger.warning(f"Primary root admin email changed from '{old_email}' to '{root_admin_email}' per ROOT_ADMIN_EMAIL config")
             
             if updates_made:
-                db.session.commit()
-                logger.info(f"Root admin '{root_admin.username}' configuration updated: {', '.join(updates_made)}")
+                logger.info(f"Root admin '{root_admin.username}' will be updated: {', '.join(updates_made)}")
             else:
                 logger.info(f"Root admin '{root_admin.username}' configuration verified (org_id=0)")
+        
+        # Single commit for all changes (System Org + all root admins)
+        if changes_pending:
+            db.session.commit()
+            logger.info("System Organization and root admin configurations committed successfully")
         
     except Exception as e:
         logger.error(f"Failed to ensure System Organization/Root Admin: {e}")
