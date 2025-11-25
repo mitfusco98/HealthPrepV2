@@ -86,11 +86,18 @@ def approve_organization(org_id):
         # Send approval notification to admin user
         admin_user = User.query.filter_by(org_id=org_id, role='admin').first()
         if admin_user:
-            EmailService.send_organization_approved_email(
+            logger.info(f"Sending approval email to {admin_user.email} for org {org.name}")
+            email_sent = EmailService.send_organization_approved_email(
                 email=admin_user.email,
                 username=admin_user.username,
                 org_name=org.name
             )
+            if email_sent:
+                logger.info(f"Approval email sent successfully to {admin_user.email}")
+            else:
+                logger.warning(f"Failed to send approval email to {admin_user.email}")
+        else:
+            logger.warning(f"No admin user found for organization {org_id} to send approval email")
         
         # Log the approval
         log_admin_event(
@@ -149,12 +156,17 @@ def reject_organization(org_id):
         
         # Send rejection notification before deletion
         if admin_user:
-            EmailService.send_organization_rejected_email(
+            logger.info(f"Sending rejection email to {admin_user.email} for org {org_name}")
+            email_sent = EmailService.send_organization_rejected_email(
                 email=admin_user.email,
                 username=admin_user.username,
                 org_name=org_name,
                 rejection_reason=rejection_reason
             )
+            if email_sent:
+                logger.info(f"Rejection email sent successfully to {admin_user.email}")
+            else:
+                logger.warning(f"Failed to send rejection email to {admin_user.email}")
         
         # Cleanup Stripe resources before deletion
         if org.stripe_customer_id:

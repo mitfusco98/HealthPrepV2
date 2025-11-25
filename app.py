@@ -204,9 +204,9 @@ def create_app():
         db.create_all()
         logger.info("Database tables created successfully")
         
-        # Ensure System Organization (org_id=0) exists for root admin audit logging
+        # Ensure System Organization (org_id=0) and root admin configuration
         # This is required before root admin can log in or perform any actions
-        _ensure_system_organization(db, models.Organization)
+        _ensure_system_organization(db, models.Organization, models.User)
         
         # Process any existing unmatched documents on startup (disabled by default for performance)
         # Enable with environment variable: STARTUP_PROCESS_DOCS=true
@@ -407,38 +407,75 @@ def configure_jinja_filters(app):
             return Markup(f'<pre>Error formatting data: {e}</pre>')
 
 
-def _ensure_system_organization(db, Organization):
+def _ensure_system_organization(db, Organization, User):
     """
-    Ensure System Organization (org_id=0) exists for root admin audit logging.
-    This is called during app startup to guarantee the organization exists
-    before any root admin actions can be performed.
+    Ensure System Organization (org_id=0) exists for root admin audit logging,
+    and ensure root admin user is properly associated with it.
+    
+    This is called during app startup to guarantee:
+    1. System Organization (org_id=0) exists
+    2. Root admin user is associated with org_id=0
+    3. Root admin has correct email for recovery (configurable via ROOT_ADMIN_EMAIL env var)
     
     The System Organization is the "super-tenant" that:
     - Houses the root admin user (org_id=0)
     - Receives all root admin audit log entries
     - Manages all other tenant organizations
     """
+    # Configurable root admin email - set via environment variable
+    # This ensures the root admin can always recover their account
+    ROOT_ADMIN_EMAIL = os.environ.get('ROOT_ADMIN_EMAIL', 'fuscodigitalsolutions@gmail.com')
+    
     try:
+        # Step 1: Ensure System Organization exists
         system_org = Organization.query.filter_by(id=0).first()
         
         if system_org:
             logger.info("System Organization (org_id=0) verified")
+        else:
+            # Create System Organization with minimal required fields
+            system_org = Organization()
+            system_org.id = 0
+            system_org.name = "System Organization"
+            system_org.status = "completed"
+            system_org.is_trial = False
+            system_org.created_at = datetime.utcnow()
+            system_org.updated_at = datetime.utcnow()
+            
+            db.session.add(system_org)
+            db.session.commit()
+            logger.info("System Organization (org_id=0) created successfully")
+        
+        # Step 2: Ensure ALL root admin users are properly configured
+        root_admins = User.query.filter_by(is_root_admin=True).all()
+        
+        if not root_admins:
+            logger.warning("No root admin user found - manual creation required")
             return
         
-        # Create System Organization with minimal required fields
-        system_org = Organization()
-        system_org.id = 0
-        system_org.name = "System Organization"
-        system_org.status = "completed"
-        system_org.is_trial = False
-        system_org.created_at = datetime.utcnow()
-        system_org.updated_at = datetime.utcnow()
-        
-        db.session.add(system_org)
-        db.session.commit()
-        logger.info("System Organization (org_id=0) created successfully")
+        for root_admin in root_admins:
+            updates_made = []
+            
+            # Ensure root admin is associated with System Organization (critical for FK integrity)
+            if root_admin.org_id != 0:
+                old_org_id = root_admin.org_id
+                root_admin.org_id = 0
+                updates_made.append(f"org_id: {old_org_id} -> 0")
+            
+            # Update email only if ROOT_ADMIN_EMAIL is explicitly set in environment
+            # This prevents accidental overwrites while allowing intentional configuration
+            if os.environ.get('ROOT_ADMIN_EMAIL') and root_admin.email != ROOT_ADMIN_EMAIL:
+                old_email = root_admin.email
+                root_admin.email = ROOT_ADMIN_EMAIL
+                updates_made.append(f"email: {old_email} -> {ROOT_ADMIN_EMAIL}")
+            
+            if updates_made:
+                db.session.commit()
+                logger.info(f"Root admin '{root_admin.username}' configuration updated: {', '.join(updates_made)}")
+            else:
+                logger.info(f"Root admin '{root_admin.username}' configuration verified (org_id=0)")
         
     except Exception as e:
-        logger.error(f"Failed to ensure System Organization: {e}")
+        logger.error(f"Failed to ensure System Organization/Root Admin: {e}")
         db.session.rollback()
         raise
