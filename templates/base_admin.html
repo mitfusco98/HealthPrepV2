@@ -120,33 +120,64 @@
     {% if show_trial_banner and trial_days_remaining is not none %}
         <div class="container mt-3">
             {% if not trial_is_expired %}
-                <div class="alert alert-warning border-warning">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <i class="fas fa-clock me-2"></i>
-                            {% if trial_days_remaining > 0 %}
-                                <strong>Trial Ending Soon:</strong> Your free trial expires in <strong>{{ trial_days_remaining }} day{{ 's' if trial_days_remaining != 1 else '' }}</strong>.
-                            {% else %}
-                                <strong>Trial Ends Today:</strong> Your free trial expires later today.
-                            {% endif %}
-                            Update your payment method to continue using HealthPrep without interruption.
+                {% if has_payment_method %}
+                    <!-- Payment info on file - reassuring message -->
+                    <div class="alert alert-info border-info">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
+                                <i class="fas fa-info-circle me-2"></i>
+                                {% if trial_days_remaining > 0 %}
+                                    <strong>Trial Period:</strong> Your free trial ends in <strong>{{ trial_days_remaining }} day{{ 's' if trial_days_remaining != 1 else '' }}</strong>.
+                                {% else %}
+                                    <strong>Trial Ends Today:</strong> Your free trial ends later today.
+                                {% endif %}
+                                Your subscription will begin automatically - no action needed.
+                            </div>
+                            <a href="{{ url_for('admin.billing_portal') }}" class="btn btn-sm btn-outline-info">
+                                <i class="fas fa-cog me-1"></i> Manage Billing
+                            </a>
                         </div>
-                        <a href="{{ url_for('admin.billing_portal') }}" class="btn btn-sm btn-warning">
-                            <i class="fas fa-credit-card me-1"></i> Update Payment
-                        </a>
                     </div>
-                </div>
+                {% else %}
+                    <!-- No payment info - warning message -->
+                    <div class="alert alert-warning border-warning">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
+                                <i class="fas fa-clock me-2"></i>
+                                {% if trial_days_remaining > 0 %}
+                                    <strong>Trial Ending Soon:</strong> Your free trial expires in <strong>{{ trial_days_remaining }} day{{ 's' if trial_days_remaining != 1 else '' }}</strong>.
+                                {% else %}
+                                    <strong>Trial Ends Today:</strong> Your free trial expires later today.
+                                {% endif %}
+                                Update your payment method to continue using HealthPrep without interruption.
+                            </div>
+                            <a href="{{ url_for('admin.billing_portal') }}" class="btn btn-sm btn-warning">
+                                <i class="fas fa-credit-card me-1"></i> Update Payment
+                            </a>
+                        </div>
+                    </div>
+                {% endif %}
             {% else %}
                 <div class="alert alert-danger border-danger">
                     <div class="d-flex align-items-center justify-content-between">
                         <div>
                             <i class="fas fa-exclamation-triangle me-2"></i>
                             <strong>Trial Expired:</strong> Your free trial has ended. 
-                            Update your payment method to restore full access.
+                            {% if has_payment_method %}
+                                Your subscription should begin shortly. If you experience any issues, please contact support.
+                            {% else %}
+                                Update your payment method to restore full access.
+                            {% endif %}
                         </div>
-                        <a href="{{ url_for('admin.billing_portal') }}" class="btn btn-sm btn-danger">
-                            <i class="fas fa-credit-card me-1"></i> Update Payment Now
-                        </a>
+                        {% if has_payment_method %}
+                            <a href="mailto:support@healthprep.com" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-envelope me-1"></i> Contact Support
+                            </a>
+                        {% else %}
+                            <a href="{{ url_for('admin.billing_portal') }}" class="btn btn-sm btn-danger">
+                                <i class="fas fa-credit-card me-1"></i> Update Payment Now
+                            </a>
+                        {% endif %}
                     </div>
                 </div>
             {% endif %}

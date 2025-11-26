@@ -88,7 +88,10 @@ def trial_warning_required(f):
                 days_remaining = (org.trial_expires - datetime.utcnow()).days
                 
                 if 0 < days_remaining <= 7:
-                    flash(f'Your trial expires in {days_remaining} day{"s" if days_remaining != 1 else ""}. Update your payment method to avoid interruption.', 'info')
+                    if org.stripe_customer_id:
+                        flash(f'Your trial ends in {days_remaining} day{"s" if days_remaining != 1 else ""}. Your subscription will begin automatically.', 'info')
+                    else:
+                        flash(f'Your trial expires in {days_remaining} day{"s" if days_remaining != 1 else ""}. Update your payment method to avoid interruption.', 'warning')
         
         return f(*args, **kwargs)
     
@@ -119,7 +122,8 @@ def get_subscription_context():
         'trial_days_remaining': None,
         'trial_is_expired': False,
         'show_payment_warning': False,
-        'show_canceled_warning': False
+        'show_canceled_warning': False,
+        'has_payment_method': bool(org.stripe_customer_id)
     }
     
     # Calculate trial days remaining and expiration status
