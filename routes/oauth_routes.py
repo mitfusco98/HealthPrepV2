@@ -41,7 +41,7 @@ def require_approved_organization(f):
         
         # Check if organization is pending approval
         if org.onboarding_status == 'pending_approval':
-            flash('Epic FHIR integration is not available until your organization is approved by our team. You will receive an email notification when your trial begins.', 'warning')
+            flash('Epic FHIR integration will be available once your organization is approved. Approval occurs after payment confirmation and having active users set up. You will receive an email notification when your trial begins.', 'warning')
             return redirect(url_for('admin.dashboard'))
         
         return f(*args, **kwargs)

@@ -102,6 +102,36 @@
         </div>
     </div>
 
+    {% if is_pending_approval %}
+    <!-- Pending Approval Banner -->
+    <div class="alert alert-info mb-4" role="alert">
+        <div class="d-flex align-items-start">
+            <i class="fas fa-clock fa-2x me-3 text-info"></i>
+            <div>
+                <h5 class="alert-heading mb-2">
+                    <i class="fas fa-hourglass-half me-2"></i>Organization Pending Approval
+                </h5>
+                <p class="mb-2">
+                    Your organization is currently awaiting approval. Once your payment is confirmed and you have active users set up, 
+                    our team will review and approve your organization.
+                </p>
+                <p class="mb-2">
+                    <strong>After approval, you will be able to:</strong>
+                </p>
+                <ul class="mb-2">
+                    <li>Complete Epic OAuth authorization</li>
+                    <li>Connect to your Epic FHIR endpoint</li>
+                    <li>Begin syncing patient data</li>
+                </ul>
+                <p class="mb-0">
+                    <i class="fas fa-envelope me-1"></i>
+                    You will receive an email notification when your organization is approved and your trial begins.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Registration Steps -->
     <div class="row">
         <div class="col-lg-8">
@@ -655,8 +685,22 @@ function updateHyperspaceIndicator() {
     const hyperspaceDiv = document.getElementById('hyperspaceStatus');
     const hyperspaceMessage = document.getElementById('hyperspaceStatusMessage');
     const hyperspaceBadge = document.getElementById('hyperspaceStatusBadge');
+    const isPendingApproval = {{ 'true' if is_pending_approval else 'false' }};
     
     hyperspaceDiv.style.display = 'block';
+    
+    // If pending approval, show informative message without making the API call
+    if (isPendingApproval) {
+        hyperspaceBadge.className = 'badge bg-info';
+        hyperspaceBadge.textContent = 'Pending Approval';
+        hyperspaceMessage.innerHTML = `
+            <i class="fas fa-hourglass-half me-1"></i> 
+            Epic Hyperspace authorization will be available after your organization is approved.<br>
+            <small class="text-muted">Approval occurs after payment confirmation and user setup.</small>
+        `;
+        return;
+    }
+    
     hyperspaceMessage.innerHTML = 'Checking Epic Hyperspace authorization...';
     hyperspaceBadge.className = 'badge bg-secondary';
     hyperspaceBadge.textContent = 'Checking...';
@@ -704,6 +748,23 @@ function updateHyperspaceIndicator() {
 function checkOAuthStatus() {
     const result = document.getElementById('oauthStatusResult');
     const message = document.getElementById('oauthStatusMessage');
+    const isPendingApproval = {{ 'true' if is_pending_approval else 'false' }};
+    
+    // If pending approval, show informative message without making the API call
+    if (isPendingApproval) {
+        result.className = 'connection-status unknown';
+        result.style.display = 'block';
+        message.innerHTML = `
+            <i class="fas fa-hourglass-half me-1 text-info"></i>
+            <strong>OAuth Status: Awaiting Organization Approval</strong><br>
+            <small class="text-muted">
+                Epic OAuth authorization will be available once your organization is approved.<br>
+                <i class="fas fa-info-circle me-1"></i>Approval occurs after payment confirmation and user setup.
+                You will receive an email notification when ready.
+            </small>
+        `;
+        return;
+    }
     
     message.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Checking OAuth status...';
     result.className = 'connection-status unknown';

@@ -45,11 +45,15 @@ def epic_registration():
         elif organization.subscription_status in ['past_due', 'incomplete']:
             billing_status = 'payment_issue'
         
+        # Check if organization is pending approval
+        is_pending_approval = organization.onboarding_status == 'pending_approval'
+        
         context = {
             'organization': organization,
             'registration_status': registration_status,
             'trial_days_remaining': trial_days_remaining,
             'billing_status': billing_status,
+            'is_pending_approval': is_pending_approval,
             'epic_scopes': [
                 'patient/Patient.read',
                 'patient/Observation.read',
