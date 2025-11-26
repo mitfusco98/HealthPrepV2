@@ -580,23 +580,106 @@ function testEpicConnection() {
 }
 
 function startEpicAuthorization() {
-    // First check if Epic credentials are configured
     const result = document.getElementById('connectionResult');
     const message = document.getElementById('connectionMessage');
+    const authUrl = '{{ url_for("oauth.epic_authorize") }}';
+    const isPendingApproval = {{ 'true' if is_pending_approval else 'false' }};
     
-    // Show checking message
+    // Block authorization for pending approval organizations
+    if (isPendingApproval) {
+        result.style.display = 'block';
+        result.className = 'connection-status unknown';
+        message.innerHTML = `
+            <i class="fas fa-hourglass-half me-1 text-info"></i>
+            <strong>Organization Pending Approval</strong><br>
+            <span>Epic authorization will be available after your organization is approved.</span><br>
+            <small class="text-muted">Approval occurs after payment confirmation and user setup. You will receive an email notification when ready.</small>
+        `;
+        return;
+    }
+    
+    // CRITICAL: Open popup IMMEDIATELY on user click to avoid popup blocker
+    // Browsers block popups opened in async callbacks (like fetch .then())
+    const popup = window.open(
+        'about:blank',  // Open blank page first
+        'epicOAuth',
+        'width=600,height=700,scrollbars=yes,resizable=yes,status=yes,menubar=no,toolbar=no'
+    );
+    
+    // Check if popup was blocked
+    if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        // Popup was blocked - fall back to direct redirect
+        result.style.display = 'block';
+        result.className = 'connection-status unknown';
+        message.innerHTML = `
+            <i class="fas fa-external-link-alt me-1"></i>
+            <strong>Popup Blocked</strong><br>
+            <span>Your browser blocked the authorization popup. Redirecting to Epic authorization...</span>
+        `;
+        
+        // Use direct redirect as fallback
+        setTimeout(() => {
+            window.location.href = authUrl;
+        }, 1500);
+        return;
+    }
+    
+    // Show loading message in popup
+    popup.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Epic Authorization</title>
+            <style>
+                body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f5f5f5; }
+                .loader { text-align: center; }
+                .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+                @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+            </style>
+        </head>
+        <body>
+            <div class="loader">
+                <div class="spinner"></div>
+                <p>Verifying Epic credentials...</p>
+            </div>
+        </body>
+        </html>
+    `);
+    
+    // Show checking message on main page
     result.style.display = 'block';
     result.className = 'connection-status unknown';
     message.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Checking Epic credentials...';
     
+    // Now check credentials asynchronously
     fetch('{{ url_for("oauth.check_epic_credentials") }}', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
     })
-    .then(response => response.json())
+    .then(response => {
+        // Handle non-OK responses (redirects, errors, etc.)
+        if (!response.ok) {
+            if (response.status === 403) {
+                throw new Error('Not authorized. Your organization may be pending approval.');
+            } else if (response.status === 401) {
+                throw new Error('Session expired. Please log in again.');
+            } else if (response.status === 302 || response.redirected) {
+                throw new Error('Please log in to continue.');
+            }
+            throw new Error('Server error. Please try again.');
+        }
+        
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            throw new Error('Unexpected response. Please refresh the page and try again.');
+        }
+        
+        return response.json();
+    })
     .then(data => {
         if (!data.has_credentials) {
-            // Show error message on the same page instead of opening popup
+            // Close popup and show error on main page
+            popup.close();
             result.className = 'connection-status error';
             message.innerHTML = `
                 <i class="fas fa-exclamation-circle me-1"></i>
@@ -607,51 +690,41 @@ function startEpicAuthorization() {
             return;
         }
         
-        // If credentials are configured, proceed with original popup flow
-        const authUrl = '{{ url_for("oauth.epic_authorize") }}';
-        const popup = window.open(
-            authUrl,
-            'epicOAuth',
-            'width=600,height=700,scrollbars=yes,resizable=yes,status=yes,menubar=no,toolbar=no'
-        );
+        // Credentials exist - navigate popup to Epic OAuth
+        popup.location.href = authUrl;
         
         // Hide the checking message since popup will handle the flow
         result.style.display = 'none';
         
-        // Monitor the popup for completion and FHIR access confirmation
+        // Monitor the popup for completion
         const checkClosed = setInterval(() => {
             if (popup.closed) {
                 clearInterval(checkClosed);
                 // Popup was closed, check if authorization was successful
                 setTimeout(() => {
                     checkHyperspaceStatus();
-                }, 1000); // Small delay to allow backend processing
+                }, 1000);
             } else {
-                // Check if the popup has navigated to the registration page AND verify FHIR access
+                // Check if the popup has navigated to the registration page
                 try {
                     if (popup.location.href.includes('/admin/epic/registration')) {
-                        // Popup is on registration page, now verify FHIR access before closing
                         fetch('{{ url_for("oauth.epic_status") }}', {
                             method: 'GET',
                             headers: { 'Content-Type': 'application/json' }
                         })
                         .then(response => response.json())
                         .then(data => {
-                            // Only close popup if FHIR access is confirmed and not expired
                             if (data.connected && !data.expired) {
                                 clearInterval(checkClosed);
                                 popup.close();
-                                // FHIR authorization confirmed, refresh status
                                 setTimeout(() => {
                                     checkHyperspaceStatus();
-                                    location.reload(); // Refresh the entire page to show updated status
+                                    location.reload();
                                 }, 1000);
                             }
-                            // If not connected or expired, keep popup open for user to retry
                         })
                         .catch(error => {
                             console.error('Error checking FHIR status:', error);
-                            // On error, don't close popup - let user handle it manually
                         });
                     }
                 } catch (e) {
@@ -660,7 +733,7 @@ function startEpicAuthorization() {
             }
         }, 2000);
         
-        // Auto-close after 10 minutes if still open
+        // Auto-close after 10 minutes
         setTimeout(() => {
             if (!popup.closed) {
                 clearInterval(checkClosed);
@@ -669,8 +742,9 @@ function startEpicAuthorization() {
         }, 600000);
     })
     .catch(error => {
+        popup.close();
         result.className = 'connection-status error';
-        message.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>Failed to check Epic credentials';
+        message.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>Failed to check Epic credentials. Please try again.';
         console.error('Error:', error);
     });
 }
