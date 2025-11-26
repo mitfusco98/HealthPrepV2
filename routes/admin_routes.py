@@ -1006,8 +1006,10 @@ def toggle_admin_status(user_id):
 def create_user():
     """Create new user with automated onboarding via email"""
     try:
-        from services.email_service import send_welcome_email
+        from services.email_service import EmailService
+        from models import Organization
         import re
+        import secrets
         
         email = request.form.get('email')
         role = request.form.get('role', 'nurse')
@@ -1025,6 +1027,10 @@ def create_user():
         
         # Get current user's organization
         org_id = getattr(current_user, 'org_id', 1)  # Default to org 1 if not set
+        
+        # Get organization name for email
+        org = Organization.query.get(org_id)
+        org_name = org.name if org else 'HealthPrep'
 
         # Check if username already exists - if so, append a number
         base_username = username
@@ -1039,6 +1045,9 @@ def create_user():
             flash('Email already exists in this organization', 'error')
             return redirect(url_for('admin.users'))
 
+        # Generate a secure random temporary password
+        temp_password = secrets.token_urlsafe(16)
+
         # Create new user with temporary password flag
         new_user = User()
         new_user.username = username
@@ -1047,26 +1056,13 @@ def create_user():
         new_user.is_admin = (role == 'admin')  # Set is_admin based on role
         new_user.is_active_user = is_active
         new_user.org_id = org_id  # Assign to current user's organization
-        
-        # Generate a secure random temporary password
-        import secrets
-        temp_password = secrets.token_urlsafe(16)
         new_user.set_password(temp_password)
         new_user.is_temp_password = True  # Flag for password reset on first login
         
         db.session.add(new_user)
         db.session.commit()
 
-        # Send welcome email with password setup link
-        try:
-            send_welcome_email(new_user.email, new_user.username)
-            logger.info(f"Welcome email sent to {new_user.email}")
-        except Exception as email_error:
-            logger.error(f"Failed to send welcome email to {new_user.email}: {str(email_error)}")
-            flash(f'User created successfully, but failed to send welcome email. Please manually send password reset link.', 'warning')
-            return redirect(url_for('admin.users'))
-
-        # Capture created values for logging
+        # Log user creation immediately after commit (for HIPAA audit trail)
         created_values = {
             'username': new_user.username,
             'email': new_user.email,
@@ -1075,8 +1071,6 @@ def create_user():
             'is_active_user': new_user.is_active_user,
             'org_id': new_user.org_id
         }
-
-        # Log the action with created values
         log_admin_event(
             event_type='create_user',
             user_id=current_user.id,
@@ -1090,7 +1084,19 @@ def create_user():
             }
         )
 
-        flash(f'User {username} created successfully! A welcome email with password setup instructions has been sent to {email}.', 'success')
+        # Send welcome email with temporary password
+        try:
+            email_sent = EmailService.send_welcome_email(new_user.email, new_user.username, temp_password, org_name)
+            if email_sent:
+                logger.info(f"Welcome email sent to {new_user.email}")
+                flash(f'User {username} created successfully! A welcome email with password setup instructions has been sent to {email}.', 'success')
+            else:
+                logger.warning(f"Welcome email failed to send to {new_user.email} (returned False)")
+                flash(f'User created successfully, but welcome email could not be sent. Please share credentials manually: Username: {new_user.username}, Password: {temp_password}', 'warning')
+        except Exception as email_error:
+            logger.error(f"Failed to send welcome email to {new_user.email}: {str(email_error)}")
+            flash(f'User created successfully, but failed to send welcome email. Please share credentials manually: Username: {new_user.username}, Password: {temp_password}', 'warning')
+
         return redirect(url_for('admin.users'))
 
     except Exception as e:
