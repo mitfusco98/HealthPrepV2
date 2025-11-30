@@ -17,6 +17,139 @@ from flask import abort
 from services.smart_discovery import smart_discovery
 from services.jwt_client_auth import JWTClientAuthService
 from services.epic_session_cleanup import EpicSessionCleanupService
+from markupsafe import Markup
+import json
+
+
+def render_oauth_completion_page(success: bool, message: str, redirect_url: str):
+    """
+    Render an OAuth completion page that uses postMessage for cross-origin communication.
+    This is used when OAuth flow completes in a popup window.
+    
+    The page:
+    1. Detects if running in a popup (has window.opener)
+    2. Sends a postMessage to the parent window with the result
+    3. Closes itself if in a popup, or redirects if not
+    """
+    message_escaped = json.dumps(message)
+    redirect_url_escaped = json.dumps(redirect_url)
+    success_js = 'true' if success else 'false'
+    
+    html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Epic Authorization {'Complete' if success else 'Failed'}</title>
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: {'#d4edda' if success else '#f8d7da'};
+        }}
+        .container {{
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            max-width: 400px;
+        }}
+        .icon {{
+            font-size: 48px;
+            margin-bottom: 20px;
+        }}
+        h1 {{
+            color: {'#155724' if success else '#721c24'};
+            margin: 0 0 15px 0;
+            font-size: 24px;
+        }}
+        p {{
+            color: #666;
+            margin: 0 0 20px 0;
+        }}
+        .redirect-note {{
+            font-size: 14px;
+            color: #888;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">{'✓' if success else '✗'}</div>
+        <h1>{'Authorization Successful!' if success else 'Authorization Failed'}</h1>
+        <p id="message-display"></p>
+        <p class="redirect-note">This window will close automatically...</p>
+    </div>
+    
+    <script>
+        (function() {{
+            // Safely parse the escaped values
+            var message = {message_escaped};
+            var redirectUrl = {redirect_url_escaped};
+            var success = {success_js};
+            
+            // Display the message
+            document.getElementById('message-display').textContent = message;
+            
+            // Determine the target origin for postMessage
+            var targetOrigin = window.location.origin;
+            
+            // Message payload
+            var messagePayload = {{
+                type: 'epic_oauth_complete',
+                success: success,
+                message: message,
+                redirectUrl: redirectUrl
+            }};
+            
+            // Check if we're in a popup (has opener)
+            if (window.opener && !window.opener.closed) {{
+                try {{
+                    // Send message to parent window
+                    window.opener.postMessage(messagePayload, targetOrigin);
+                    
+                    // Close this popup after a short delay
+                    setTimeout(function() {{
+                        window.close();
+                    }}, 1500);
+                }} catch (e) {{
+                    console.error('Failed to communicate with opener:', e);
+                    // Fall back to redirect
+                    setTimeout(function() {{
+                        window.location.href = redirectUrl;
+                    }}, 2000);
+                }}
+            }} else {{
+                // Not in a popup, redirect normally
+                setTimeout(function() {{
+                    window.location.href = redirectUrl;
+                }}, 2000);
+            }}
+            
+            // Fallback: if popup doesn't close after 5 seconds, show redirect link
+            setTimeout(function() {{
+                if (!window.closed) {{
+                    var link = document.createElement('a');
+                    link.href = redirectUrl;
+                    link.textContent = 'click here';
+                    var note = document.querySelector('.redirect-note');
+                    note.textContent = 'If this window doesn\\'t close, ';
+                    note.appendChild(link);
+                    note.appendChild(document.createTextNode(' to continue.'));
+                }}
+            }}, 5000);
+        }})();
+    </script>
+</body>
+</html>'''
+    
+    return Markup(html)
+
 
 def require_admin(f):
     """Decorator to require admin role"""
@@ -420,19 +553,31 @@ def epic_callback():
             
             # For non-conflict errors or if conflict resolution failed
             flash(f'Epic authorization failed: {error_description or error}', 'error')
-            return redirect(url_for('epic_registration.epic_registration'))
+            return render_oauth_completion_page(
+                success=False,
+                message=f'Epic authorization failed: {error_description or error}',
+                redirect_url=url_for('epic_registration.epic_registration')
+            )
 
         if not code:
             logger.error("No authorization code received from Epic OAuth callback")
             flash('No authorization code received from Epic', 'error')
-            return redirect(url_for('epic_registration.epic_registration'))
+            return render_oauth_completion_page(
+                success=False,
+                message='No authorization code received from Epic',
+                redirect_url=url_for('epic_registration.epic_registration')
+            )
 
         # Validate state parameter
         stored_state = session.get('epic_oauth_state')
         if not stored_state or stored_state != state:
             logger.error(f"Invalid OAuth state parameter - stored: {stored_state}, received: {state}")
             flash('Invalid authorization state. Please try again.', 'error')
-            return redirect(url_for('epic_registration.epic_registration'))
+            return render_oauth_completion_page(
+                success=False,
+                message='Invalid authorization state. Please try again.',
+                redirect_url=url_for('epic_registration.epic_registration')
+            )
 
         # Check if user is still logged in
         if not current_user.is_authenticated:
@@ -533,12 +678,21 @@ def epic_callback():
         logger.info(f"Epic OAuth flow completed successfully for organization {org.id}")
         flash('Successfully connected to Epic FHIR! All users in your organization can now sync with Epic.', 'success')
 
-        return redirect(url_for('epic_registration.epic_registration'))
+        # Return popup-aware response that uses postMessage for cross-origin communication
+        return render_oauth_completion_page(
+            success=True,
+            message='Successfully connected to Epic FHIR!',
+            redirect_url=url_for('epic_registration.epic_registration')
+        )
 
     except Exception as e:
         logger.error(f"Error handling Epic OAuth callback: {str(e)}", exc_info=True)
         flash('Failed to complete Epic authorization. Please try again.', 'error')
-        return redirect(url_for('epic_registration.epic_registration'))
+        return render_oauth_completion_page(
+            success=False,
+            message='Failed to complete Epic authorization. Please try again.',
+            redirect_url=url_for('epic_registration.epic_registration')
+        )
 
 
 @oauth_bp.route('/epic-disconnect', methods=['POST'])

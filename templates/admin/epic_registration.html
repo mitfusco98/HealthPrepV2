@@ -696,47 +696,75 @@ function startEpicAuthorization() {
         // Hide the checking message since popup will handle the flow
         result.style.display = 'none';
         
-        // Monitor the popup for completion
+        // Use postMessage listener for cross-origin safe communication
+        // The OAuth callback page will send a message when authorization completes
+        const messageHandler = function(event) {
+            // Verify the message is from our origin
+            if (event.origin !== window.location.origin) {
+                return;
+            }
+            
+            // Check if this is our OAuth completion message
+            if (event.data && event.data.type === 'epic_oauth_complete') {
+                // Clean up the message listener
+                window.removeEventListener('message', messageHandler);
+                clearInterval(checkClosed);
+                
+                console.log('OAuth completion received:', event.data);
+                
+                if (event.data.success) {
+                    // Authorization successful - reload the page to show updated status
+                    result.style.display = 'block';
+                    result.className = 'connection-status success';
+                    // Use DOM manipulation to avoid innerHTML with user-controlled content
+                    message.innerHTML = '';
+                    const successIcon = document.createElement('i');
+                    successIcon.className = 'fas fa-check-circle me-1';
+                    message.appendChild(successIcon);
+                    message.appendChild(document.createTextNode(' ' + event.data.message + ' Refreshing...'));
+                    
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    // Authorization failed - show error
+                    result.style.display = 'block';
+                    result.className = 'connection-status error';
+                    // Use DOM manipulation to avoid innerHTML with user-controlled content
+                    message.innerHTML = '';
+                    const errorIcon = document.createElement('i');
+                    errorIcon.className = 'fas fa-exclamation-circle me-1';
+                    message.appendChild(errorIcon);
+                    message.appendChild(document.createTextNode(' ' + event.data.message));
+                    
+                    // Also check status to refresh UI
+                    setTimeout(() => {
+                        checkHyperspaceStatus();
+                    }, 1000);
+                }
+            }
+        };
+        
+        window.addEventListener('message', messageHandler);
+        
+        // Also monitor if popup is closed manually (user closes it without completing)
         const checkClosed = setInterval(() => {
             if (popup.closed) {
                 clearInterval(checkClosed);
+                window.removeEventListener('message', messageHandler);
+                
                 // Popup was closed, check if authorization was successful
                 setTimeout(() => {
                     checkHyperspaceStatus();
                 }, 1000);
-            } else {
-                // Check if the popup has navigated to the registration page
-                try {
-                    if (popup.location.href.includes('/admin/epic/registration')) {
-                        fetch('{{ url_for("oauth.epic_status") }}', {
-                            method: 'GET',
-                            headers: { 'Content-Type': 'application/json' }
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.connected && !data.expired) {
-                                clearInterval(checkClosed);
-                                popup.close();
-                                setTimeout(() => {
-                                    checkHyperspaceStatus();
-                                    location.reload();
-                                }, 1000);
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error checking FHIR status:', error);
-                        });
-                    }
-                } catch (e) {
-                    // Cross-origin restriction, ignore
-                }
             }
-        }, 2000);
+        }, 1000);
         
-        // Auto-close after 10 minutes
+        // Auto-cleanup after 10 minutes
         setTimeout(() => {
             if (!popup.closed) {
                 clearInterval(checkClosed);
+                window.removeEventListener('message', messageHandler);
                 popup.close();
             }
         }, 600000);
