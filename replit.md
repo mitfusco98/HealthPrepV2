@@ -72,6 +72,15 @@ The application uses a unified `billing_state` property on the Organization mode
 **Trial-to-Active Transition:**
 When trial expires and organization has valid payment method but no Stripe subscription (can happen if `start_trial_subscription` failed during approval), the `StripeService.activate_subscription_after_trial()` method can create a subscription that charges immediately. The `ensure_subscription_exists()` utility handles this check.
 
+**Automatic Activation in Middleware:**
+The `subscription_required` middleware automatically attempts to activate subscriptions for trial-expired organizations that have a valid payment method. When a user from such an organization attempts to access protected routes:
+1. The middleware checks `org.billing_state` and detects `trial_expired`
+2. If `org.has_valid_payment_method` is True, it calls `StripeService.ensure_subscription_exists(org)`
+3. If subscription is created successfully, the user gains immediate access with a success flash message
+4. If activation fails, the user is redirected to the payment update page
+
+This ensures seamless transition for organizations that completed payment setup but whose trial expired before a subscription was created.
+
 ### System Design Choices
 - **Multi-tenancy:** Core design principle with `Organization` model for data isolation.
 - **Microservices-oriented (conceptual):** Modular backend components for distinct functionalities.
