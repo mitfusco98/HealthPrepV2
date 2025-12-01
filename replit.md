@@ -45,6 +45,33 @@ A comprehensive Epic Prep Sheet Write-Back System allows manual PDF generation w
 
 User onboarding supports both self-service via Stripe setup mode (payment collected without starting trial, trial starts upon root admin approval) and manual creation by root admins for enterprise clients (no trial, immediate activation). A JSON API endpoint (`/api/signup`) facilitates external marketing website integration for self-service signups, handling organization creation, admin setup, and Stripe checkout URL provisioning. This API is CORS-enabled and CSRF-exempt.
 
+### Unified Billing State System
+
+The application uses a unified `billing_state` property on the Organization model that provides consistent access control decisions across all components. This ensures the subscription middleware, admin dashboard, Stripe dashboard changes, and billing portal updates all operate from the same source of truth.
+
+**Billing States:**
+- `active`: Full access, subscription is paid and current
+- `trialing`: Full access during valid trial period (trial_expires > now)
+- `trial_expired`: Trial has ended, payment required to continue
+- `payment_required`: Subscription past_due or incomplete - needs payment update
+- `paused`: Subscription paused via Stripe dashboard or billing portal
+- `suspended`: Account suspended by admin
+- `canceled`: Subscription canceled
+- `pending_approval`: Awaiting root admin approval after signup
+- `pending_activation`: Approved but trial not yet started
+
+**Stripe Webhook Events Handled:**
+- `checkout.session.completed`: Payment method setup completed
+- `customer.subscription.created/updated/deleted`: Subscription lifecycle
+- `customer.subscription.paused/resumed`: Billing pause/resume
+- `invoice.payment_succeeded/failed`: Payment outcomes
+- `customer.subscription.trial_will_end`: Trial ending reminder (3 days before)
+- `customer.updated`: Customer details/payment method changes
+- `setup_intent.succeeded`: Payment method added via billing portal
+
+**Trial-to-Active Transition:**
+When trial expires and organization has valid payment method but no Stripe subscription (can happen if `start_trial_subscription` failed during approval), the `StripeService.activate_subscription_after_trial()` method can create a subscription that charges immediately. The `ensure_subscription_exists()` utility handles this check.
+
 ### System Design Choices
 - **Multi-tenancy:** Core design principle with `Organization` model for data isolation.
 - **Microservices-oriented (conceptual):** Modular backend components for distinct functionalities.

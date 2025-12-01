@@ -166,6 +166,146 @@ class Organization(db.Model):
             User.is_temp_password == False
         ).scalar() or 0
     
+    @property
+    def billing_state(self):
+        """
+        Get unified billing state for access control decisions.
+        
+        Returns a dict with:
+        - state: The current billing state (active, trialing, payment_required, suspended, canceled, pending_approval)
+        - can_access_app: Whether org can access the main application features
+        - can_access_oauth: Whether org can access Epic OAuth connection
+        - trial_days_remaining: Days left in trial (if applicable)
+        - needs_payment: Whether payment setup is required
+        - message: Human-readable status message
+        """
+        now = datetime.utcnow()
+        
+        result = {
+            'state': 'unknown',
+            'can_access_app': False,
+            'can_access_oauth': False,
+            'trial_days_remaining': None,
+            'needs_payment': False,
+            'message': ''
+        }
+        
+        # Check for suspended organizations first
+        if self.setup_status == 'suspended':
+            result['state'] = 'suspended'
+            result['message'] = 'Organization is suspended. Please contact support.'
+            return result
+        
+        # Manual billing organizations (enterprise clients)
+        if self.creation_method == 'manual' and self.subscription_status == 'manual_billing':
+            result['state'] = 'active'
+            result['can_access_app'] = True
+            result['can_access_oauth'] = True
+            result['message'] = 'Enterprise billing - active'
+            return result
+        
+        # Check for canceled/terminated subscriptions
+        if self.subscription_status in ['canceled', 'incomplete_expired', 'unpaid']:
+            result['state'] = 'canceled'
+            result['message'] = 'Subscription has been canceled. Please contact support to reactivate.'
+            return result
+        
+        # Check for payment issues
+        if self.subscription_status in ['past_due', 'incomplete']:
+            result['state'] = 'payment_required'
+            result['needs_payment'] = True
+            result['can_access_app'] = False
+            result['can_access_oauth'] = False
+            result['message'] = 'Payment is past due. Please update your payment method.'
+            return result
+        
+        # Check for paused subscriptions
+        if self.subscription_status == 'paused':
+            result['state'] = 'paused'
+            result['can_access_app'] = False
+            result['can_access_oauth'] = False
+            result['message'] = 'Subscription is paused. Please resume your subscription to continue.'
+            return result
+        
+        # Active subscription - full access
+        if self.subscription_status == 'active':
+            result['state'] = 'active'
+            result['can_access_app'] = True
+            result['can_access_oauth'] = True
+            result['message'] = 'Subscription active'
+            return result
+        
+        # Trialing - check if trial is still valid
+        if self.subscription_status == 'trialing':
+            if self.trial_expires:
+                if self.trial_expires > now:
+                    # Active trial - full access
+                    days_remaining = (self.trial_expires - now).days
+                    result['state'] = 'trialing'
+                    result['can_access_app'] = True
+                    result['can_access_oauth'] = True
+                    result['trial_days_remaining'] = days_remaining
+                    result['message'] = f'Trial active - {days_remaining} days remaining'
+                    
+                    # Check if payment method is on file for seamless transition
+                    if not self.stripe_customer_id:
+                        result['needs_payment'] = True
+                    return result
+                else:
+                    # Trial expired
+                    result['state'] = 'trial_expired'
+                    result['can_access_app'] = False
+                    result['can_access_oauth'] = False
+                    result['needs_payment'] = True
+                    result['message'] = 'Trial has expired. Please add payment to continue.'
+                    return result
+            else:
+                # Trialing but no expiration date set - allow access (legacy orgs or pending setup)
+                result['state'] = 'trialing'
+                result['can_access_app'] = True
+                result['can_access_oauth'] = True
+                result['message'] = 'Trial period active'
+                return result
+        
+        # Payment method added but awaiting trial/subscription setup (self-service flow)
+        if self.subscription_status == 'payment_method_added':
+            if self.onboarding_status == 'approved':
+                # Approved but trial not started yet - this should trigger trial creation
+                result['state'] = 'pending_activation'
+                result['can_access_app'] = False
+                result['can_access_oauth'] = False
+                result['message'] = 'Account approved - awaiting activation'
+                return result
+            else:
+                # Awaiting approval from root admin
+                result['state'] = 'pending_approval'
+                result['can_access_app'] = False
+                result['can_access_oauth'] = False
+                result['message'] = 'Payment received - awaiting approval'
+                return result
+        
+        # Default: check if onboarding is complete
+        if self.onboarding_status == 'pending_approval':
+            result['state'] = 'pending_approval'
+            result['message'] = 'Awaiting approval'
+            return result
+        
+        # Fallback for any other state - allow limited access
+        result['state'] = 'unknown'
+        result['can_access_app'] = self.is_active
+        result['can_access_oauth'] = self.is_active
+        result['message'] = 'Status pending verification'
+        return result
+    
+    @property
+    def has_valid_payment_method(self):
+        """Check if organization has a valid payment method on file"""
+        if not self.stripe_customer_id:
+            return False
+        # Additional check could query Stripe for payment method validity
+        # For now, having a customer ID implies payment setup was completed
+        return True
+    
     @hybrid_property
     def epic_client_secret(self):
         """Get decrypted Epic client secret"""

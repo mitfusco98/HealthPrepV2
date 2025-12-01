@@ -1,6 +1,7 @@
 """
 Subscription Status Middleware
 Enforces access control based on organization subscription status
+Uses unified billing_state for consistent access decisions
 """
 
 from functools import wraps
@@ -14,11 +15,18 @@ logger = logging.getLogger(__name__)
 
 def subscription_required(f):
     """
-    Decorator to enforce active subscription
+    Decorator to enforce active subscription using unified billing_state.
+    
     Blocks access if:
     - Trial has expired and no active subscription
     - Subscription is past_due, canceled, or incomplete
     - Organization is suspended
+    - Organization is pending approval
+    
+    Allows access if:
+    - Subscription is active
+    - Trial is active (trialing with valid trial_expires)
+    - Manual billing organization (enterprise)
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -36,35 +44,70 @@ def subscription_required(f):
             flash('Organization not found. Please contact support.', 'error')
             return redirect(url_for('auth.login'))
         
-        # Check for canceled or terminated subscriptions FIRST (before is_active check)
-        if org.subscription_status in ['canceled', 'incomplete_expired', 'unpaid']:
-            flash('Your subscription has been canceled. Please contact support or reactivate your subscription.', 'error')
-            return redirect(url_for('auth.account_suspended'))
+        # Use unified billing_state for access decision
+        billing = org.billing_state
+        state = billing['state']
         
-        # Check for payment issues (past_due, incomplete)
-        if org.subscription_status in ['past_due', 'incomplete']:
+        logger.debug(f"Subscription check for org {org.id}: state={state}, can_access_app={billing['can_access_app']}")
+        
+        # Handle different billing states
+        if state == 'active':
+            # Full access for active subscriptions
+            return f(*args, **kwargs)
+        
+        elif state == 'trialing':
+            # Full access during valid trial period
+            if billing['needs_payment'] and billing.get('trial_days_remaining', 0) <= 7:
+                # Warn about upcoming trial expiration if no payment method
+                flash(f"Your trial expires in {billing.get('trial_days_remaining', 0)} days. Please add a payment method.", 'warning')
+            return f(*args, **kwargs)
+        
+        elif state == 'trial_expired':
+            # If org has payment method, try to auto-activate subscription
+            if org.has_valid_payment_method:
+                from services.stripe_service import StripeService
+                logger.info(f"Attempting auto-activation for trial-expired org {org.id} with payment method")
+                if StripeService.ensure_subscription_exists(org):
+                    # Subscription activated successfully - refresh billing state and allow access
+                    new_billing = org.billing_state
+                    if new_billing['state'] == 'active':
+                        flash('Your subscription has been activated. Welcome back!', 'success')
+                        return f(*args, **kwargs)
+                    elif new_billing['state'] == 'trialing':
+                        return f(*args, **kwargs)
+                # Auto-activation failed - redirect to payment page
+                flash('Unable to activate your subscription. Please update your payment method.', 'warning')
+            else:
+                flash('Your free trial has expired. Please add a payment method to continue.', 'warning')
+            return redirect(url_for('auth.subscription_expired'))
+        
+        elif state == 'payment_required':
             flash('Your payment is past due. Please update your payment method.', 'warning')
             return redirect(url_for('auth.payment_required'))
         
-        # Check if organization is active (uses is_active @property)
-        if not org.is_active:
-            # Trial expired
-            if org.subscription_status == 'trialing' and org.trial_expires and org.trial_expires < datetime.utcnow():
-                flash('Your free trial has expired. Please update your payment method to continue.', 'warning')
-                return redirect(url_for('auth.subscription_expired'))
-            
-            # Suspended
-            elif org.setup_status == 'suspended':
-                flash('Your account has been suspended. Please contact support.', 'error')
-                return redirect(url_for('auth.account_suspended'))
-            
-            # Other inactive reasons
+        elif state == 'suspended':
+            flash('Your account has been suspended. Please contact support.', 'error')
+            return redirect(url_for('auth.account_suspended'))
+        
+        elif state == 'canceled':
+            flash('Your subscription has been canceled. Please contact support or reactivate.', 'error')
+            return redirect(url_for('auth.account_suspended'))
+        
+        elif state == 'paused':
+            flash('Your subscription is paused. Please resume your subscription to continue.', 'warning')
+            return redirect(url_for('auth.subscription_expired'))
+        
+        elif state in ['pending_approval', 'pending_activation']:
+            flash('Your account is pending activation. Please check back soon.', 'info')
+            return redirect(url_for('auth.login'))
+        
+        else:
+            # Unknown state - fall back to is_active check for safety
+            if org.is_active:
+                return f(*args, **kwargs)
             else:
                 flash('Your account is not active. Please contact support.', 'error')
                 return redirect(url_for('auth.login'))
-        
-        # Allow access
-        return f(*args, **kwargs)
     
     return decorated_function
 
@@ -73,6 +116,7 @@ def trial_warning_required(f):
     """
     Decorator that allows access but adds warning flash messages for expiring trials
     Use this for routes that should show warnings but not block access
+    Uses unified billing_state for consistent messaging
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -83,15 +127,18 @@ def trial_warning_required(f):
             if hasattr(current_user, 'is_root_admin') and current_user.is_root_admin:
                 return f(*args, **kwargs)
             
-            # Check for expiring trial (7 days or less)
-            if org and org.subscription_status == 'trialing' and org.trial_expires:
-                days_remaining = (org.trial_expires - datetime.utcnow()).days
+            if org:
+                billing = org.billing_state
                 
-                if 0 < days_remaining <= 7:
-                    if org.stripe_customer_id:
-                        flash(f'Your trial ends in {days_remaining} day{"s" if days_remaining != 1 else ""}. Your subscription will begin automatically.', 'info')
-                    else:
-                        flash(f'Your trial expires in {days_remaining} day{"s" if days_remaining != 1 else ""}. Update your payment method to avoid interruption.', 'warning')
+                # Check for expiring trial (7 days or less)
+                if billing['state'] == 'trialing':
+                    days_remaining = billing.get('trial_days_remaining', 0)
+                    
+                    if days_remaining is not None and 0 < days_remaining <= 7:
+                        if org.stripe_customer_id:
+                            flash(f'Your trial ends in {days_remaining} day{"s" if days_remaining != 1 else ""}. Your subscription will begin automatically.', 'info')
+                        else:
+                            flash(f'Your trial expires in {days_remaining} day{"s" if days_remaining != 1 else ""}. Update your payment method to avoid interruption.', 'warning')
         
         return f(*args, **kwargs)
     
@@ -102,6 +149,7 @@ def get_subscription_context():
     """
     Get subscription status context for templates
     Returns dict with subscription info to display in UI
+    Uses unified billing_state for consistent information
     """
     if not current_user.is_authenticated:
         return {}
@@ -114,37 +162,28 @@ def get_subscription_context():
     if hasattr(current_user, 'is_root_admin') and current_user.is_root_admin:
         return {'is_root_admin': True}
     
+    # Use unified billing_state
+    billing = org.billing_state
+    
     context = {
         'subscription_status': org.subscription_status,
         'trial_expires': org.trial_expires,
         'is_active': org.is_active,
         'show_trial_banner': False,
-        'trial_days_remaining': None,
-        'trial_is_expired': False,
-        'show_payment_warning': False,
-        'show_canceled_warning': False,
-        'has_payment_method': bool(org.stripe_customer_id)
+        'trial_days_remaining': billing.get('trial_days_remaining'),
+        'trial_is_expired': billing['state'] == 'trial_expired',
+        'show_payment_warning': billing['state'] == 'payment_required',
+        'show_canceled_warning': billing['state'] == 'canceled',
+        'has_payment_method': org.has_valid_payment_method,
+        'billing_state': billing['state'],
+        'billing_message': billing['message'],
+        'needs_payment': billing['needs_payment']
     }
     
-    # Calculate trial days remaining and expiration status
-    if org.subscription_status == 'trialing' and org.trial_expires:
-        delta = org.trial_expires - datetime.utcnow()
-        days_remaining = max(0, delta.days)
-        context['trial_days_remaining'] = days_remaining
-        
-        # Direct datetime comparison for accurate expiration status
-        context['trial_is_expired'] = org.trial_expires < datetime.utcnow()
-        
-        # Show banner if trial expires in 14 days or less (but still use days for messaging)
-        if days_remaining <= 14:
+    # Show trial banner during trial period
+    if billing['state'] == 'trialing':
+        days_remaining = billing.get('trial_days_remaining', 0)
+        if days_remaining is not None and days_remaining <= 14:
             context['show_trial_banner'] = True
-    
-    # Show payment warning for past_due, incomplete, or canceled
-    if org.subscription_status in ['past_due', 'incomplete']:
-        context['show_payment_warning'] = True
-    
-    # Show canceled warning
-    if org.subscription_status in ['canceled', 'incomplete_expired', 'unpaid']:
-        context['show_canceled_warning'] = True
     
     return context

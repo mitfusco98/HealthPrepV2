@@ -358,6 +358,12 @@ class StripeService:
             elif event_type == 'customer.subscription.deleted':
                 return StripeService._handle_subscription_deleted(data)
             
+            elif event_type == 'customer.subscription.paused':
+                return StripeService._handle_subscription_paused(data)
+            
+            elif event_type == 'customer.subscription.resumed':
+                return StripeService._handle_subscription_resumed(data)
+            
             elif event_type == 'invoice.payment_succeeded':
                 return StripeService._handle_payment_succeeded(data)
             
@@ -366,6 +372,12 @@ class StripeService:
             
             elif event_type == 'customer.subscription.trial_will_end':
                 return StripeService._handle_trial_will_end(data)
+            
+            elif event_type == 'customer.updated':
+                return StripeService._handle_customer_updated(data)
+            
+            elif event_type == 'setup_intent.succeeded':
+                return StripeService._handle_setup_intent_succeeded(data)
             
             else:
                 logger.info(f"Unhandled webhook event type: {event_type}")
@@ -574,3 +586,291 @@ class StripeService:
                     logger.error(f"Failed to send trial ending email: {str(e)}")
         
         return True
+    
+    @staticmethod
+    def _handle_subscription_paused(subscription: Dict) -> bool:
+        """
+        Handle subscription paused event
+        This can occur when billing is paused via Stripe dashboard or billing portal
+        """
+        subscription_id = subscription['id']
+        customer_id = subscription.get('customer')
+        
+        org = Organization.query.filter_by(stripe_subscription_id=subscription_id).first()
+        if not org:
+            org = Organization.query.filter_by(stripe_customer_id=customer_id).first()
+        
+        if not org:
+            logger.warning(f"No organization found for paused subscription {subscription_id}")
+            return False
+        
+        org.subscription_status = 'paused'
+        db.session.commit()
+        
+        logger.info(f"Subscription paused for organization {org.id}")
+        return True
+    
+    @staticmethod
+    def _handle_subscription_resumed(subscription: Dict) -> bool:
+        """
+        Handle subscription resumed event
+        Restores access after a paused subscription is resumed
+        """
+        subscription_id = subscription['id']
+        customer_id = subscription.get('customer')
+        
+        org = Organization.query.filter_by(stripe_subscription_id=subscription_id).first()
+        if not org:
+            org = Organization.query.filter_by(stripe_customer_id=customer_id).first()
+        
+        if not org:
+            logger.warning(f"No organization found for resumed subscription {subscription_id}")
+            return False
+        
+        # Update to the actual subscription status from Stripe
+        org.subscription_status = subscription.get('status', 'active')
+        if org.setup_status == 'suspended':
+            org.setup_status = 'live'
+        
+        db.session.commit()
+        
+        logger.info(f"Subscription resumed for organization {org.id}: status={org.subscription_status}")
+        return True
+    
+    @staticmethod
+    def _handle_customer_updated(customer: Dict) -> bool:
+        """
+        Handle customer updated event
+        This fires when customer details or payment methods change via billing portal
+        """
+        customer_id = customer['id']
+        
+        org = Organization.query.filter_by(stripe_customer_id=customer_id).first()
+        if not org:
+            logger.debug(f"No organization found for customer {customer_id}")
+            return True  # Not an error, just no matching org
+        
+        # Check if default payment method was updated
+        default_payment_method = customer.get('invoice_settings', {}).get('default_payment_method')
+        if default_payment_method:
+            # Customer now has a valid payment method
+            logger.info(f"Customer {customer_id} payment method updated for organization {org.id}")
+            
+            # If org was waiting for payment, update status
+            if org.subscription_status == 'payment_method_added' or not org.stripe_subscription_id:
+                # Payment method added/updated - check if we need to create subscription
+                logger.info(f"Organization {org.id} has payment method, subscription_status={org.subscription_status}")
+        
+        # Update email if changed
+        if customer.get('email') and customer['email'] != org.billing_email:
+            org.billing_email = customer['email']
+            logger.info(f"Updated billing email for organization {org.id}")
+        
+        db.session.commit()
+        return True
+    
+    @staticmethod
+    def _handle_setup_intent_succeeded(setup_intent: Dict) -> bool:
+        """
+        Handle successful setup intent
+        This fires when payment method is added via billing portal or setup mode checkout
+        """
+        customer_id = setup_intent.get('customer')
+        payment_method_id = setup_intent.get('payment_method')
+        
+        if not customer_id:
+            logger.debug("Setup intent has no customer ID")
+            return True
+        
+        org = Organization.query.filter_by(stripe_customer_id=customer_id).first()
+        if not org:
+            logger.debug(f"No organization found for customer {customer_id}")
+            return True
+        
+        if payment_method_id:
+            logger.info(f"Setup intent succeeded for organization {org.id}: payment_method={payment_method_id}")
+            
+            # Ensure payment method is set as default for future invoices
+            try:
+                stripe.Customer.modify(
+                    customer_id,
+                    invoice_settings={'default_payment_method': payment_method_id}
+                )
+                logger.info(f"Set default payment method for customer {customer_id}")
+            except stripe.error.StripeError as e:
+                logger.error(f"Failed to set default payment method: {str(e)}")
+            
+            # Update org status if waiting for payment
+            if org.subscription_status in ['incomplete', 'past_due']:
+                # Payment method added - may resolve payment issues on next invoice
+                logger.info(f"Organization {org.id} added payment method while in {org.subscription_status} state")
+            elif not org.stripe_subscription_id and org.subscription_status != 'manual_billing':
+                # No subscription yet - mark as payment method added
+                org.subscription_status = 'payment_method_added'
+                logger.info(f"Organization {org.id} payment method added, awaiting subscription")
+        
+        db.session.commit()
+        return True
+    
+    @staticmethod
+    def sync_subscription_from_stripe(org: Organization) -> bool:
+        """
+        Sync organization's subscription status from Stripe
+        Useful for reconciliation or when webhooks may have been missed
+        
+        Args:
+            org: Organization to sync
+            
+        Returns:
+            True if synced successfully, False otherwise
+        """
+        try:
+            if not org.stripe_customer_id:
+                logger.warning(f"Cannot sync org {org.id} - no Stripe customer ID")
+                return False
+            
+            # Get customer from Stripe
+            customer = stripe.Customer.retrieve(org.stripe_customer_id, expand=['subscriptions'])
+            
+            # Check for active subscriptions
+            subscriptions = customer.get('subscriptions', {}).get('data', [])
+            
+            if subscriptions:
+                # Use the first active subscription
+                sub = subscriptions[0]
+                org.stripe_subscription_id = sub['id']
+                org.subscription_status = sub['status']
+                
+                # Update trial info if present
+                if sub.get('trial_end'):
+                    org.trial_expires = datetime.utcfromtimestamp(sub['trial_end'])
+                
+                logger.info(f"Synced subscription for org {org.id}: status={sub['status']}")
+            else:
+                # No subscriptions - check if payment method exists
+                default_pm = customer.get('invoice_settings', {}).get('default_payment_method')
+                if default_pm:
+                    org.subscription_status = 'payment_method_added'
+                    logger.info(f"Org {org.id} has payment method but no subscription")
+                else:
+                    logger.info(f"Org {org.id} has no subscription or payment method")
+            
+            db.session.commit()
+            return True
+            
+        except stripe.error.StripeError as e:
+            logger.error(f"Failed to sync subscription for org {org.id}: {str(e)}")
+            return False
+    
+    @staticmethod
+    def activate_subscription_after_trial(org: Organization) -> bool:
+        """
+        Activate subscription for an organization whose trial has expired.
+        This handles the case where trial was set manually but no Stripe subscription exists.
+        
+        Creates a new subscription that charges immediately (no trial period).
+        
+        Args:
+            org: Organization with expired trial and valid payment method
+            
+        Returns:
+            True if subscription activated successfully, False otherwise
+        """
+        try:
+            if not org.stripe_customer_id:
+                logger.error(f"Cannot activate subscription for org {org.id} - no Stripe customer ID")
+                return False
+            
+            # Check if there's already a subscription
+            if org.stripe_subscription_id:
+                # Sync from Stripe to get current status
+                return StripeService.sync_subscription_from_stripe(org)
+            
+            # Verify customer has a payment method
+            customer = stripe.Customer.retrieve(org.stripe_customer_id)
+            default_pm = customer.get('invoice_settings', {}).get('default_payment_method')
+            
+            if not default_pm:
+                logger.warning(f"Cannot activate subscription for org {org.id} - no payment method")
+                org.subscription_status = 'incomplete'
+                db.session.commit()
+                return False
+            
+            # Create subscription without trial (charge immediately)
+            subscription_params = {
+                'customer': org.stripe_customer_id,
+                'items': [{
+                    'price_data': {
+                        'currency': 'usd',
+                        'product_data': {
+                            'name': StripeService.PRODUCT_NAME,
+                        },
+                        'recurring': {
+                            'interval': 'month',
+                        },
+                        'unit_amount': StripeService.SUBSCRIPTION_PRICE,
+                    },
+                }],
+                'payment_behavior': 'error_if_incomplete',
+                'expand': ['latest_invoice.payment_intent']
+            }
+            
+            subscription = stripe.Subscription.create(**subscription_params)
+            
+            # Update organization
+            org.stripe_subscription_id = subscription.id
+            org.subscription_status = subscription.status
+            
+            if subscription.status == 'active':
+                org.setup_status = 'live'
+                logger.info(f"Subscription activated successfully for org {org.id}")
+            else:
+                logger.warning(f"Subscription created but status is {subscription.status} for org {org.id}")
+            
+            db.session.commit()
+            return subscription.status == 'active'
+            
+        except stripe.error.CardError as e:
+            logger.error(f"Card declined for org {org.id}: {str(e)}")
+            org.subscription_status = 'past_due'
+            db.session.commit()
+            return False
+        except stripe.error.StripeError as e:
+            logger.error(f"Failed to activate subscription for org {org.id}: {str(e)}")
+            return False
+    
+    @staticmethod
+    def ensure_subscription_exists(org: Organization) -> bool:
+        """
+        Ensure an organization has an active Stripe subscription.
+        If trial has expired and org has payment method but no subscription,
+        this will create one.
+        
+        Args:
+            org: Organization to check/activate
+            
+        Returns:
+            True if org has active subscription, False otherwise
+        """
+        if not org.stripe_customer_id:
+            return False
+        
+        # Check current billing state
+        billing = org.billing_state
+        
+        if billing['state'] == 'active':
+            return True
+        
+        if billing['state'] == 'trialing':
+            return True
+        
+        if billing['state'] == 'trial_expired':
+            # Trial expired - try to activate subscription
+            return StripeService.activate_subscription_after_trial(org)
+        
+        if billing['state'] == 'payment_method_added':
+            # Has payment but no subscription - org needs approval first
+            return False
+        
+        # Sync from Stripe as fallback
+        return StripeService.sync_subscription_from_stripe(org)
