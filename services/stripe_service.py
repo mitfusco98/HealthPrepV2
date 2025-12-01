@@ -364,6 +364,9 @@ class StripeService:
             elif event_type == 'invoice.payment_failed':
                 return StripeService._handle_payment_failed(data)
             
+            elif event_type == 'customer.subscription.trial_will_end':
+                return StripeService._handle_trial_will_end(data)
+            
             else:
                 logger.info(f"Unhandled webhook event type: {event_type}")
                 return True
@@ -530,4 +533,44 @@ class StripeService:
         
         db.session.commit()
         logger.warning(f"Payment failed for organization {org.id}")
+        return True
+    
+    @staticmethod
+    def _handle_trial_will_end(subscription: Dict) -> bool:
+        """
+        Handle trial ending soon notification (sent 3 days before trial ends)
+        This allows sending reminder emails to organizations
+        """
+        from services.email_service import EmailService
+        
+        subscription_id = subscription['id']
+        customer_id = subscription.get('customer')
+        
+        org = Organization.query.filter_by(stripe_subscription_id=subscription_id).first()
+        if not org:
+            org = Organization.query.filter_by(stripe_customer_id=customer_id).first()
+        
+        if not org:
+            logger.warning(f"No organization found for trial ending subscription {subscription_id}")
+            return False
+        
+        trial_end = subscription.get('trial_end')
+        if trial_end:
+            from datetime import datetime
+            trial_end_date = datetime.utcfromtimestamp(trial_end)
+            days_remaining = (trial_end_date - datetime.utcnow()).days
+            
+            logger.info(f"Trial ending soon for organization {org.id}: {days_remaining} days remaining")
+            
+            if org.billing_email:
+                try:
+                    EmailService.send_trial_reminder_email(
+                        email=org.billing_email,
+                        org_name=org.name,
+                        days_remaining=days_remaining
+                    )
+                    logger.info(f"Sent trial ending reminder to {org.billing_email}")
+                except Exception as e:
+                    logger.error(f"Failed to send trial ending email: {str(e)}")
+        
         return True
