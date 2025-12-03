@@ -172,3 +172,4 @@ integrations = ["flask_stripe:1.0.0", "resend:1.0.0"]
 
 [userenv.shared]
 ROOT_ADMIN_EMAIL = "fuscodigitalsolutions@gmail.com"
+STRIPE_PRICE_ID = "price_1SZcpnRvR7KOKcxp1JQLBsZN"

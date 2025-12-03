@@ -149,10 +149,11 @@ class StripeService:
                 logger.error(f"Cannot start trial for org {organization.id} - no Stripe customer ID")
                 return False
             
-            # Create subscription with trial
+            # Create subscription with trial using configured price ID
+            price_id = os.environ.get('STRIPE_PRICE_ID')
             subscription = StripeService.create_subscription(
                 customer_id=organization.stripe_customer_id,
-                price_id=None,  # Use ad-hoc pricing for development
+                price_id=price_id,
                 trial_days=trial_days or StripeService.TRIAL_DAYS
             )
             
@@ -797,9 +798,19 @@ class StripeService:
                 return False
             
             # Create subscription without trial (charge immediately)
+            price_id = os.environ.get('STRIPE_PRICE_ID')
+            
             subscription_params = {
                 'customer': org.stripe_customer_id,
-                'items': [{
+                'payment_behavior': 'error_if_incomplete',
+                'expand': ['latest_invoice.payment_intent']
+            }
+            
+            # Use configured price ID if available, otherwise use ad-hoc pricing
+            if price_id:
+                subscription_params['items'] = [{'price': price_id}]
+            else:
+                subscription_params['items'] = [{
                     'price_data': {
                         'currency': 'usd',
                         'product_data': {
@@ -810,10 +821,7 @@ class StripeService:
                         },
                         'unit_amount': StripeService.SUBSCRIPTION_PRICE,
                     },
-                }],
-                'payment_behavior': 'error_if_incomplete',
-                'expand': ['latest_invoice.payment_intent']
-            }
+                }]
             
             subscription = stripe.Subscription.create(**subscription_params)
             
