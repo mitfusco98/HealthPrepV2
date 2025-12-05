@@ -172,9 +172,14 @@ def require_approved_organization(f):
             flash('No organization found for your account.', 'error')
             return redirect(url_for('index'))
         
-        # Check if organization is pending approval
-        if org.onboarding_status == 'pending_approval':
-            flash('Epic FHIR integration will be available once your organization is approved. Approval occurs after payment confirmation and having active users set up. You will receive an email notification when your trial begins.', 'warning')
+        # Use unified billing_state for access control
+        billing = org.billing_state
+        
+        if not billing['can_access_oauth']:
+            if billing['state'] == 'pending_approval':
+                flash('Epic FHIR integration will be available once your organization is approved. Complete your onboarding and await root admin approval. Your subscription will begin upon approval.', 'warning')
+            else:
+                flash('Epic FHIR integration requires an active subscription.', 'warning')
             return redirect(url_for('admin.dashboard'))
         
         return f(*args, **kwargs)

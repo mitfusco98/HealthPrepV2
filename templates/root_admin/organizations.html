@@ -33,12 +33,6 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link {% if status_filter == 'trial' %}active{% endif %}" 
-                   href="{{ url_for('root_admin.organizations', status='trial') }}">
-                    <i class="fas fa-hourglass-half me-1"></i> Trial
-                </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link {% if status_filter == 'active' %}active{% endif %}" 
                    href="{{ url_for('root_admin.organizations', status='active') }}">
                     <i class="fas fa-check-circle me-1"></i> Active
@@ -66,9 +60,9 @@
                                     <th>Organization</th>
                                     <th>Contact</th>
                                     <th>Onboarding</th>
+                                    <th>Payment</th>
                                     <th>Status</th>
                                     <th>Users</th>
-                                    <th>Epic</th>
                                     <th>Created</th>
                                     <th>Actions</th>
                                 </tr>
@@ -94,11 +88,38 @@
                                     </td>
                                     <td>
                                         {% if org.onboarding_status == 'pending_approval' %}
-                                            <span class="badge bg-warning text-dark">Pending</span>
+                                            {% if org.stripe_customer_id and org.live_user_count > 0 %}
+                                                <span class="badge bg-success" title="Ready for approval - payment on file and admin setup complete">
+                                                    <i class="fas fa-check-circle me-1"></i>Ready
+                                                </span>
+                                            {% elif org.stripe_customer_id %}
+                                                <span class="badge bg-warning text-dark" title="Payment on file, awaiting admin setup">
+                                                    <i class="fas fa-clock me-1"></i>Setup
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-secondary" title="Awaiting payment setup">
+                                                    <i class="fas fa-hourglass-start me-1"></i>Payment
+                                                </span>
+                                            {% endif %}
                                         {% elif org.onboarding_status == 'approved' %}
                                             <span class="badge bg-success">Approved</span>
                                         {% else %}
                                             <span class="badge bg-secondary">{{ org.onboarding_status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if org.creation_method == 'manual' %}
+                                            <span class="badge bg-info" title="Enterprise/manual billing">
+                                                <i class="fas fa-briefcase me-1"></i>Enterprise
+                                            </span>
+                                        {% elif org.stripe_customer_id %}
+                                            <span class="badge bg-success" title="Payment method on file">
+                                                <i class="fas fa-credit-card me-1"></i>On File
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark" title="No payment method">
+                                                <i class="fas fa-exclamation-triangle me-1"></i>None
+                                            </span>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -108,19 +129,17 @@
                                             <span class="badge bg-info">Trial</span>
                                         {% elif org.setup_status == 'incomplete' %}
                                             <span class="badge bg-secondary">Setup</span>
-                                        {% else %}
+                                        {% elif org.setup_status == 'suspended' %}
                                             <span class="badge bg-danger">Suspended</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ org.setup_status }}</span>
                                         {% endif %}
                                     </td>
                                     <td>
                                         <span class="badge bg-info">{{ org.user_count }}</span>
                                         <small class="text-muted">/ {{ org.max_users }}</small>
-                                    </td>
-                                    <td>
-                                        {% if org.epic_client_id %}
-                                            <span class="badge bg-success"><i class="fas fa-check"></i></span>
-                                        {% else %}
-                                            <span class="badge bg-secondary"><i class="fas fa-times"></i></span>
+                                        {% if org.live_user_count > 0 %}
+                                            <br><small class="text-success"><i class="fas fa-user-check"></i> {{ org.live_user_count }} active</small>
                                         {% endif %}
                                     </td>
                                     <td><small>{{ org.created_at.strftime('%Y-%m-%d') }}</small></td>

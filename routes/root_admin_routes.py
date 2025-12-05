@@ -459,10 +459,14 @@ def organizations():
         
         if status_filter == 'pending':
             query = query.filter(Organization.onboarding_status == 'pending_approval')
-        elif status_filter == 'trial':
-            query = query.filter(Organization.setup_status == 'trial')
         elif status_filter == 'active':
-            query = query.filter(Organization.setup_status == 'live')
+            # Active includes both 'live' and legacy 'trial' organizations
+            query = query.filter(
+                db.or_(
+                    Organization.setup_status == 'live',
+                    Organization.setup_status == 'trial'  # Legacy trial orgs are now treated as active
+                )
+            )
         elif status_filter == 'suspended':
             query = query.filter(Organization.setup_status == 'suspended')
         

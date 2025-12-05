@@ -52,34 +52,8 @@ def subscription_required(f):
         
         # Handle different billing states
         if state == 'active':
-            # Full access for active subscriptions
+            # Full access for active subscriptions (includes legacy trials mapped to active)
             return f(*args, **kwargs)
-        
-        elif state == 'trialing':
-            # Full access during valid trial period
-            if billing['needs_payment'] and billing.get('trial_days_remaining', 0) <= 7:
-                # Warn about upcoming trial expiration if no payment method
-                flash(f"Your trial expires in {billing.get('trial_days_remaining', 0)} days. Please add a payment method.", 'warning')
-            return f(*args, **kwargs)
-        
-        elif state == 'trial_expired':
-            # If org has payment method, try to auto-activate subscription
-            if org.has_valid_payment_method:
-                from services.stripe_service import StripeService
-                logger.info(f"Attempting auto-activation for trial-expired org {org.id} with payment method")
-                if StripeService.ensure_subscription_exists(org):
-                    # Subscription activated successfully - refresh billing state and allow access
-                    new_billing = org.billing_state
-                    if new_billing['state'] == 'active':
-                        flash('Your subscription has been activated. Welcome back!', 'success')
-                        return f(*args, **kwargs)
-                    elif new_billing['state'] == 'trialing':
-                        return f(*args, **kwargs)
-                # Auto-activation failed - redirect to payment page
-                flash('Unable to activate your subscription. Please update your payment method.', 'warning')
-            else:
-                flash('Your free trial has expired. Please add a payment method to continue.', 'warning')
-            return redirect(url_for('auth.subscription_expired'))
         
         elif state == 'payment_required':
             flash('Your payment is past due. Please update your payment method.', 'warning')
@@ -97,9 +71,14 @@ def subscription_required(f):
             flash('Your subscription is paused. Please resume your subscription to continue.', 'warning')
             return redirect(url_for('auth.subscription_expired'))
         
-        elif state in ['pending_approval', 'pending_activation']:
-            flash('Your account is pending activation. Please check back soon.', 'info')
-            return redirect(url_for('auth.login'))
+        elif state == 'pending_approval':
+            # Pending approval organizations can still access the app for onboarding
+            # They just can't access Epic OAuth until approved
+            if billing['can_access_app']:
+                return f(*args, **kwargs)
+            else:
+                flash('Your account is pending approval. Please check back soon.', 'info')
+                return redirect(url_for('auth.login'))
         
         else:
             # Unknown state - fall back to is_active check for safety
@@ -112,34 +91,72 @@ def subscription_required(f):
     return decorated_function
 
 
-def trial_warning_required(f):
+def oauth_access_required(f):
     """
-    Decorator that allows access but adds warning flash messages for expiring trials
-    Use this for routes that should show warnings but not block access
-    Uses unified billing_state for consistent messaging
+    Decorator specifically for Epic OAuth routes.
+    
+    Requires:
+    - Active subscription (subscription_status = 'active')
+    - Or manual billing organization
+    
+    Blocks:
+    - Pending approval organizations (can onboard but not connect to Epic)
+    - Trial expired
+    - Payment issues
+    - Suspended/canceled
+    
+    This is stricter than subscription_required because Epic OAuth should only
+    be available to fully approved and paying organizations.
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if current_user.is_authenticated and hasattr(current_user, 'organization'):
-            org = current_user.organization
-            
-            # Skip root admins
-            if hasattr(current_user, 'is_root_admin') and current_user.is_root_admin:
-                return f(*args, **kwargs)
-            
-            if org:
-                billing = org.billing_state
-                
-                # Check for expiring trial (7 days or less)
-                if billing['state'] == 'trialing':
-                    days_remaining = billing.get('trial_days_remaining', 0)
-                    
-                    if days_remaining is not None and 0 < days_remaining <= 7:
-                        if org.stripe_customer_id:
-                            flash(f'Your trial ends in {days_remaining} day{"s" if days_remaining != 1 else ""}. Your subscription will begin automatically.', 'info')
-                        else:
-                            flash(f'Your trial expires in {days_remaining} day{"s" if days_remaining != 1 else ""}. Update your payment method to avoid interruption.', 'warning')
+        if not current_user.is_authenticated:
+            return f(*args, **kwargs)
         
+        if hasattr(current_user, 'is_root_admin') and current_user.is_root_admin:
+            return f(*args, **kwargs)
+        
+        org = current_user.organization
+        if not org:
+            flash('Organization not found. Please contact support.', 'error')
+            return redirect(url_for('auth.login'))
+        
+        billing = org.billing_state
+        
+        logger.debug(f"OAuth access check for org {org.id}: state={billing['state']}, can_access_oauth={billing['can_access_oauth']}")
+        
+        if billing['can_access_oauth']:
+            return f(*args, **kwargs)
+        
+        if billing['state'] == 'pending_approval':
+            flash('Epic connection is only available after your account is approved. Please complete your onboarding and await approval.', 'info')
+            return redirect(url_for('admin.dashboard'))
+        
+        elif billing['state'] == 'payment_required':
+            flash('Please update your payment method to access Epic integration.', 'warning')
+            return redirect(url_for('auth.payment_required'))
+        
+        elif billing['state'] in ['suspended', 'canceled']:
+            flash('Your account is not active. Please contact support.', 'error')
+            return redirect(url_for('auth.account_suspended'))
+        
+        else:
+            flash('Epic connection requires an active subscription.', 'warning')
+            return redirect(url_for('auth.subscription_expired'))
+    
+    return decorated_function
+
+
+def trial_warning_required(f):
+    """
+    DEPRECATED: Trial periods have been removed from the billing model.
+    
+    This decorator is kept for backwards compatibility but no longer shows trial warnings.
+    Organizations are now either pending_approval (onboarding) or active (paying).
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # No trial warnings needed - billing model simplified to approval-based flow
         return f(*args, **kwargs)
     
     return decorated_function
@@ -150,6 +167,10 @@ def get_subscription_context():
     Get subscription status context for templates
     Returns dict with subscription info to display in UI
     Uses unified billing_state for consistent information
+    
+    SIMPLIFIED BILLING MODEL:
+    - Organizations are either pending_approval (onboarding) or active (paying)
+    - No trial period - approval triggers immediate payment
     """
     if not current_user.is_authenticated:
         return {}
@@ -167,23 +188,15 @@ def get_subscription_context():
     
     context = {
         'subscription_status': org.subscription_status,
-        'trial_expires': org.trial_expires,
         'is_active': org.is_active,
-        'show_trial_banner': False,
-        'trial_days_remaining': billing.get('trial_days_remaining'),
-        'trial_is_expired': billing['state'] == 'trial_expired',
+        'show_pending_approval_banner': billing['state'] == 'pending_approval',
         'show_payment_warning': billing['state'] == 'payment_required',
         'show_canceled_warning': billing['state'] == 'canceled',
         'has_payment_method': org.has_valid_payment_method,
         'billing_state': billing['state'],
         'billing_message': billing['message'],
-        'needs_payment': billing['needs_payment']
+        'needs_payment': billing['needs_payment'],
+        'can_access_oauth': billing['can_access_oauth']
     }
-    
-    # Show trial banner during trial period
-    if billing['state'] == 'trialing':
-        days_remaining = billing.get('trial_days_remaining', 0)
-        if days_remaining is not None and days_remaining <= 14:
-            context['show_trial_banner'] = True
     
     return context

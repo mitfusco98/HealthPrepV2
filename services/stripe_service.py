@@ -21,7 +21,7 @@ class StripeService:
     
     # Subscription product configuration
     SUBSCRIPTION_PRICE = 10000  # $100.00 in cents
-    TRIAL_DAYS = 14
+    TRIAL_DAYS = 0  # Trial days deprecated - approval triggers immediate payment
     PRODUCT_NAME = "HealthPrep Subscription"
     
     @staticmethod
@@ -133,48 +133,101 @@ class StripeService:
             return None
     
     @staticmethod
-    def start_trial_subscription(organization: Organization, trial_days: int = None) -> bool:
+    def start_paid_subscription(organization: Organization) -> bool:
         """
-        Start a trial subscription for an approved organization
+        Start a paid subscription for an approved organization (immediate charge, no trial).
+        
+        This is the main activation method called upon root admin approval.
+        The first charge happens immediately.
         
         Args:
-            organization: Organization model instance with stripe_customer_id
-            trial_days: Number of trial days (default: 14)
+            organization: Organization model instance with stripe_customer_id and payment method
             
         Returns:
-            True if successful, False otherwise
+            True if subscription started successfully, False otherwise
         """
         try:
             if not organization.stripe_customer_id:
-                logger.error(f"Cannot start trial for org {organization.id} - no Stripe customer ID")
+                logger.error(f"Cannot start subscription for org {organization.id} - no Stripe customer ID")
                 return False
             
-            # Create subscription with trial using configured price ID
+            # Verify customer has a payment method
+            customer = stripe.Customer.retrieve(organization.stripe_customer_id)
+            default_pm = customer.get('invoice_settings', {}).get('default_payment_method')
+            
+            if not default_pm:
+                logger.warning(f"Cannot start subscription for org {organization.id} - no payment method")
+                return False
+            
+            # Get configured price ID
             price_id = os.environ.get('STRIPE_PRICE_ID')
-            subscription = StripeService.create_subscription(
-                customer_id=organization.stripe_customer_id,
-                price_id=price_id,
-                trial_days=trial_days or StripeService.TRIAL_DAYS
-            )
             
-            if not subscription:
-                return False
+            # Create subscription with immediate charge (no trial)
+            subscription_params = {
+                'customer': organization.stripe_customer_id,
+                'payment_behavior': 'error_if_incomplete',
+                'expand': ['latest_invoice.payment_intent']
+            }
+            
+            if price_id:
+                subscription_params['items'] = [{'price': price_id}]
+            else:
+                # Fallback to ad-hoc pricing
+                subscription_params['items'] = [{
+                    'price_data': {
+                        'currency': 'usd',
+                        'product_data': {
+                            'name': StripeService.PRODUCT_NAME,
+                        },
+                        'recurring': {
+                            'interval': 'month',
+                        },
+                        'unit_amount': StripeService.SUBSCRIPTION_PRICE,
+                    },
+                }]
+            
+            subscription = stripe.Subscription.create(**subscription_params)
             
             # Update organization with subscription info
             organization.stripe_subscription_id = subscription.id
             organization.subscription_status = subscription.status
-            organization.trial_start_date = datetime.utcnow()
-            organization.trial_expires = datetime.utcfromtimestamp(subscription.trial_end) if subscription.get('trial_end') else datetime.utcnow() + timedelta(days=StripeService.TRIAL_DAYS)
+            organization.setup_status = 'live'  # Immediately live upon payment
             
             db.session.commit()
             
-            logger.info(f"Started trial subscription {subscription.id} for organization {organization.id}")
-            return True
+            logger.info(f"Started paid subscription {subscription.id} for organization {organization.id}, status: {subscription.status}")
+            return subscription.status == 'active'
             
+        except stripe.error.CardError as e:
+            logger.error(f"Card declined for org {organization.id}: {str(e)}")
+            organization.subscription_status = 'past_due'
+            db.session.commit()
+            return False
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe error starting subscription for org {organization.id}: {str(e)}")
+            return False
         except Exception as e:
-            logger.error(f"Failed to start trial subscription for org {organization.id}: {str(e)}")
+            logger.error(f"Failed to start subscription for org {organization.id}: {str(e)}")
             db.session.rollback()
             return False
+
+    @staticmethod
+    def start_trial_subscription(organization: Organization, trial_days: int = None) -> bool:
+        """
+        DEPRECATED: Use start_paid_subscription instead.
+        
+        This method is kept for backwards compatibility but now delegates to start_paid_subscription
+        with no trial period.
+        
+        Args:
+            organization: Organization model instance with stripe_customer_id
+            trial_days: Ignored - trial days are no longer supported
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        logger.warning(f"start_trial_subscription called for org {organization.id} - this method is deprecated, using start_paid_subscription")
+        return StripeService.start_paid_subscription(organization)
     
     @staticmethod
     def create_checkout_session(

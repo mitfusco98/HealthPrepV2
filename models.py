@@ -171,21 +171,24 @@ class Organization(db.Model):
         """
         Get unified billing state for access control decisions.
         
+        SIMPLIFIED BILLING MODEL:
+        - Organizations in 'pending_approval' can set up their account but cannot access Epic OAuth
+        - Upon root admin approval, payment is charged immediately (no trial period)
+        - Active subscription = full access to app and Epic OAuth
+        
         Returns a dict with:
-        - state: The current billing state (active, trialing, payment_required, suspended, canceled, pending_approval)
-        - can_access_app: Whether org can access the main application features
-        - can_access_oauth: Whether org can access Epic OAuth connection
-        - trial_days_remaining: Days left in trial (if applicable)
+        - state: The current billing state (active, payment_required, suspended, canceled, pending_approval)
+        - can_access_app: Whether org can access the main application features (onboarding)
+        - can_access_oauth: Whether org can access Epic OAuth connection (requires active subscription)
+        - trial_days_remaining: Deprecated - always None
         - needs_payment: Whether payment setup is required
         - message: Human-readable status message
         """
-        now = datetime.utcnow()
-        
         result = {
             'state': 'unknown',
             'can_access_app': False,
             'can_access_oauth': False,
-            'trial_days_remaining': None,
+            'trial_days_remaining': None,  # Deprecated - no trial period
             'needs_payment': False,
             'message': ''
         }
@@ -235,65 +238,46 @@ class Organization(db.Model):
             result['message'] = 'Subscription active'
             return result
         
-        # Trialing - check if trial is still valid
-        if self.subscription_status == 'trialing':
-            if self.trial_expires:
-                if self.trial_expires > now:
-                    # Active trial - full access
-                    days_remaining = (self.trial_expires - now).days
-                    result['state'] = 'trialing'
-                    result['can_access_app'] = True
-                    result['can_access_oauth'] = True
-                    result['trial_days_remaining'] = days_remaining
-                    result['message'] = f'Trial active - {days_remaining} days remaining'
-                    
-                    # Check if payment method is on file for seamless transition
-                    if not self.stripe_customer_id:
-                        result['needs_payment'] = True
-                    return result
-                else:
-                    # Trial expired
-                    result['state'] = 'trial_expired'
-                    result['can_access_app'] = False
-                    result['can_access_oauth'] = False
-                    result['needs_payment'] = True
-                    result['message'] = 'Trial has expired. Please add payment to continue.'
-                    return result
-            else:
-                # Trialing but no expiration date set - allow access (legacy orgs or pending setup)
-                result['state'] = 'trialing'
-                result['can_access_app'] = True
-                result['can_access_oauth'] = True
-                result['message'] = 'Trial period active'
-                return result
+        # Legacy trialing status - treat as active (for existing orgs in trial before billing model change)
+        # This must be checked BEFORE pending_approval to ensure legacy trials retain full access
+        if self.subscription_status == 'trialing' or self.setup_status == 'trial':
+            result['state'] = 'active'  # Treat existing trials as fully active
+            result['can_access_app'] = True
+            result['can_access_oauth'] = True
+            result['message'] = 'Subscription active'
+            return result
         
-        # Payment method added but awaiting trial/subscription setup (self-service flow)
+        # Payment method added but awaiting approval (self-service flow)
         if self.subscription_status == 'payment_method_added':
-            if self.onboarding_status == 'approved':
-                # Approved but trial not started yet - this should trigger trial creation
-                result['state'] = 'pending_activation'
-                result['can_access_app'] = False
-                result['can_access_oauth'] = False
-                result['message'] = 'Account approved - awaiting activation'
-                return result
-            else:
-                # Awaiting approval from root admin
-                result['state'] = 'pending_approval'
-                result['can_access_app'] = False
-                result['can_access_oauth'] = False
-                result['message'] = 'Payment received - awaiting approval'
-                return result
+            # Allow app access for onboarding tasks (setting up admin, security questions, users)
+            # but block Epic OAuth until approved and payment processed
+            result['state'] = 'pending_approval'
+            result['can_access_app'] = True  # Allow onboarding activities
+            result['can_access_oauth'] = False  # Block Epic until approved
+            result['message'] = 'Payment on file - awaiting approval to activate'
+            return result
         
         # Default: check if onboarding is complete
         if self.onboarding_status == 'pending_approval':
-            result['state'] = 'pending_approval'
-            result['message'] = 'Awaiting approval'
-            return result
+            # No payment method yet - they need to complete checkout
+            if not self.stripe_customer_id:
+                result['state'] = 'pending_approval'
+                result['can_access_app'] = True  # Allow continuing onboarding
+                result['can_access_oauth'] = False
+                result['needs_payment'] = True
+                result['message'] = 'Please complete payment setup'
+                return result
+            else:
+                result['state'] = 'pending_approval'
+                result['can_access_app'] = True  # Allow onboarding
+                result['can_access_oauth'] = False
+                result['message'] = 'Awaiting approval'
+                return result
         
-        # Fallback for any other state - allow limited access
+        # Fallback for any other state - allow app access if org is_active
         result['state'] = 'unknown'
         result['can_access_app'] = self.is_active
-        result['can_access_oauth'] = self.is_active
+        result['can_access_oauth'] = self.is_active  # Allow OAuth if org is active
         result['message'] = 'Status pending verification'
         return result
     
