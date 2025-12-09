@@ -21,7 +21,7 @@
                             <li><strong>Get approved by our team</strong> - we'll review your setup and activate your account</li>
                             <li><strong>Your 14-day trial begins</strong> after approval with full access to all features</li>
                         </ol>
-                        <p class="mb-0"><strong>Pricing:</strong> $100/month flat rate after trial - unlimited patients, documents, and users</p>
+                        <p class="mb-0"><strong>Pricing:</strong> $300/month per provider - unlimited patients, documents, and users</p>
                     </div>
 
                     <form method="POST" action="{{ url_for('signup.signup_submit') }}">
@@ -90,6 +90,18 @@
                                 <input type="email" class="form-control" id="billing_email" name="billing_email">
                                 <small class="text-muted">Leave blank to use admin email</small>
                             </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="admin_type" class="form-label">Your Role <span class="text-danger">*</span></label>
+                            <select class="form-control" id="admin_type" name="admin_type" required>
+                                <option value="provider" selected>Provider (Practitioner)</option>
+                                <option value="business_admin">Business Admin (Practice Manager)</option>
+                            </select>
+                            <small class="text-muted">
+                                <strong>Provider:</strong> Can manage everything AND connect to Epic via Hyperspace login.<br>
+                                <strong>Business Admin:</strong> Can manage users, presets, and settings. Cannot authenticate to Epic (a Provider must do that).
+                            </small>
                         </div>
                         
                         <!-- Epic FHIR Credentials -->

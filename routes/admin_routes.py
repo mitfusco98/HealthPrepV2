@@ -1014,12 +1014,17 @@ def create_user():
         
         email = request.form.get('email')
         role = request.form.get('role', 'nurse')
+        admin_type = request.form.get('admin_type', 'business_admin')  # For admin role: 'provider' or 'business_admin'
         is_active = request.form.get('is_active') == 'on'
 
         # Validate input
         if not email:
             flash('Email is required', 'error')
             return redirect(url_for('admin.users'))
+        
+        # Validate admin_type if role is admin
+        if role == 'admin' and admin_type not in ('provider', 'business_admin'):
+            admin_type = 'business_admin'  # Default to business_admin
 
         # Auto-generate username from email (part before @)
         username = email.split('@')[0].lower()
@@ -1055,6 +1060,7 @@ def create_user():
         new_user.email = email
         new_user.role = role
         new_user.is_admin = (role == 'admin')  # Set is_admin based on role
+        new_user.admin_type = admin_type if role == 'admin' else None  # Only set for admin users
         new_user.is_active_user = is_active
         new_user.org_id = org_id  # Assign to current user's organization
         new_user.set_password(temp_password)
@@ -1068,6 +1074,7 @@ def create_user():
             'username': new_user.username,
             'email': new_user.email,
             'role': new_user.role,
+            'admin_type': new_user.admin_type,
             'is_admin': new_user.is_admin,
             'is_active_user': new_user.is_active_user,
             'org_id': new_user.org_id
@@ -1122,12 +1129,17 @@ def edit_user(user_id):
 
         email = request.form.get('email')
         role = request.form.get('role')
+        admin_type = request.form.get('admin_type', 'business_admin')  # For admin role
         is_active = request.form.get('is_active') == 'on'
 
         # Validate input
         if not email or not role:
             flash('Email and role are required', 'error')
             return redirect(url_for('admin.users'))
+        
+        # Validate admin_type if role is admin
+        if role == 'admin' and admin_type not in ('provider', 'business_admin'):
+            admin_type = 'business_admin'
 
         # Check for duplicate email within organization (excluding current user)
         existing_email = User.query.filter_by(email=email, org_id=org_id).filter(User.id != user_id).first()
@@ -1140,6 +1152,7 @@ def edit_user(user_id):
             'username': user.username,
             'email': user.email,
             'role': user.role,
+            'admin_type': user.admin_type,
             'is_admin': user.is_admin,
             'is_active_user': user.is_active_user
         }
@@ -1148,6 +1161,7 @@ def edit_user(user_id):
         user.email = email
         user.role = role
         user.is_admin = (role == 'admin')
+        user.admin_type = admin_type if role == 'admin' else None
         user.is_active_user = is_active
         
         # Capture after values for logging
@@ -1155,6 +1169,7 @@ def edit_user(user_id):
             'username': user.username,
             'email': user.email,
             'role': user.role,
+            'admin_type': user.admin_type,
             'is_admin': user.is_admin,
             'is_active_user': user.is_active_user
         }

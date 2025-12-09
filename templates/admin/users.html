@@ -57,6 +57,9 @@
                             <span class="badge bg-{{ 'danger' if user.role == 'admin' else 'primary' if user.role == 'MA' else 'secondary' }}">
                                 {{ user.role_display }}
                             </span>
+                            {% if user.role == 'admin' and user.admin_type %}
+                            <br><small class="text-muted">{{ 'Provider' if user.admin_type == 'provider' else 'Business Admin' }}</small>
+                            {% endif %}
                         </td>
                         <td>
                             <span class="badge bg-{{ 'warning' if user.user_status == 'pending' else ('success' if user.user_status == 'active' else 'danger') }}">
@@ -77,7 +80,7 @@
                             <div class="btn-group btn-group-sm" role="group">
                                 <!-- Edit Button -->
                                 <button type="button" class="btn btn-outline-primary btn-sm"
-                                        onclick="editUser({{ user.id }}, '{{ user.username }}', '{{ user.email }}', '{{ user.role }}', {{ user.is_active_user|lower }})"
+                                        onclick="editUser({{ user.id }}, '{{ user.username }}', '{{ user.email }}', '{{ user.role }}', {{ user.is_active_user|lower }}, '{{ user.admin_type or '' }}')"
                                         data-bs-toggle="modal" data-bs-target="#editUserModal">
                                     <i class="fas fa-edit"></i>
                                 </button>
@@ -131,6 +134,10 @@
                     <li class="mb-2">
                         <span class="badge bg-danger me-2">Administrator</span>
                         Full system access, user management, settings
+                        <ul class="mt-1 small text-muted">
+                            <li><strong>Business Admin:</strong> Practice managers with full privileges except Epic OAuth</li>
+                            <li><strong>Provider:</strong> Practitioners who can authenticate via Epic Hyperspace</li>
+                        </ul>
                     </li>
                     <li class="mb-2">
                         <span class="badge bg-primary me-2">Medical Assistant</span>
@@ -175,11 +182,23 @@
 
                     <div class="mb-3">
                         <label for="addRole" class="form-label">Role <span class="text-danger">*</span></label>
-                        <select class="form-control" id="addRole" name="role" required>
+                        <select class="form-control" id="addRole" name="role" required onchange="toggleAdminTypeField('add')">
                             <option value="nurse">Nurse</option>
                             <option value="MA">Medical Assistant</option>
                             <option value="admin">Administrator</option>
                         </select>
+                    </div>
+
+                    <div class="mb-3" id="addAdminTypeField" style="display: none;">
+                        <label for="addAdminType" class="form-label">Admin Type <span class="text-danger">*</span></label>
+                        <select class="form-control" id="addAdminType" name="admin_type">
+                            <option value="business_admin">Business Admin (Practice Manager)</option>
+                            <option value="provider">Provider (Practitioner - Can connect to Epic)</option>
+                        </select>
+                        <div class="form-text">
+                            <strong>Business Admin:</strong> Full management access except Epic OAuth.<br>
+                            <strong>Provider:</strong> Can authenticate via Epic Hyperspace and manage clinical data.
+                        </div>
                     </div>
 
                     <div class="form-check">
@@ -230,11 +249,23 @@
 
                     <div class="mb-3">
                         <label for="editRole" class="form-label">Role</label>
-                        <select class="form-select" id="editRole" name="role" required>
+                        <select class="form-select" id="editRole" name="role" required onchange="toggleAdminTypeField('edit')">
                             <option value="nurse">Nurse</option>
                             <option value="MA">Medical Assistant</option>
                             <option value="admin">Administrator</option>
                         </select>
+                    </div>
+
+                    <div class="mb-3" id="editAdminTypeField" style="display: none;">
+                        <label for="editAdminType" class="form-label">Admin Type</label>
+                        <select class="form-select" id="editAdminType" name="admin_type">
+                            <option value="business_admin">Business Admin (Practice Manager)</option>
+                            <option value="provider">Provider (Practitioner - Can connect to Epic)</option>
+                        </select>
+                        <div class="form-text">
+                            <strong>Business Admin:</strong> Full management access except Epic OAuth.<br>
+                            <strong>Provider:</strong> Can authenticate via Epic Hyperspace and manage clinical data.
+                        </div>
                     </div>
 
                     <div class="mb-3 form-check">
@@ -299,7 +330,18 @@
 let editingUserId = null;
 let deletingUserId = null;
 
-function editUser(userId, username, email, role, isActive) {
+function toggleAdminTypeField(prefix) {
+    const roleSelect = document.getElementById(prefix + 'Role');
+    const adminTypeField = document.getElementById(prefix + 'AdminTypeField');
+    
+    if (roleSelect.value === 'admin') {
+        adminTypeField.style.display = 'block';
+    } else {
+        adminTypeField.style.display = 'none';
+    }
+}
+
+function editUser(userId, username, email, role, isActive, adminType) {
     editingUserId = userId;
 
     // Populate form fields
@@ -307,7 +349,14 @@ function editUser(userId, username, email, role, isActive) {
     document.getElementById('editEmail').value = email;
     document.getElementById('editRole').value = role;
     document.getElementById('editIsActive').checked = isActive;
-    document.getElementById('editPassword').value = '';
+    
+    // Set admin type if provided
+    if (adminType) {
+        document.getElementById('editAdminType').value = adminType;
+    }
+    
+    // Toggle admin type field visibility
+    toggleAdminTypeField('edit');
 
     // Set form action
     document.getElementById('editUserForm').action = `/admin/users/${userId}/edit`;

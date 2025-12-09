@@ -68,6 +68,7 @@ def _process_signup_request():
         epic_client_secret = (data.get('epic_client_secret') or '').strip()
         epic_fhir_url = (data.get('epic_fhir_url') or '').strip()
         epic_environment = data.get('epic_environment', 'sandbox')
+        admin_type = data.get('admin_type', 'provider')  # provider or business_admin
         
         # Validate Epic credentials are provided (all required)
         if not all([epic_client_id, epic_client_secret, epic_fhir_url]):
@@ -89,7 +90,8 @@ def _process_signup_request():
             phone=phone,
             billing_email=billing_email,
             epic_fhir_url=epic_fhir_url,
-            epic_environment=epic_environment
+            epic_environment=epic_environment,
+            admin_type=admin_type
         )
         
         if not success:

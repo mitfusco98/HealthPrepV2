@@ -90,6 +90,10 @@ class Organization(db.Model):
     trial_start_date = db.Column(db.DateTime)  # When trial period started
     billing_email = db.Column(db.String(120))  # Email for billing notifications (can differ from contact_email)
     
+    # Owner Email - links organizations managed by the same business admin
+    # When same email registers multiple times, Stripe recognizes shared customer for billing
+    owner_email = db.Column(db.String(120), index=True)  # Business admin email for multi-org billing aggregation
+    
     # Onboarding Status Management
     creation_method = db.Column(db.String(20), default='self_service')  # self_service, manual (for enterprise/custom billing)
     onboarding_status = db.Column(db.String(30), default='pending_approval')  # pending_approval, approved, active, suspended
@@ -742,6 +746,12 @@ class User(UserMixin, db.Model):
     is_admin = db.Column(db.Boolean, default=False, nullable=False)  # Kept for backward compatibility
     is_active_user = db.Column(db.Boolean, default=True, nullable=False)
     is_root_admin = db.Column(db.Boolean, default=False, nullable=False)  # Super admin for managing all organizations
+    
+    # Admin Type - distinguishes business admins from provider admins
+    # Only applicable when role='admin' or is_admin=True
+    # 'business_admin': Can manage users, presets, logs - CANNOT do Epic OAuth
+    # 'provider': Same privileges as business_admin PLUS can do Epic OAuth via Hyperspace
+    admin_type = db.Column(db.String(20), default='business_admin')  # 'business_admin', 'provider'
 
     # Multi-tenancy fields
     org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=True)  # Nullable for root admins
@@ -908,7 +918,32 @@ class User(UserMixin, db.Model):
             'MA': 'Medical Assistant',
             'nurse': 'Nurse'
         }
-        return role_names.get(self.role, self.role.title())
+        base_role = role_names.get(self.role, self.role.title())
+        
+        # For admins, show admin type distinction
+        if self.role == 'admin' and self.admin_type:
+            if self.admin_type == 'provider':
+                return 'Provider Admin'
+            elif self.admin_type == 'business_admin':
+                return 'Business Admin'
+        return base_role
+    
+    @property
+    def is_provider_admin(self):
+        """Check if user is a provider admin (can do Epic OAuth)"""
+        return self.is_admin and self.admin_type == 'provider'
+    
+    @property
+    def is_business_admin(self):
+        """Check if user is a business admin (cannot do Epic OAuth)"""
+        return self.is_admin and self.admin_type == 'business_admin'
+    
+    def can_do_epic_oauth(self):
+        """Check if user can perform Epic OAuth authentication"""
+        # Only provider admins can do Epic OAuth (they log into Hyperspace)
+        if self.is_root_admin:
+            return False  # Root admins don't authenticate to Epic
+        return self.is_admin and self.admin_type == 'provider'
     
     @property
     def user_status(self):
@@ -1091,6 +1126,32 @@ class Patient(db.Model):
         
         sync_threshold = datetime.utcnow() - timedelta(hours=sync_interval_hours)
         return self.last_fhir_sync < sync_threshold
+    
+    def has_upcoming_appointment(self, window_days=14):
+        """Check if patient has an appointment within the specified window"""
+        from datetime import datetime, timedelta
+        
+        now = datetime.utcnow()
+        window_end = now + timedelta(days=window_days)
+        
+        upcoming = [apt for apt in self.appointments 
+                    if apt.appointment_date and now <= apt.appointment_date <= window_end 
+                    and apt.status in ('scheduled', 'confirmed', 'pending')]
+        return len(upcoming) > 0
+    
+    def get_next_appointment(self):
+        """Get the next scheduled appointment for this patient"""
+        from datetime import datetime
+        
+        now = datetime.utcnow()
+        future_appointments = [apt for apt in self.appointments 
+                               if apt.appointment_date and apt.appointment_date >= now 
+                               and apt.status in ('scheduled', 'confirmed', 'pending')]
+        
+        if not future_appointments:
+            return None
+        
+        return min(future_appointments, key=lambda a: a.appointment_date)
     
     def __repr__(self):
         epic_info = f" [Epic: {self.epic_patient_id}]" if self.epic_patient_id else ""
@@ -1546,6 +1607,10 @@ class Screening(db.Model):
     matched_documents = db.Column(db.Text)  # JSON string of document IDs
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Appointment window tracking for dormancy
+    last_processed = db.Column(db.DateTime)  # Last time screening criteria was evaluated
+    is_dormant = db.Column(db.Boolean, default=False)  # True if outside appointment window
 
     # Relationships
     organization = db.relationship('Organization', backref='screenings')

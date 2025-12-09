@@ -37,6 +37,7 @@ def create_signup_organization(
     billing_email: str = '',
     epic_fhir_url: str = '',
     epic_environment: str = 'sandbox',
+    admin_type: str = 'provider',
     success_url: str = None,
     cancel_url: str = None
 ) -> Tuple[bool, Dict[str, Any]]:
@@ -71,10 +72,14 @@ def create_signup_organization(
         if existing_org:
             return False, {"error": "Organization name already exists"}
         
-        # Check if email already exists
+        # Validate admin_type
+        if admin_type not in ('provider', 'business_admin'):
+            admin_type = 'provider'  # Default to provider if invalid
+        
+        # Check if email already exists - if so, this is a multi-provider setup for same admin
+        # We allow same email with different usernames (mitchfusillo, mitchfusillo2, etc.)
         existing_user = User.query.filter_by(email=contact_email).first()
-        if existing_user:
-            return False, {"error": "Email address already registered"}
+        is_multi_provider_setup = existing_user is not None
         
         # Create organization (pending approval)
         # Convert empty strings to None for Epic credentials
@@ -93,7 +98,8 @@ def create_signup_organization(
             epic_environment=epic_environment,
             setup_status='incomplete',
             onboarding_status='pending_approval',
-            max_users=10
+            max_users=10,
+            owner_email=contact_email  # Track owner email for multi-org billing aggregation
         )
         
         # Generate signup completion token for API-based signups
@@ -107,12 +113,13 @@ def create_signup_organization(
         # Generate admin user credentials
         username = generate_username_from_email(contact_email)
         
-        # Create admin user
+        # Create admin user with appropriate admin type
         admin_user = User(
             username=username,
             email=contact_email,
             role='admin',
             is_admin=True,
+            admin_type=admin_type,  # 'provider' or 'business_admin'
             org_id=org.id,
             is_temp_password=True,
             is_active_user=True,
@@ -220,6 +227,7 @@ def signup_submit():
     epic_client_secret = request.form.get('epic_client_secret', '').strip()
     epic_fhir_url = request.form.get('epic_fhir_url', '').strip()
     epic_environment = request.form.get('epic_environment', 'sandbox')
+    admin_type = request.form.get('admin_type', 'provider')  # provider or business_admin
     
     # Call shared signup function
     success, data = create_signup_organization(
@@ -233,7 +241,8 @@ def signup_submit():
         phone=phone,
         billing_email=billing_email,
         epic_fhir_url=epic_fhir_url,
-        epic_environment=epic_environment
+        epic_environment=epic_environment,
+        admin_type=admin_type
     )
     
     if not success:

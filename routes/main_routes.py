@@ -6,6 +6,7 @@ from flask_login import login_required, current_user
 from datetime import datetime
 import logging
 
+from app import db
 from models import Patient, Screening, Document, ScreeningType
 from core.engine import ScreeningEngine
 from prep_sheet.generator import PrepSheetGenerator
@@ -52,13 +53,51 @@ def dashboard():
 @main_bp.route('/screening-list')
 @login_required
 def screening_list():
-    """Screening list page - provider scoped"""
+    """Screening list page - provider scoped with appointment window filtering"""
     try:
+        from datetime import datetime, timedelta
+        from models import Organization, Appointment
+        
         page = request.args.get('page', 1, type=int)
         search = request.args.get('search', '')
+        window_filter = request.args.get('window', 'priority')  # 'priority', 'dormant', 'all'
         
         query = get_provider_screenings(current_user, all_providers=False)
         query = query.join(Patient).join(ScreeningType)
+        
+        # Get organization settings for appointment-based prioritization
+        org_id = getattr(current_user, 'org_id', 1)
+        org = Organization.query.get(org_id)
+        
+        # Safely access organization attributes with defaults
+        appointment_prioritization_enabled = getattr(org, 'appointment_based_prioritization', False) if org else False
+        window_days = getattr(org, 'prioritization_window_days', 14) if org else 14
+        
+        # Initialize priority patient IDs
+        priority_patient_ids = []
+        
+        # Only query appointments if prioritization is enabled
+        if appointment_prioritization_enabled:
+            now = datetime.utcnow()
+            window_end = now + timedelta(days=window_days)
+            
+            # Get patient IDs with upcoming appointments in window
+            priority_patient_ids = db.session.query(Appointment.patient_id).filter(
+                Appointment.org_id == org_id,
+                Appointment.appointment_date >= now,
+                Appointment.appointment_date <= window_end,
+                Appointment.status.in_(['scheduled', 'confirmed', 'pending'])
+            ).distinct().all()
+            priority_patient_ids = [p[0] for p in priority_patient_ids]
+            
+            # Apply window filter if appointment-based prioritization is enabled
+            if window_filter != 'all':
+                if window_filter == 'priority':
+                    # Only show patients with appointments in the window
+                    query = query.filter(Patient.id.in_(priority_patient_ids)) if priority_patient_ids else query.filter(Patient.id == -1)
+                elif window_filter == 'dormant':
+                    # Show patients without appointments in the window (dormant)
+                    query = query.filter(~Patient.id.in_(priority_patient_ids)) if priority_patient_ids else query
 
         if search:
             query = query.filter(
@@ -67,22 +106,74 @@ def screening_list():
             )
 
         screenings = query.order_by(
-            Screening.next_due_date.asc()
+            Screening.next_due.asc()
         ).paginate(
             page=page, per_page=20, error_out=False
         )
         
         active_provider = get_active_provider(current_user)
+        
+        # Get counts for tab display - only compute if prioritization is enabled
+        if appointment_prioritization_enabled:
+            base_query = get_provider_screenings(current_user, all_providers=False)
+            priority_count = base_query.join(Patient).filter(Patient.id.in_(priority_patient_ids)).count() if priority_patient_ids else 0
+            dormant_count = base_query.join(Patient).filter(~Patient.id.in_(priority_patient_ids)).count() if priority_patient_ids else base_query.count()
+            total_count = priority_count + dormant_count
+        else:
+            # Prioritization disabled - all counts show as total
+            total_count = get_provider_screenings(current_user, all_providers=False).count()
+            priority_count = 0
+            dormant_count = 0
 
         return render_template('screening/screening_list.html', 
                              screenings=screenings, 
                              search=search,
-                             active_provider=active_provider)
+                             active_provider=active_provider,
+                             window_filter=window_filter,
+                             appointment_prioritization_enabled=appointment_prioritization_enabled,
+                             window_days=window_days,
+                             priority_count=priority_count,
+                             dormant_count=dormant_count,
+                             total_count=total_count)
 
     except Exception as e:
         logger.error(f"Error in screening list route: {str(e)}")
         flash('Error loading screenings', 'error')
         return render_template('error/500.html'), 500
+
+@main_bp.route('/patient/<int:patient_id>/reprocess', methods=['POST'])
+@login_required
+def reprocess_patient(patient_id):
+    """Manual patient reprocessing - bypasses appointment window filter"""
+    try:
+        from datetime import datetime
+        from core.engine import ScreeningEngine
+        
+        patient = Patient.query.get_or_404(patient_id)
+        
+        if not validate_patient_access(current_user, patient):
+            flash('You do not have access to this patient.', 'error')
+            return redirect(url_for('main.patients'))
+        
+        # Run screening criteria against existing OCR transcripts
+        engine = ScreeningEngine()
+        updated_count = engine.refresh_patient_screenings(patient.id, force_refresh=True)
+        
+        # Update last_processed timestamp for all screenings
+        for screening in patient.screenings:
+            screening.last_processed = datetime.utcnow()
+            screening.is_dormant = False  # Mark as active after manual reprocess
+        
+        db.session.commit()
+        
+        flash(f'Successfully reprocessed {patient.name}. Updated {updated_count} screening(s).', 'success')
+        return redirect(url_for('main.patient_detail', patient_id=patient_id))
+        
+    except Exception as e:
+        logger.error(f"Error reprocessing patient {patient_id}: {str(e)}")
+        flash('Error reprocessing patient', 'error')
+        return redirect(url_for('main.patients'))
+
 
 @main_bp.route('/patients')
 @login_required

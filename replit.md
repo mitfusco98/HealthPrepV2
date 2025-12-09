@@ -30,9 +30,22 @@ The system now uses a **provider-centric model** where each Provider is the core
 - New scopes: `patient/Immunization.rs`, `patient/DocumentReference.c`
 
 ### Billing Model
-- **Per-provider pricing** (per-seat subscription model)
+- **Per-provider pricing** ($300/month per provider, per-seat subscription model)
 - Adding/removing providers updates Stripe subscription quantity
 - Business admins manage users/presets; only providers can do Epic OAuth
+- Shared `owner_email` across organizations allows same business admin to manage multiple orgs
+
+### Two-Tier Admin System
+- **Business Admin (`admin_type='business_admin'`)**: Practice managers with full privileges except Epic OAuth
+- **Provider Admin (`admin_type='provider'`)**: Practitioners who can authenticate via Epic Hyperspace
+- Incremental username generation supports same email across organizations (e.g., mitchfusillo, mitchfusillo2)
+
+### Appointment Window Prioritization
+- `appointment_based_prioritization` setting on Organization enables priority filtering
+- `prioritization_window_days` (default 14) defines the look-ahead window
+- Screening list shows tabs: Priority (upcoming appointments), Dormant (outside window), All
+- `last_processed` and `is_dormant` fields on Screening model track processing state
+- Manual patient reprocessing via `/patient/<id>/reprocess` bypasses window filter
 
 ### Immunization-Based Screening
 - ScreeningTypes with "immunization", "vaccine", or "vaccination" in name trigger FHIR Immunization queries

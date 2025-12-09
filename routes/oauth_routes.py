@@ -416,8 +416,16 @@ def epic_authorize():
     """
     Start Epic OAuth2 authorization flow
     Redirects user to Epic's authorization endpoint
+    
+    IMPORTANT: Only Provider admins can perform Epic OAuth - they must authenticate
+    via Epic Hyperspace. Business Admins cannot do Epic OAuth.
     """
     try:
+        # Check if user is a provider admin (only providers can do Epic OAuth)
+        if not current_user.can_do_epic_oauth():
+            flash('Only Provider admins can connect to Epic. Business Admins cannot authenticate to Epic Hyperspace. Please have a Provider admin complete this step.', 'error')
+            return redirect(url_for('admin.dashboard'))
+        
         # SECURITY DEBUG: Track user and organization context
         logger.info(f"=== EPIC OAUTH AUTHORIZE DEBUG ===")
         logger.info(f"Current user ID: {current_user.id}")
@@ -542,9 +550,17 @@ def provider_epic_authorize(provider_id):
     The authenticated user authorizing must be the provider themselves 
     (practitioner must do their own OAuth).
     
+    IMPORTANT: Only Provider admins can perform Epic OAuth - they must authenticate
+    via Epic Hyperspace. Business Admins cannot do Epic OAuth.
+    
     This stores tokens on the Provider model and extracts fhirUser claim.
     """
     try:
+        # Check if user is a provider admin (only providers can do Epic OAuth)
+        if not current_user.can_do_epic_oauth():
+            flash('Only Provider admins can connect to Epic. Business Admins cannot authenticate to Epic Hyperspace. Please have the Provider complete this step.', 'error')
+            return redirect(url_for('admin_dashboard.provider_management'))
+        
         provider = Provider.query.filter_by(id=provider_id, org_id=current_user.org_id).first()
         if not provider:
             flash('Provider not found.', 'error')

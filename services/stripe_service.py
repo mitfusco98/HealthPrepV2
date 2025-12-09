@@ -20,8 +20,8 @@ class StripeService:
     """Service for managing Stripe subscriptions with per-provider (per-seat) billing"""
     
     # Subscription product configuration - per-provider pricing
-    SUBSCRIPTION_PRICE = 10000  # $100.00 in cents PER PROVIDER PER MONTH
-    PER_SEAT_PRICE = 10000  # $100.00 per provider seat per month
+    SUBSCRIPTION_PRICE = 30000  # $300.00 in cents PER PROVIDER PER MONTH
+    PER_SEAT_PRICE = 30000  # $300.00 per provider seat per month
     TRIAL_DAYS = 0  # Trial days deprecated - approval triggers immediate payment
     PRODUCT_NAME = "HealthPrep Provider Subscription"
     
