@@ -16,8 +16,9 @@ import difflib
 import re
 from werkzeug.utils import secure_filename
 
-from models import User, AdminLog, PHIFilterSettings, log_admin_event, Document, ScreeningPreset, ScreeningType
+from models import User, AdminLog, PHIFilterSettings, log_admin_event, Document, ScreeningPreset, ScreeningType, Provider, UserProviderAssignment, Organization
 from app import db
+from services.stripe_service import StripeService
 from flask import request as flask_request
 from admin.analytics import HealthPrepAnalytics
 from admin.config import AdminConfig
@@ -2338,4 +2339,330 @@ def restore_document_match():
         db.session.rollback()
         logger.error(f"Error restoring match: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================
+# Provider Management Routes
+# ============================================
+
+@admin_bp.route('/providers')
+@login_required
+@admin_required
+def provider_list():
+    """List all providers for the organization"""
+    try:
+        providers = Provider.query.filter_by(
+            org_id=current_user.org_id
+        ).order_by(Provider.name).all()
+        
+        provider_stats = []
+        for provider in providers:
+            patient_count = provider.patients.count() if hasattr(provider, 'patients') else 0
+            assignment_count = UserProviderAssignment.query.filter_by(provider_id=provider.id).count()
+            
+            provider_stats.append({
+                'provider': provider,
+                'patient_count': patient_count,
+                'user_count': assignment_count,
+                'is_epic_connected': provider.is_epic_connected,
+                'last_sync': provider.last_epic_sync
+            })
+        
+        return render_template('admin/providers/list.html',
+                             providers=provider_stats,
+                             total_providers=len(providers))
+    except Exception as e:
+        logger.error(f"Error loading providers: {str(e)}")
+        flash('Error loading providers', 'error')
+        return redirect(url_for('admin.dashboard'))
+
+
+@admin_bp.route('/providers/add', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def add_provider():
+    """Add a new provider to the organization"""
+    if request.method == 'POST':
+        try:
+            name = request.form.get('name', '').strip()
+            specialty = request.form.get('specialty', '').strip()
+            npi = request.form.get('npi', '').strip()
+            
+            if not name:
+                flash('Provider name is required', 'error')
+                return redirect(url_for('admin.add_provider'))
+            
+            existing = Provider.query.filter_by(
+                name=name,
+                org_id=current_user.org_id
+            ).first()
+            
+            if existing:
+                flash('A provider with this name already exists', 'error')
+                return redirect(url_for('admin.add_provider'))
+            
+            provider = Provider(
+                name=name,
+                specialty=specialty,
+                npi=npi or None,
+                org_id=current_user.org_id,
+                is_active=True,
+                created_by=current_user.id
+            )
+            
+            db.session.add(provider)
+            db.session.commit()
+            
+            org = Organization.query.get(current_user.org_id)
+            if org and org.stripe_subscription_id:
+                StripeService.on_provider_added(org, provider)
+            
+            log_admin_event(
+                current_user.id,
+                'PROVIDER_CREATED',
+                f'Created provider: {name}',
+                resource_type='provider',
+                resource_id=provider.id,
+                org_id=current_user.org_id
+            )
+            
+            flash(f'Provider "{name}" added successfully', 'success')
+            return redirect(url_for('admin.provider_list'))
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error adding provider: {str(e)}")
+            flash('Error adding provider', 'error')
+            return redirect(url_for('admin.add_provider'))
+    
+    specialties = [
+        'Primary Care', 'Family Medicine', 'Internal Medicine',
+        'Cardiology', 'Dermatology', 'Endocrinology',
+        'Gastroenterology', 'Neurology', 'Oncology',
+        'Orthopedics', 'Pediatrics', 'Psychiatry',
+        'Pulmonology', 'Rheumatology', 'Urology'
+    ]
+    
+    return render_template('admin/providers/add.html', specialties=specialties)
+
+
+@admin_bp.route('/providers/<int:provider_id>')
+@login_required
+@admin_required
+def provider_detail(provider_id):
+    """View provider details and settings"""
+    try:
+        provider = Provider.query.filter_by(
+            id=provider_id,
+            org_id=current_user.org_id
+        ).first_or_404()
+        
+        assignments = UserProviderAssignment.query.filter_by(
+            provider_id=provider_id
+        ).all()
+        
+        assigned_users = [a.user for a in assignments]
+        
+        available_users = User.query.filter_by(
+            org_id=current_user.org_id,
+            is_active_user=True
+        ).filter(
+            ~User.id.in_([u.id for u in assigned_users])
+        ).all()
+        
+        return render_template('admin/providers/detail.html',
+                             provider=provider,
+                             assigned_users=assigned_users,
+                             available_users=available_users,
+                             assignments=assignments)
+    except Exception as e:
+        logger.error(f"Error loading provider: {str(e)}")
+        flash('Error loading provider', 'error')
+        return redirect(url_for('admin.provider_list'))
+
+
+@admin_bp.route('/providers/<int:provider_id>/edit', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_provider(provider_id):
+    """Edit provider settings"""
+    try:
+        provider = Provider.query.filter_by(
+            id=provider_id,
+            org_id=current_user.org_id
+        ).first_or_404()
+        
+        if request.method == 'POST':
+            name = request.form.get('name', '').strip()
+            specialty = request.form.get('specialty', '').strip()
+            npi = request.form.get('npi', '').strip()
+            is_active = request.form.get('is_active') == 'on'
+            
+            if not name:
+                flash('Provider name is required', 'error')
+                return redirect(url_for('admin.edit_provider', provider_id=provider_id))
+            
+            existing = Provider.query.filter_by(
+                name=name,
+                org_id=current_user.org_id
+            ).filter(Provider.id != provider_id).first()
+            
+            if existing:
+                flash('A provider with this name already exists', 'error')
+                return redirect(url_for('admin.edit_provider', provider_id=provider_id))
+            
+            was_active = provider.is_active
+            provider.name = name
+            provider.specialty = specialty
+            provider.npi = npi or None
+            provider.is_active = is_active
+            
+            db.session.commit()
+            
+            if was_active != is_active:
+                org = Organization.query.get(current_user.org_id)
+                if org and org.stripe_subscription_id:
+                    if is_active:
+                        StripeService.on_provider_added(org, provider)
+                    else:
+                        StripeService.on_provider_removed(org, provider)
+            
+            log_admin_event(
+                current_user.id,
+                'PROVIDER_UPDATED',
+                f'Updated provider: {name}',
+                resource_type='provider',
+                resource_id=provider.id,
+                org_id=current_user.org_id
+            )
+            
+            flash('Provider updated successfully', 'success')
+            return redirect(url_for('admin.provider_detail', provider_id=provider_id))
+            
+        specialties = [
+            'Primary Care', 'Family Medicine', 'Internal Medicine',
+            'Cardiology', 'Dermatology', 'Endocrinology',
+            'Gastroenterology', 'Neurology', 'Oncology',
+            'Orthopedics', 'Pediatrics', 'Psychiatry',
+            'Pulmonology', 'Rheumatology', 'Urology'
+        ]
+        
+        return render_template('admin/providers/edit.html',
+                             provider=provider,
+                             specialties=specialties)
+    except Exception as e:
+        logger.error(f"Error editing provider: {str(e)}")
+        flash('Error editing provider', 'error')
+        return redirect(url_for('admin.provider_list'))
+
+
+@admin_bp.route('/providers/<int:provider_id>/assign-user', methods=['POST'])
+@login_required
+@admin_required
+def assign_user_to_provider(provider_id):
+    """Assign a user to a provider"""
+    try:
+        provider = Provider.query.filter_by(
+            id=provider_id,
+            org_id=current_user.org_id
+        ).first_or_404()
+        
+        user_id = request.form.get('user_id', type=int)
+        if not user_id:
+            flash('User is required', 'error')
+            return redirect(url_for('admin.provider_detail', provider_id=provider_id))
+        
+        user = User.query.filter_by(
+            id=user_id,
+            org_id=current_user.org_id
+        ).first()
+        
+        if not user:
+            flash('User not found', 'error')
+            return redirect(url_for('admin.provider_detail', provider_id=provider_id))
+        
+        existing = UserProviderAssignment.query.filter_by(
+            user_id=user_id,
+            provider_id=provider_id
+        ).first()
+        
+        if existing:
+            flash('User is already assigned to this provider', 'warning')
+            return redirect(url_for('admin.provider_detail', provider_id=provider_id))
+        
+        assignment = UserProviderAssignment(
+            user_id=user_id,
+            provider_id=provider_id,
+            org_id=current_user.org_id,
+            assigned_by=current_user.id,
+            can_view_patients=True,
+            can_edit_screenings=True,
+            can_generate_prep_sheets=True,
+            can_sync_epic=False
+        )
+        
+        db.session.add(assignment)
+        db.session.commit()
+        
+        log_admin_event(
+            current_user.id,
+            'USER_ASSIGNED_TO_PROVIDER',
+            f'Assigned {user.username} to provider {provider.name}',
+            resource_type='user_provider_assignment',
+            resource_id=assignment.id,
+            org_id=current_user.org_id
+        )
+        
+        flash(f'{user.username} assigned to {provider.name}', 'success')
+        return redirect(url_for('admin.provider_detail', provider_id=provider_id))
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error assigning user to provider: {str(e)}")
+        flash('Error assigning user to provider', 'error')
+        return redirect(url_for('admin.provider_detail', provider_id=provider_id))
+
+
+@admin_bp.route('/providers/<int:provider_id>/remove-user/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
+def remove_user_from_provider(provider_id, user_id):
+    """Remove a user from a provider"""
+    try:
+        provider = Provider.query.filter_by(
+            id=provider_id,
+            org_id=current_user.org_id
+        ).first_or_404()
+        
+        assignment = UserProviderAssignment.query.filter_by(
+            user_id=user_id,
+            provider_id=provider_id
+        ).first()
+        
+        if not assignment:
+            flash('Assignment not found', 'error')
+            return redirect(url_for('admin.provider_detail', provider_id=provider_id))
+        
+        user = User.query.get(user_id)
+        username = user.username if user else 'Unknown'
+        
+        db.session.delete(assignment)
+        db.session.commit()
+        
+        log_admin_event(
+            current_user.id,
+            'USER_REMOVED_FROM_PROVIDER',
+            f'Removed {username} from provider {provider.name}',
+            resource_type='user_provider_assignment',
+            org_id=current_user.org_id
+        )
+        
+        flash(f'{username} removed from {provider.name}', 'success')
+        return redirect(url_for('admin.provider_detail', provider_id=provider_id))
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error removing user from provider: {str(e)}")
+        flash('Error removing user from provider', 'error')
+        return redirect(url_for('admin.provider_detail', provider_id=provider_id))
 

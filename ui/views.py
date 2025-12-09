@@ -7,10 +7,14 @@ Handles user-facing screens including screening lists, prep sheets, and patient 
 import logging
 from flask import render_template, request, redirect, url_for, flash, jsonify, abort
 from flask_login import login_required, current_user
-from datetime import datetime, date
-from models import Patient, Screening, ScreeningType, Document, PatientCondition
+from datetime import datetime, date, timedelta
+from models import Patient, Screening, ScreeningType, Document, PatientCondition, Appointment
 from core.engine import ScreeningEngine
 from prep_sheet.generator import PrepSheetGenerator
+from services.provider_scope import (
+    get_provider_patients, get_provider_screenings, get_active_provider,
+    get_provider_appointments, get_user_providers, validate_patient_access
+)
 from app import db
 
 logger = logging.getLogger(__name__)
@@ -29,37 +33,31 @@ class UserViews:
         self.app = app
 
     def dashboard(self):
-        """Main user dashboard"""
+        """Main user dashboard - provider scoped with 2-week appointment prioritization"""
         try:
-            # Get user-specific statistics with organization filtering
-            total_patients = Patient.query.filter_by(org_id=current_user.org_id).count()
+            # Get active provider context
+            active_provider = get_active_provider(current_user)
+            user_providers = get_user_providers(current_user)
             
-            # Calculate screening statistics from actual data - using EXACT same status values as screening list
-            due_screenings = Screening.query.join(Patient).join(ScreeningType).filter(
-                Patient.org_id == current_user.org_id,
-                ScreeningType.is_active == True,
-                Screening.status == 'due'
-            ).count()
+            # Get provider-scoped patient count
+            patient_query = get_provider_patients(current_user, all_providers=False)
+            total_patients = patient_query.count()
             
-            due_soon_screenings = Screening.query.join(Patient).join(ScreeningType).filter(
-                Patient.org_id == current_user.org_id,
-                ScreeningType.is_active == True,
-                Screening.status == 'due_soon'
-            ).count()
+            # Calculate screening statistics from provider-scoped data
+            screening_base = get_provider_screenings(current_user, all_providers=False)
+            screening_base = screening_base.join(ScreeningType).filter(ScreeningType.is_active == True)
             
-            complete_screenings = Screening.query.join(Patient).join(ScreeningType).filter(
-                Patient.org_id == current_user.org_id,
-                ScreeningType.is_active == True,
-                Screening.status == 'complete'
-            ).count()
+            due_screenings = screening_base.filter(Screening.status == 'due').count()
+            due_soon_screenings = screening_base.filter(Screening.status == 'due_soon').count()
+            complete_screenings = screening_base.filter(Screening.status == 'complete').count()
             
-            # Count recent documents (from last 30 days)
-            from datetime import datetime, timedelta
+            # Count recent documents (from last 30 days) - provider scoped
             thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-            recent_documents = Document.query.join(Patient).filter(
-                Patient.org_id == current_user.org_id,
+            patient_ids = [p.id for p in patient_query.limit(1000).all()]
+            recent_documents = Document.query.filter(
+                Document.patient_id.in_(patient_ids),
                 Document.created_at >= thirty_days_ago
-            ).count() if hasattr(Document, 'created_at') else 0
+            ).count() if patient_ids and hasattr(Document, 'created_at') else 0
 
             stats = {
                 'total_patients': total_patients,
@@ -67,16 +65,36 @@ class UserViews:
                 'due_soon_screenings': due_soon_screenings,
                 'recent_documents': recent_documents,
                 'complete_screenings': complete_screenings,
-                'completed_screenings': complete_screenings  # Keep both for compatibility
+                'completed_screenings': complete_screenings
             }
 
-            # Get recent screening activity - prioritize complete and due_soon, then due
-            all_recent_screenings = Screening.query.join(Patient).join(ScreeningType).filter(
-                Patient.org_id == current_user.org_id,
-                ScreeningType.is_active == True
-            ).order_by(Screening.updated_at.desc()).limit(50).all()
+            # Get 2-week upcoming appointments for prioritization
+            two_weeks_ahead = datetime.utcnow() + timedelta(days=14)
+            appointment_query = get_provider_appointments(current_user, all_providers=False)
+            upcoming_appointments = appointment_query.filter(
+                Appointment.start_time >= datetime.utcnow(),
+                Appointment.start_time <= two_weeks_ahead
+            ).order_by(Appointment.start_time.asc()).limit(20).all()
             
-            # Define status priority (lower number = higher priority, shown at top)
+            # Get patient IDs from upcoming appointments for prioritized display
+            appointment_patient_ids = set(appt.patient_id for appt in upcoming_appointments if appt.patient_id)
+            
+            # Get screenings for patients with upcoming appointments (priority)
+            priority_screenings = []
+            if appointment_patient_ids:
+                priority_screening_query = get_provider_screenings(current_user, all_providers=False)
+                priority_screening_query = priority_screening_query.join(ScreeningType).filter(
+                    ScreeningType.is_active == True,
+                    Screening.patient_id.in_(appointment_patient_ids)
+                )
+                priority_screenings = priority_screening_query.order_by(Screening.updated_at.desc()).limit(20).all()
+            
+            # Get other recent screenings (non-priority)
+            all_recent_query = get_provider_screenings(current_user, all_providers=False)
+            all_recent_query = all_recent_query.join(ScreeningType).filter(ScreeningType.is_active == True)
+            all_recent_screenings = all_recent_query.order_by(Screening.updated_at.desc()).limit(50).all()
+            
+            # Combine and deduplicate: priority patients first, then by status
             status_priority = {
                 'complete': 0,
                 'due_soon': 1,
@@ -84,22 +102,35 @@ class UserViews:
                 'overdue': 3
             }
             
-            # Sort by status priority first, then by updated date
-            recent_screenings = sorted(all_recent_screenings, 
-                                     key=lambda s: (
-                                         status_priority.get(s.status, 99),
-                                         -(s.updated_at.timestamp() if s.updated_at else 0)
-                                     ))[:10]
+            seen_ids = set()
+            recent_screenings = []
+            
+            # Add priority screenings first (patients with appointments in 2 weeks)
+            for s in sorted(priority_screenings, key=lambda x: (status_priority.get(x.status, 99), -(x.updated_at.timestamp() if x.updated_at else 0))):
+                if s.id not in seen_ids:
+                    s.is_priority = True  # Mark as priority for template display
+                    recent_screenings.append(s)
+                    seen_ids.add(s.id)
+            
+            # Then add remaining screenings
+            for s in sorted(all_recent_screenings, key=lambda x: (status_priority.get(x.status, 99), -(x.updated_at.timestamp() if x.updated_at else 0))):
+                if s.id not in seen_ids and len(recent_screenings) < 10:
+                    s.is_priority = False
+                    recent_screenings.append(s)
+                    seen_ids.add(s.id)
 
             return render_template('dashboard.html',
                                  stats=stats,
                                  user_stats=stats,
                                  recent_activity=[],
-                                 recent_screenings=recent_screenings)
+                                 recent_screenings=recent_screenings,
+                                 upcoming_appointments=upcoming_appointments,
+                                 active_provider=active_provider,
+                                 user_providers=user_providers,
+                                 has_multiple_providers=len(user_providers) > 1)
 
         except Exception as e:
             logger.error(f"Error in dashboard view: {str(e)}")
-            # Provide default empty stats for template
             default_stats = {
                 'total_patients': 0,
                 'due_screenings': 0,
@@ -112,21 +143,27 @@ class UserViews:
                                  stats=default_stats,
                                  user_stats=default_stats,
                                  recent_activity=[],
-                                 recent_screenings=[])
+                                 recent_screenings=[],
+                                 upcoming_appointments=[],
+                                 active_provider=None,
+                                 user_providers=[],
+                                 has_multiple_providers=False)
 
     def screening_list(self):
-        """Screening list view with filtering"""
+        """Screening list view with filtering - provider scoped"""
         try:
             screen_type = request.args.get('type', 'list')
             patient_filter = request.args.get('patient', '')
             status_filter = request.args.get('status', '')
             screening_type_filter = request.args.get('screening_type', '')
+            
+            # Get active provider context
+            active_provider = get_active_provider(current_user)
+            user_providers = get_user_providers(current_user)
 
-            # Build query based on filters - include organization and active screening type filtering
-            query = Screening.query.join(Patient).join(ScreeningType).filter(
-                Patient.org_id == current_user.org_id,
-                ScreeningType.is_active == True
-            )
+            # Build provider-scoped query
+            query = get_provider_screenings(current_user, all_providers=False)
+            query = query.join(Patient).join(ScreeningType).filter(ScreeningType.is_active == True)
 
             if patient_filter:
                 query = query.filter(
@@ -142,10 +179,8 @@ class UserViews:
             if screening_type_filter:
                 query = query.filter(ScreeningType.name.ilike(f'%{screening_type_filter}%'))
 
-            # Get all screenings and sort by priority: complete and due_soon first, then due, then others
             all_screenings = query.all()
             
-            # Define status priority (lower number = higher priority, shown at top)
             status_priority = {
                 'complete': 0,
                 'due_soon': 1,
@@ -153,20 +188,17 @@ class UserViews:
                 'overdue': 3
             }
             
-            # Sort by status priority first, then by updated date (most recent first)
             screenings = sorted(all_screenings, 
                               key=lambda s: (
                                   status_priority.get(s.status, 99),
                                   -(s.updated_at.timestamp() if s.updated_at else 0)
                               ))
 
-            # Get additional data for the view - only active screening types in user's org
             screening_types = ScreeningType.query.filter_by(
                 org_id=current_user.org_id, 
                 is_active=True
             ).all()
             
-            # Create screening type groups for the filter dropdown
             screening_type_groups = []
             for st in screening_types:
                 screening_type_groups.append({
@@ -186,7 +218,10 @@ class UserViews:
                                      'status': status_filter,
                                      'screening_type': screening_type_filter
                                  },
-                                 screen_type=screen_type)
+                                 screen_type=screen_type,
+                                 active_provider=active_provider,
+                                 user_providers=user_providers,
+                                 has_multiple_providers=len(user_providers) > 1)
 
         except Exception as e:
             logger.error(f"Error in screening list view: {str(e)}")
@@ -196,7 +231,10 @@ class UserViews:
                                  screening_types=[],
                                  status_options=[],
                                  current_filters={},
-                                 screen_type='list')
+                                 screen_type='list',
+                                 active_provider=None,
+                                 user_providers=[],
+                                 has_multiple_providers=False)
 
     def screening_types(self):
         """Screening types management view"""

@@ -13,6 +13,7 @@ from ocr.processor import OCRProcessor
 from ocr.monitor import OCRMonitor
 from ocr.phi_filter import PHIFilter
 from app import db
+from services.provider_scope import get_provider_patients, validate_patient_access, get_active_provider
 
 logger = logging.getLogger(__name__)
 
@@ -22,18 +23,21 @@ ocr_bp = Blueprint('ocr', __name__)
 @login_required
 @subscription_required
 def upload_document():
-    """Upload and process document through OCR"""
+    """Upload and process document through OCR - with provider access validation"""
     try:
         if request.method == 'GET':
-            # Show upload form
             patient_id = request.args.get('patient_id', type=int)
             patient = Patient.query.get(patient_id) if patient_id else None
-            patients = Patient.query.order_by(Patient.last_name, Patient.first_name).all()
+            if patient and not validate_patient_access(current_user, patient):
+                flash('You do not have access to this patient.', 'error')
+                return redirect(url_for('main.patients'))
+            
+            patients_query = get_provider_patients(current_user, all_providers=False)
+            patients = patients_query.order_by(Patient.last_name, Patient.first_name).all()
 
             return render_template('ocr/upload.html', 
                                  patient=patient, patients=patients)
 
-        # Handle POST request
         patient_id = request.form.get('patient_id', type=int)
         document_type = request.form.get('document_type')
         document_date = request.form.get('document_date')
@@ -43,6 +47,10 @@ def upload_document():
             return redirect(url_for('ocr.upload_document'))
 
         patient = Patient.query.get_or_404(patient_id)
+        
+        if not validate_patient_access(current_user, patient):
+            flash('You do not have access to this patient.', 'error')
+            return redirect(url_for('main.patients'))
 
         # Handle file upload
         if 'document_file' not in request.files:
@@ -83,11 +91,15 @@ def upload_document():
 @login_required
 @subscription_required
 def view_document(document_id):
-    """View document with OCR results"""
+    """View document with OCR results - with provider access validation"""
     try:
         document = Document.query.get_or_404(document_id)
+        patient = Patient.query.get(document.patient_id)
+        
+        if not patient or not validate_patient_access(current_user, patient):
+            flash('You do not have access to this document.', 'error')
+            return redirect(url_for('main.patients'))
 
-        # Apply PHI filtering if enabled
         phi_filter = PHIFilter()
         if phi_filter.settings and phi_filter.settings.enabled:
             filtered_result = phi_filter.filter_text(document.ocr_text or '')
@@ -100,7 +112,8 @@ def view_document(document_id):
         return render_template('ocr/document_view.html',
                              document=document,
                              display_text=display_text,
-                             phi_filtered=phi_filtered)
+                             phi_filtered=phi_filtered,
+                             active_provider=get_active_provider(current_user))
 
     except Exception as e:
         logger.error(f"Error viewing document: {str(e)}")
@@ -110,9 +123,14 @@ def view_document(document_id):
 @ocr_bp.route('/document/<int:document_id>/download')
 @login_required
 def download_document(document_id):
-    """Download original document file"""
+    """Download original document file - with provider access validation"""
     try:
         document = Document.query.get_or_404(document_id)
+        patient = Patient.query.get(document.patient_id)
+        
+        if not patient or not validate_patient_access(current_user, patient):
+            flash('You do not have access to this document.', 'error')
+            return redirect(url_for('main.patients'))
 
         if document.file_path and os.path.exists(document.file_path):
             return send_file(document.file_path, 
@@ -174,13 +192,17 @@ def low_confidence_documents():
 @ocr_bp.route('/api/process-document', methods=['POST'])
 @login_required
 def api_process_document():
-    """API endpoint to process a document through OCR"""
+    """API endpoint to process a document through OCR - with provider access validation"""
     try:
         document_id = request.json.get('document_id')
         if not document_id:
             return jsonify({'success': False, 'error': 'Document ID required'})
 
         document = Document.query.get_or_404(document_id)
+        patient = Patient.query.get(document.patient_id)
+        
+        if not patient or not validate_patient_access(current_user, patient):
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
 
         if not document.file_path or not os.path.exists(document.file_path):
             return jsonify({'success': False, 'error': 'Document file not found'})
@@ -218,13 +240,17 @@ def api_process_document():
 @ocr_bp.route('/api/validate-document', methods=['POST'])
 @login_required
 def api_validate_document():
-    """API endpoint to validate document before processing"""
+    """API endpoint to validate document before processing - with provider access validation"""
     try:
         document_id = request.json.get('document_id')
         if not document_id:
             return jsonify({'success': False, 'error': 'Document ID required'})
 
         document = Document.query.get_or_404(document_id)
+        patient = Patient.query.get(document.patient_id)
+        
+        if not patient or not validate_patient_access(current_user, patient):
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
 
         if not document.file_path:
             return jsonify({'success': False, 'error': 'No file path associated with document'})

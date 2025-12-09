@@ -1,7 +1,7 @@
 """
 Apply the changes described in the prompt, fixing the dashboard route and addressing error handling.
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, g
 from flask_login import login_required, current_user
 from datetime import datetime
 import logging
@@ -10,10 +10,22 @@ from models import Patient, Screening, Document, ScreeningType
 from core.engine import ScreeningEngine
 from prep_sheet.generator import PrepSheetGenerator
 from forms import LoginForm
+from services.provider_scope import (
+    get_provider_patients, get_provider_screenings, get_active_provider,
+    validate_patient_access, inject_provider_context, apply_provider_scope,
+    set_active_provider, get_user_providers
+)
 
 logger = logging.getLogger(__name__)
 
 main_bp = Blueprint('main', __name__)
+
+
+@main_bp.before_request
+def before_request():
+    """Inject provider context before each request"""
+    if current_user.is_authenticated:
+        inject_provider_context()
 
 @main_bp.route('/')
 def index():
@@ -40,18 +52,18 @@ def dashboard():
 @main_bp.route('/screening-list')
 @login_required
 def screening_list():
-    """Screening list page"""
+    """Screening list page - provider scoped"""
     try:
         page = request.args.get('page', 1, type=int)
         search = request.args.get('search', '')
-
-        query = Screening.query.join(Patient).join(ScreeningType)
+        
+        query = get_provider_screenings(current_user, all_providers=False)
+        query = query.join(Patient).join(ScreeningType)
 
         if search:
             query = query.filter(
-                Patient.first_name.contains(search) |
-                Patient.last_name.contains(search) |
-                ScreeningType.name.contains(search)
+                Patient.name.ilike(f'%{search}%') |
+                ScreeningType.name.ilike(f'%{search}%')
             )
 
         screenings = query.order_by(
@@ -59,9 +71,13 @@ def screening_list():
         ).paginate(
             page=page, per_page=20, error_out=False
         )
+        
+        active_provider = get_active_provider(current_user)
 
         return render_template('screening/screening_list.html', 
-                             screenings=screenings, search=search)
+                             screenings=screenings, 
+                             search=search,
+                             active_provider=active_provider)
 
     except Exception as e:
         logger.error(f"Error in screening list route: {str(e)}")
@@ -71,28 +87,31 @@ def screening_list():
 @main_bp.route('/patients')
 @login_required
 def patients():
-    """Patient list page"""
+    """Patient list page - provider scoped"""
     try:
         page = request.args.get('page', 1, type=int)
         search = request.args.get('search', '')
 
-        query = Patient.query
+        query = get_provider_patients(current_user, all_providers=False)
 
         if search:
             query = query.filter(
-                Patient.first_name.contains(search) |
-                Patient.last_name.contains(search) |
-                Patient.mrn.contains(search)
+                Patient.name.ilike(f'%{search}%') |
+                Patient.mrn.ilike(f'%{search}%')
             )
 
-        patients = query.order_by(
-            Patient.first_name, Patient.last_name
+        patients_paginated = query.order_by(
+            Patient.name
         ).paginate(
             page=page, per_page=20, error_out=False
         )
+        
+        active_provider = get_active_provider(current_user)
 
         return render_template('patients/list.html', 
-                             patients=patients, search=search)
+                             patients=patients_paginated, 
+                             search=search,
+                             active_provider=active_provider)
 
     except Exception as e:
         logger.error(f"Error in patients route: {str(e)}")
@@ -102,24 +121,29 @@ def patients():
 @main_bp.route('/patient/<int:patient_id>')
 @login_required
 def patient_detail(patient_id):
-    """Patient detail page"""
+    """Patient detail page - with provider access validation"""
     try:
         patient = Patient.query.get_or_404(patient_id)
+        
+        if not validate_patient_access(current_user, patient):
+            flash('You do not have access to this patient.', 'error')
+            return redirect(url_for('main.patients'))
 
-        # Get patient screenings
         screenings = Screening.query.filter_by(
             patient_id=patient_id
         ).join(ScreeningType).filter_by(is_active=True).all()
 
-        # Get recent documents
         recent_docs = Document.query.filter_by(
             patient_id=patient_id
         ).order_by(Document.created_at.desc()).limit(10).all()
+        
+        active_provider = get_active_provider(current_user)
 
         return render_template('patients/detail.html',
                              patient=patient,
                              screenings=screenings,
-                             recent_documents=recent_docs)
+                             recent_documents=recent_docs,
+                             active_provider=active_provider)
 
     except Exception as e:
         logger.error(f"Error in patient detail route: {str(e)}")
@@ -129,9 +153,13 @@ def patient_detail(patient_id):
 @main_bp.route('/patient/<int:patient_id>/prep-sheet')
 @login_required
 def generate_prep_sheet(patient_id):
-    """Generate prep sheet for a patient"""
+    """Generate prep sheet for a patient - with provider access validation"""
     try:
         patient = Patient.query.get_or_404(patient_id)
+        
+        if not validate_patient_access(current_user, patient):
+            flash('You do not have access to this patient.', 'error')
+            return redirect(url_for('main.patients'))
 
         generator = PrepSheetGenerator()
         result = generator.generate_prep_sheet(patient_id)
@@ -146,6 +174,23 @@ def generate_prep_sheet(patient_id):
         logger.error(f"Error generating prep sheet: {str(e)}")
         flash('Error generating prep sheet', 'error')
         return redirect(url_for('main.patient_detail', patient_id=patient_id))
+
+
+@main_bp.route('/switch-provider/<int:provider_id>')
+@login_required
+def switch_provider(provider_id):
+    """Switch the active provider context for the current session"""
+    from services.provider_scope import set_active_provider
+    from models import Provider
+    
+    if set_active_provider(current_user, provider_id):
+        provider = Provider.query.get(provider_id)
+        if provider:
+            flash(f'Switched to {provider.name}', 'success')
+    else:
+        flash('Unable to switch to that provider.', 'error')
+    
+    return redirect(request.referrer or url_for('main.dashboard'))
 
 @main_bp.route('/refresh-screenings', methods=['POST'])
 @login_required

@@ -15,6 +15,9 @@ from ocr.processor import OCRProcessor
 from ocr.phi_filter import PHIFilter
 from forms import DocumentUploadForm
 from app import db
+from services.provider_scope import (
+    get_provider_patients, validate_patient_access, get_active_provider
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +45,8 @@ def upload_document():
     """Document upload page"""
     form = DocumentUploadForm()
 
-    # Populate patient choices
-    patients = Patient.query.order_by(Patient.last_name, Patient.first_name).all()
+    patients_query = get_provider_patients(current_user, all_providers=False)
+    patients = patients_query.order_by(Patient.last_name, Patient.first_name).all()
     form.patient_id.choices = [(p.id, f"{p.last_name}, {p.first_name} ({p.mrn})") for p in patients]
 
     if form.validate_on_submit():
@@ -71,10 +74,9 @@ def upload_document():
                 # Get file size
                 file_size = os.path.getsize(file_path)
 
-                # Get patient's organization for multi-tenancy
                 patient = Patient.query.get(patient_id)
-                if not patient:
-                    flash('Invalid patient selected.', 'error')
+                if not patient or not validate_patient_access(current_user, patient):
+                    flash('Invalid patient selected or access denied.', 'error')
                     return render_template('documents/document_upload.html', form=form, patients=patients)
 
                 # Create document record
@@ -152,11 +154,14 @@ def upload_document():
 @login_required
 @subscription_required
 def document_list(patient_id):
-    """List documents for a specific patient"""
+    """List documents for a specific patient - with provider access validation"""
     try:
         patient = Patient.query.get_or_404(patient_id)
+        
+        if not validate_patient_access(current_user, patient):
+            flash('You do not have access to this patient.', 'error')
+            return redirect(url_for('main.patients'))
 
-        # Get documents for this patient
         documents = Document.query.filter_by(patient_id=patient_id).order_by(
             Document.document_date.desc(),
             Document.upload_date.desc()
@@ -164,7 +169,8 @@ def document_list(patient_id):
 
         return render_template('documents/document_list.html',
                              patient=patient,
-                             documents=documents)
+                             documents=documents,
+                             active_provider=get_active_provider(current_user))
 
     except Exception as e:
         logger.error(f"Error loading document list for patient {patient_id}: {str(e)}")
@@ -175,18 +181,22 @@ def document_list(patient_id):
 @login_required
 @subscription_required
 def view_document(document_id):
-    """View document details and OCR text"""
+    """View document details and OCR text - with provider access validation"""
     try:
         document = Document.query.get_or_404(document_id)
         patient = Patient.query.get(document.patient_id)
+        
+        if not patient or not validate_patient_access(current_user, patient):
+            flash('You do not have access to this document.', 'error')
+            return redirect(url_for('main.patients'))
 
-        # Check if file exists
         file_exists = document.file_path and os.path.exists(document.file_path)
 
         return render_template('documents/document_view.html',
                              document=document,
                              patient=patient,
-                             file_exists=file_exists)
+                             file_exists=file_exists,
+                             active_provider=get_active_provider(current_user))
 
     except Exception as e:
         logger.error(f"Error viewing document {document_id}: {str(e)}")
@@ -196,9 +206,14 @@ def view_document(document_id):
 @document_bp.route('/download/<int:document_id>')
 @login_required
 def download_document(document_id):
-    """Download original document file"""
+    """Download original document file - with provider access validation"""
     try:
         document = Document.query.get_or_404(document_id)
+        patient = Patient.query.get(document.patient_id)
+        
+        if not patient or not validate_patient_access(current_user, patient):
+            flash('You do not have access to this document.', 'error')
+            return redirect(url_for('main.patients'))
 
         if not document.file_path or not os.path.exists(document.file_path):
             flash('Document file not found.', 'error')
@@ -226,9 +241,15 @@ def download_document(document_id):
 @document_bp.route('/delete/<int:document_id>', methods=['POST'])
 @login_required
 def delete_document(document_id):
-    """Delete document"""
+    """Delete document - with provider access validation"""
     try:
         document = Document.query.get_or_404(document_id)
+        patient = Patient.query.get(document.patient_id)
+        
+        if not patient or not validate_patient_access(current_user, patient):
+            flash('You do not have access to this document.', 'error')
+            return redirect(url_for('main.patients'))
+        
         patient_id = document.patient_id
         filename = document.filename
         file_path = document.file_path

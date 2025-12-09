@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict
 import stripe
 
-from models import Organization, db
+from models import Organization, Provider, db
 
 logger = logging.getLogger(__name__)
 
@@ -17,12 +17,105 @@ stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
 
 
 class StripeService:
-    """Service for managing Stripe subscriptions"""
+    """Service for managing Stripe subscriptions with per-provider (per-seat) billing"""
     
-    # Subscription product configuration
-    SUBSCRIPTION_PRICE = 10000  # $100.00 in cents
+    # Subscription product configuration - per-provider pricing
+    SUBSCRIPTION_PRICE = 10000  # $100.00 in cents PER PROVIDER PER MONTH
+    PER_SEAT_PRICE = 10000  # $100.00 per provider seat per month
     TRIAL_DAYS = 0  # Trial days deprecated - approval triggers immediate payment
-    PRODUCT_NAME = "HealthPrep Subscription"
+    PRODUCT_NAME = "HealthPrep Provider Subscription"
+    
+    @staticmethod
+    def get_provider_count(organization: Organization) -> int:
+        """
+        Get the count of active providers for billing purposes.
+        
+        Args:
+            organization: Organization model instance
+            
+        Returns:
+            Count of active providers (minimum 1 for billing)
+        """
+        count = Provider.query.filter_by(
+            org_id=organization.id,
+            is_active=True
+        ).count()
+        
+        # Minimum 1 provider for billing (base subscription)
+        return max(count, 1)
+    
+    @staticmethod
+    def update_subscription_quantity(organization: Organization) -> bool:
+        """
+        Update the subscription quantity based on current active provider count.
+        
+        Called when providers are added or removed from an organization.
+        
+        Args:
+            organization: Organization model instance
+            
+        Returns:
+            True if quantity updated successfully, False otherwise
+        """
+        try:
+            if not organization.stripe_subscription_id:
+                logger.warning(f"Cannot update quantity for org {organization.id} - no subscription")
+                return False
+            
+            # Get current provider count
+            provider_count = StripeService.get_provider_count(organization)
+            
+            # Retrieve subscription to get subscription item ID
+            subscription = stripe.Subscription.retrieve(organization.stripe_subscription_id)
+            
+            if not subscription.get('items', {}).get('data'):
+                logger.error(f"Subscription {organization.stripe_subscription_id} has no items")
+                return False
+            
+            # Update quantity on the subscription item
+            subscription_item_id = subscription['items']['data'][0]['id']
+            
+            stripe.SubscriptionItem.modify(
+                subscription_item_id,
+                quantity=provider_count
+            )
+            
+            logger.info(f"Updated subscription quantity to {provider_count} for org {organization.id}")
+            return True
+            
+        except stripe.error.StripeError as e:
+            logger.error(f"Failed to update subscription quantity for org {organization.id}: {str(e)}")
+            return False
+    
+    @staticmethod
+    def on_provider_added(organization: Organization, provider: Provider) -> bool:
+        """
+        Handle billing when a provider is added to an organization.
+        
+        Args:
+            organization: Organization model instance
+            provider: Newly added Provider
+            
+        Returns:
+            True if billing updated successfully
+        """
+        logger.info(f"Provider {provider.id} added to org {organization.id}, updating billing")
+        return StripeService.update_subscription_quantity(organization)
+    
+    @staticmethod
+    def on_provider_removed(organization: Organization, provider: Provider) -> bool:
+        """
+        Handle billing when a provider is removed from an organization.
+        
+        Args:
+            organization: Organization model instance
+            provider: Removed Provider
+            
+        Returns:
+            True if billing updated successfully
+        """
+        logger.info(f"Provider {provider.id} removed from org {organization.id}, updating billing")
+        return StripeService.update_subscription_quantity(organization)
     
     @staticmethod
     def create_customer(organization: Organization, email: str) -> Optional[str]:
@@ -162,7 +255,10 @@ class StripeService:
             # Get configured price ID
             price_id = os.environ.get('STRIPE_PRICE_ID')
             
-            # Create subscription with immediate charge (no trial)
+            # Get provider count for per-seat billing
+            provider_count = StripeService.get_provider_count(organization)
+            
+            # Create subscription with immediate charge (no trial), per-provider quantity
             subscription_params = {
                 'customer': organization.stripe_customer_id,
                 'payment_behavior': 'error_if_incomplete',
@@ -170,9 +266,9 @@ class StripeService:
             }
             
             if price_id:
-                subscription_params['items'] = [{'price': price_id}]
+                subscription_params['items'] = [{'price': price_id, 'quantity': provider_count}]
             else:
-                # Fallback to ad-hoc pricing
+                # Fallback to ad-hoc pricing with per-provider quantity
                 subscription_params['items'] = [{
                     'price_data': {
                         'currency': 'usd',
@@ -182,11 +278,14 @@ class StripeService:
                         'recurring': {
                             'interval': 'month',
                         },
-                        'unit_amount': StripeService.SUBSCRIPTION_PRICE,
+                        'unit_amount': StripeService.PER_SEAT_PRICE,  # Per provider seat
                     },
+                    'quantity': provider_count
                 }]
             
             subscription = stripe.Subscription.create(**subscription_params)
+            
+            logger.info(f"Created subscription with {provider_count} provider seat(s) for org {organization.id}")
             
             # Update organization with subscription info
             organization.stripe_subscription_id = subscription.id
@@ -850,8 +949,9 @@ class StripeService:
                 db.session.commit()
                 return False
             
-            # Create subscription without trial (charge immediately)
+            # Create subscription without trial (charge immediately) with per-provider quantity
             price_id = os.environ.get('STRIPE_PRICE_ID')
+            provider_count = StripeService.get_provider_count(org)
             
             subscription_params = {
                 'customer': org.stripe_customer_id,
@@ -861,7 +961,7 @@ class StripeService:
             
             # Use configured price ID if available, otherwise use ad-hoc pricing
             if price_id:
-                subscription_params['items'] = [{'price': price_id}]
+                subscription_params['items'] = [{'price': price_id, 'quantity': provider_count}]
             else:
                 subscription_params['items'] = [{
                     'price_data': {
@@ -872,11 +972,13 @@ class StripeService:
                         'recurring': {
                             'interval': 'month',
                         },
-                        'unit_amount': StripeService.SUBSCRIPTION_PRICE,
+                        'unit_amount': StripeService.PER_SEAT_PRICE,
                     },
+                    'quantity': provider_count
                 }]
             
             subscription = stripe.Subscription.create(**subscription_params)
+            logger.info(f"Created subscription with {provider_count} provider seat(s) for org {org.id}")
             
             # Update organization
             org.stripe_subscription_id = subscription.id

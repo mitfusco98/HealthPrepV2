@@ -1,0 +1,115 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Edit {{ provider.name }} - HealthPrep Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.provider_list') }}">Providers</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.provider_detail', provider_id=provider.id) }}">{{ provider.name }}</a></li>
+                    <li class="breadcrumb-item active">Edit</li>
+                </ol>
+            </nav>
+            <h2><i class="fas fa-edit me-2"></i>Edit Provider</h2>
+            <p class="text-muted">Update provider information</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card bg-dark">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Provider Information</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin.edit_provider', provider_id=provider.id) }}">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Provider Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="name" name="name" required 
+                                   value="{{ provider.name }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="specialty" class="form-label">Specialty</label>
+                            <select class="form-select" id="specialty" name="specialty">
+                                <option value="">Select a specialty...</option>
+                                {% for spec in specialties %}
+                                <option value="{{ spec }}" {% if provider.specialty == spec %}selected{% endif %}>{{ spec }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="npi" class="form-label">NPI Number</label>
+                            <input type="text" class="form-control" id="npi" name="npi" 
+                                   pattern="[0-9]{10}" maxlength="10"
+                                   value="{{ provider.npi or '' }}">
+                            <div class="form-text">10-digit National Provider Identifier</div>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="is_active" name="is_active"
+                                       {% if provider.is_active %}checked{% endif %}>
+                                <label class="form-check-label" for="is_active">Active Provider</label>
+                            </div>
+                            <div class="form-text">
+                                Deactivating a provider will remove them from your billing but preserve their data.
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>Save Changes
+                            </button>
+                            <a href="{{ url_for('admin.provider_detail', provider_id=provider.id) }}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card bg-dark">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-hospital me-2"></i>Epic Connection</h6>
+                </div>
+                <div class="card-body">
+                    {% if provider.is_epic_connected %}
+                    <div class="text-center">
+                        <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                        <p class="mb-0">Connected to Epic</p>
+                        {% if provider.epic_practitioner_id %}
+                        <small class="text-muted">ID: {{ provider.epic_practitioner_id }}</small>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="text-center">
+                        <i class="fas fa-clock fa-2x text-warning mb-2"></i>
+                        <p class="mb-0">Pending Authorization</p>
+                        <small class="text-muted">Provider must complete OAuth</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if not provider.is_active %}
+            <div class="card bg-dark mt-3 border-warning">
+                <div class="card-body">
+                    <h6 class="text-warning"><i class="fas fa-exclamation-triangle me-2"></i>Inactive Provider</h6>
+                    <p class="text-muted small mb-0">
+                        This provider is currently inactive and not included in billing. 
+                        Their data is preserved but staff cannot access their patients.
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

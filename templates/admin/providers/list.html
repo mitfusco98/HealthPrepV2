@@ -1,0 +1,141 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Provider Management - HealthPrep Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-user-md me-2"></i>Provider Management</h2>
+                    <p class="text-muted mb-0">Manage providers and their Epic connections</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('admin.add_provider') }}" class="btn btn-success">
+                        <i class="fas fa-plus me-1"></i>Add Provider
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-dark">
+                <div class="card-body text-center">
+                    <h3 class="text-primary">{{ total_providers }}</h3>
+                    <p class="text-muted mb-0">Total Providers</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-dark">
+                <div class="card-body text-center">
+                    {% set connected = providers|selectattr('is_epic_connected')|list|length %}
+                    <h3 class="text-success">{{ connected }}</h3>
+                    <p class="text-muted mb-0">Epic Connected</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-dark">
+                <div class="card-body text-center">
+                    {% set pending = total_providers - connected %}
+                    <h3 class="text-warning">{{ pending }}</h3>
+                    <p class="text-muted mb-0">Pending Connection</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card bg-dark">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i>All Providers</h5>
+        </div>
+        <div class="card-body">
+            {% if providers %}
+            <div class="table-responsive">
+                <table class="table table-dark table-hover">
+                    <thead>
+                        <tr>
+                            <th>Provider Name</th>
+                            <th>Specialty</th>
+                            <th>NPI</th>
+                            <th>Patients</th>
+                            <th>Staff Assigned</th>
+                            <th>Epic Status</th>
+                            <th>Last Sync</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in providers %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('admin.provider_detail', provider_id=item.provider.id) }}" class="text-decoration-none">
+                                    <strong>{{ item.provider.name }}</strong>
+                                </a>
+                                {% if not item.provider.is_active %}
+                                <span class="badge bg-secondary ms-1">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ item.provider.specialty or '-' }}</td>
+                            <td><code>{{ item.provider.npi or '-' }}</code></td>
+                            <td>{{ item.patient_count }}</td>
+                            <td>{{ item.user_count }}</td>
+                            <td>
+                                {% if item.is_epic_connected %}
+                                <span class="badge bg-success"><i class="fas fa-check me-1"></i>Connected</span>
+                                {% else %}
+                                <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Pending</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.last_sync %}
+                                {{ item.last_sync.strftime('%b %d, %Y %H:%M') }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('admin.provider_detail', provider_id=item.provider.id) }}" class="btn btn-outline-primary" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{{ url_for('admin.edit_provider', provider_id=item.provider.id) }}" class="btn btn-outline-secondary" title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-user-md fa-3x text-muted mb-3"></i>
+                <h5>No Providers Yet</h5>
+                <p class="text-muted">Add your first provider to get started.</p>
+                <a href="{{ url_for('admin.add_provider') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>Add Provider
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card bg-dark mt-4">
+        <div class="card-body">
+            <h6><i class="fas fa-info-circle me-2"></i>About Provider Management</h6>
+            <ul class="mb-0 text-muted">
+                <li>Each provider represents a practitioner with their own patient roster and Epic connection</li>
+                <li>Providers must complete their own Epic OAuth authorization to access patient data</li>
+                <li>Staff members can be assigned to multiple providers for workflow flexibility</li>
+                <li>Your subscription is billed per active provider (seat-based pricing)</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

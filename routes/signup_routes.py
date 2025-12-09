@@ -8,7 +8,7 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for,
 from datetime import datetime, timedelta
 from typing import Tuple, Dict, Any
 
-from models import Organization, User, db
+from models import Organization, User, Provider, UserProviderAssignment, db
 from services.stripe_service import StripeService
 from services.email_service import EmailService
 from utils.onboarding_helpers import (
@@ -123,12 +123,38 @@ def create_signup_organization(
         db.session.add(admin_user)
         db.session.flush()
         
+        # Create a default provider for the organization
+        # This represents the first practitioner in the practice
+        default_provider = Provider(
+            name=f"Provider - {org_name}",
+            specialty=specialty,
+            org_id=org.id,
+            is_active=True
+        )
+        db.session.add(default_provider)
+        db.session.flush()
+        
+        # Create assignment linking admin to the default provider (so they can manage it)
+        admin_assignment = UserProviderAssignment(
+            user_id=admin_user.id,
+            provider_id=default_provider.id,
+            org_id=org.id,
+            is_primary=True,
+            can_view_patients=True,
+            can_edit_patients=True,
+            can_generate_prep_sheets=True,
+            can_sync_epic=True
+        )
+        db.session.add(admin_assignment)
+        
         # Generate password reset token
         reset_token = create_password_reset_token()
         admin_user.password_reset_token = reset_token
         admin_user.password_reset_expires = get_password_reset_expiry(hours=48)
         
         db.session.commit()
+        
+        logger.info(f"Created default provider {default_provider.id} for new organization {org.id}")
         
         # Create Stripe checkout session
         try:
@@ -322,10 +348,14 @@ def signup_cancel():
     try:
         org_id = session.get('signup_org_id')
         
-        # Clean up cancelled signup
+        # Clean up cancelled signup (in proper order due to FK constraints)
         if org_id:
             org = Organization.query.get(org_id)
             if org:
+                # Delete user-provider assignments first
+                UserProviderAssignment.query.filter_by(org_id=org_id).delete()
+                # Delete providers
+                Provider.query.filter_by(org_id=org_id).delete()
                 # Delete associated user
                 User.query.filter_by(org_id=org_id).delete()
                 # Delete organization

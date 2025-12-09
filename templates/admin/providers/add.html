@@ -1,0 +1,96 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Add Provider - HealthPrep Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.provider_list') }}">Providers</a></li>
+                    <li class="breadcrumb-item active">Add Provider</li>
+                </ol>
+            </nav>
+            <h2><i class="fas fa-user-md me-2"></i>Add New Provider</h2>
+            <p class="text-muted">Create a new provider for your organization</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card bg-dark">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Provider Information</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin.add_provider') }}">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Provider Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="name" name="name" required 
+                                   placeholder="Dr. Jane Smith">
+                            <div class="form-text">Full name as it should appear in the system</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="specialty" class="form-label">Specialty</label>
+                            <select class="form-select" id="specialty" name="specialty">
+                                <option value="">Select a specialty...</option>
+                                {% for spec in specialties %}
+                                <option value="{{ spec }}">{{ spec }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Medical specialty for preset recommendations</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="npi" class="form-label">NPI Number</label>
+                            <input type="text" class="form-control" id="npi" name="npi" 
+                                   pattern="[0-9]{10}" maxlength="10"
+                                   placeholder="1234567890">
+                            <div class="form-text">10-digit National Provider Identifier (optional)</div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-plus me-1"></i>Add Provider
+                            </button>
+                            <a href="{{ url_for('admin.provider_list') }}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card bg-dark">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Tips</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0 text-muted small">
+                        <li class="mb-2">Each provider needs to complete their own Epic OAuth authorization</li>
+                        <li class="mb-2">Specialty helps determine appropriate screening presets</li>
+                        <li class="mb-2">NPI is used for provider identification in FHIR data</li>
+                        <li class="mb-2">Adding a provider will increase your subscription seat count</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card bg-dark mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-dollar-sign me-2"></i>Billing Note</h6>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-0">
+                        Your organization is billed per active provider. Adding this provider will 
+                        increase your monthly subscription by one seat.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

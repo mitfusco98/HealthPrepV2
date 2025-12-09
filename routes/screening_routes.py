@@ -15,6 +15,10 @@ from core.engine import ScreeningEngine
 from models import log_admin_event
 from forms import ScreeningTypeForm
 from app import db
+from services.provider_scope import (
+    get_provider_screenings, get_active_provider, validate_patient_access,
+    get_user_providers, inject_provider_context
+)
 import json
 
 logger = logging.getLogger(__name__)
@@ -95,21 +99,17 @@ def refresh_screenings():
 @login_required
 @non_admin_required
 def screening_list():
-    """Main screening list view"""
+    """Main screening list view - provider scoped"""
     try:
-        # logger.info(f"Current user: {current_user.username if current_user.is_authenticated else 'Not authenticated'}")
-        # logger.info(f"Current user org_id: {current_user.org_id if current_user.is_authenticated else 'N/A'}")
-        # logger.info(f"Current user role: {current_user.role if current_user.is_authenticated else 'N/A'}")
         patient_filter = request.args.get('patient', '', type=str)
         status_filter = request.args.get('status', '', type=str)
         screening_type_filter = request.args.get('screening_type', '', type=str)
+        
+        active_provider = get_active_provider(current_user)
+        user_providers = get_user_providers(current_user)
 
-        # Main screening list view - FILTER BY ORGANIZATION
-        # CRITICAL: Filter by BOTH Patient.org_id AND ScreeningType.org_id for proper multi-tenancy
-        # ALSO filter out screenings with inactive screening types
-        query = Screening.query.join(Patient).join(ScreeningType).filter(
-            Patient.org_id == current_user.org_id,
-            ScreeningType.org_id == current_user.org_id,
+        query = get_provider_screenings(current_user, all_providers=False)
+        query = query.join(Patient).join(ScreeningType).filter(
             ScreeningType.is_active == True
         )
 
@@ -660,8 +660,15 @@ def delete_screening_type(type_id):
 @screening_bp.route('/api/screening-status/<int:patient_id>')
 @login_required
 def api_screening_status(patient_id):
-    """API endpoint to get screening status for a patient"""
+    """API endpoint to get screening status for a patient - with provider access validation"""
     try:
+        patient = Patient.query.get(patient_id)
+        if not patient or not validate_patient_access(current_user, patient):
+            return jsonify({
+                'success': False,
+                'error': 'Access denied'
+            }), 403
+        
         screenings = Screening.query.filter_by(
             patient_id=patient_id
         ).join(ScreeningType).filter_by(is_active=True).all()

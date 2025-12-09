@@ -1,0 +1,219 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}{{ provider.name }} - HealthPrep Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.provider_list') }}">Providers</a></li>
+                    <li class="breadcrumb-item active">{{ provider.name }}</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2>
+                        <i class="fas fa-user-md me-2"></i>{{ provider.name }}
+                        {% if not provider.is_active %}
+                        <span class="badge bg-secondary">Inactive</span>
+                        {% endif %}
+                    </h2>
+                    <p class="text-muted mb-0">
+                        {{ provider.specialty or 'No specialty specified' }}
+                        {% if provider.npi %} | NPI: {{ provider.npi }}{% endif %}
+                    </p>
+                </div>
+                <div>
+                    <a href="{{ url_for('admin.edit_provider', provider_id=provider.id) }}" class="btn btn-outline-primary">
+                        <i class="fas fa-edit me-1"></i>Edit Provider
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-dark">
+                <div class="card-body text-center">
+                    {% if provider.is_epic_connected %}
+                    <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                    <h6>Epic Connected</h6>
+                    <small class="text-muted">
+                        {% if provider.last_epic_sync %}
+                        Last sync: {{ provider.last_epic_sync.strftime('%b %d, %Y') }}
+                        {% endif %}
+                    </small>
+                    {% else %}
+                    <i class="fas fa-clock fa-2x text-warning mb-2"></i>
+                    <h6>Epic Pending</h6>
+                    <small class="text-muted">Provider must authorize</small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark">
+                <div class="card-body text-center">
+                    <h3 class="text-primary">{{ provider.patients.count() if provider.patients else 0 }}</h3>
+                    <p class="text-muted mb-0">Patients</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark">
+                <div class="card-body text-center">
+                    <h3 class="text-info">{{ assigned_users|length }}</h3>
+                    <p class="text-muted mb-0">Staff Assigned</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-dark">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Created</h6>
+                    <p class="mb-0">{{ provider.created_at.strftime('%b %d, %Y') if provider.created_at else 'N/A' }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="card bg-dark mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-users me-2"></i>Assigned Staff</h5>
+                </div>
+                <div class="card-body">
+                    {% if assigned_users %}
+                    <ul class="list-group list-group-flush">
+                        {% for user in assigned_users %}
+                        <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ user.username }}</strong>
+                                <span class="badge bg-secondary ms-1">{{ user.role }}</span>
+                                <br>
+                                <small class="text-muted">{{ user.email }}</small>
+                            </div>
+                            <form method="POST" action="{{ url_for('admin.remove_user_from_provider', provider_id=provider.id, user_id=user.id) }}" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" 
+                                        onclick="return confirm('Remove {{ user.username }} from this provider?')">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted text-center py-3 mb-0">No staff assigned yet</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card bg-dark">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-plus me-2"></i>Assign Staff Member</h5>
+                </div>
+                <div class="card-body">
+                    {% if available_users %}
+                    <form method="POST" action="{{ url_for('admin.assign_user_to_provider', provider_id=provider.id) }}">
+                        <div class="input-group">
+                            <select class="form-select" name="user_id" required>
+                                <option value="">Select a user...</option>
+                                {% for user in available_users %}
+                                <option value="{{ user.id }}">{{ user.username }} ({{ user.role }})</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-plus me-1"></i>Assign
+                            </button>
+                        </div>
+                    </form>
+                    {% else %}
+                    <p class="text-muted text-center mb-0">All users are already assigned</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card bg-dark mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-hospital me-2"></i>Epic Connection</h5>
+                </div>
+                <div class="card-body">
+                    {% if provider.is_epic_connected %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Connected to Epic</strong>
+                        <br>
+                        <small>
+                            {% if provider.epic_practitioner_id %}
+                            Practitioner ID: {{ provider.epic_practitioner_id }}
+                            {% endif %}
+                            {% if provider.epic_connection_date %}
+                            <br>Connected since: {{ provider.epic_connection_date.strftime('%b %d, %Y') }}
+                            {% endif %}
+                        </small>
+                    </div>
+                    {% if provider.last_epic_error %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Last Error:</strong><br>
+                        <small>{{ provider.last_epic_error }}</small>
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-clock me-2"></i>
+                        <strong>OAuth Authorization Required</strong>
+                        <p class="mb-0 small">
+                            This provider needs to complete Epic OAuth authorization to enable 
+                            patient data access. They can do this from their dashboard after logging in.
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card bg-dark">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Provider Details</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-dark mb-0">
+                        <tr>
+                            <td class="text-muted">Name</td>
+                            <td>{{ provider.name }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Specialty</td>
+                            <td>{{ provider.specialty or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">NPI</td>
+                            <td>{{ provider.npi or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Status</td>
+                            <td>
+                                {% if provider.is_active %}
+                                <span class="badge bg-success">Active</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Created</td>
+                            <td>{{ provider.created_at.strftime('%b %d, %Y %H:%M') if provider.created_at else '-' }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
