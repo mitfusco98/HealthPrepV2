@@ -560,6 +560,207 @@ class FHIRClient:
             self.logger.error(f"Error retrieving patient encounters: {str(e)}")
             return None
     
+    def search_appointments(self, practitioner=None, patient=None, date_from=None, date_to=None, status=None):
+        """
+        Search for appointments with optional filters.
+        
+        Supports provider-centric filtering by practitioner reference (from fhirUser claim).
+        
+        Args:
+            practitioner: Practitioner reference (e.g., "Practitioner/eOPiqtxdD35SmjVN0xkGLtg3")
+            patient: Patient reference (e.g., "Patient/abc123")
+            date_from: Start date for appointment date range (ISO format)
+            date_to: End date for appointment date range (ISO format)
+            status: Appointment status filter (e.g., "booked", "arrived", "fulfilled")
+            
+        Returns:
+            List of FHIR Appointment resources
+        """
+        if not self.access_token:
+            self.logger.error("No access token available")
+            return []
+        
+        try:
+            url = f"{self.base_url}Appointment"
+            params = {}
+            
+            if practitioner:
+                params['actor'] = practitioner
+            if patient:
+                params['patient'] = patient
+            if date_from and date_to:
+                params['date'] = [f'ge{date_from}', f'le{date_to}']
+            elif date_from:
+                params['date'] = f'ge{date_from}'
+            elif date_to:
+                params['date'] = f'le{date_to}'
+            if status:
+                params['status'] = status
+            
+            params['_count'] = 100
+            
+            headers = self._get_headers()
+            response = requests.get(url, headers=headers, params=params)
+            
+            if response.status_code == 401:
+                self.logger.warning("Token expired, attempting refresh...")
+                if self.refresh_access_token():
+                    headers = self._get_headers()
+                    response = requests.get(url, headers=headers, params=params)
+            
+            response.raise_for_status()
+            data = response.json()
+            
+            appointments = []
+            if data.get('resourceType') == 'Bundle' and 'entry' in data:
+                for entry in data['entry']:
+                    if 'resource' in entry:
+                        appointments.append(entry['resource'])
+            
+            self.logger.info(f"Retrieved {len(appointments)} appointments")
+            return appointments
+            
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"Error searching appointments: {str(e)}")
+            return []
+    
+    def get_patient_appointments(self, patient_id, date_from=None, date_to=None):
+        """
+        Get appointments for a specific patient.
+        
+        Args:
+            patient_id: Epic patient ID
+            date_from: Optional start date (ISO format)
+            date_to: Optional end date (ISO format)
+            
+        Returns:
+            List of FHIR Appointment resources
+        """
+        return self.search_appointments(
+            patient=f"Patient/{patient_id}",
+            date_from=date_from,
+            date_to=date_to
+        )
+    
+    def get_patient_immunizations(self, patient_id, vaccine_codes=None, date_from=None):
+        """
+        Get immunization records for a patient.
+        
+        Used by immunization-based screening types to check vaccine compliance
+        instead of document scanning.
+        
+        Args:
+            patient_id: Epic patient ID
+            vaccine_codes: Optional list of CVX codes to filter by (e.g., ["140", "03"])
+            date_from: Optional start date filter (ISO format)
+            
+        Returns:
+            List of FHIR Immunization resources
+        """
+        if not self.access_token:
+            self.logger.error("No access token available")
+            return []
+        
+        try:
+            url = f"{self.base_url}Immunization"
+            params = {
+                'patient': patient_id,
+                '_count': 100
+            }
+            
+            if vaccine_codes:
+                cvx_codes = ','.join([f'http://hl7.org/fhir/sid/cvx|{code}' for code in vaccine_codes])
+                params['vaccine-code'] = cvx_codes
+            
+            if date_from:
+                params['date'] = f'ge{date_from}'
+            
+            headers = self._get_headers()
+            response = requests.get(url, headers=headers, params=params)
+            
+            if response.status_code == 401:
+                self.logger.warning("Token expired, attempting refresh...")
+                if self.refresh_access_token():
+                    headers = self._get_headers()
+                    response = requests.get(url, headers=headers, params=params)
+            
+            response.raise_for_status()
+            data = response.json()
+            
+            immunizations = []
+            if data.get('resourceType') == 'Bundle' and 'entry' in data:
+                for entry in data['entry']:
+                    if 'resource' in entry:
+                        immunizations.append(entry['resource'])
+            
+            self.logger.info(f"Retrieved {len(immunizations)} immunizations for patient {patient_id}")
+            return immunizations
+            
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"Error fetching immunizations for patient {patient_id}: {str(e)}")
+            return []
+    
+    def check_immunization_status(self, patient_id, vaccine_codes, screening_frequency_years=1):
+        """
+        Check if a patient has a valid (not expired) immunization for specified vaccines.
+        
+        Args:
+            patient_id: Epic patient ID
+            vaccine_codes: List of CVX codes to check (e.g., ["140"] for Influenza)
+            screening_frequency_years: How often the immunization is required (for due date calc)
+            
+        Returns:
+            dict with:
+                - is_current: bool - True if immunization is within frequency period
+                - last_immunization_date: date or None
+                - next_due_date: date or None
+                - immunization_records: list of relevant FHIR Immunization resources
+        """
+        from datetime import datetime, date
+        from dateutil.relativedelta import relativedelta
+        
+        result = {
+            'is_current': False,
+            'last_immunization_date': None,
+            'next_due_date': None,
+            'immunization_records': []
+        }
+        
+        try:
+            immunizations = self.get_patient_immunizations(patient_id, vaccine_codes)
+            
+            if not immunizations:
+                result['next_due_date'] = date.today()
+                return result
+            
+            result['immunization_records'] = immunizations
+            
+            most_recent_date = None
+            for imm in immunizations:
+                occurrence = imm.get('occurrenceDateTime')
+                if occurrence:
+                    try:
+                        imm_date = datetime.fromisoformat(occurrence.replace('Z', '+00:00')).date()
+                        if most_recent_date is None or imm_date > most_recent_date:
+                            most_recent_date = imm_date
+                    except ValueError:
+                        continue
+            
+            if most_recent_date:
+                result['last_immunization_date'] = most_recent_date
+                next_due = most_recent_date + relativedelta(years=screening_frequency_years)
+                result['next_due_date'] = next_due
+                result['is_current'] = date.today() < next_due
+            else:
+                result['next_due_date'] = date.today()
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error checking immunization status: {str(e)}")
+            result['next_due_date'] = date.today()
+            return result
+    
     def download_binary(self, binary_url):
         """
         Download binary content from Epic FHIR Binary resource

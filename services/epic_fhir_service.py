@@ -12,26 +12,63 @@ from flask_login import current_user
 
 from emr.fhir_client import FHIRClient
 from emr.epic_integration import EpicScreeningIntegration
-from models import db, Patient, FHIRDocument, Organization, ScreeningType
+from models import db, Patient, FHIRDocument, Organization, ScreeningType, Provider
 from routes.oauth_routes import get_epic_fhir_client, get_epic_fhir_client_background
 
 logger = logging.getLogger(__name__)
 
 
 class EpicFHIRService:
-    """Service layer for Epic FHIR operations with enhanced token management"""
+    """
+    Service layer for Epic FHIR operations with enhanced token management.
     
-    def __init__(self, organization_id: int = None, background_context: bool = False):
+    Supports two modes:
+    1. Organization-level (legacy): Uses EpicCredentials for org-wide access
+    2. Provider-level (v2.1): Uses Provider model for provider-specific access
+    
+    Provider-level mode is preferred and provides:
+    - Per-provider OAuth tokens
+    - Practitioner ID filtering for FHIR queries
+    - Provider-scoped patient rosters
+    """
+    
+    def __init__(self, organization_id: int = None, provider_id: int = None, background_context: bool = False):
+        """
+        Initialize Epic FHIR service.
+        
+        Args:
+            organization_id: Organization ID (required for org-level or if provider not specified)
+            provider_id: Provider ID for provider-specific access (preferred for v2.1)
+            background_context: True for background jobs (uses database tokens)
+        """
+        self.provider_id = provider_id
+        self.provider = None
+        self.practitioner_id = None
+        
         # Determine organization ID and context
         if background_context:
-            # Background context: organization_id is required
-            if not organization_id:
-                raise ValueError("organization_id is required for background context")
-            self.organization_id = organization_id
+            # Background context: organization_id is required (or derived from provider)
+            if provider_id:
+                self.provider = Provider.query.get(provider_id)
+                if self.provider:
+                    self.organization_id = self.provider.org_id
+                    self.practitioner_id = self.provider.epic_practitioner_id
+                else:
+                    raise ValueError(f"Provider {provider_id} not found")
+            elif not organization_id:
+                raise ValueError("organization_id or provider_id is required for background context")
+            else:
+                self.organization_id = organization_id
             self.is_background = True
         else:
-            # Interactive context: try to get from current_user
-            self.organization_id = organization_id or (current_user.org_id if current_user and current_user.is_authenticated else None)
+            # Interactive context: try to get from current_user or provider
+            if provider_id:
+                self.provider = Provider.query.get(provider_id)
+                if self.provider:
+                    self.organization_id = self.provider.org_id
+                    self.practitioner_id = self.provider.epic_practitioner_id
+            else:
+                self.organization_id = organization_id or (current_user.org_id if current_user and current_user.is_authenticated else None)
             self.is_background = False
         
         self.fhir_client = None
@@ -40,7 +77,16 @@ class EpicFHIRService:
         if self.organization_id:
             self.organization = Organization.query.get(self.organization_id)
             
-            if self.is_background:
+            if self.provider_id and self.provider:
+                # Provider-specific mode: ONLY use provider's tokens (no org fallback for provider-scoped operations)
+                if self.provider.is_epic_connected and self.provider.access_token:
+                    self._init_fhir_client_from_provider()
+                else:
+                    # Provider not connected - do NOT fall back to org credentials
+                    # This prevents PHI exposure across provider boundaries
+                    logger.warning(f"Provider {self.provider_id} not Epic-connected, no FHIR client available")
+                    self.fhir_client = None
+            elif self.is_background:
                 # Background context: use stored credentials from database
                 logger.info(f"Creating background Epic FHIR client for organization {self.organization_id}")
                 self.fhir_client = get_epic_fhir_client_background(self.organization_id)
@@ -67,11 +113,46 @@ class EpicFHIRService:
                     }
                     self.fhir_client = FHIRClient(epic_config, organization=self.organization)
     
+    def _init_fhir_client_from_provider(self):
+        """Initialize FHIR client using provider-specific tokens"""
+        if not self.provider or not self.organization:
+            return
+        
+        epic_config = {
+            'epic_client_id': self.organization.epic_client_id,
+            'epic_client_secret': self.organization.epic_client_secret,
+            'epic_fhir_url': self.organization.epic_fhir_url or 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
+        }
+        self.fhir_client = FHIRClient(epic_config, organization=self.organization)
+        
+        # Load tokens from provider model
+        self.fhir_client.access_token = self.provider.access_token
+        self.fhir_client.refresh_token = self.provider.refresh_token
+        self.fhir_client.token_expires = self.provider.token_expires_at
+        if self.provider.token_scope:
+            self.fhir_client.token_scopes = self.provider.token_scope.split()
+        
+        logger.info(f"Initialized FHIR client from provider {self.provider.id} ({self.provider.name})")
+    
     def ensure_authenticated(self) -> bool:
-        """Ensure FHIR client is authenticated and tokens are valid with robust database token handling"""
+        """
+        Ensure FHIR client is authenticated and tokens are valid.
+        
+        Supports both organization-level and provider-level authentication.
+        Provider-level is preferred for v2.1 architecture.
+        """
+        context_label = f"provider {self.provider_id}" if self.provider_id else f"org {self.organization_id}"
+        
         if not self.fhir_client:
             # Try to initialize from database credentials if available
-            if self.organization_id:
+            if self.provider_id:
+                logger.info(f"No FHIR client available, attempting to load from provider {self.provider_id}")
+                if self._load_tokens_from_provider():
+                    logger.info(f"Successfully loaded tokens from provider {self.provider_id}")
+                else:
+                    logger.error(f"No FHIR client and no provider credentials available for {context_label}")
+                    return False
+            elif self.organization_id:
                 logger.info(f"No FHIR client available, attempting to load from database for org {self.organization_id}")
                 if self._load_tokens_from_database():
                     logger.info(f"Successfully loaded tokens from database for org {self.organization_id}")
@@ -79,12 +160,19 @@ class EpicFHIRService:
                     logger.error(f"No FHIR client and no database credentials available for org {self.organization_id}")
                     return False
             else:
-                logger.error("No FHIR client available and no organization context - OAuth2 authentication required")
+                logger.error("No FHIR client available and no organization/provider context - OAuth2 authentication required")
                 return False
         
         if not self.fhir_client.access_token:
             # Try to load tokens from database if in background mode
-            if self.is_background and self.organization_id:
+            if self.provider_id:
+                logger.info(f"No access token in client, attempting to load from provider {self.provider_id}")
+                if self._load_tokens_from_provider():
+                    logger.info(f"Successfully loaded tokens from provider {self.provider_id}")
+                else:
+                    logger.error(f"No access token available for {context_label}")
+                    return False
+            elif self.is_background and self.organization_id:
                 logger.info(f"No access token in client, attempting to load from database for org {self.organization_id}")
                 if self._load_tokens_from_database():
                     logger.info(f"Successfully loaded tokens from database for org {self.organization_id}")
@@ -97,11 +185,16 @@ class EpicFHIRService:
         
         # Check if token is expired
         if self.fhir_client.token_expires and datetime.now() >= self.fhir_client.token_expires:
-            logger.info(f"Access token expired for org {self.organization_id}, attempting refresh")
+            logger.info(f"Access token expired for {context_label}, attempting refresh")
             if not self.fhir_client.refresh_access_token():
-                logger.error(f"Failed to refresh access token for org {self.organization_id}")
+                logger.error(f"Failed to refresh access token for {context_label}")
                 # If refresh fails, try to reload from database (in case tokens were updated elsewhere)
-                if self.is_background and self.organization_id:
+                if self.provider_id:
+                    logger.info("Attempting to reload tokens from provider after refresh failure")
+                    if self._load_tokens_from_provider():
+                        logger.info("Reloaded tokens from provider, retrying authentication")
+                        return self.ensure_authenticated()  # Recursive retry with fresh tokens
+                elif self.is_background and self.organization_id:
                     logger.info("Attempting to reload tokens from database after refresh failure")
                     if self._load_tokens_from_database():
                         logger.info("Reloaded tokens from database, retrying authentication")
@@ -109,7 +202,11 @@ class EpicFHIRService:
                 return False
             
             # Update tokens based on context - always prefer database storage
-            if self.is_background or self.organization_id:
+            if self.provider_id:
+                # Provider-specific: update provider model
+                self._update_provider_tokens()
+                logger.info(f"Updated tokens for provider {self.provider_id}")
+            elif self.is_background or self.organization_id:
                 # Background context or any context with org: update database storage
                 self._update_database_tokens()
                 logger.info(f"Updated tokens in database for org {self.organization_id}")
@@ -128,8 +225,77 @@ class EpicFHIRService:
                     if self.organization_id:
                         self._update_database_tokens()
         
-        logger.info(f"Authentication verified for org {self.organization_id}")
+        logger.info(f"Authentication verified for {context_label}")
         return True
+    
+    def _load_tokens_from_provider(self) -> bool:
+        """Load Epic tokens from Provider model"""
+        try:
+            if not self.provider:
+                self.provider = Provider.query.get(self.provider_id)
+            
+            if not self.provider:
+                logger.error(f"Provider {self.provider_id} not found")
+                return False
+            
+            if not self.provider.access_token:
+                logger.info(f"No access token stored for provider {self.provider_id}")
+                return False
+            
+            # Create FHIR client if needed
+            if not self.fhir_client and self.organization:
+                epic_config = {
+                    'epic_client_id': self.organization.epic_client_id,
+                    'epic_client_secret': self.organization.epic_client_secret,
+                    'epic_fhir_url': self.organization.epic_fhir_url or 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
+                }
+                self.fhir_client = FHIRClient(epic_config, organization=self.organization)
+                logger.info(f"Created FHIR client for provider {self.provider_id}")
+            
+            if self.fhir_client:
+                # Load tokens into FHIR client
+                self.fhir_client.access_token = self.provider.access_token
+                self.fhir_client.refresh_token = self.provider.refresh_token
+                self.fhir_client.token_expires = self.provider.token_expires_at
+                if self.provider.token_scope:
+                    self.fhir_client.token_scopes = self.provider.token_scope.split()
+                
+                # Store practitioner ID for filtering
+                self.practitioner_id = self.provider.epic_practitioner_id
+                
+                logger.info(f"Successfully loaded tokens from provider {self.provider_id}")
+                logger.info(f"Token expires at: {self.provider.token_expires_at}")
+                return True
+            else:
+                logger.error(f"Cannot load tokens: no FHIR client available for provider {self.provider_id}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error loading tokens from provider {self.provider_id}: {str(e)}")
+            return False
+    
+    def _update_provider_tokens(self):
+        """Update Epic tokens in Provider model (after token refresh)"""
+        try:
+            if not self.provider:
+                self.provider = Provider.query.get(self.provider_id)
+            
+            if self.provider and self.fhir_client:
+                self.provider.access_token = self.fhir_client.access_token
+                if self.fhir_client.refresh_token:
+                    self.provider.refresh_token = self.fhir_client.refresh_token
+                self.provider.token_expires_at = self.fhir_client.token_expires
+                if self.fhir_client.token_scopes:
+                    self.provider.token_scope = ' '.join(self.fhir_client.token_scopes)
+                self.provider.last_epic_sync = datetime.now()
+                
+                db.session.commit()
+                logger.info(f"Updated Epic tokens for provider {self.provider_id}")
+            else:
+                logger.error(f"Cannot update provider tokens: provider or client not available")
+        except Exception as e:
+            logger.error(f"Error updating provider tokens: {str(e)}")
+            db.session.rollback()
     
     def _load_tokens_from_database(self) -> bool:
         """Load Epic tokens from database storage"""
@@ -197,7 +363,10 @@ class EpicFHIRService:
     
     def sync_patient_from_epic(self, epic_patient_id: str) -> Optional[Patient]:
         """
-        Sync patient data from Epic FHIR and create/update local record
+        Sync patient data from Epic FHIR and create/update local record.
+        
+        If service was initialized with provider_id, the patient will be
+        assigned to that provider.
         """
         if not self.ensure_authenticated():
             raise Exception("Epic FHIR authentication required")
@@ -210,10 +379,18 @@ class EpicFHIRService:
                 return None
             
             # Find existing patient or create new one
-            patient = Patient.query.filter_by(
-                epic_patient_id=epic_patient_id,
-                org_id=self.organization_id
-            ).first()
+            # If provider_id is set, check for patient in provider's roster
+            if self.provider_id:
+                patient = Patient.query.filter_by(
+                    epic_patient_id=epic_patient_id,
+                    org_id=self.organization_id,
+                    provider_id=self.provider_id
+                ).first()
+            else:
+                patient = Patient.query.filter_by(
+                    epic_patient_id=epic_patient_id,
+                    org_id=self.organization_id
+                ).first()
             
             if not patient:
                 # Create new patient from FHIR data
@@ -225,7 +402,8 @@ class EpicFHIRService:
             db.session.add(patient)
             db.session.commit()
             
-            logger.info(f"Successfully synced patient {epic_patient_id} from Epic")
+            context_label = f"provider {self.provider_id}" if self.provider_id else f"org {self.organization_id}"
+            logger.info(f"Successfully synced patient {epic_patient_id} from Epic for {context_label}")
             return patient
             
         except Exception as e:
@@ -234,10 +412,19 @@ class EpicFHIRService:
             raise
     
     def _create_patient_from_fhir(self, fhir_patient: dict) -> Patient:
-        """Create new Patient record from FHIR Patient resource"""
+        """
+        Create new Patient record from FHIR Patient resource.
+        
+        If service was initialized with provider_id, the patient will be
+        assigned to that provider's roster.
+        """
         patient = Patient()
         patient.org_id = self.organization_id
         patient.epic_patient_id = fhir_patient.get('id')
+        
+        # Assign to provider if in provider context
+        if self.provider_id:
+            patient.provider_id = self.provider_id
         
         # Extract MRN from identifiers
         if 'identifier' in fhir_patient:
@@ -254,12 +441,250 @@ class EpicFHIRService:
         
         return patient
     
-    def sync_patient_documents(self, patient: Patient) -> List[FHIRDocument]:
+    def get_provider_appointments(self, days_ahead: int = 14) -> List[dict]:
         """
-        Sync patient documents from Epic DocumentReference resources
+        Get appointments for this provider from Epic FHIR.
+        
+        Filters by Practitioner ID if available (from fhirUser claim).
+        This implements the 2-week appointment prioritization window.
+        
+        Args:
+            days_ahead: Number of days to look ahead (default 14 days)
+            
+        Returns:
+            List of FHIR Appointment resources for this provider
         """
         if not self.ensure_authenticated():
             raise Exception("Epic FHIR authentication required")
+        
+        if not self.practitioner_id:
+            logger.warning("No Practitioner ID available for provider-filtered appointments")
+            return []
+        
+        try:
+            from datetime import date, timedelta
+            
+            start_date = date.today()
+            end_date = start_date + timedelta(days=days_ahead)
+            
+            # Query appointments filtered by practitioner
+            appointments = self.fhir_client.search_appointments(
+                practitioner=f"Practitioner/{self.practitioner_id}",
+                date_from=start_date.isoformat(),
+                date_to=end_date.isoformat()
+            )
+            
+            logger.info(f"Retrieved {len(appointments)} appointments for practitioner {self.practitioner_id}")
+            return appointments
+            
+        except Exception as e:
+            logger.error(f"Error fetching provider appointments: {str(e)}")
+            return []
+    
+    def sync_provider_patient_roster(self, days_ahead: int = 14) -> List[Patient]:
+        """
+        Sync patients from upcoming appointments for this provider.
+        
+        This creates/updates Patient records for all patients with
+        appointments in the specified window, assigning them to this provider.
+        
+        Args:
+            days_ahead: Number of days to look ahead (default 14 days)
+            
+        Returns:
+            List of synced Patient records
+        """
+        if not self.provider_id:
+            raise ValueError("Provider ID required for roster sync")
+        
+        appointments = self.get_provider_appointments(days_ahead)
+        synced_patients = []
+        
+        for appt in appointments:
+            # Extract patient reference from appointment
+            patient_refs = [
+                p.get('actor', {}).get('reference', '')
+                for p in appt.get('participant', [])
+                if 'Patient/' in p.get('actor', {}).get('reference', '')
+            ]
+            
+            for patient_ref in patient_refs:
+                epic_patient_id = patient_ref.split('Patient/')[-1].split('/')[0]
+                if epic_patient_id:
+                    try:
+                        patient = self.sync_patient_from_epic(epic_patient_id)
+                        if patient:
+                            synced_patients.append(patient)
+                    except Exception as e:
+                        logger.error(f"Error syncing patient {epic_patient_id}: {str(e)}")
+        
+        logger.info(f"Synced {len(synced_patients)} patients for provider {self.provider_id}")
+        return synced_patients
+    
+    def check_patient_immunization_screening(self, patient: Patient, screening_type: ScreeningType) -> dict:
+        """
+        Check immunization status for a patient based on a screening type.
+        
+        This is used for immunization-based screening types (where is_immunization_based=True)
+        instead of the normal document scanning approach.
+        
+        SECURITY: This enforces provider scope - if initialized with provider_id, only
+        patients belonging to that provider can be checked.
+        
+        Args:
+            patient: Patient record to check
+            screening_type: ScreeningType with immunization in name and vaccine_codes
+            
+        Returns:
+            dict with:
+                - status: 'complete', 'due_soon', or 'due'
+                - last_completed: date or None
+                - next_due: date or None
+                - immunization_records: list of FHIR Immunization resources
+        """
+        if not self.ensure_authenticated():
+            raise Exception("Epic FHIR authentication required")
+        
+        # SECURITY: Enforce provider scope if in provider context
+        if self.provider_id and patient.provider_id and patient.provider_id != self.provider_id:
+            logger.error(f"SECURITY: Attempted cross-provider immunization check. "
+                        f"Service provider: {self.provider_id}, Patient provider: {patient.provider_id}")
+            raise ValueError("Access denied: Patient belongs to a different provider")
+        
+        if not patient.epic_patient_id:
+            logger.warning(f"Patient {patient.id} has no Epic patient ID for immunization check")
+            return {
+                'status': 'due',
+                'last_completed': None,
+                'next_due': None,
+                'immunization_records': []
+            }
+        
+        if not screening_type.is_immunization_based:
+            logger.warning(f"Screening type {screening_type.name} is not immunization-based")
+            return {
+                'status': 'due',
+                'last_completed': None,
+                'next_due': None,
+                'immunization_records': []
+            }
+        
+        try:
+            from datetime import date
+            from dateutil.relativedelta import relativedelta
+            
+            vaccine_codes = screening_type.vaccine_codes_list
+            
+            if not vaccine_codes:
+                # Return unknown status when vaccine codes not configured
+                # This allows the screening to be displayed but not auto-determined
+                logger.info(f"No vaccine codes defined for {screening_type.name} - returning unknown status")
+                return {
+                    'status': 'unknown',  # Special status indicating manual review needed
+                    'last_completed': None,
+                    'next_due': None,
+                    'immunization_records': [],
+                    'requires_vaccine_codes': True
+                }
+            
+            frequency_years = 1
+            if screening_type.frequency and screening_type.frequency_unit:
+                if screening_type.frequency_unit == 'year':
+                    frequency_years = screening_type.frequency
+                elif screening_type.frequency_unit == 'month':
+                    frequency_years = screening_type.frequency / 12
+            
+            immunization_status = self.fhir_client.check_immunization_status(
+                patient.epic_patient_id,
+                vaccine_codes,
+                frequency_years
+            )
+            
+            status = 'due'
+            if immunization_status['is_current']:
+                today = date.today()
+                next_due = immunization_status.get('next_due_date')
+                
+                if next_due:
+                    days_until_due = (next_due - today).days
+                    if days_until_due <= 30:
+                        status = 'due_soon'
+                    else:
+                        status = 'complete'
+                else:
+                    status = 'complete'
+            
+            return {
+                'status': status,
+                'last_completed': immunization_status.get('last_immunization_date'),
+                'next_due': immunization_status.get('next_due_date'),
+                'immunization_records': immunization_status.get('immunization_records', [])
+            }
+            
+        except Exception as e:
+            logger.error(f"Error checking immunization for patient {patient.id}: {str(e)}")
+            return {
+                'status': 'due',
+                'last_completed': None,
+                'next_due': None,
+                'immunization_records': []
+            }
+    
+    def update_immunization_screening(self, patient: Patient, screening_type: ScreeningType) -> Optional['Screening']:
+        """
+        Update or create a Screening record based on immunization data.
+        
+        This replaces document-based screening detection for immunization types.
+        
+        Args:
+            patient: Patient to update screening for
+            screening_type: Immunization-based ScreeningType
+            
+        Returns:
+            Updated or created Screening record
+        """
+        from models import Screening
+        
+        immunization_result = self.check_patient_immunization_screening(patient, screening_type)
+        
+        screening = Screening.query.filter_by(
+            patient_id=patient.id,
+            screening_type_id=screening_type.id,
+            org_id=self.organization_id
+        ).first()
+        
+        if not screening:
+            screening = Screening()
+            screening.patient_id = patient.id
+            screening.screening_type_id = screening_type.id
+            screening.org_id = self.organization_id
+            if self.provider_id:
+                screening.provider_id = self.provider_id
+        
+        screening.status = immunization_result['status']
+        screening.last_completed = immunization_result['last_completed']
+        screening.next_due = immunization_result['next_due']
+        
+        db.session.add(screening)
+        db.session.commit()
+        
+        logger.info(f"Updated immunization screening {screening_type.name} for patient {patient.id}: {screening.status}")
+        return screening
+    
+    def sync_patient_documents(self, patient: Patient) -> List[FHIRDocument]:
+        """
+        Sync patient documents from Epic DocumentReference resources.
+        
+        SECURITY: Enforces provider scope when initialized with provider_id.
+        """
+        if not self.ensure_authenticated():
+            raise Exception("Epic FHIR authentication required")
+        
+        # SECURITY: Enforce provider scope if in provider context
+        if self.provider_id and patient.provider_id and patient.provider_id != self.provider_id:
+            logger.error(f"SECURITY: Attempted cross-provider document sync. "
+                        f"Service provider: {self.provider_id}, Patient provider: {patient.provider_id}")
+            raise ValueError("Access denied: Patient belongs to a different provider")
         
         if not patient.epic_patient_id:
             logger.warning(f"Patient {patient.id} has no Epic patient ID")

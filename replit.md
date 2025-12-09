@@ -3,7 +3,41 @@
 ## Overview
 Health-Prep v2 is a real-time medical preparation sheet generation engine designed for integration with FHIR-based EMRs like Epic. Its primary purpose is to parse patient documents and data, determine eligibility for medical screenings using customizable logic, and generate comprehensive prep sheets reflecting the patient's current care status. Key capabilities include an intelligent screening engine with fuzzy detection, dynamic status updates for compliance tracking, and robust prep sheet generation with enhanced medical data sections. The system also features advanced variant management, document relevancy filtering, interactive document links, and configurable time periods for medical data display, aiming to improve efficiency and compliance in healthcare preparation.
 
-The system supports both self-service (Stripe billing, 14-day trial) and manual (enterprise sales, custom billing) organization creation, with a JSON API for marketing website integration to streamline client onboarding.
+The system supports both self-service (Stripe billing, per-provider pricing) and manual (enterprise sales, custom billing) organization creation, with a JSON API for marketing website integration to streamline client onboarding.
+
+## Provider-Centric Architecture (v2.1)
+
+The system now uses a **provider-centric model** where each Provider is the core unit of work:
+
+### Provider Model
+- **Provider**: First-class entity representing a practitioner with their own:
+  - Patient roster (patients assigned to this provider)
+  - Screening protocol (ScreeningTypes with presets applied per-provider)
+  - Epic OAuth connection (per-provider tokens stored on Provider model)
+  - Schedule/appointments (filtered by provider)
+  - Specialty (for preset selection)
+
+### Key Data Model Changes
+- `Provider` model: name, specialty, NPI, epic_practitioner_id, OAuth tokens, org_id
+- `UserProviderAssignment`: Junction table for user-to-provider access control
+- `Patient`, `Screening`, `ScreeningType`, `Appointment` now have `provider_id` FK
+- User model has `provider_id` for practitioners who are also system users
+
+### OAuth & Epic Integration
+- OAuth is performed **per-provider** (each practitioner does their own Epic OAuth)
+- `fhirUser` claim extracts Epic Practitioner ID automatically during OAuth
+- FHIR sync filters by Practitioner ID for provider-scoped data
+- New scopes: `patient/Immunization.rs`, `patient/DocumentReference.c`
+
+### Billing Model
+- **Per-provider pricing** (per-seat subscription model)
+- Adding/removing providers updates Stripe subscription quantity
+- Business admins manage users/presets; only providers can do Epic OAuth
+
+### Immunization-Based Screening
+- ScreeningTypes with "immunization", "vaccine", or "vaccination" in name trigger FHIR Immunization queries
+- `vaccine_codes` field stores CVX codes for vaccine matching
+- Queries FHIR Immunization endpoint instead of document scanning
 
 ## User Preferences
 - Focus on healthcare compliance and FHIR integration

@@ -538,6 +538,198 @@ class EpicCredentials(db.Model):
         return f'<EpicCredentials for org {self.org_id}>'
 
 
+class Provider(db.Model):
+    """
+    Provider model - represents a practitioner who has their own:
+    - Patient roster
+    - Screening protocol (via presets)
+    - Epic OAuth connection (per-provider tokens)
+    - Schedule/appointments
+    
+    This is the core unit of work in HealthPrep. Each provider is a first-class entity
+    within an organization, with their own FHIR credentials and data scope.
+    """
+    __tablename__ = 'providers'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Basic provider information
+    name = db.Column(db.String(150), nullable=False)  # Display name (e.g., "Dr. Jane Smith")
+    specialty = db.Column(db.String(100))  # Medical specialty (e.g., "Cardiology", "Primary Care")
+    npi = db.Column(db.String(20))  # National Provider Identifier (10-digit)
+    
+    # Multi-tenancy - provider belongs to an organization
+    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
+    
+    # Epic FHIR Integration - Per-Provider OAuth
+    epic_practitioner_id = db.Column(db.String(100))  # Epic Practitioner FHIR resource ID (from fhirUser claim)
+    epic_user_id = db.Column(db.String(100))  # Epic user ID for the practitioner
+    
+    # OAuth tokens stored per-provider (encrypted)
+    _access_token = db.Column('access_token', db.Text)  # Encrypted access token
+    _refresh_token = db.Column('refresh_token', db.Text)  # Encrypted refresh token
+    token_expires_at = db.Column(db.DateTime)  # Token expiration time
+    token_scope = db.Column(db.Text)  # Granted OAuth scopes
+    
+    # Epic connection status
+    is_epic_connected = db.Column(db.Boolean, default=False)  # Has valid Epic OAuth connection
+    last_epic_sync = db.Column(db.DateTime)  # Last successful data sync from Epic
+    last_epic_error = db.Column(db.Text)  # Last Epic API error for troubleshooting
+    epic_connection_date = db.Column(db.DateTime)  # When OAuth was first established
+    
+    # Provider status
+    is_active = db.Column(db.Boolean, default=True)  # Active/inactive status
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    
+    # Unique constraint: one provider name per organization
+    __table_args__ = (
+        db.UniqueConstraint('name', 'org_id', name='unique_provider_name_per_org'),
+        db.Index('idx_provider_epic_practitioner', 'epic_practitioner_id'),
+        db.Index('idx_provider_npi', 'npi'),
+    )
+    
+    # Relationships
+    organization = db.relationship('Organization', backref=db.backref('providers', lazy=True))
+    creator = db.relationship('User', foreign_keys=[created_by], backref='created_providers')
+    
+    # Encrypted token properties
+    @property
+    def access_token(self):
+        """Get decrypted access token"""
+        if not self._access_token:
+            return None
+        try:
+            return decrypt_field(self._access_token)
+        except Exception as e:
+            logger.error(f"Failed to decrypt access_token for provider {self.id}: {e}")
+            return self._access_token
+    
+    @access_token.setter
+    def access_token(self, value):
+        """Set encrypted access token"""
+        if value is None:
+            self._access_token = None
+        else:
+            try:
+                self._access_token = encrypt_field(value)
+            except Exception as e:
+                logger.error(f"Failed to encrypt access_token for provider {self.id}: {e}")
+                self._access_token = value
+    
+    @property
+    def refresh_token(self):
+        """Get decrypted refresh token"""
+        if not self._refresh_token:
+            return None
+        try:
+            return decrypt_field(self._refresh_token)
+        except Exception as e:
+            logger.error(f"Failed to decrypt refresh_token for provider {self.id}: {e}")
+            return self._refresh_token
+    
+    @refresh_token.setter
+    def refresh_token(self, value):
+        """Set encrypted refresh token"""
+        if value is None:
+            self._refresh_token = None
+        else:
+            try:
+                self._refresh_token = encrypt_field(value)
+            except Exception as e:
+                logger.error(f"Failed to encrypt refresh_token for provider {self.id}: {e}")
+                self._refresh_token = value
+    
+    @property
+    def is_token_expired(self):
+        """Check if OAuth token is expired"""
+        if not self.token_expires_at:
+            return True
+        return datetime.utcnow() >= self.token_expires_at
+    
+    @property
+    def token_expires_soon(self):
+        """Check if token expires within 30 minutes"""
+        if not self.token_expires_at:
+            return True
+        return datetime.utcnow() >= (self.token_expires_at - timedelta(minutes=30))
+    
+    @property
+    def has_valid_epic_connection(self):
+        """Check if provider has valid Epic OAuth connection"""
+        return (
+            self.is_epic_connected and 
+            self.access_token is not None and 
+            not self.is_token_expired
+        )
+    
+    def clear_epic_tokens(self):
+        """Clear all Epic OAuth tokens (for disconnect/logout)"""
+        self._access_token = None
+        self._refresh_token = None
+        self.token_expires_at = None
+        self.token_scope = None
+        self.is_epic_connected = False
+        self.epic_practitioner_id = None
+    
+    def __repr__(self):
+        return f'<Provider {self.name} (org_id={self.org_id})>'
+
+
+class UserProviderAssignment(db.Model):
+    """
+    Junction table for User-Provider assignments.
+    
+    Determines which users (admins, nurses, MAs) can access which providers' data.
+    - Business admins can be assigned to multiple providers
+    - Subusers (nurses/MAs) are assigned to specific providers they support
+    - Providers (practitioners) are automatically assigned to themselves
+    
+    This enables provider-scoped data access within an organization.
+    """
+    __tablename__ = 'user_provider_assignments'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    provider_id = db.Column(db.Integer, db.ForeignKey('providers.id'), nullable=False)
+    
+    # Assignment type for clarity
+    assignment_type = db.Column(db.String(30), default='assigned')  # 'self' (practitioner), 'assigned' (staff), 'admin' (full access)
+    
+    # Permissions (can be extended)
+    can_view_patients = db.Column(db.Boolean, default=True)
+    can_edit_screenings = db.Column(db.Boolean, default=True)
+    can_generate_prep_sheets = db.Column(db.Boolean, default=True)
+    can_sync_epic = db.Column(db.Boolean, default=False)  # Only provider themselves
+    
+    # Multi-tenancy (denormalized for query efficiency)
+    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
+    
+    # Audit
+    assigned_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    assigned_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Unique constraint: one assignment per user-provider pair
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'provider_id', name='unique_user_provider_assignment'),
+        db.Index('idx_assignment_user', 'user_id'),
+        db.Index('idx_assignment_provider', 'provider_id'),
+        db.Index('idx_assignment_org', 'org_id'),
+    )
+    
+    # Relationships
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('provider_assignments', lazy=True))
+    provider = db.relationship('Provider', backref=db.backref('user_assignments', lazy=True))
+    organization = db.relationship('Organization', backref=db.backref('user_provider_assignments', lazy=True))
+    assigner = db.relationship('User', foreign_keys=[assigned_by], backref='assignments_made')
+    
+    def __repr__(self):
+        return f'<UserProviderAssignment user_id={self.user_id} provider_id={self.provider_id}>'
+
+
 class User(UserMixin, db.Model):
     """User model for authentication"""
     __tablename__ = 'users'
@@ -554,6 +746,9 @@ class User(UserMixin, db.Model):
     # Multi-tenancy fields
     org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=True)  # Nullable for root admins
     epic_user_id = db.Column(db.String(100))  # Epic user ID for mapping
+    
+    # Provider link - if this user IS a practitioner, link to their Provider record
+    provider_id = db.Column(db.Integer, db.ForeignKey('providers.id'), nullable=True)  # Set if user is a practitioner
 
     # Security and session management
     two_factor_enabled = db.Column(db.Boolean, default=False)
@@ -734,6 +929,62 @@ class User(UserMixin, db.Model):
             'inactive': 'Inactive'
         }
         return status_names.get(self.user_status, 'Unknown')
+    
+    # Provider-related helper methods
+    @property
+    def is_practitioner(self):
+        """Check if this user is a practitioner (has a linked Provider record)"""
+        return self.provider_id is not None
+    
+    @property
+    def linked_provider(self):
+        """Get the Provider record if this user is a practitioner"""
+        if not self.provider_id:
+            return None
+        return Provider.query.get(self.provider_id)
+    
+    def get_assigned_providers(self):
+        """Get all providers this user is assigned to access"""
+        if self.is_root_admin:
+            return []  # Root admins don't have provider assignments
+        
+        # Get providers through UserProviderAssignment
+        assignments = UserProviderAssignment.query.filter_by(
+            user_id=self.id
+        ).all()
+        provider_ids = [a.provider_id for a in assignments]
+        
+        if provider_ids:
+            return Provider.query.filter(Provider.id.in_(provider_ids)).all()
+        return []
+    
+    def get_assigned_provider_ids(self):
+        """Get list of provider IDs this user can access"""
+        if self.is_root_admin:
+            return []
+        
+        assignments = UserProviderAssignment.query.filter_by(
+            user_id=self.id
+        ).all()
+        return [a.provider_id for a in assignments]
+    
+    def can_access_provider(self, provider_id):
+        """Check if user can access a specific provider's data"""
+        if self.is_root_admin:
+            return True
+        
+        # Check if user has an assignment to this provider
+        assignment = UserProviderAssignment.query.filter_by(
+            user_id=self.id,
+            provider_id=provider_id
+        ).first()
+        return assignment is not None
+    
+    def has_any_provider_assignment(self):
+        """Check if user has at least one provider assignment"""
+        if self.is_root_admin:
+            return True
+        return UserProviderAssignment.query.filter_by(user_id=self.id).first() is not None
 
     def __repr__(self):
         return f'<User {self.username}>'
@@ -753,6 +1004,9 @@ class Patient(db.Model):
 
     # Multi-tenancy
     org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
+    
+    # Provider scope - which provider this patient belongs to
+    provider_id = db.Column(db.Integer, db.ForeignKey('providers.id'), nullable=True)  # Nullable for migration
 
     # Epic FHIR integration fields
     epic_patient_id = db.Column(db.String(100))  # Epic Patient.id from FHIR
@@ -774,6 +1028,7 @@ class Patient(db.Model):
 
     # Relationships
     organization = db.relationship('Organization', backref='patients')
+    provider = db.relationship('Provider', backref=db.backref('patients', lazy=True))
     screenings = db.relationship('Screening', backref='patient', lazy=True, cascade='all, delete-orphan')
     documents = db.relationship('Document', backref='patient', lazy=True, cascade='all, delete-orphan')
     fhir_documents = db.relationship('FHIRDocument', backref='patient', lazy=True, cascade='all, delete-orphan')
@@ -848,7 +1103,14 @@ class ScreeningType(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)  # Organization scope
+    
+    # Provider scope - which provider's protocol this screening type belongs to
+    provider_id = db.Column(db.Integer, db.ForeignKey('providers.id'), nullable=True)  # Nullable for migration
+    
     keywords = db.Column(db.Text)  # JSON string of keywords for fuzzy detection
+    
+    # Immunization support - for vaccine-based screenings
+    vaccine_codes = db.Column(db.Text)  # JSON array of CVX codes (e.g., ["141", "150", "161"] for flu vaccines)
     eligible_genders = db.Column(db.String(10), default='both')  # 'M', 'F', or 'both'
     min_age = db.Column(db.Integer)
     max_age = db.Column(db.Integer)
@@ -869,8 +1131,34 @@ class ScreeningType(db.Model):
 
     # Relationships
     organization = db.relationship('Organization', backref='screening_types')
+    provider = db.relationship('Provider', backref=db.backref('screening_types', lazy=True))
     screenings = db.relationship('Screening', backref='screening_type', lazy=True)
     created_by_user = db.relationship('User', backref='created_screening_types', foreign_keys=[created_by])
+
+    @property
+    def is_immunization_based(self):
+        """Check if this screening type is immunization-based (uses FHIR Immunization instead of documents)"""
+        if not self.name:
+            return False
+        name_lower = self.name.lower()
+        return 'immunization' in name_lower or 'vaccine' in name_lower or 'vaccination' in name_lower
+    
+    @property
+    def vaccine_codes_list(self):
+        """Return vaccine codes as a list of CVX codes"""
+        if not self.vaccine_codes:
+            return []
+        try:
+            return json.loads(self.vaccine_codes)
+        except (json.JSONDecodeError, TypeError):
+            return []
+    
+    def set_vaccine_codes(self, codes):
+        """Set vaccine codes from a list"""
+        if isinstance(codes, list):
+            self.vaccine_codes = json.dumps(codes)
+        else:
+            self.vaccine_codes = codes
 
     @property
     def keywords_list(self):
@@ -1248,6 +1536,10 @@ class Screening(db.Model):
     patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
     screening_type_id = db.Column(db.Integer, db.ForeignKey('screening_type.id'), nullable=False)
     org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)  # Data isolation
+    
+    # Provider scope - which provider's screening record this is
+    provider_id = db.Column(db.Integer, db.ForeignKey('providers.id'), nullable=True)  # Nullable for migration
+    
     status = db.Column(db.String(20), nullable=False)  # 'due', 'due_soon', 'complete'
     last_completed = db.Column(db.Date)
     next_due = db.Column(db.Date)
@@ -1257,6 +1549,7 @@ class Screening(db.Model):
 
     # Relationships
     organization = db.relationship('Organization', backref='screenings')
+    provider = db.relationship('Provider', backref=db.backref('screenings', lazy=True))
     fhir_documents = db.relationship('FHIRDocument', secondary=screening_fhir_documents, back_populates='screenings')
 
     @property
@@ -1669,9 +1962,13 @@ class Appointment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
     org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
+    
+    # Provider scope - which provider this appointment is with
+    provider_id = db.Column(db.Integer, db.ForeignKey('providers.id'), nullable=True)  # Nullable for migration
+    
     appointment_date = db.Column(db.DateTime, nullable=False)
     appointment_type = db.Column(db.String(100))
-    provider = db.Column(db.String(100))
+    provider = db.Column(db.String(100))  # Legacy: provider name string (kept for backward compatibility)
     status = db.Column(db.String(20), default='scheduled')
     notes = db.Column(db.Text)
     
@@ -1685,6 +1982,7 @@ class Appointment(db.Model):
     
     # Relationships
     organization = db.relationship('Organization', backref='appointments')
+    provider_ref = db.relationship('Provider', backref=db.backref('appointments', lazy=True))
     
     # Indexes for performance and uniqueness
     __table_args__ = (
@@ -1693,6 +1991,13 @@ class Appointment(db.Model):
         db.Index('idx_appointment_epic_id', 'epic_appointment_id'),
         db.UniqueConstraint('epic_appointment_id', 'org_id', name='unique_epic_appointment_per_org'),
     )
+    
+    @property
+    def provider_name(self):
+        """Get provider name - from Provider model if linked, otherwise legacy string field"""
+        if self.provider_ref:
+            return self.provider_ref.name
+        return self.provider  # Legacy field
 
     def __repr__(self):
         return f'<Appointment {self.appointment_date} for patient {self.patient_id}>'

@@ -62,14 +62,18 @@ class Config:
     EPIC_SANDBOX_TOKEN_URL = 'https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token'
     
     # Default SMART scopes
+    # Using SMART on FHIR v2 scope syntax (.rs = read+search, .c = create)
     SMART_DEFAULT_SCOPES = [
         'openid', 'profile', 'fhirUser',
-        'patient/Patient.read',
-        'patient/Observation.read',
-        'patient/DocumentReference.read',
-        'patient/Condition.read',
-        'patient/DiagnosticReport.read',
-        'patient/Appointment.read'
+        'offline_access',  # For refresh tokens
+        'patient/Patient.rs',
+        'patient/Observation.rs',
+        'patient/DocumentReference.rs',
+        'patient/DocumentReference.c',  # For prep sheet write-back to Epic
+        'patient/Condition.rs',
+        'patient/DiagnosticReport.rs',
+        'patient/Appointment.rs',
+        'patient/Immunization.rs',  # For vaccine screening compliance
     ]
 
 class DevelopmentConfig(Config):

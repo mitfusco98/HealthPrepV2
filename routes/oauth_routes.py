@@ -11,7 +11,7 @@ import secrets
 from datetime import datetime, timedelta
 
 from emr.fhir_client import FHIRClient
-from models import db, Organization
+from models import db, Organization, Provider, UserProviderAssignment
 from functools import wraps
 from flask import abort
 from services.smart_discovery import smart_discovery
@@ -502,6 +502,206 @@ def epic_authorize():
         return redirect(url_for('fhir.epic_config'))
 
 
+def require_provider_access(f):
+    """Decorator to require user has access to the specified provider"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        provider_id = kwargs.get('provider_id') or request.args.get('provider_id')
+        if not provider_id:
+            abort(400, description='Provider ID is required')
+        
+        provider = Provider.query.filter_by(id=provider_id).first()
+        if not provider:
+            abort(404, description='Provider not found')
+        
+        if provider.org_id != current_user.org_id:
+            abort(403, description='Access denied to this provider')
+        
+        if current_user.role == 'admin':
+            return f(*args, **kwargs)
+        
+        assignment = UserProviderAssignment.query.filter_by(
+            user_id=current_user.id,
+            provider_id=provider_id
+        ).first()
+        
+        if not assignment:
+            abort(403, description='You do not have access to this provider')
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+@oauth_bp.route('/provider/<int:provider_id>/epic-authorize')
+@login_required
+@subscription_required
+@require_approved_organization
+def provider_epic_authorize(provider_id):
+    """
+    Start Epic OAuth2 authorization flow for a specific provider.
+    The authenticated user authorizing must be the provider themselves 
+    (practitioner must do their own OAuth).
+    
+    This stores tokens on the Provider model and extracts fhirUser claim.
+    """
+    try:
+        provider = Provider.query.filter_by(id=provider_id, org_id=current_user.org_id).first()
+        if not provider:
+            flash('Provider not found.', 'error')
+            return redirect(url_for('admin_dashboard.provider_management'))
+        
+        if not provider.is_active:
+            flash('This provider is inactive.', 'error')
+            return redirect(url_for('admin_dashboard.provider_management'))
+        
+        logger.info(f"=== PROVIDER EPIC OAUTH AUTHORIZE ===")
+        logger.info(f"Provider ID: {provider.id}")
+        logger.info(f"Provider Name: {provider.name}")
+        logger.info(f"Authorizing User: {current_user.username}")
+        logger.info(f"Organization: {current_user.organization.name}")
+        
+        org = current_user.organization
+        if not org or not org.epic_client_id:
+            flash('Epic FHIR configuration not found. Please configure Epic credentials first.', 'error')
+            return redirect(url_for('fhir.epic_config'))
+        
+        if not org.epic_client_secret:
+            flash('Epic client secret not configured. Please complete Epic configuration.', 'error')
+            return redirect(url_for('fhir.epic_config'))
+        
+        epic_config = {
+            'epic_client_id': org.epic_client_id,
+            'epic_client_secret': org.epic_client_secret,
+            'epic_fhir_url': org.epic_fhir_url or 'https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/'
+        }
+
+        redirect_uri = url_for('oauth.epic_callback', _external=True)
+        if redirect_uri.startswith('http://'):
+            redirect_uri = redirect_uri.replace('http://', 'https://')
+        
+        fhir_client = FHIRClient(epic_config, redirect_uri)
+        
+        provider_scopes = [
+            'openid', 'fhirUser', 'launch/patient',
+            'offline_access',
+            'patient/Patient.rs',
+            'patient/Observation.rs',
+            'patient/Condition.rs',
+            'patient/DocumentReference.rs',
+            'patient/DocumentReference.c',
+            'patient/DiagnosticReport.rs',
+            'patient/Appointment.rs',
+            'patient/Immunization.rs',
+        ]
+        
+        auth_url, state = fhir_client.get_authorization_url(scopes=provider_scopes)
+        
+        session['epic_oauth_state'] = state
+        session['epic_auth_timestamp'] = datetime.now().isoformat()
+        session['epic_oauth_provider_id'] = provider.id
+        session['epic_oauth_type'] = 'provider'
+        
+        logger.info(f"Starting Epic OAuth flow for provider {provider.id} ({provider.name})")
+        return redirect(auth_url)
+
+    except Exception as e:
+        logger.error(f"Error starting provider Epic OAuth flow: {str(e)}")
+        flash('Failed to start Epic authorization. Please try again.', 'error')
+        return redirect(url_for('admin_dashboard.provider_management'))
+
+
+@oauth_bp.route('/provider/<int:provider_id>/epic-disconnect', methods=['POST'])
+@login_required
+@subscription_required
+@require_approved_organization
+def provider_epic_disconnect(provider_id):
+    """
+    Disconnect Epic OAuth2 for a specific provider.
+    Clears stored tokens on the Provider model.
+    """
+    try:
+        provider = Provider.query.filter_by(id=provider_id, org_id=current_user.org_id).first()
+        if not provider:
+            flash('Provider not found.', 'error')
+            return redirect(url_for('admin_dashboard.provider_management'))
+        
+        provider.access_token = None
+        provider.refresh_token = None
+        provider.token_expires_at = None
+        provider.token_scope = None
+        provider.is_epic_connected = False
+        provider.epic_practitioner_id = None
+        provider.last_epic_error = None
+        
+        db.session.commit()
+        
+        logger.info(f"Epic disconnected for provider {provider.id} ({provider.name})")
+        flash(f'Epic connection disconnected for {provider.name}.', 'info')
+        return redirect(url_for('admin_dashboard.provider_management'))
+
+    except Exception as e:
+        logger.error(f"Error disconnecting provider Epic OAuth: {str(e)}")
+        flash('Error disconnecting from Epic', 'error')
+        return redirect(url_for('admin_dashboard.provider_management'))
+
+
+def extract_fhir_user_practitioner_id(id_token_or_token_data):
+    """
+    Extract the Practitioner ID from the fhirUser claim in the ID token.
+    
+    The fhirUser claim format is typically:
+    - "Practitioner/eOPiqtxdD35SmjVN0xkGLtg3" (relative reference)
+    - "https://fhir.epic.com/api/FHIR/R4/Practitioner/eOPiqtxdD35SmjVN0xkGLtg3" (absolute URL)
+    
+    Returns the Practitioner ID portion, or None if not found/invalid.
+    """
+    import base64
+    
+    fhir_user = None
+    
+    if isinstance(id_token_or_token_data, dict):
+        fhir_user = id_token_or_token_data.get('fhirUser')
+        if not fhir_user and 'id_token' in id_token_or_token_data:
+            try:
+                id_token = id_token_or_token_data['id_token']
+                parts = id_token.split('.')
+                if len(parts) >= 2:
+                    payload = parts[1]
+                    padding = 4 - len(payload) % 4
+                    if padding != 4:
+                        payload += '=' * padding
+                    decoded = base64.urlsafe_b64decode(payload)
+                    claims = json.loads(decoded)
+                    fhir_user = claims.get('fhirUser')
+            except Exception as e:
+                logger.warning(f"Failed to decode id_token for fhirUser: {e}")
+    elif isinstance(id_token_or_token_data, str):
+        try:
+            parts = id_token_or_token_data.split('.')
+            if len(parts) >= 2:
+                payload = parts[1]
+                padding = 4 - len(payload) % 4
+                if padding != 4:
+                    payload += '=' * padding
+                decoded = base64.urlsafe_b64decode(payload)
+                claims = json.loads(decoded)
+                fhir_user = claims.get('fhirUser')
+        except Exception as e:
+            logger.warning(f"Failed to decode id_token string for fhirUser: {e}")
+    
+    if not fhir_user:
+        logger.warning("No fhirUser claim found in token data")
+        return None
+    
+    if 'Practitioner/' in fhir_user:
+        practitioner_id = fhir_user.split('Practitioner/')[-1].split('?')[0].split('/')[0]
+        logger.info(f"Extracted Practitioner ID from fhirUser: {practitioner_id}")
+        return practitioner_id
+    
+    logger.warning(f"fhirUser claim does not contain Practitioner reference: {fhir_user}")
+    return None
+
+
 @oauth_bp.route('/epic-callback')
 @login_required
 @subscription_required
@@ -638,57 +838,107 @@ def epic_callback():
             flash('Failed to exchange authorization code for access token', 'error')
             return redirect(url_for('epic_registration.epic_registration'))
 
-        # Store tokens at organization level for all users to access
+        # Check if this is a provider-specific OAuth flow
+        oauth_type = session.get('epic_oauth_type')
+        provider_id = session.get('epic_oauth_provider_id')
+        
         from models import EpicCredentials
         from app import db
 
         # Calculate token expiry
         token_expires_at = datetime.now() + timedelta(seconds=token_data.get('expires_in', 3600))
+        
+        if oauth_type == 'provider' and provider_id:
+            # Provider-specific OAuth: store tokens on Provider model
+            provider = Provider.query.filter_by(id=provider_id, org_id=org.id).first()
+            
+            if not provider:
+                logger.error(f"Provider {provider_id} not found during OAuth callback")
+                flash('Provider not found. Please try again.', 'error')
+                return redirect(url_for('admin_dashboard.provider_management'))
+            
+            # Extract fhirUser claim to get Practitioner ID
+            practitioner_id = extract_fhir_user_practitioner_id(token_data)
+            
+            if practitioner_id:
+                provider.epic_practitioner_id = practitioner_id
+                logger.info(f"Stored Epic Practitioner ID {practitioner_id} for provider {provider.name}")
+            else:
+                logger.warning(f"No Practitioner ID extracted from fhirUser for provider {provider.name}")
+            
+            # Store tokens on Provider model
+            provider.access_token = token_data.get('access_token')
+            provider.refresh_token = token_data.get('refresh_token')
+            provider.token_expires_at = token_expires_at
+            provider.token_scope = ' '.join(token_data.get('scope', '').split())
+            provider.is_epic_connected = True
+            provider.epic_connection_date = datetime.now()
+            provider.last_epic_sync = datetime.now()
+            provider.last_epic_error = None
+            
+            db.session.commit()
+            
+            # Clean up provider OAuth session state
+            session.pop('epic_oauth_state', None)
+            session.pop('epic_auth_timestamp', None)
+            session.pop('epic_oauth_provider_id', None)
+            session.pop('epic_oauth_type', None)
+            
+            logger.info(f"Epic OAuth flow completed for provider {provider.id} ({provider.name})")
+            flash(f'Successfully connected {provider.name} to Epic FHIR!', 'success')
+            
+            return render_oauth_completion_page(
+                success=True,
+                message=f'Successfully connected {provider.name} to Epic FHIR!',
+                redirect_url=url_for('admin_dashboard.provider_management')
+            )
+        
+        else:
+            # Organization-level OAuth (legacy): store tokens on EpicCredentials
+            # Create or update Epic credentials for the organization
+            epic_creds = EpicCredentials.query.filter_by(org_id=org.id).first()
+            if not epic_creds:
+                epic_creds = EpicCredentials(org_id=org.id)
+                db.session.add(epic_creds)
 
-        # Create or update Epic credentials for the organization
-        epic_creds = EpicCredentials.query.filter_by(org_id=org.id).first()
-        if not epic_creds:
-            epic_creds = EpicCredentials(org_id=org.id)
-            db.session.add(epic_creds)
+            # Update token data
+            epic_creds.access_token = token_data.get('access_token')
+            epic_creds.refresh_token = token_data.get('refresh_token')
+            epic_creds.token_expires_at = token_expires_at
+            epic_creds.token_scope = ' '.join(token_data.get('scope', '').split())
+            epic_creds.updated_at = datetime.now()
 
-        # Update token data
-        epic_creds.access_token = token_data.get('access_token')
-        epic_creds.refresh_token = token_data.get('refresh_token')
-        epic_creds.token_expires_at = token_expires_at
-        epic_creds.token_scope = ' '.join(token_data.get('scope', '').split())
-        epic_creds.updated_at = datetime.now()
+            # Update organization connection status
+            org.is_epic_connected = True
+            org.epic_token_expiry = token_expires_at
+            org.last_epic_sync = datetime.now()
+            org.last_epic_error = None
+            org.connection_retry_count = 0
 
-        # Update organization connection status
-        org.is_epic_connected = True
-        org.epic_token_expiry = token_expires_at
-        org.last_epic_sync = datetime.now()
-        org.last_epic_error = None
-        org.connection_retry_count = 0
+            db.session.commit()
 
-        db.session.commit()
+            # Also store in session for immediate admin access
+            # SECURITY: Store organization ID with session tokens for security isolation
+            session['epic_access_token'] = token_data.get('access_token')
+            session['epic_refresh_token'] = token_data.get('refresh_token')
+            session['epic_token_expires'] = token_expires_at.isoformat()
+            session['epic_token_scopes'] = token_data.get('scope', '').split()
+            session['epic_patient_id'] = token_data.get('patient')
+            session['epic_org_id'] = org.id  # Track which organization these tokens belong to
 
-        # Also store in session for immediate admin access
-        # SECURITY: Store organization ID with session tokens for security isolation
-        session['epic_access_token'] = token_data.get('access_token')
-        session['epic_refresh_token'] = token_data.get('refresh_token')
-        session['epic_token_expires'] = token_expires_at.isoformat()
-        session['epic_token_scopes'] = token_data.get('scope', '').split()
-        session['epic_patient_id'] = token_data.get('patient')
-        session['epic_org_id'] = org.id  # Track which organization these tokens belong to
+            # Clean up OAuth state
+            session.pop('epic_oauth_state', None)
+            session.pop('epic_auth_timestamp', None)
 
-        # Clean up OAuth state
-        session.pop('epic_oauth_state', None)
-        session.pop('epic_auth_timestamp', None)
+            logger.info(f"Epic OAuth flow completed successfully for organization {org.id}")
+            flash('Successfully connected to Epic FHIR! All users in your organization can now sync with Epic.', 'success')
 
-        logger.info(f"Epic OAuth flow completed successfully for organization {org.id}")
-        flash('Successfully connected to Epic FHIR! All users in your organization can now sync with Epic.', 'success')
-
-        # Return popup-aware response that uses postMessage for cross-origin communication
-        return render_oauth_completion_page(
-            success=True,
-            message='Successfully connected to Epic FHIR!',
-            redirect_url=url_for('epic_registration.epic_registration')
-        )
+            # Return popup-aware response that uses postMessage for cross-origin communication
+            return render_oauth_completion_page(
+                success=True,
+                message='Successfully connected to Epic FHIR!',
+                redirect_url=url_for('epic_registration.epic_registration')
+            )
 
     except Exception as e:
         logger.error(f"Error handling Epic OAuth callback: {str(e)}", exc_info=True)
