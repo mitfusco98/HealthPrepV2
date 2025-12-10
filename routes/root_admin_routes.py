@@ -1022,7 +1022,7 @@ def export_logs():
                 log.resource_type or '',
                 log.resource_id or '',
                 log.action_details or '',
-                str(log.event_data) if log.event_data else ''
+                str(log.data) if log.data else ''
             ])
         
         # Log the export action
