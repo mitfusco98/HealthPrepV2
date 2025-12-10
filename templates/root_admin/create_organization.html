@@ -20,13 +20,11 @@
 </div>
 
 <div class="row">
-    <div class="col-lg-8">
+    <div class="col-12">
         <div class="alert alert-info">
             <i class="fas fa-info-circle me-2"></i>
             <strong>Enterprise Organization Creation</strong><br>
-            This creates an organization with manual billing for custom pricing arrangements. 
-            The organization admin will receive a welcome email to set their password and configure the system.
-            Payment processing via Stripe will be disabled for this organization.
+            Manual billing organization - Stripe payment processing disabled.
         </div>
 
         <form method="POST">
@@ -256,35 +254,5 @@
         </form>
     </div>
     
-    <!-- Help Sidebar -->
-    <div class="col-lg-4">
-        <div class="card bg-light">
-            <div class="card-header">
-                <h6 class="mb-0"><i class="fas fa-info-circle me-1"></i> What Happens Next?</h6>
-            </div>
-            <div class="card-body">
-                <ol class="mb-0">
-                    <li class="mb-2">Organization is created with manual billing status</li>
-                    <li class="mb-2">Admin receives welcome email with password setup link</li>
-                    <li class="mb-2">Admin configures users, Epic credentials, and screenings</li>
-                    <li class="mb-2">Organization joins approval queue</li>
-                    <li class="mb-2">Root admin approves when ready (no Stripe subscription)</li>
-                    <li class="mb-0">System activates without payment processing</li>
-                </ol>
-            </div>
-        </div>
-
-        <div class="card bg-warning bg-opacity-10 border-warning mt-3">
-            <div class="card-body">
-                <h6 class="text-warning mb-2">
-                    <i class="fas fa-exclamation-triangle me-1"></i> Important
-                </h6>
-                <p class="mb-0 small">
-                    Manual billing organizations bypass Stripe entirely. 
-                    You'll need to handle billing and payment collection through separate channels.
-                </p>
-            </div>
-        </div>
-    </div>
 </div>
 {% endblock %}
