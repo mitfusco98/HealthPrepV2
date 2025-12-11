@@ -845,42 +845,78 @@ def view_log_details(log_id):
 @login_required
 @admin_required
 def export_logs():
-    """Export admin logs"""
+    """Export admin logs as CSV"""
     try:
+        import csv
+        from io import StringIO
+        
         # Get export parameters
-        format_type = request.args.get('format', 'json')
         days = request.args.get('days', 30, type=int)
+        event_type = request.args.get('event_type', '')
 
         # Export logs directly from AdminLog model - ORGANIZATION SCOPED
-        from datetime import timedelta
         start_date = datetime.utcnow() - timedelta(days=days)
         
-        logs = AdminLog.query.filter(
+        query = AdminLog.query.filter(
             AdminLog.timestamp >= start_date,
             AdminLog.org_id == current_user.org_id
-        ).order_by(AdminLog.timestamp.desc()).all()
-        export_data = []
-        for log in logs:
-            export_data.append({
-                'timestamp': log.timestamp.isoformat(),
-                'event_type': log.event_type,
-                'user_id': log.user_id,
-                'username': log.user.username if log.user else 'System',
-                'ip_address': log.ip_address,
-                'data': log.data
-            })
+        )
         
-        result = {'success': True, 'data': export_data}
-
-        if result['success']:
-            return jsonify(result)
-        else:
-            flash(f'Error exporting logs: {result["error"]}', 'error')
-            return redirect(url_for('admin.logs'))
+        if event_type:
+            query = query.filter(AdminLog.event_type == event_type)
+        
+        logs = query.order_by(AdminLog.timestamp.desc()).all()
+        
+        # Create CSV in memory
+        si = StringIO()
+        writer = csv.writer(si)
+        
+        # Write header
+        writer.writerow([
+            'Timestamp',
+            'Event Type',
+            'User ID',
+            'Username',
+            'IP Address',
+            'Patient ID',
+            'Resource Type',
+            'Resource ID',
+            'Action Details',
+            'Data'
+        ])
+        
+        # Write data rows
+        for log in logs:
+            writer.writerow([
+                log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                log.event_type or '',
+                log.user_id or '',
+                log.user.username if log.user else 'System',
+                log.ip_address or '',
+                log.patient_id or '',
+                log.resource_type or '',
+                log.resource_id or '',
+                log.action_details or '',
+                str(log.data) if log.data else ''
+            ])
+        
+        # Prepare response
+        output = si.getvalue()
+        si.close()
+        
+        # Generate filename with timestamp
+        filename = f"admin_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        
+        response = make_response(output)
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+        response.headers['Content-Type'] = 'text/csv'
+        
+        return response
 
     except Exception as e:
         logger.error(f"Error exporting logs: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        flash('Error exporting logs', 'error')
+        return redirect(url_for('admin.logs'))
 
 @admin_bp.route('/ocr')
 @login_required
