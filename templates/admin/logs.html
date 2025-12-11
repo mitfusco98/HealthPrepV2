@@ -269,7 +269,7 @@ $(document).ready(function() {
 });
 
 function exportLogs() {
-    if (confirm('Export activity logs to JSON file?')) {
+    if (confirm('Export activity logs to CSV file?')) {
         window.location.href = "{{ url_for('admin.export_logs') }}";
     }
 }
