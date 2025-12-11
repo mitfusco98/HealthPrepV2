@@ -36,39 +36,8 @@
     </div>
 </div>
 
-<!-- Navigation Tabs -->
+<!-- Dashboard Content -->
 <div class="card">
-    <div class="card-header p-0">
-        <nav>
-            <div class="nav nav-tabs d-flex" id="nav-tab" role="tablist" style="white-space: nowrap;">
-                <a class="nav-link flex-fill text-center small {{ 'active' if active_tab == 'activity' else '' }}" href="{{ url_for('admin.dashboard_logs') }}" style="min-width: 0; padding: 0.5rem 0.25rem;">
-                    <i class="fas fa-history me-1"></i>
-                    <span class="d-none d-md-inline">Activity Logs</span>
-                    <span class="d-md-none">Activity</span>
-                </a>
-                <a class="nav-link flex-fill text-center small {{ 'active' if active_tab == 'users' else '' }}" href="{{ url_for('admin.dashboard_users') }}" style="min-width: 0; padding: 0.5rem 0.25rem;">
-                    <i class="fas fa-users me-1"></i>
-                    <span class="d-none d-md-inline">User Management</span>
-                    <span class="d-md-none">Users</span>
-                </a>
-                <a class="nav-link flex-fill text-center small {{ 'active' if active_tab == 'presets' else '' }}" href="{{ url_for('admin.dashboard_presets') }}" style="min-width: 0; padding: 0.5rem 0.25rem;">
-                    <i class="fas fa-cogs me-1"></i>
-                    <span class="d-none d-md-inline">Preset Management</span>
-                    <span class="d-md-none">Presets</span>
-                </a>
-                <a class="nav-link flex-fill text-center small {{ 'active' if active_tab == 'phi' else '' }}" href="{{ url_for('admin.dashboard_phi') }}" style="min-width: 0; padding: 0.5rem 0.25rem;">
-                    <i class="fas fa-user-shield me-1"></i>
-                    <span class="d-none d-md-inline">PHI Filter</span>
-                    <span class="d-md-none">PHI</span>
-                </a>
-                <a class="nav-link flex-fill text-center small {{ 'active' if active_tab == 'analytics' else '' }}" href="{{ url_for('admin.dashboard_analytics') }}" style="min-width: 0; padding: 0.5rem 0.25rem;">
-                    <i class="fas fa-chart-bar me-1"></i>
-                    <span class="d-none d-md-inline">Customer Analytics</span>
-                    <span class="d-md-none">Analytics</span>
-                </a>
-            </div>
-        </nav>
-    </div>
     <div class="card-body">
         <div class="tab-content" id="nav-tabContent">
 
@@ -661,9 +630,9 @@
                         <div class="card text-center border-success">
                             <div class="card-body">
                                 <i class="fas fa-clock fa-2x text-success mb-3"></i>
-                                <h4 class="mb-1">41.67</h4>
+                                <h4 class="mb-1">33.33</h4>
                                 <p class="text-muted mb-0">Hours Saved</p>
-                                <small class="text-success">≈ 1 Full Work Week</small>
+                                <small class="text-success">Per 500 Patients (4 min avg)</small>
                             </div>
                         </div>
                     </div>
@@ -671,7 +640,7 @@
                         <div class="card text-center border-primary">
                             <div class="card-body">
                                 <i class="fas fa-dollar-sign fa-2x text-primary mb-3"></i>
-                                <h4 class="mb-1">$1,042.50</h4>
+                                <h4 class="mb-1">$833.33</h4>
                                 <p class="text-muted mb-0">Labor Cost Avoided</p>
                                 <small class="text-primary">Per 500 Patients</small>
                             </div>
@@ -718,14 +687,14 @@
                                     </div>
                                     <div class="col-md-3">
                                         <div class="border-end">
-                                            <h5 class="text-success">5 min</h5>
+                                            <h5 class="text-success">3-5 min</h5>
                                             <p class="small text-muted mb-0">Time per Patient</p>
                                         </div>
                                     </div>
                                     <div class="col-md-3">
                                         <div class="border-end">
-                                            <h5 class="text-info">2,500 min</h5>
-                                            <p class="small text-muted mb-0">Total Time Saved</p>
+                                            <h5 class="text-info">2,000 min</h5>
+                                            <p class="small text-muted mb-0">Total Time Saved (avg)</p>
                                         </div>
                                     </div>
                                     <div class="col-md-3">
@@ -735,9 +704,9 @@
                                 </div>
                                 <hr>
                                 <div class="text-center">
-                                    <h4 class="text-success mb-1">500 patients × 5 minutes = 2,500 minutes saved</h4>
-                                    <h4 class="text-primary mb-1">41.67 hours × $25/hr = $1,042.50 labor cost avoided</h4>
-                                    <small class="text-muted">This represents what clinics currently spend on manual prep sheet labor per batch of 500 patients</small>
+                                    <h4 class="text-success mb-1">500 patients × 4 minutes (avg) = 2,000 minutes saved</h4>
+                                    <h4 class="text-primary mb-1">33.33 hours × $25/hr = $833.33 labor cost avoided</h4>
+                                    <small class="text-muted">Each prep sheet saves 3-5 minutes of labor. Per batch of 500 patients using 4 min average.</small>
                                 </div>
                             </div>
                         </div>
@@ -791,7 +760,7 @@
                                 <div class="mb-3">
                                     <div class="d-flex justify-content-between">
                                         <span class="small">Minutes Saved/Patient</span>
-                                        <span class="badge bg-primary">5.0</span>
+                                        <span class="badge bg-primary">3-5</span>
                                     </div>
                                 </div>
                                 <div class="mb-3">
@@ -1463,7 +1432,7 @@ function initializeAnalyticsCharts() {
                 labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
                 datasets: [{
                     label: 'Hours Saved',
-                    data: [35.2, 38.7, 41.67, 39.1, 42.3, 45.8],
+                    data: [28.16, 30.96, 33.33, 31.28, 33.84, 36.64],
                     borderColor: 'rgb(75, 192, 192)',
                     backgroundColor: 'rgba(75, 192, 192, 0.1)',
                     yAxisID: 'y',
@@ -1471,7 +1440,7 @@ function initializeAnalyticsCharts() {
                     fill: true
                 }, {
                     label: 'Cost Avoided ($)',
-                    data: [880, 967.50, 1042.50, 977.50, 1057.50, 1145],
+                    data: [704, 774, 833.33, 782, 846, 916],
                     borderColor: 'rgb(255, 99, 132)',
                     backgroundColor: 'rgba(255, 99, 132, 0.1)',
                     yAxisID: 'y1',
@@ -1665,7 +1634,7 @@ function initializeAnalyticsCharts() {
                 labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
                 datasets: [{
                     label: 'Cumulative Hours Saved',
-                    data: [35.2, 73.9, 115.57, 154.67, 196.97, 242.77],
+                    data: [28.16, 59.12, 92.45, 123.73, 157.57, 194.21],
                     borderColor: 'rgb(75, 192, 192)',
                     backgroundColor: 'rgba(75, 192, 192, 0.2)',
                     fill: 'origin',
