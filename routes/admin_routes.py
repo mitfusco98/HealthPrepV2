@@ -1507,19 +1507,17 @@ def backup_data():
 @login_required
 @admin_required
 def update_phi_settings_api():
-    """API endpoint to update PHI settings"""
+    """API endpoint to update PHI filter type settings (PHI filtering is always enabled)"""
     try:
         request_data = request.get_json()
         if not request_data:
             return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
-            
-        enabled = request_data.get('enabled', False)
         
-        # Get or create PHI settings
+        # Get or create PHI settings - PHI filtering is always enabled
         phi_settings = PHIFilterSettings.query.first()
         if not phi_settings:
             phi_settings = PHIFilterSettings()
-            phi_settings.enabled = enabled
+            phi_settings.enabled = True  # Always enabled
             phi_settings.filter_ssn = True
             phi_settings.filter_phone = True
             phi_settings.filter_mrn = True
@@ -1528,9 +1526,25 @@ def update_phi_settings_api():
             phi_settings.filter_names = True
             phi_settings.filter_dates = True
             db.session.add(phi_settings)
-        else:
-            phi_settings.enabled = enabled
-            phi_settings.updated_at = datetime.utcnow()
+        
+        # Update individual filter types if provided (but never allow disabling main filter)
+        if 'filter_ssn' in request_data:
+            phi_settings.filter_ssn = request_data['filter_ssn']
+        if 'filter_phone' in request_data:
+            phi_settings.filter_phone = request_data['filter_phone']
+        if 'filter_mrn' in request_data:
+            phi_settings.filter_mrn = request_data['filter_mrn']
+        if 'filter_insurance' in request_data:
+            phi_settings.filter_insurance = request_data['filter_insurance']
+        if 'filter_addresses' in request_data:
+            phi_settings.filter_addresses = request_data['filter_addresses']
+        if 'filter_names' in request_data:
+            phi_settings.filter_names = request_data['filter_names']
+        if 'filter_dates' in request_data:
+            phi_settings.filter_dates = request_data['filter_dates']
+        
+        phi_settings.enabled = True  # Always ensure enabled
+        phi_settings.updated_at = datetime.utcnow()
         
         db.session.commit()
         
@@ -1540,13 +1554,13 @@ def update_phi_settings_api():
             user_id=current_user.id,
             org_id=getattr(current_user, 'org_id', 1),
             ip=request.remote_addr,
-            data={'enabled': enabled, 'description': f'PHI filtering {"enabled" if enabled else "disabled"} by admin'}
+            data={'description': 'PHI filter settings updated (PHI filtering always enabled for HIPAA compliance)'}
         )
         
         return jsonify({
             'success': True,
-            'enabled': phi_settings.enabled,
-            'message': f'PHI filtering {"enabled" if enabled else "disabled"} successfully'
+            'enabled': True,
+            'message': 'PHI filter settings updated (PHI filtering is always enabled for HIPAA compliance)'
         })
         
     except Exception as e:

@@ -669,7 +669,110 @@ class EpicFHIRService:
         db.session.commit()
         
         logger.info(f"Updated immunization screening {screening_type.name} for patient {patient.id}: {screening.status}")
+        
+        # Store immunization records as FHIRDocument entries for admin documents view
+        self._sync_immunization_records(patient, screening_type, immunization_result.get('immunization_records', []))
+        
         return screening
+    
+    def _sync_immunization_records(self, patient: Patient, screening_type: 'ScreeningType', immunization_records: List[dict]) -> List[FHIRDocument]:
+        """
+        Sync immunization records as FHIRDocument entries.
+        
+        This allows immunization records to appear in /admin/documents view
+        and be matched by the screening engine based on title keywords.
+        
+        Args:
+            patient: Patient the immunizations belong to
+            screening_type: ScreeningType for context (vaccine name)
+            immunization_records: List of FHIR Immunization resources
+            
+        Returns:
+            List of created/updated FHIRDocument records
+        """
+        import json
+        from datetime import datetime as dt
+        
+        synced_docs = []
+        
+        for imm_record in immunization_records:
+            try:
+                imm_id = imm_record.get('id')
+                if not imm_id:
+                    continue
+                
+                epic_doc_id = f"immunization-{imm_id}"
+                
+                fhir_doc = FHIRDocument.query.filter_by(
+                    epic_document_id=epic_doc_id,
+                    org_id=self.organization_id
+                ).first()
+                
+                is_new = fhir_doc is None
+                if is_new:
+                    fhir_doc = FHIRDocument()
+                    fhir_doc.patient_id = patient.id
+                    fhir_doc.org_id = self.organization_id
+                    fhir_doc.epic_document_id = epic_doc_id
+                    fhir_doc.created_at = dt.utcnow()
+                
+                vaccine_code = imm_record.get('vaccineCode', {})
+                vaccine_display = ''
+                if vaccine_code.get('text'):
+                    vaccine_display = vaccine_code['text']
+                elif vaccine_code.get('coding'):
+                    for coding in vaccine_code['coding']:
+                        if coding.get('display'):
+                            vaccine_display = coding['display']
+                            break
+                
+                if not vaccine_display:
+                    vaccine_display = screening_type.name if screening_type else "Unknown Vaccine"
+                
+                occurrence_date = None
+                occurrence_datetime = None
+                if imm_record.get('occurrenceDateTime'):
+                    try:
+                        date_str = imm_record['occurrenceDateTime'][:10]
+                        occurrence_date = dt.strptime(date_str, '%Y-%m-%d').date()
+                        occurrence_datetime = dt.strptime(date_str, '%Y-%m-%d')
+                    except (ValueError, TypeError):
+                        pass
+                
+                fhir_doc.title = f"Immunization: {vaccine_display}"
+                fhir_doc.document_type_display = "Immunization Record"
+                fhir_doc.document_type_code = "11369-6"
+                fhir_doc.description = f"FHIR Immunization record for {vaccine_display}"
+                fhir_doc.document_date = occurrence_date
+                
+                if is_new:
+                    fhir_doc.creation_date = occurrence_datetime or dt.utcnow()
+                
+                fhir_doc.fhir_document_reference = json.dumps(imm_record)
+                fhir_doc.content_type = "application/fhir+json"
+                fhir_doc.is_processed = True
+                fhir_doc.processing_status = "completed"
+                
+                screening_name = screening_type.name if screening_type else ""
+                fhir_doc.ocr_text = f"{vaccine_display} immunization vaccine vaccination {screening_name}".strip()
+                
+                db.session.add(fhir_doc)
+                synced_docs.append(fhir_doc)
+                
+            except Exception as e:
+                logger.warning(f"Error syncing immunization record: {str(e)}")
+                continue
+        
+        if synced_docs:
+            try:
+                db.session.commit()
+                logger.info(f"Synced {len(synced_docs)} immunization records as FHIRDocuments for patient {patient.id}")
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Error committing immunization FHIRDocuments: {str(e)}")
+                return []
+        
+        return synced_docs
     
     def sync_patient_documents(self, patient: Patient) -> List[FHIRDocument]:
         """

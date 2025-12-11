@@ -66,13 +66,13 @@ class PHIFilter:
         ]
     
     def filter_phi(self, text):
-        """Apply PHI filtering to text based on current settings"""
+        """Apply PHI filtering to text - always enabled for HIPAA compliance"""
         if not text:
             return text
         
         settings = self._get_filter_settings()
-        if not settings.enabled:
-            return text
+        # PHI filtering is always enabled for HIPAA compliance
+        # The enabled flag is ignored - filtering cannot be disabled
         
         filtered_text = text
         

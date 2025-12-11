@@ -228,9 +228,9 @@ def update_test_settings():
             phi_settings = PHIFilterSettings()
             db.session.add(phi_settings)
         
-        # Update settings
-        if 'enabled' in data:
-            phi_settings.enabled = data['enabled']
+        # Update settings - PHI filtering is always enabled for HIPAA compliance
+        # The 'enabled' flag cannot be set to False
+        phi_settings.enabled = True
         if 'filter_ssn' in data:
             phi_settings.filter_ssn = data['filter_ssn']
         if 'filter_phone' in data:
