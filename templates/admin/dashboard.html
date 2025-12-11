@@ -408,24 +408,22 @@
                     </h5>
                 </div>
 
-                <!-- PHI Control Switch -->
-                <div class="alert alert-info mb-4">
+                <!-- PHI Always-On Status Banner -->
+                <div class="alert alert-success mb-4">
                     <div class="row align-items-center">
                         <div class="col-md-8">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="phiEnabled" 
-                                       {{ 'checked' if phi_settings and phi_settings.enabled else '' }}>
-                                <label class="form-check-label fw-bold" for="phiEnabled">
-                                    <i class="fas fa-power-off me-2"></i>
-                                    Enable PHI Redaction
-                                </label>
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-lock fa-lg me-3"></i>
+                                <div>
+                                    <strong>Automatic PHI Redaction Active</strong>
+                                    <div class="small">PHI filtering is permanently enabled for HIPAA compliance. All documents are automatically protected.</div>
+                                </div>
                             </div>
-                            <small class="text-muted">Automatically redact PHI from OCR text for HIPAA compliance</small>
                         </div>
                         <div class="col-md-4 text-end">
-                            <span class="badge {{ 'bg-success' if phi_settings and phi_settings.enabled else 'bg-danger' }} fs-6">
+                            <span class="badge bg-success fs-6">
                                 <i class="fas fa-shield-alt me-1"></i>
-                                {{ 'PROTECTED' if phi_settings and phi_settings.enabled else 'UNPROTECTED' }}
+                                ALWAYS PROTECTED
                             </span>
                         </div>
                     </div>
@@ -1126,64 +1124,7 @@ function loadCustomerAnalytics() {
     console.log('Loading customer analytics...');
 }
 
-// PHI Settings Toggle
-document.getElementById('phiEnabled').addEventListener('change', function() {
-    const enabled = this.checked;
-
-    // Show confirmation for disabling PHI
-    if (!enabled) {
-        if (!confirm('Warning: Disabling PHI redaction may compromise HIPAA compliance. Are you sure?')) {
-            this.checked = true;
-            return;
-        }
-    }
-
-    // Update button state
-    const statusBadge = document.querySelector('.badge');
-    const originalHtml = statusBadge.innerHTML;
-    statusBadge.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>UPDATING...';
-
-    // Send API request
-    fetch('/admin/api/update-phi-settings', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-        },
-        body: JSON.stringify({ enabled: enabled })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Update status badge
-            statusBadge.className = enabled ? 'badge bg-success fs-6' : 'badge bg-danger fs-6';
-            statusBadge.innerHTML = '<i class="fas fa-shield-alt me-1"></i>' + 
-                                  (enabled ? 'PROTECTED' : 'UNPROTECTED');
-
-            // Show success message
-            showToast(data.message, 'success');
-
-            // Refresh PHI statistics
-            setTimeout(() => {
-                location.reload();
-            }, 1500);
-        } else {
-            // Revert toggle and show error
-            this.checked = !enabled;
-            statusBadge.innerHTML = originalHtml;
-            showToast('Error updating PHI settings: ' + (data.error || 'Unknown error'), 'danger');
-        }
-    })
-    .catch(error => {
-        // Revert toggle and show error
-        this.checked = !enabled;
-        statusBadge.innerHTML = originalHtml;
-        showToast('Network error updating PHI settings', 'danger');
-        console.error('PHI settings update error:', error);
-    });
-});
-
-// PHI Quick Actions - Removed obsolete functions
+// PHI filtering is permanently enabled - no toggle needed
 
 // Toast notification helper
 function showToast(message, type = 'info') {
@@ -1487,28 +1428,6 @@ document.querySelectorAll('#nav-overview .btn-group-sm .btn').forEach(btn => {
     });
 });
 
-// PHI Control Switch handler
-const phiEnabledSwitch = document.getElementById('phiEnabled');
-if (phiEnabledSwitch) {
-    phiEnabledSwitch.addEventListener('change', function() {
-        const isEnabled = this.checked;
-        const statusBadge = this.closest('.alert').querySelector('.badge');
-
-        if (isEnabled) {
-            statusBadge.className = 'badge bg-success fs-6';
-            statusBadge.innerHTML = '<i class="fas fa-shield-alt me-1"></i>PROTECTED';
-            showToast('PHI redaction enabled - HIPAA compliant', 'success');
-        } else {
-            statusBadge.className = 'badge bg-danger fs-6';
-            statusBadge.innerHTML = '<i class="fas fa-shield-alt me-1"></i>UNPROTECTED';
-            showToast('Warning: PHI redaction disabled', 'warning');
-        }
-
-        // Here you would typically make an API call to update the backend
-        // updatePHISettings(isEnabled);
-    });
-}
-
 // Quick action functions
 function testPHIFilter() {
     showToast('PHI filter test initiated...', 'info');
@@ -1521,29 +1440,6 @@ function testPHIFilter() {
 function viewFilteredDocuments() {
     showToast('Loading filtered documents view...', 'info');
     // This would typically open a modal or redirect to a filtered documents page
-}
-
-// Placeholder function for updating PHI settings via API
-function updatePHISettings(enabled) {
-    fetch('/admin/api/update-phi-settings', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrfToken()
-        },
-        body: JSON.stringify({ enabled: enabled })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showToast('PHI settings updated successfully', 'success');
-        } else {
-            showToast('Error updating PHI settings: ' + data.error, 'error');
-        }
-    })
-    .catch(error => {
-        showToast('Network error updating PHI settings', 'error');
-    });
 }
 
 // Helper function to get CSRF token (if using CSRF protection)
