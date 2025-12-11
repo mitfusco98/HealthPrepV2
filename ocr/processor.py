@@ -1,5 +1,6 @@
 """
 Tesseract integration and text cleanup for medical documents
+Supports PDF, images, Word documents (.docx, .doc), and plain text
 """
 import os
 import subprocess
@@ -11,6 +12,12 @@ from models import Document
 from .phi_filter import PHIFilter
 import logging
 from datetime import datetime
+
+try:
+    from docx import Document as DocxDocument
+    DOCX_AVAILABLE = True
+except ImportError:
+    DOCX_AVAILABLE = False
 
 class OCRProcessor:
     """Handles OCR processing of medical documents using Tesseract"""
@@ -63,7 +70,7 @@ class OCRProcessor:
             return False
 
     def _extract_text(self, file_path):
-        """Extract text from document using Tesseract OCR"""
+        """Extract text from document using appropriate method"""
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"Document file not found: {file_path}")
 
@@ -74,6 +81,13 @@ class OCRProcessor:
                 return self._process_pdf(file_path)
             elif file_ext in ['.png', '.jpg', '.jpeg', '.tiff', '.bmp']:
                 return self._process_image(file_path)
+            elif file_ext == '.docx':
+                return self._process_docx(file_path)
+            elif file_ext == '.doc':
+                return self._process_doc(file_path)
+            elif file_ext == '.txt':
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    return f.read(), 1.0
             else:
                 raise ValueError(f"Unsupported file type: {file_ext}")
 
@@ -222,6 +236,115 @@ class OCRProcessor:
         except Exception as e:
             self.logger.error(f"Error calculating confidence for {image_path}: {str(e)}")
             return 0.5  # Default confidence on error
+
+    def _process_docx(self, docx_path):
+        """
+        Extract text from modern Word documents (.docx)
+        
+        Uses python-docx library for direct text extraction.
+        """
+        if not DOCX_AVAILABLE:
+            self.logger.error("python-docx library not available for .docx processing")
+            return None, 0.0
+        
+        try:
+            doc = DocxDocument(docx_path)  # type: ignore
+            text_parts = []
+            
+            # Extract text from paragraphs
+            for paragraph in doc.paragraphs:
+                text = paragraph.text.strip()
+                if text:
+                    text_parts.append(text)
+            
+            # Extract text from tables
+            for table in doc.tables:
+                for row in table.rows:
+                    row_text = []
+                    for cell in row.cells:
+                        cell_text = cell.text.strip()
+                        if cell_text:
+                            row_text.append(cell_text)
+                    if row_text:
+                        text_parts.append(' | '.join(row_text))
+            
+            if text_parts:
+                combined_text = '\n'.join(text_parts)
+                self.logger.info(f"Successfully extracted {len(combined_text)} characters from DOCX")
+                return combined_text, 1.0
+            else:
+                self.logger.warning("No text found in DOCX document")
+                return None, 0.0
+                
+        except Exception as e:
+            self.logger.error(f"Error processing DOCX {docx_path}: {str(e)}")
+            return None, 0.0
+
+    def _process_doc(self, doc_path):
+        """
+        Extract text from legacy Word documents (.doc)
+        
+        Attempts antiword, catdoc, or LibreOffice conversion.
+        """
+        # Method 1: Try antiword
+        try:
+            result = subprocess.run(
+                ['antiword', doc_path],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                text = result.stdout.strip()
+                self.logger.info(f"Successfully extracted {len(text)} characters from DOC using antiword")
+                return text, 0.95
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+        except Exception as e:
+            self.logger.warning(f"antiword extraction failed: {str(e)}")
+        
+        # Method 2: Try catdoc
+        try:
+            result = subprocess.run(
+                ['catdoc', '-w', doc_path],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                text = result.stdout.strip()
+                self.logger.info(f"Successfully extracted {len(text)} characters from DOC using catdoc")
+                return text, 0.9
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+        except Exception as e:
+            self.logger.warning(f"catdoc extraction failed: {str(e)}")
+        
+        # Method 3: Try LibreOffice conversion to PDF then OCR
+        try:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                result = subprocess.run(
+                    ['libreoffice', '--headless', '--convert-to', 'pdf', '--outdir', temp_dir, doc_path],
+                    capture_output=True,
+                    text=True,
+                    timeout=60
+                )
+                if result.returncode == 0:
+                    pdf_name = os.path.splitext(os.path.basename(doc_path))[0] + '.pdf'
+                    pdf_path = os.path.join(temp_dir, pdf_name)
+                    
+                    if os.path.exists(pdf_path):
+                        text, confidence = self._process_pdf(pdf_path)
+                        if text:
+                            self.logger.info(f"Successfully extracted text from DOC via PDF conversion")
+                            return text, confidence * 0.9
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+        except Exception as e:
+            self.logger.warning(f"LibreOffice conversion failed: {str(e)}")
+        
+        self.logger.error(f"Unable to extract text from DOC file: {doc_path}")
+        return None, 0.0
 
     def reprocess_document(self, document_id):
         """Reprocess an existing document"""

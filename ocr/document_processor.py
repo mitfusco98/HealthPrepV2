@@ -1,6 +1,7 @@
 """
 Enhanced Document Processor for EMR Integration
 Processes Epic FHIR documents with OCR, keyword matching, and screening detection
+Supports PDF, images, Word documents (.docx, .doc), and HTML
 """
 
 import os
@@ -16,6 +17,12 @@ from models import db, FHIRDocument
 from ocr.processor import OCRProcessor
 from ocr.phi_filter import PHIFilter
 from core.fuzzy_detection import FuzzyDetectionEngine
+
+try:
+    from docx import Document as DocxDocument
+    DOCX_AVAILABLE = True
+except ImportError:
+    DOCX_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -232,6 +239,12 @@ class DocumentProcessor:
             elif file_ext in ['.html', '.htm']:
                 # HTML document (Epic clinical notes)
                 return self._extract_from_html(file_path)
+            elif file_ext == '.docx':
+                # Modern Word document
+                return self._extract_from_docx(file_path)
+            elif file_ext == '.doc':
+                # Legacy Word document
+                return self._extract_from_doc(file_path)
             else:
                 self.logger.warning(f"Unsupported file type: {file_ext}")
                 return None, 0.0
@@ -352,6 +365,134 @@ class DocumentProcessor:
             self.logger.error(f"Error processing HTML {html_path}: {str(e)}")
             return None, 0.0
     
+    def _extract_from_docx(self, docx_path: str) -> Tuple[Optional[str], float]:
+        """
+        Extract text from modern Word documents (.docx)
+        
+        Uses python-docx library to extract text from paragraphs and tables.
+        Since text is directly extracted (not OCR'd), confidence is 1.0.
+        
+        Args:
+            docx_path: Path to the .docx file
+            
+        Returns:
+            Tuple of (extracted_text, confidence_score)
+        """
+        if not DOCX_AVAILABLE:
+            self.logger.error("python-docx library not available for .docx processing")
+            return None, 0.0
+        
+        try:
+            doc = DocxDocument(docx_path)  # type: ignore
+            text_parts = []
+            
+            # Extract text from paragraphs
+            for paragraph in doc.paragraphs:
+                text = paragraph.text.strip()
+                if text:
+                    text_parts.append(text)
+            
+            # Extract text from tables
+            for table in doc.tables:
+                for row in table.rows:
+                    row_text = []
+                    for cell in row.cells:
+                        cell_text = cell.text.strip()
+                        if cell_text:
+                            row_text.append(cell_text)
+                    if row_text:
+                        text_parts.append(' | '.join(row_text))
+            
+            if text_parts:
+                combined_text = '\n'.join(text_parts)
+                self.logger.info(f"Successfully extracted {len(combined_text)} characters from DOCX")
+                return combined_text, 1.0  # Direct text extraction, high confidence
+            else:
+                self.logger.warning("No text found in DOCX document")
+                return None, 0.0
+                
+        except Exception as e:
+            self.logger.error(f"Error processing DOCX {docx_path}: {str(e)}")
+            return None, 0.0
+    
+    def _extract_from_doc(self, doc_path: str) -> Tuple[Optional[str], float]:
+        """
+        Extract text from legacy Word documents (.doc)
+        
+        Attempts multiple methods:
+        1. antiword utility if available
+        2. catdoc utility if available  
+        3. Convert to PDF then OCR as fallback
+        
+        Args:
+            doc_path: Path to the .doc file
+            
+        Returns:
+            Tuple of (extracted_text, confidence_score)
+        """
+        import subprocess
+        
+        # Method 1: Try antiword
+        try:
+            result = subprocess.run(
+                ['antiword', doc_path],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                text = result.stdout.strip()
+                self.logger.info(f"Successfully extracted {len(text)} characters from DOC using antiword")
+                return text, 0.95  # antiword is reliable but may miss some formatting
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+        except Exception as e:
+            self.logger.warning(f"antiword extraction failed: {str(e)}")
+        
+        # Method 2: Try catdoc
+        try:
+            result = subprocess.run(
+                ['catdoc', '-w', doc_path],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                text = result.stdout.strip()
+                self.logger.info(f"Successfully extracted {len(text)} characters from DOC using catdoc")
+                return text, 0.9  # catdoc may have some formatting issues
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+        except Exception as e:
+            self.logger.warning(f"catdoc extraction failed: {str(e)}")
+        
+        # Method 3: Try LibreOffice conversion to PDF then OCR
+        try:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                result = subprocess.run(
+                    ['libreoffice', '--headless', '--convert-to', 'pdf', '--outdir', temp_dir, doc_path],
+                    capture_output=True,
+                    text=True,
+                    timeout=60
+                )
+                if result.returncode == 0:
+                    # Find the converted PDF
+                    pdf_name = os.path.splitext(os.path.basename(doc_path))[0] + '.pdf'
+                    pdf_path = os.path.join(temp_dir, pdf_name)
+                    
+                    if os.path.exists(pdf_path):
+                        text, confidence = self._extract_from_pdf(pdf_path)
+                        if text:
+                            self.logger.info(f"Successfully extracted text from DOC via PDF conversion")
+                            return text, confidence * 0.9  # Slightly lower confidence due to conversion
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+        except Exception as e:
+            self.logger.warning(f"LibreOffice conversion failed: {str(e)}")
+        
+        self.logger.error(f"Unable to extract text from DOC file: {doc_path}. Install antiword, catdoc, or LibreOffice.")
+        return None, 0.0
+    
     def _enhance_text_for_screening(self, text: str, document_title: str) -> str:
         """
         Enhance extracted text for better screening detection
@@ -405,7 +546,11 @@ class DocumentProcessor:
                 return 1.0
             
             # Use fuzzy matching for partial matches
-            return self.fuzzy_engine.calculate_similarity(keyword.lower(), text.lower())
+            matches = self.fuzzy_engine.fuzzy_match_keywords(text, [keyword], threshold=0.5)
+            if matches:
+                return matches[0][1]  # Return the confidence score
+            
+            return 0.0
             
         except Exception as e:
             self.logger.error(f"Error calculating keyword confidence: {str(e)}")

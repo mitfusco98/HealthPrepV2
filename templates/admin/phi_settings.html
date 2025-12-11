@@ -10,13 +10,24 @@
             <i class="fas fa-user-shield me-2"></i>
             PHI Filter Settings
         </h2>
-        <p class="text-muted mb-0">Configure HIPAA-compliant PHI filtering for OCR processing</p>
+        <p class="text-muted mb-0">HIPAA-compliant PHI filtering for OCR processing</p>
     </div>
     <div>
         <span class="badge bg-success fs-6">
             <i class="fas fa-shield-alt me-1"></i>
             HIPAA Compliant
         </span>
+    </div>
+</div>
+
+<!-- Always-On Notice -->
+<div class="alert alert-success mb-4">
+    <div class="d-flex align-items-center">
+        <i class="fas fa-lock fa-2x me-3"></i>
+        <div>
+            <h5 class="mb-1">Automatic PHI Redaction Active</h5>
+            <p class="mb-0">PHI filtering is permanently enabled for HIPAA compliance. All processed documents automatically have sensitive information redacted before storage.</p>
+        </div>
     </div>
 </div>
 
@@ -32,23 +43,8 @@
             </div>
             <div class="card-body">
                 <form method="POST">
-                    <!-- Master Toggle -->
-                    <div class="alert alert-info">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="filter_enabled" 
-                                   name="filter_enabled" {{ 'checked' if settings.filter_enabled }}>
-                            <label class="form-check-label fw-bold" for="filter_enabled">
-                                <i class="fas fa-power-off me-2"></i>
-                                Enable PHI Filtering
-                            </label>
-                        </div>
-                        <div class="small mt-2">
-                            When enabled, the system will automatically detect and redact PHI from OCR text in accordance with HIPAA regulations.
-                        </div>
-                    </div>
-
                     <!-- PHI Type Filters -->
-                    <div id="phi-filters" class="{{ 'opacity-50' if not settings.filter_enabled }}">
+                    <div id="phi-filters">
                         <h6 class="mb-3">
                             <i class="fas fa-list-check me-2"></i>
                             PHI Data Types to Filter
@@ -209,8 +205,9 @@
                 <div class="mb-3">
                     <div class="d-flex justify-content-between align-items-center">
                         <span>PHI Filtering</span>
-                        <span class="badge {{ 'bg-success' if settings.filter_enabled else 'bg-danger' }}">
-                            {{ 'Enabled' if settings.filter_enabled else 'Disabled' }}
+                        <span class="badge bg-success">
+                            <i class="fas fa-lock me-1"></i>
+                            Always Enabled
                         </span>
                     </div>
                 </div>
@@ -254,7 +251,7 @@
                 <div class="alert alert-success small mb-3">
                     <i class="fas fa-check-circle me-2"></i>
                     <strong>Compliant Configuration</strong><br>
-                    Current settings meet HIPAA PHI protection requirements.
+                    PHI redaction is permanently enabled to ensure HIPAA compliance.
                 </div>
 
                 <h6 class="small">PHI Categories Covered:</h6>
@@ -301,75 +298,10 @@
         </div>
     </div>
 </div>
-
-<!-- Warning Modal -->
-<div class="modal fade" id="disableWarningModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title text-warning">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    HIPAA Compliance Warning
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p><strong>Warning:</strong> Disabling PHI filtering may compromise HIPAA compliance.</p>
-                <p>OCR text will contain unfiltered patient information including:</p>
-                <ul>
-                    <li>Patient names and identifiers</li>
-                    <li>Social Security Numbers</li>
-                    <li>Contact information</li>
-                    <li>Insurance details</li>
-                </ul>
-                <p>Are you sure you want to proceed?</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-warning" onclick="confirmDisable()">
-                    <i class="fas fa-exclamation-triangle me-1"></i>
-                    Disable Filtering
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Toggle filter options based on master switch
-document.getElementById('filter_enabled').addEventListener('change', function() {
-    const filters = document.getElementById('phi-filters');
-    const isEnabled = this.checked;
-    
-    if (isEnabled) {
-        filters.classList.remove('opacity-50');
-        filters.querySelectorAll('input').forEach(input => input.disabled = false);
-    } else {
-        // Show warning modal
-        const modal = new bootstrap.Modal(document.getElementById('disableWarningModal'));
-        modal.show();
-        
-        // Revert the toggle for now
-        this.checked = true;
-    }
-});
-
-function confirmDisable() {
-    // Actually disable the filtering
-    document.getElementById('filter_enabled').checked = false;
-    
-    const filters = document.getElementById('phi-filters');
-    filters.classList.add('opacity-50');
-    filters.querySelectorAll('input').forEach(input => input.disabled = true);
-    
-    // Close modal
-    bootstrap.Modal.getInstance(document.getElementById('disableWarningModal')).hide();
-    
-    showToast('PHI filtering has been disabled. Remember to re-enable for HIPAA compliance.', 'warning');
-}
-
 function testPHIFilter() {
     const testText = document.getElementById('testText').value;
     if (!testText.trim()) {
@@ -423,17 +355,6 @@ function testPHIFilter() {
 
 // Form validation
 document.querySelector('form').addEventListener('submit', function(e) {
-    const filterEnabled = document.getElementById('filter_enabled').checked;
-    
-    if (!filterEnabled) {
-        e.preventDefault();
-        showToast('PHI filtering is disabled. This may compromise HIPAA compliance.', 'warning');
-        
-        if (!confirm('Are you sure you want to save these settings with PHI filtering disabled?')) {
-            return false;
-        }
-    }
-    
     showToast('Saving PHI filter settings...', 'info');
 });
 </script>
