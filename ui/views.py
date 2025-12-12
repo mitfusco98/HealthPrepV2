@@ -72,9 +72,9 @@ class UserViews:
             two_weeks_ahead = datetime.utcnow() + timedelta(days=14)
             appointment_query = get_provider_appointments(current_user, all_providers=False)
             upcoming_appointments = appointment_query.filter(
-                Appointment.start_time >= datetime.utcnow(),
-                Appointment.start_time <= two_weeks_ahead
-            ).order_by(Appointment.start_time.asc()).limit(20).all()
+                Appointment.appointment_date >= datetime.utcnow(),
+                Appointment.appointment_date <= two_weeks_ahead
+            ).order_by(Appointment.appointment_date.asc()).limit(20).all()
             
             # Get patient IDs from upcoming appointments for prioritized display
             appointment_patient_ids = set(appt.patient_id for appt in upcoming_appointments if appt.patient_id)
