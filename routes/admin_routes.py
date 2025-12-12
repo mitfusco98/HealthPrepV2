@@ -724,20 +724,6 @@ def dashboard_presets():
         flash('Error loading dashboard', 'error')
         return render_template('error/500.html'), 500
 
-@admin_bp.route('/dashboard/phi')
-@login_required
-@admin_required
-def dashboard_phi():
-    """Admin dashboard - PHI Statistics tab"""
-    try:
-        data = get_dashboard_data()
-        data['active_tab'] = 'phi'
-        return render_template('admin/dashboard.html', **data)
-    except Exception as e:
-        logger.error(f"Error in dashboard PHI: {str(e)}")
-        flash('Error loading dashboard', 'error')
-        return render_template('error/500.html'), 500
-
 @admin_bp.route('/dashboard/analytics')
 @login_required
 @admin_required

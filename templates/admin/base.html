@@ -107,9 +107,9 @@
                             <i class="fas fa-file-text"></i>
                             OCR Monitor
                         </a>
-                        <a href="{{ url_for('admin_phi_settings') }}" class="admin-nav-link {{ 'active' if request.endpoint == 'admin_phi_settings' }}">
-                            <i class="fas fa-user-shield"></i>
-                            PHI Settings
+                        <a href="{{ url_for('admin.dashboard_analytics') }}" class="admin-nav-link {{ 'active' if request.endpoint == 'admin.dashboard_analytics' }}">
+                            <i class="fas fa-chart-line"></i>
+                            Analytics
                         </a>
                         <a href="{{ url_for('admin_logs') }}" class="admin-nav-link {{ 'active' if request.endpoint == 'admin_logs' }}">
                             <i class="fas fa-list-ul"></i>

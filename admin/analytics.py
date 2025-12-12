@@ -14,11 +14,12 @@ class HealthPrepAnalytics:
         self.logger = logging.getLogger(__name__)
         
         # Time savings assumptions (in minutes)
+        # Prep sheet generation saves 3-5 minutes per sheet (4 min average)
         self.time_savings = {
-            'prep_sheet_generation': 15,  # vs manual prep
-            'document_processing': 5,     # vs manual filing
-            'screening_identification': 10, # vs manual review
-            'automated_matching': 8       # vs manual matching
+            'prep_sheet_generation': 4,   # 3-5 min range, 4 min average
+            'document_processing': 2,     # vs manual filing
+            'screening_identification': 3, # vs manual review
+            'automated_matching': 2       # vs manual matching
         }
     
     def calculate_time_savings(self, days=30):
