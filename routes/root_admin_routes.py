@@ -1200,19 +1200,6 @@ def toggle_user_status(user_id):
     try:
         user = User.query.get_or_404(user_id)
 
-        # Safety check - don't deactivate if it's the only admin in the organization
-        if user.role == 'admin' and user.is_active_user:
-            active_admin_count = User.query.filter_by(
-                org_id=user.org_id, 
-                role='admin', 
-                is_active_user=True
-            ).count()
-            if active_admin_count == 1:
-                return jsonify({
-                    'success': False,
-                    'error': 'Cannot deactivate the last active admin user of an organization'
-                }), 400
-
         # Safety check - don't deactivate root admin users
         if user.is_root_admin_user():
             return jsonify({
