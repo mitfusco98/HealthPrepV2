@@ -112,6 +112,37 @@
                 </tbody>
             </table>
         </div>
+        
+        <!-- Pagination -->
+        {% if pagination and pagination.pages > 1 %}
+        <nav aria-label="Users pagination" class="mt-4">
+            <ul class="pagination justify-content-center">
+                <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('root_admin.all_users', page=pagination.prev_num) if pagination.has_prev else '#' }}">
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </a>
+                </li>
+                {% for page_num in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+                    {% if page_num %}
+                        <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('root_admin.all_users', page=page_num) }}">{{ page_num }}</a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+                <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('root_admin.all_users', page=pagination.next_num) if pagination.has_next else '#' }}">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <div class="text-center">
+            <small class="text-muted">Showing {{ pagination.total }} user(s) (Page {{ pagination.page }} of {{ pagination.pages }})</small>
+        </div>
+        {% endif %}
+        
         {% else %}
         <div class="text-center py-4">
             <i class="fas fa-users fa-3x text-muted mb-3"></i>
@@ -135,19 +166,13 @@
             <div class="card-body">
                 <ul class="list-unstyled">
                     <li class="mb-2">
-                        <strong>Total Users:</strong> {{ users|length }}
+                        <strong>Total Users:</strong> {{ pagination.total if pagination else users|length }}
                     </li>
                     <li class="mb-2">
-                        <strong>Active Users:</strong> 
-                        {{ users|selectattr('0.is_active_user')|list|length }}
+                        <strong>On This Page:</strong> {{ users|length }}
                     </li>
                     <li class="mb-2">
-                        <strong>Admin Users:</strong> 
-                        {{ users|selectattr('0.role', 'equalto', 'admin')|list|length }}
-                    </li>
-                    <li class="mb-2">
-                        <strong>Organizations:</strong> 
-                        {{ users|map(attribute='1.id')|unique|list|length }}
+                        <strong>Per Page:</strong> 50
                     </li>
                 </ul>
             </div>

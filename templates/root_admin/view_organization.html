@@ -260,6 +260,7 @@
                                     <th>Role</th>
                                     <th>Status</th>
                                     <th>Last Login</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -286,6 +287,31 @@
                                             <span class="text-muted">Never</span>
                                         {% endif %}
                                     </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            {% if not user.is_root_admin_user() %}
+                                            {% if user.is_admin_user() %}
+                                            <button type="button" class="btn btn-outline-info" 
+                                                    onclick="resetSecurityQuestions({{ user.id }}, '{{ user.username }}')" 
+                                                    title="Reset Security Questions">
+                                                <i class="fas fa-key"></i>
+                                            </button>
+                                            {% endif %}
+                                            <button type="button" class="btn btn-outline-warning" 
+                                                    onclick="toggleUserStatus({{ user.id }}, '{{ user.username }}', {{ 'true' if user.is_active_user else 'false' }})" 
+                                                    title="{{ 'Deactivate' if user.is_active_user else 'Activate' }}">
+                                                <i class="fas {{ 'fa-user-slash' if user.is_active_user else 'fa-user-check' }}"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-outline-danger" 
+                                                    onclick="deleteUser({{ user.id }}, '{{ user.username }}')" 
+                                                    title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                            {% else %}
+                                            <span class="badge bg-dark">Protected</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -308,4 +334,84 @@
         </div>
     </div>
 </div>
+
+<script>
+// Toggle user active status
+function toggleUserStatus(userId, username, isActive) {
+    const action = isActive ? 'deactivate' : 'activate';
+    if (confirm(`Are you sure you want to ${action} user "${username}"?`)) {
+        fetch(`/root-admin/users/${userId}/toggle-status`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'Failed to update user status'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while updating user status');
+        });
+    }
+}
+
+// Reset security questions
+function resetSecurityQuestions(userId, username) {
+    if (confirm(`Reset security questions for admin user "${username}"?\n\nThey will be required to set new security questions on their next login.`)) {
+        fetch(`/root-admin/users/${userId}/reset-security-questions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+            } else {
+                alert('Error: ' + (data.error || 'Failed to reset security questions'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while resetting security questions');
+        });
+    }
+}
+
+// Delete user
+function deleteUser(userId, username) {
+    if (confirm(`Are you sure you want to DELETE user "${username}"?\n\nThis action cannot be undone!`)) {
+        fetch(`/root-admin/users/${userId}/delete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Error: ' + (data.error || 'Failed to delete user'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while deleting user');
+        });
+    }
+}
+</script>
 {% endblock %}
