@@ -128,11 +128,15 @@ class PrepSheetGenerator:
         consults_cutoff = self._calculate_cutoff_date(settings.consults_cutoff_months, patient_id)
         hospital_cutoff = self._calculate_cutoff_date(settings.hospital_cutoff_months, patient_id)
         
+        # Get keyword filters for consults and hospital records
+        consults_keywords = settings.get_consults_keywords_list()
+        hospital_keywords = settings.get_hospital_keywords_list()
+        
         medical_data = {
             'lab_results': self._get_documents_by_type(patient_id, 'lab', lab_cutoff),
             'imaging_studies': self._get_documents_by_type(patient_id, 'imaging', imaging_cutoff),
-            'specialist_consults': self._get_documents_by_type(patient_id, 'consult', consults_cutoff),
-            'hospital_stays': self._get_documents_by_type(patient_id, 'hospital', hospital_cutoff)
+            'specialist_consults': self._get_documents_by_type(patient_id, 'consult', consults_cutoff, keywords=consults_keywords),
+            'hospital_stays': self._get_documents_by_type(patient_id, 'hospital', hospital_cutoff, keywords=hospital_keywords)
         }
         
         # Add structured data where available
@@ -188,25 +192,62 @@ class PrepSheetGenerator:
     
     def _generate_enhanced_data(self, patient_id):
         """Generate enhanced medical data with document integration"""
-        settings = self._get_prep_settings()
+        patient = Patient.query.get(patient_id)
+        org_id = patient.org_id if patient else None
+        
+        settings = self._get_prep_settings(org_id)
+        
+        # Get keyword filters for consults and hospital records
+        consults_keywords = settings.get_consults_keywords_list()
+        hospital_keywords = settings.get_hospital_keywords_list()
         
         enhanced_data = {
             'laboratories': self._get_enhanced_lab_data(patient_id, settings.labs_cutoff_months),
             'imaging': self._get_enhanced_imaging_data(patient_id, settings.imaging_cutoff_months),
-            'consults': self._get_enhanced_consult_data(patient_id, settings.consults_cutoff_months),
-            'hospital_visits': self._get_enhanced_hospital_data(patient_id, settings.hospital_cutoff_months)
+            'consults': self._get_enhanced_consult_data(patient_id, settings.consults_cutoff_months, keywords=consults_keywords),
+            'hospital_visits': self._get_enhanced_hospital_data(patient_id, settings.hospital_cutoff_months, keywords=hospital_keywords)
         }
         
         return enhanced_data
     
-    def _get_documents_by_type(self, patient_id, doc_type, cutoff_date):
-        """Get documents of specific type after cutoff date"""
-        return Document.query.filter_by(
+    def _get_documents_by_type(self, patient_id, doc_type, cutoff_date, keywords=None):
+        """
+        Get documents of specific type after cutoff date
+        
+        Args:
+            patient_id: Patient ID
+            doc_type: Document type (lab, imaging, consult, hospital)
+            cutoff_date: Date cutoff for document filtering
+            keywords: Optional list of keywords to filter documents by content/title
+        """
+        query = Document.query.filter_by(
             patient_id=patient_id,
             document_type=doc_type
         ).filter(
             Document.document_date >= cutoff_date
-        ).order_by(Document.document_date.desc()).all()
+        )
+        
+        documents = query.order_by(Document.document_date.desc()).all()
+        
+        # Apply keyword filtering if keywords are provided
+        if keywords and len(keywords) > 0:
+            filtered_docs = []
+            for doc in documents:
+                # Check document title, description, and OCR text for keywords
+                searchable_text = ' '.join([
+                    (doc.title or '').lower(),
+                    (doc.description or '').lower(),
+                    (doc.ocr_text or '').lower()
+                ])
+                
+                # Document must contain at least one keyword
+                if any(keyword in searchable_text for keyword in keywords):
+                    filtered_docs.append(doc)
+            
+            self.logger.debug(f"Keyword filter for {doc_type}: {len(documents)} -> {len(filtered_docs)} documents (keywords: {keywords})")
+            return filtered_docs
+        
+        return documents
     
     def _get_structured_lab_data(self, patient_id, cutoff_date):
         """Get structured lab data (would integrate with FHIR observations)"""
@@ -295,10 +336,10 @@ class PrepSheetGenerator:
             'most_recent': imaging_docs[0] if imaging_docs else None
         }
     
-    def _get_enhanced_consult_data(self, patient_id, cutoff_months):
+    def _get_enhanced_consult_data(self, patient_id, cutoff_months, keywords=None):
         """Get enhanced consult data with filtering based on prep sheet settings"""
         cutoff_date = self._calculate_cutoff_date(cutoff_months, patient_id)
-        consult_docs = self._get_documents_by_type(patient_id, 'consult', cutoff_date)
+        consult_docs = self._get_documents_by_type(patient_id, 'consult', cutoff_date, keywords=keywords)
         
         cutoff_description = "To Last Appointment" if cutoff_months == 0 else f"Last {cutoff_months} months"
         
@@ -309,16 +350,16 @@ class PrepSheetGenerator:
             'most_recent': consult_docs[0] if consult_docs else None
         }
     
-    def _get_enhanced_hospital_data(self, patient_id, cutoff_months):
+    def _get_enhanced_hospital_data(self, patient_id, cutoff_months, keywords=None):
         """Get enhanced hospital data with filtering based on prep sheet settings"""
         cutoff_date = self._calculate_cutoff_date(cutoff_months, patient_id)
-        hospital_docs = self._get_documents_by_type(patient_id, 'hospital', cutoff_date)
+        hospital_docs = self._get_documents_by_type(patient_id, 'hospital', cutoff_date, keywords=keywords)
         
         cutoff_description = "To Last Appointment" if cutoff_months == 0 else f"Last {cutoff_months} months"
         
         return {
             'documents': hospital_docs,
-            'cutoff_period': f"Last {cutoff_months} months",
+            'cutoff_period': cutoff_description,
             'document_count': len(hospital_docs),
             'most_recent': hospital_docs[0] if hospital_docs else None
         }
@@ -348,16 +389,26 @@ class PrepSheetGenerator:
             # Standard months-based cutoff
             return date.today() - relativedelta(months=months)
     
-    def _get_prep_settings(self, org_id):
+    def _get_prep_settings(self, org_id=None):
         """Get prep sheet settings for organization"""
-        settings = PrepSheetSettings.query.filter_by(org_id=org_id).first()
-        if not settings:
-            # Create default settings for this organization
-            settings = PrepSheetSettings(org_id=org_id)
-            db.session.add(settings)
-            db.session.commit()
-            self.logger.info(f"Created default PrepSheetSettings for org_id={org_id}")
-        return settings
+        if org_id:
+            settings = PrepSheetSettings.query.filter_by(org_id=org_id).first()
+            if not settings:
+                # Create default settings for this organization
+                settings = PrepSheetSettings(org_id=org_id)
+                db.session.add(settings)
+                db.session.commit()
+                self.logger.info(f"Created default PrepSheetSettings for org_id={org_id}")
+            return settings
+        else:
+            # Legacy fallback: get first settings or create default without org_id
+            settings = PrepSheetSettings.query.first()
+            if not settings:
+                settings = PrepSheetSettings()
+                db.session.add(settings)
+                db.session.commit()
+                self.logger.info("Created default PrepSheetSettings (no org_id)")
+            return settings
     
     def _get_status_badge_class(self, status):
         """Get CSS class for status badge"""

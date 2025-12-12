@@ -189,7 +189,10 @@ class ComprehensiveEMRSync:
             # Step 3: Retrieve Observations (Lab Results, Vitals)
             observations_synced = self._sync_patient_observations(patient, last_encounter_date, sync_options)
             
-            # Step 4: Retrieve Documents (Clinical Notes, Reports)  
+            # Step 3a: Retrieve Imaging Studies (DiagnosticReport resources)
+            imaging_synced = self._sync_patient_imaging(patient, last_encounter_date, sync_options)
+            
+            # Step 4: Retrieve Documents (Clinical Notes, Reports) with keyword filtering for consults/hospital  
             documents_processed = self._sync_patient_documents(patient, last_encounter_date, sync_options)
             
             # Step 5: Retrieve Encounters (Appointments, Visits)
@@ -206,6 +209,7 @@ class ComprehensiveEMRSync:
                 'patients_processed': self.sync_stats['patients_processed'] + 1,
                 'conditions_synced': self.sync_stats['conditions_synced'] + conditions_synced,
                 'observations_synced': self.sync_stats['observations_synced'] + observations_synced,
+                'imaging_synced': self.sync_stats.get('imaging_synced', 0) + imaging_synced,
                 'documents_processed': self.sync_stats['documents_processed'] + documents_processed,
                 'encounters_synced': self.sync_stats['encounters_synced'] + encounters_synced,
                 'appointments_synced': self.sync_stats['appointments_synced'] + appointments_synced,
@@ -324,8 +328,8 @@ class ComprehensiveEMRSync:
     
     def _sync_patient_observations(self, patient: Patient, last_encounter_date: Optional[datetime],
                                  sync_options: Dict[str, Any]) -> int:
-        """Step 3: Retrieve Observations (Lab Results, Vitals)"""
-        logger.info(f"Syncing observations for patient {patient.epic_patient_id}")
+        """Step 3: Retrieve Observations (Lab Results, Vitals) using FHIR Observation resource"""
+        logger.info(f"Syncing observations (labs) for patient {patient.epic_patient_id}")
         
         try:
             # Calculate data cutoff based on sync options
@@ -358,12 +362,105 @@ class ComprehensiveEMRSync:
                     self._store_screening_observation(patient, obs_code, obs_value, obs_date)
                     observations_synced += 1
             
-            logger.info(f"Processed {observations_synced} screening-relevant observations")
+            logger.info(f"Processed {observations_synced} screening-relevant observations (labs)")
             return observations_synced
             
         except Exception as e:
             logger.error(f"Error syncing patient observations: {str(e)}")
             return 0
+    
+    def _sync_patient_imaging(self, patient: Patient, last_encounter_date: Optional[datetime],
+                             sync_options: Dict[str, Any]) -> int:
+        """Step 3a: Retrieve Imaging Studies using FHIR DiagnosticReport resource"""
+        logger.info(f"Syncing imaging studies (DiagnosticReport) for patient {patient.epic_patient_id}")
+        
+        try:
+            # Calculate data cutoff based on sync options
+            cutoff_date = self._calculate_observation_cutoff(last_encounter_date, sync_options)
+            
+            # Retrieve DiagnosticReports with imaging category from Epic FHIR
+            imaging_data = self.epic_service.fhir_client.get_diagnostic_reports(
+                patient.epic_patient_id,
+                category='imaging',
+                date_from=cutoff_date
+            )
+            
+            if not imaging_data or not imaging_data.get('entry'):
+                logger.info(f"No imaging DiagnosticReports found for patient {patient.epic_patient_id}")
+                return 0
+            
+            imaging_synced = 0
+            
+            # Process each DiagnosticReport entry
+            for fhir_report in imaging_data.get('entry', []):
+                report_resource = fhir_report.get('resource', {})
+                
+                report_id = report_resource.get('id')
+                report_status = report_resource.get('status')
+                report_date = self._extract_diagnostic_report_date(report_resource)
+                report_title = self._extract_diagnostic_report_title(report_resource)
+                report_conclusion = self._extract_diagnostic_report_conclusion(report_resource)
+                
+                if report_id:
+                    # Check if we already have this imaging report
+                    existing_doc = FHIRDocument.query.filter_by(
+                        epic_document_id=report_id,
+                        patient_id=patient.id
+                    ).first()
+                    
+                    if not existing_doc:
+                        # Create FHIRDocument record for imaging report
+                        fhir_doc = FHIRDocument(
+                            patient_id=patient.id,
+                            epic_document_id=report_id,
+                            document_type_display='Imaging Study',
+                            title=report_title or 'Imaging Report',
+                            document_date=report_date,
+                            ocr_text=report_conclusion[:5000] if report_conclusion else None,
+                            fhir_document_reference=json.dumps(report_resource),
+                            org_id=self.organization_id
+                        )
+                        
+                        db.session.add(fhir_doc)
+                        imaging_synced += 1
+                        
+                        logger.debug(f"Added imaging DiagnosticReport: {report_title}")
+            
+            db.session.commit()
+            logger.info(f"Processed {imaging_synced} imaging studies (DiagnosticReports)")
+            return imaging_synced
+            
+        except Exception as e:
+            logger.error(f"Error syncing patient imaging: {str(e)}")
+            return 0
+    
+    def _extract_diagnostic_report_date(self, report_resource: Dict) -> Optional[datetime]:
+        """Extract date from DiagnosticReport resource"""
+        try:
+            date_str = report_resource.get('effectiveDateTime') or report_resource.get('issued')
+            if date_str:
+                return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+        except Exception:
+            pass
+        return datetime.now()
+    
+    def _extract_diagnostic_report_title(self, report_resource: Dict) -> Optional[str]:
+        """Extract title/display name from DiagnosticReport resource"""
+        try:
+            code = report_resource.get('code', {})
+            coding = code.get('coding', [])
+            if coding:
+                return coding[0].get('display') or coding[0].get('code')
+            return code.get('text')
+        except Exception:
+            return None
+    
+    def _extract_diagnostic_report_conclusion(self, report_resource: Dict) -> Optional[str]:
+        """Extract conclusion/interpretation from DiagnosticReport resource"""
+        try:
+            return report_resource.get('conclusion') or report_resource.get('text', {}).get('div')
+        except Exception:
+            return None
     
     def _sync_patient_documents(self, patient: Patient, last_encounter_date: Optional[datetime],
                               sync_options: Dict[str, Any]) -> int:

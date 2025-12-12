@@ -948,6 +948,11 @@ class EpicFHIRService:
         
         for fhir_doc in patient.fhir_documents:
             try:
+                # Skip HealthPrep-generated documents (no need for OCR processing)
+                if fhir_doc.is_healthprep_generated:
+                    fhir_doc.mark_processed('skipped_healthprep_generated')
+                    continue
+                
                 # Download and process document content if not already processed
                 if not fhir_doc.is_processed and fhir_doc.content_url:
                     self._download_and_process_document(fhir_doc)

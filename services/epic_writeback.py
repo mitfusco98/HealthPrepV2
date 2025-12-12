@@ -67,7 +67,7 @@ class EpicWriteBackService:
             self.logger.error(f"Epic connection verification failed: {str(e)}")
             return False
     
-    def write_prep_sheet_to_epic(self, patient_id, prep_sheet_html, user_id, user_ip):
+    def write_prep_sheet_to_epic(self, patient_id, prep_sheet_html, user_id, user_ip, prep_data=None):
         """
         Write prep sheet to Epic as DocumentReference
         
@@ -76,6 +76,7 @@ class EpicWriteBackService:
             prep_sheet_html: Rendered prep sheet HTML
             user_id: User who triggered the generation
             user_ip: IP address of user
+            prep_data: Optional prep sheet data dict with screening info and cutoff dates
             
         Returns:
             dict: {'success': bool, 'epic_document_id': str, 'error': str}
@@ -99,8 +100,8 @@ class EpicWriteBackService:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"PrepSheet_{patient.mrn}_{timestamp}.pdf"
             
-            # Convert HTML to PDF
-            pdf_content = self._html_to_pdf(prep_sheet_html, patient, timestamp)
+            # Convert HTML to PDF with comprehensive header
+            pdf_content = self._html_to_pdf(prep_sheet_html, patient, timestamp, prep_data)
             
             # Base64 encode PDF
             pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
@@ -241,21 +242,22 @@ class EpicWriteBackService:
                 # Not a 401 error, re-raise
                 raise
     
-    def _html_to_pdf(self, html_content, patient, timestamp):
+    def _html_to_pdf(self, html_content, patient, timestamp, prep_data=None):
         """
-        Convert HTML to PDF with timestamp in header/footer
+        Convert HTML to PDF with comprehensive header including provider, screening status, and cutoff dates
         
         Args:
             html_content: HTML string
             patient: Patient object
             timestamp: Timestamp string
+            prep_data: Optional prep sheet data dict with screening info and cutoff dates
             
         Returns:
             bytes: PDF content
         """
         try:
-            # Add timestamp header to HTML
-            timestamped_html = self._add_timestamp_to_html(html_content, patient, timestamp)
+            # Add comprehensive header to HTML
+            timestamped_html = self._add_timestamp_to_html(html_content, patient, timestamp, prep_data)
             
             # Convert to PDF using WeasyPrint
             pdf_file = BytesIO()
@@ -269,17 +271,108 @@ class EpicWriteBackService:
             self.logger.error(f"PDF generation failed: {str(e)}")
             raise
     
-    def _add_timestamp_to_html(self, html_content, patient, timestamp):
-        """Add timestamp header/footer to HTML for PDF"""
+    def _add_timestamp_to_html(self, html_content, patient, timestamp, prep_data=None):
+        """Add comprehensive header with provider, screening status, and cutoff dates to HTML for PDF"""
         timestamp_formatted = datetime.strptime(timestamp, '%Y%m%d_%H%M%S').strftime('%m/%d/%Y %I:%M %p')
         
-        # Add header with timestamp
+        # Extract provider information
+        provider_name = "N/A"
+        if patient.provider:
+            provider_name = patient.provider.name if hasattr(patient.provider, 'name') else str(patient.provider)
+        
+        # Extract screening status summary
+        screening_summary = ""
+        if prep_data and 'prep_sheet' in prep_data:
+            prep_sheet = prep_data['prep_sheet']
+            content = prep_sheet.get('content', {})
+            quality_checklist = content.get('quality_checklist', [])
+            
+            if quality_checklist:
+                due_count = sum(1 for item in quality_checklist if item.get('status') == 'due')
+                due_soon_count = sum(1 for item in quality_checklist if item.get('status') == 'due_soon')
+                complete_count = sum(1 for item in quality_checklist if item.get('status') == 'complete')
+                overdue_count = sum(1 for item in quality_checklist if item.get('status') == 'overdue')
+                total_count = len(quality_checklist)
+                
+                screening_summary = f"""
+                <div style="margin-top: 10px; padding: 8px; background-color: #f8f9fa; border-radius: 4px;">
+                    <strong style="color: #333;">Screening Status Summary:</strong>
+                    <span style="margin-left: 10px;">
+                        <span style="background-color: #28a745; color: white; padding: 2px 8px; border-radius: 3px; margin-right: 5px;">Complete: {complete_count}</span>
+                        <span style="background-color: #007bff; color: white; padding: 2px 8px; border-radius: 3px; margin-right: 5px;">Due: {due_count}</span>
+                        <span style="background-color: #ffc107; color: #333; padding: 2px 8px; border-radius: 3px; margin-right: 5px;">Due Soon: {due_soon_count}</span>
+                        <span style="background-color: #dc3545; color: white; padding: 2px 8px; border-radius: 3px;">Overdue: {overdue_count}</span>
+                    </span>
+                    <span style="margin-left: 15px; color: #666;">Total: {total_count}</span>
+                </div>
+                """
+        
+        # Extract cutoff dates for the four bulk sections
+        cutoff_section = ""
+        if prep_data and 'prep_sheet' in prep_data:
+            prep_sheet = prep_data['prep_sheet']
+            content = prep_sheet.get('content', {})
+            medical_data = content.get('medical_data', {})
+            cutoff_dates = medical_data.get('cutoff_dates', {})
+            
+            if cutoff_dates:
+                labs_cutoff = cutoff_dates.get('labs')
+                imaging_cutoff = cutoff_dates.get('imaging')
+                consults_cutoff = cutoff_dates.get('consults')
+                hospital_cutoff = cutoff_dates.get('hospital')
+                
+                def format_date(d):
+                    if d:
+                        if hasattr(d, 'strftime'):
+                            return d.strftime('%m/%d/%Y')
+                        return str(d)
+                    return 'N/A'
+                
+                cutoff_section = f"""
+                <div style="margin-top: 10px; padding: 8px; background-color: #e9ecef; border-radius: 4px;">
+                    <strong style="color: #333;">Data Cutoff Dates:</strong>
+                    <div style="display: flex; flex-wrap: wrap; margin-top: 5px;">
+                        <div style="flex: 1; min-width: 120px; margin-right: 10px;">
+                            <span style="color: #6c757d;">Labs:</span> {format_date(labs_cutoff)}
+                        </div>
+                        <div style="flex: 1; min-width: 120px; margin-right: 10px;">
+                            <span style="color: #6c757d;">Imaging:</span> {format_date(imaging_cutoff)}
+                        </div>
+                        <div style="flex: 1; min-width: 120px; margin-right: 10px;">
+                            <span style="color: #6c757d;">Consults:</span> {format_date(consults_cutoff)}
+                        </div>
+                        <div style="flex: 1; min-width: 120px;">
+                            <span style="color: #6c757d;">Hospital:</span> {format_date(hospital_cutoff)}
+                        </div>
+                    </div>
+                </div>
+                """
+        
+        # Build comprehensive header
         header_html = f"""
-        <div style="text-align: center; padding: 10px; border-bottom: 2px solid #667eea; margin-bottom: 20px;">
-            <h2 style="margin: 0; color: #667eea;">Medical Preparation Sheet</h2>
-            <p style="margin: 5px 0; color: #666;">
-                Patient: {patient.full_name} (MRN: {patient.mrn}) | Generated: {timestamp_formatted}
-            </p>
+        <div style="padding: 15px; border-bottom: 3px solid #667eea; margin-bottom: 20px; background: linear-gradient(to bottom, #f8f9fa, #ffffff);">
+            <div style="text-align: center;">
+                <h2 style="margin: 0; color: #667eea; font-size: 24px;">Medical Preparation Sheet</h2>
+                <p style="margin: 5px 0; color: #666; font-size: 12px;">
+                    Generated by HealthPrep System | {self.organization.name}
+                </p>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; margin-top: 15px; padding-top: 10px; border-top: 1px solid #dee2e6;">
+                <div style="flex: 1;">
+                    <strong style="color: #333;">Patient:</strong> {patient.full_name}<br>
+                    <span style="color: #666; font-size: 12px;">MRN: {patient.mrn} | DOB: {patient.date_of_birth.strftime('%m/%d/%Y') if patient.date_of_birth else 'N/A'}</span>
+                </div>
+                <div style="flex: 1; text-align: center;">
+                    <strong style="color: #333;">Provider:</strong> {provider_name}
+                </div>
+                <div style="flex: 1; text-align: right;">
+                    <strong style="color: #333;">Generated:</strong> {timestamp_formatted}
+                </div>
+            </div>
+            
+            {screening_summary}
+            {cutoff_section}
         </div>
         """
         
@@ -307,6 +400,10 @@ class EpicWriteBackService:
         document_reference = {
             "resourceType": "DocumentReference",
             "status": "current",
+            "identifier": [{
+                "system": "https://healthprep.io/fhir/identifier",
+                "value": "healthprep-generated"
+            }],
             "type": {
                 "coding": [{
                     "system": "http://loinc.org",
@@ -315,6 +412,13 @@ class EpicWriteBackService:
                 }],
                 "text": "Medical Preparation Sheet"
             },
+            "category": [{
+                "coding": [{
+                    "system": "https://healthprep.io/fhir/category",
+                    "code": "healthprep-prep-sheet",
+                    "display": "HealthPrep Generated Prep Sheet"
+                }]
+            }],
             "subject": {
                 "reference": f"Patient/{patient.epic_patient_id}",
                 "display": patient.full_name
@@ -382,12 +486,13 @@ class EpicWriteBackService:
                 prep_data = prep_result['data']
                 prep_html = render_template('prep_sheet/prep_sheet.html', **prep_data)
                 
-                # Write to Epic
+                # Write to Epic with prep_data for comprehensive PDF header
                 write_result = self.write_prep_sheet_to_epic(
                     patient_id=patient_id,
                     prep_sheet_html=prep_html,
                     user_id=user_id,
-                    user_ip=user_ip
+                    user_ip=user_ip,
+                    prep_data=prep_data
                 )
                 
                 if write_result.get('success'):

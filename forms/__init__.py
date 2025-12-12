@@ -152,6 +152,14 @@ class PrepSheetSettingsForm(FlaskForm):
                                          validators=[DataRequired(), NumberRange(min=0, max=120)],
                                          default=12,
                                          render_kw={'placeholder': 'Months (0 = To Last Appointment)'})
+    consults_keywords = TextAreaField('Consult Keywords',
+                                     validators=[Optional(), Length(max=500)],
+                                     default='consult,consultation,referral,specialist',
+                                     render_kw={'placeholder': 'consult,consultation,referral,specialist', 'rows': 2})
+    hospital_keywords = TextAreaField('Hospital Keywords',
+                                     validators=[Optional(), Length(max=500)],
+                                     default='hospital,admission,discharge,inpatient,hospitalization',
+                                     render_kw={'placeholder': 'hospital,admission,discharge,inpatient', 'rows': 2})
     submit = SubmitField('Save Settings')
 
 class PHIFilterForm(FlaskForm):
