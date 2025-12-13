@@ -9,7 +9,7 @@ import functools
 import uuid
 from werkzeug.security import generate_password_hash
 
-from models import User, Organization, AdminLog, log_admin_event, EpicCredentials, ScreeningPreset
+from models import User, Organization, AdminLog, log_admin_event, EpicCredentials, ScreeningPreset, Provider, UserProviderAssignment
 from app import db
 from app import csrf
 from flask import request as flask_request
@@ -606,6 +606,30 @@ def create_organization():
         
         db.session.add(admin_user)
         db.session.flush()
+        
+        # Create a default provider for the organization (matches signup flow)
+        default_provider = Provider(
+            name=f"Provider - {org_name}",
+            specialty=specialty or 'General Practice',
+            org_id=org.id,
+            is_active=True
+        )
+        db.session.add(default_provider)
+        db.session.flush()
+        
+        # Create assignment linking admin to the default provider
+        admin_assignment = UserProviderAssignment(
+            user_id=admin_user.id,
+            provider_id=default_provider.id,
+            org_id=org.id,
+            can_view_patients=True,
+            can_edit_screenings=True,
+            can_generate_prep_sheets=True,
+            can_sync_epic=True
+        )
+        db.session.add(admin_assignment)
+        
+        logger.info(f"Created default provider {default_provider.id} for manual organization {org.id}")
         
         # Generate password reset token for welcome email
         reset_token = create_password_reset_token()
