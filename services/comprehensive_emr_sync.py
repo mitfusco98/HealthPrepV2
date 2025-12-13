@@ -278,6 +278,24 @@ class ComprehensiveEMRSync:
             patient = self.epic_service.sync_patient_from_epic(epic_patient_id)
             
             if patient:
+                # Assign to organization's default provider if no provider_id set
+                if not patient.provider_id:
+                    from models import Provider
+                    default_provider = Provider.query.filter_by(
+                        org_id=self.organization_id,
+                        is_active=True
+                    ).first()
+                    if default_provider:
+                        # Re-query patient to ensure we have a fresh session object
+                        fresh_patient = Patient.query.get(patient.id)
+                        if fresh_patient and not fresh_patient.provider_id:
+                            fresh_patient.provider_id = default_provider.id
+                            db.session.commit()
+                            patient.provider_id = default_provider.id  # Update local reference
+                            logger.info(f"Assigned patient {patient.name} to default provider: {default_provider.name}")
+                    else:
+                        logger.warning(f"No default provider found for org {self.organization_id}")
+                
                 logger.info(f"Successfully synced patient demographics: {patient.name}")
                 return patient
             else:
@@ -638,6 +656,18 @@ class ComprehensiveEMRSync:
                         new_appointment.status = appointment_status
                         new_appointment.fhir_appointment_resource = json.dumps(appointment_resource)
                         new_appointment.last_fhir_sync = datetime.now()
+                        
+                        # Assign provider_id from patient or org's default provider
+                        if patient.provider_id:
+                            new_appointment.provider_id = patient.provider_id
+                        else:
+                            from models import Provider
+                            default_provider = Provider.query.filter_by(
+                                org_id=self.organization_id,
+                                is_active=True
+                            ).first()
+                            if default_provider:
+                                new_appointment.provider_id = default_provider.id
                         
                         db.session.add(new_appointment)
                         appointments_synced += 1

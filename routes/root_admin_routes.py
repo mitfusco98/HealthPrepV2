@@ -775,7 +775,8 @@ def delete_organization(org_id):
         from models import (AdminLog, ScreeningPreset, Patient, Screening, PrepSheetSettings,
                            ScreeningType, Document, FHIRDocument, AsyncJob, FHIRApiCall,
                            Appointment, DismissedDocumentMatch, EpicCredentials,
-                           ScreeningVariant, ScreeningProtocol)
+                           ScreeningVariant, ScreeningProtocol, Provider, UserProviderAssignment,
+                           PatientCondition, ScreeningDocumentMatch)
         
         org = Organization.query.get_or_404(org_id)
         org_name = org.name
@@ -797,50 +798,79 @@ def delete_organization(org_id):
         
         logger.info(f"Reassigned {len(admin_logs)} audit log entries from org {org_id} to System Organization context")
         
+        # CRITICAL: Clear patient_id references in admin_logs before deleting patients
+        # This prevents FK constraint violation on admin_logs.patient_id_fkey
+        org_patient_ids = [p.id for p in Patient.query.filter_by(org_id=org_id).all()]
+        if org_patient_ids:
+            patient_logs = AdminLog.query.filter(AdminLog.patient_id.in_(org_patient_ids)).all()
+            for log in patient_logs:
+                log.patient_id = None  # Clear patient reference
+            logger.info(f"Cleared patient_id from {len(patient_logs)} admin log entries for org {org_id}")
+        
+        # Commit changes to persist admin_log updates before deleting patients
+        # This ensures FK constraints are cleared before patient deletion
+        db.session.commit()
+        
         # Delete organization-scoped data (order matters for foreign key constraints)
-        # 1. Dismissed document matches (depends on screenings)
+        # 1. User-Provider assignments (before users and providers)
+        UserProviderAssignment.query.filter_by(org_id=org_id).delete()
+        
+        # 2. Dismissed document matches (depends on screenings)
         DismissedDocumentMatch.query.filter_by(org_id=org_id).delete()
         
-        # 2. Appointments
+        # 3. Screening document matches (depends on screenings)
+        if org_patient_ids:
+            screening_ids = [s.id for s in Screening.query.filter_by(org_id=org_id).all()]
+            if screening_ids:
+                ScreeningDocumentMatch.query.filter(ScreeningDocumentMatch.screening_id.in_(screening_ids)).delete(synchronize_session=False)
+        
+        # 4. Appointments
         Appointment.query.filter_by(org_id=org_id).delete()
         
-        # 3. FHIR API calls
+        # 5. FHIR API calls
         FHIRApiCall.query.filter_by(org_id=org_id).delete()
         
-        # 4. Async jobs
+        # 6. Async jobs
         AsyncJob.query.filter_by(org_id=org_id).delete()
         
-        # 5. Prep sheet settings
+        # 7. Prep sheet settings
         PrepSheetSettings.query.filter_by(org_id=org_id).delete()
         
-        # 6. Screening presets (may reference org_id - nullable)
+        # 8. Screening presets (may reference org_id - nullable)
         ScreeningPreset.query.filter_by(org_id=org_id).delete()
         
-        # 7. Screening variants (depends on screening types)
+        # 9. Screening variants (depends on screening types)
         ScreeningVariant.query.filter_by(org_id=org_id).delete()
         
-        # 8. Screening protocols (may reference org_id - nullable)
+        # 10. Screening protocols (may reference org_id - nullable)
         ScreeningProtocol.query.filter_by(org_id=org_id).delete()
         
-        # 9. Screenings (depends on screening_type and patient)
+        # 11. Screenings (depends on screening_type and patient)
         Screening.query.filter_by(org_id=org_id).delete()
         
-        # 10. Screening types
+        # 12. Screening types
         ScreeningType.query.filter_by(org_id=org_id).delete()
         
-        # 11. FHIR documents
+        # 13. FHIR documents
         FHIRDocument.query.filter_by(org_id=org_id).delete()
         
-        # 12. Documents
+        # 14. Documents
         Document.query.filter_by(org_id=org_id).delete()
         
-        # 13. Patients (will cascade to related records via relationships)
+        # 15. Patient conditions (before patients)
+        if org_patient_ids:
+            PatientCondition.query.filter(PatientCondition.patient_id.in_(org_patient_ids)).delete(synchronize_session=False)
+        
+        # 16. Patients
         Patient.query.filter_by(org_id=org_id).delete()
         
-        # 14. Epic credentials
+        # 17. Providers (before organization)
+        Provider.query.filter_by(org_id=org_id).delete()
+        
+        # 18. Epic credentials
         EpicCredentials.query.filter_by(org_id=org_id).delete()
         
-        # 15. Delete all users in this organization
+        # 19. Delete all users in this organization
         for user in org_users:
             db.session.delete(user)
         
