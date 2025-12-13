@@ -166,7 +166,12 @@ def reprocess_patient(patient_id):
         
         db.session.commit()
         
-        flash(f'Successfully reprocessed {patient.name}. Updated {updated_count} screening(s).', 'success')
+        flash(f'Successfully reprocessed {patient.name}. Updated {updated_count} screening(s). Send to Epic is now available.', 'success')
+        
+        # Redirect back to the referer or screening list
+        referer = request.referrer
+        if referer and 'screening/list' in referer:
+            return redirect(url_for('screening.screening_list'))
         return redirect(url_for('main.patient_detail', patient_id=patient_id))
         
     except Exception as e:

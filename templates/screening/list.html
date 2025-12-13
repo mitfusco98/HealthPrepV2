@@ -44,6 +44,23 @@
 .status-due-soon { background-color: #fd7e14 !important; color: #fff !important; }
 .status-due { background-color: #dc3545 !important; color: #fff !important; }
 
+/* Stale/dormant patient styling */
+.stale-indicator {
+    color: #ffc107;
+    font-size: 0.85em;
+}
+
+.btn-stale-reprocess {
+    background-color: #ffc107 !important;
+    border-color: #ffc107 !important;
+    color: #212529 !important;
+}
+
+.btn-stale-reprocess:hover {
+    background-color: #e0a800 !important;
+    border-color: #d39e00 !important;
+}
+
 /* Modal styling */
 .modal {
     position: fixed;
@@ -443,6 +460,17 @@
             </div>
             {% endif %}
             
+            <!-- Patient Status Legend -->
+            {% if appointment_prioritization.enabled %}
+            <div class="confidence-legend mb-2">
+                <strong>Patient Status:</strong>
+                <span class="me-3"><i class="fas fa-star text-warning me-1"></i> Priority (upcoming appointment)</span>
+                <span class="me-3"><i class="fas fa-moon text-warning me-1"></i> Stale (needs reprocessing)</span>
+                <span class="me-3"><i class="fas fa-file-medical text-primary me-1"></i> Send to Epic</span>
+                <span><i class="fas fa-sync-alt text-warning me-1"></i> Reprocess first</span>
+            </div>
+            {% endif %}
+            
             <!-- Document Confidence Legend -->
             <div class="confidence-legend mb-3">
                 <strong>Document Confidence:</strong>
@@ -473,11 +501,13 @@
                     </thead>
                     <tbody>
                         {% for screening in screenings %}
-                        <tr {% if appointment_prioritization.enabled and screening.patient_id in appointment_prioritization.priority_patient_ids %}style="background-color: rgba(13, 110, 253, 0.15) !important;"{% endif %}>
+                        <tr {% if screening.is_dormant %}style="background-color: rgba(255, 193, 7, 0.1) !important; opacity: 0.85;"{% elif appointment_prioritization.enabled and screening.patient_id in appointment_prioritization.priority_patient_ids %}style="background-color: rgba(13, 110, 253, 0.15) !important;"{% endif %}>
                             <!-- Patient Information -->
                             <td class="patient-info">
                                 <div class="patient-name">
-                                    {% if appointment_prioritization.enabled and screening.patient_id in appointment_prioritization.priority_patient_ids %}
+                                    {% if screening.is_dormant %}
+                                    <i class="fas fa-moon text-warning me-1" title="Stale - needs reprocessing (outside appointment window)"></i>
+                                    {% elif appointment_prioritization.enabled and screening.patient_id in appointment_prioritization.priority_patient_ids %}
                                     <i class="fas fa-star text-warning me-1" title="Has upcoming appointment"></i>
                                     {% endif %}
                                     {{ screening.patient.full_name }}
@@ -554,6 +584,17 @@
                                             <span class="text-muted small">No matches</span>
                                         {% endif %}
                                     </div>
+                                    {% if screening.is_dormant %}
+                                    <form method="POST" action="{{ url_for('main.reprocess_patient', patient_id=screening.patient_id) }}" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn prep-sheet-btn btn-warning ms-2" 
+                                                title="Patient data is stale (outside appointment window). Click to reprocess and enable Epic upload."
+                                                data-patient-id="{{ screening.patient_id }}"
+                                                data-patient-name="{{ screening.patient.full_name }}">
+                                            <i class="fas fa-sync-alt"></i>
+                                        </button>
+                                    </form>
+                                    {% else %}
                                     <button type="button" class="btn prep-sheet-btn btn-medical-primary ms-2" 
                                             onclick="generatePrepSheetToEpic({{ screening.patient_id }})" 
                                             title="Generate Prep Sheet to Epic"
@@ -561,6 +602,7 @@
                                             data-patient-name="{{ screening.patient.full_name }}">
                                         <i class="fas fa-file-medical"></i>
                                     </button>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>
