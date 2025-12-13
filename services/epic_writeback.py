@@ -13,7 +13,7 @@ from io import BytesIO
 from weasyprint import HTML, CSS
 from flask import render_template_string
 from emr.fhir_client import FHIRClient
-from models import Patient, Organization, log_admin_event
+from models import Patient, Organization, Screening, log_admin_event
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +91,19 @@ class EpicWriteBackService:
                 return {
                     'success': False, 
                     'error': f'Patient {patient.full_name} (MRN: {patient.mrn}) does not have an Epic patient ID. Please sync with Epic first.'
+                }
+            
+            # Check if patient has stale/dormant screenings - require reprocessing first
+            dormant_screenings = Screening.query.filter_by(
+                patient_id=patient_id, 
+                is_dormant=True
+            ).count()
+            
+            if dormant_screenings > 0:
+                return {
+                    'success': False,
+                    'error': f'Patient {patient.full_name} has stale data ({dormant_screenings} dormant screening(s)). Please reprocess the patient before sending to Epic.',
+                    'requires_reprocess': True
                 }
             
             # Initialize FHIR client
