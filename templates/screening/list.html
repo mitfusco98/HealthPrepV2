@@ -490,11 +490,11 @@
                     </thead>
                     <tbody>
                         {% for screening in screenings %}
-                        <tr {% if screening.is_dormant %}style="background-color: rgba(255, 193, 7, 0.1) !important; opacity: 0.85;"{% elif appointment_prioritization.enabled and screening.patient_id in appointment_prioritization.priority_patient_ids %}style="background-color: rgba(13, 110, 253, 0.15) !important;"{% endif %}>
+                        <tr {% if screening.effective_dormant %}style="background-color: rgba(255, 193, 7, 0.1) !important; opacity: 0.85;"{% elif appointment_prioritization.enabled and screening.patient_id in appointment_prioritization.priority_patient_ids %}style="background-color: rgba(13, 110, 253, 0.15) !important;"{% endif %}>
                             <!-- Patient Information -->
                             <td class="patient-info">
                                 <div class="patient-name">
-                                    {% if screening.is_dormant %}
+                                    {% if screening.effective_dormant %}
                                     <i class="fas fa-sync-alt text-warning me-1" title="Stale - needs reprocessing (outside appointment window)"></i>
                                     {% endif %}
                                     {{ screening.patient.full_name }}
@@ -571,7 +571,7 @@
                                             <span class="text-muted small">No matches</span>
                                         {% endif %}
                                     </div>
-                                    {% if screening.is_dormant %}
+                                    {% if screening.effective_dormant %}
                                     <form method="POST" action="{{ url_for('main.reprocess_patient', patient_id=screening.patient_id) }}" class="d-inline">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <button type="submit" class="btn prep-sheet-btn btn-warning ms-2" 

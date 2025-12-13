@@ -143,6 +143,7 @@ def screening_list():
         # Check if appointment-based prioritization is enabled
         priority_patient_ids = set()
         appointment_prioritization_enabled = False
+        window_days = 14  # Default window
         
         if current_user.organization and current_user.organization.appointment_based_prioritization:
             try:
@@ -150,18 +151,53 @@ def screening_list():
                 prioritization_service = AppointmentBasedPrioritization(current_user.org_id)
                 priority_patient_ids = set(prioritization_service.get_priority_patients())
                 appointment_prioritization_enabled = True
+                window_days = current_user.organization.prioritization_window_days or 14
                 logger.info(f"Appointment prioritization enabled: {len(priority_patient_ids)} priority patients")
             except Exception as e:
                 logger.error(f"Error getting priority patients: {str(e)}")
         
-        # Sort by appointment priority (if enabled), then status priority, then patient name, then screening type name
+        # Helper to determine if screening is effectively dormant
+        # A screening is dormant if is_dormant=True OR if is_dormant=False but last_processed is outside window
+        from datetime import datetime, timedelta
+        window_cutoff = datetime.utcnow() - timedelta(days=window_days)
+        
+        def is_effectively_dormant(screening):
+            if screening.is_dormant:
+                return True
+            # If not explicitly dormant, check if last_processed is outside window
+            if not appointment_prioritization_enabled:
+                return False
+            if screening.last_processed and screening.last_processed < window_cutoff:
+                return True
+            return False
+        
+        # Auto-reset is_dormant for screenings where last_processed is outside window
+        # This ensures the persisted flag stays in sync with the time-based window
+        if appointment_prioritization_enabled:
+            stale_screenings = [s for s in all_screenings if 
+                                not s.is_dormant and 
+                                s.last_processed and 
+                                s.last_processed < window_cutoff]
+            if stale_screenings:
+                for s in stale_screenings:
+                    s.is_dormant = True
+                db.session.commit()
+                logger.info(f"Auto-reset {len(stale_screenings)} screenings to dormant (last_processed outside window)")
+        
+        # Sort by: dormant last, then appointment priority (if enabled), then status priority, then patient name
+        # Dormant/stale screenings go to the bottom
         all_sorted_screenings = sorted(all_screenings, 
                           key=lambda s: (
+                              1 if is_effectively_dormant(s) else 0,  # Dormant screenings at bottom
                               0 if (appointment_prioritization_enabled and s.patient_id in priority_patient_ids) else 1,
                               status_priority.get(s.status, 99),
                               s.patient.name.lower() if s.patient.name else '',
                               s.screening_type.name.lower() if s.screening_type.name else ''
                           ))
+        
+        # Add effective_dormant attribute to each screening for template use
+        for s in all_sorted_screenings:
+            s.effective_dormant = is_effectively_dormant(s)
         
         # Pagination
         page = request.args.get('page', 1, type=int)

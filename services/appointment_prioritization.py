@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, date
 from typing import List, Dict, Optional, Tuple
 from sqlalchemy import and_
 
-from models import db, Patient, Appointment, Organization
+from models import db, Patient, Appointment, Organization, Screening
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,12 @@ class AppointmentBasedPrioritization:
     
     def get_priority_patients(self) -> List[int]:
         """
-        Get list of patient IDs with appointments in the configured time window
+        Get list of patient IDs to prioritize for screening
+        
+        Priority patients include:
+        1. Patients with appointments in the configured time window
+        2. Patients with screenings marked as non-dormant (is_dormant=False)
+           This allows manually reprocessed patients to appear as priority
         
         Returns:
             List of patient IDs to prioritize for screening
@@ -58,12 +63,26 @@ class AppointmentBasedPrioritization:
                 )
             ).all()
             
-            # Extract unique patient IDs
-            priority_patient_ids = list(set([apt.patient_id for apt in upcoming_appointments]))
+            # Extract unique patient IDs from appointments
+            priority_patient_ids = set([apt.patient_id for apt in upcoming_appointments])
             
-            logger.info(f"Found {len(priority_patient_ids)} priority patients with {len(upcoming_appointments)} appointments")
+            # Also include patients with non-dormant screenings processed within the window
+            # This ensures reprocessed patients return to dormant after window_days pass
+            window_start = datetime.combine(today, datetime.min.time()) - timedelta(days=window_days)
+            non_dormant_patient_ids = db.session.query(Screening.patient_id).filter(
+                and_(
+                    Screening.org_id == self.organization_id,
+                    Screening.is_dormant == False,
+                    Screening.last_processed >= window_start
+                )
+            ).distinct().all()
+            non_dormant_patient_ids = set([p[0] for p in non_dormant_patient_ids])
             
-            return priority_patient_ids
+            priority_patient_ids = priority_patient_ids.union(non_dormant_patient_ids)
+            
+            logger.info(f"Found {len(priority_patient_ids)} priority patients ({len(set([apt.patient_id for apt in upcoming_appointments]))} from appointments, {len(non_dormant_patient_ids)} from recently processed non-dormant screenings)")
+            
+            return list(priority_patient_ids)
             
         except Exception as e:
             logger.error(f"Error getting priority patients: {str(e)}")

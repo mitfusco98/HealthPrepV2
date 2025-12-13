@@ -82,21 +82,34 @@ def screening_list():
             window_end = now + timedelta(days=window_days)
             
             # Get patient IDs with upcoming appointments in window
-            priority_patient_ids = db.session.query(Appointment.patient_id).filter(
+            appointment_patient_ids = db.session.query(Appointment.patient_id).filter(
                 Appointment.org_id == org_id,
                 Appointment.appointment_date >= now,
                 Appointment.appointment_date <= window_end,
                 Appointment.status.in_(['scheduled', 'confirmed', 'pending'])
             ).distinct().all()
-            priority_patient_ids = [p[0] for p in priority_patient_ids]
+            appointment_patient_ids = set([p[0] for p in appointment_patient_ids])
+            
+            # Also include patients with non-dormant screenings processed within the window
+            # This ensures reprocessed patients return to dormant after window_days pass
+            window_start = now - timedelta(days=window_days)
+            non_dormant_patient_ids = db.session.query(Screening.patient_id).filter(
+                Screening.org_id == org_id,
+                Screening.is_dormant == False,
+                Screening.last_processed >= window_start
+            ).distinct().all()
+            non_dormant_patient_ids = set([p[0] for p in non_dormant_patient_ids])
+            
+            # Combine both sets for priority patients
+            priority_patient_ids = list(appointment_patient_ids.union(non_dormant_patient_ids))
             
             # Apply window filter if appointment-based prioritization is enabled
             if window_filter != 'all':
                 if window_filter == 'priority':
-                    # Only show patients with appointments in the window
+                    # Only show patients with appointments in the window OR non-dormant screenings
                     query = query.filter(Patient.id.in_(priority_patient_ids)) if priority_patient_ids else query.filter(Patient.id == -1)
                 elif window_filter == 'dormant':
-                    # Show patients without appointments in the window (dormant)
+                    # Show patients without appointments in the window AND all screenings dormant
                     query = query.filter(~Patient.id.in_(priority_patient_ids)) if priority_patient_ids else query
 
         if search:
@@ -144,7 +157,7 @@ def screening_list():
 @main_bp.route('/patient/<int:patient_id>/reprocess', methods=['POST'])
 @login_required
 def reprocess_patient(patient_id):
-    """Manual patient reprocessing - bypasses appointment window filter"""
+    """Manual patient reprocessing - refreshes screenings and marks patient as active"""
     try:
         from datetime import datetime
         from core.engine import ScreeningEngine
@@ -159,7 +172,9 @@ def reprocess_patient(patient_id):
         engine = ScreeningEngine()
         updated_count = engine.refresh_patient_screenings(patient.id, force_refresh=True)
         
-        # Update last_processed timestamp for all screenings
+        # Update last_processed timestamp and mark as active for all screenings
+        # The is_dormant flag is the source of truth for prioritization
+        # Screenings will become dormant again based on future prioritization checks
         for screening in patient.screenings:
             screening.last_processed = datetime.utcnow()
             screening.is_dormant = False  # Mark as active after manual reprocess
