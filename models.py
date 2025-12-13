@@ -1714,11 +1714,48 @@ class Document(db.Model):
             from ocr.phi_filter import PHIFilter
             phi_filter = PHIFilter()
             filtered = phi_filter.filter_phi(text)
+            
+            # HIPAA audit logging for PHI filtering events
+            self._log_phi_event('phi_filtered', {
+                'document_id': self.id,
+                'patient_id': self.patient_id if hasattr(self, 'patient_id') else None,
+                'text_length': len(text),
+                'filtered_length': len(filtered) if filtered else 0
+            })
+            
             logger.debug(f"PHI filtering applied to Document {self.id if self.id else 'new'}")
             return filtered
         except Exception as e:
             logger.error(f"PHI filtering failed for Document: {e} - text will NOT be stored for HIPAA compliance")
+            self._log_phi_event('phi_filter_failed', {
+                'document_id': self.id,
+                'error': str(e)
+            })
             return None
+    
+    def _log_phi_event(self, event_type: str, details: dict):
+        """Log PHI-related events for HIPAA audit trail"""
+        try:
+            from flask import has_request_context
+            from flask_login import current_user
+            
+            user_id = None
+            if has_request_context() and current_user and current_user.is_authenticated:
+                user_id = current_user.id
+            
+            admin_log = AdminLog()
+            admin_log.user_id = user_id
+            admin_log.event_type = event_type
+            admin_log.resource_type = 'document'
+            admin_log.resource_id = self.id
+            admin_log.patient_id = self.patient_id if hasattr(self, 'patient_id') else None
+            admin_log.action_details = f"PHI event: {event_type}"
+            admin_log.data = details
+            admin_log.org_id = self.org_id if hasattr(self, 'org_id') else None
+            
+            db.session.add(admin_log)
+        except Exception as e:
+            logger.warning(f"Failed to log PHI event: {e}")
     
     @hybrid_property
     def ocr_text(self):
@@ -1917,11 +1954,49 @@ class FHIRDocument(db.Model):
             from ocr.phi_filter import PHIFilter
             phi_filter = PHIFilter()
             filtered = phi_filter.filter_phi(text)
+            
+            # HIPAA audit logging for PHI filtering events
+            self._log_phi_event('phi_filtered', {
+                'fhir_document_id': self.id,
+                'epic_document_id': self.epic_document_id if hasattr(self, 'epic_document_id') else None,
+                'patient_id': self.patient_id if hasattr(self, 'patient_id') else None,
+                'text_length': len(text),
+                'filtered_length': len(filtered) if filtered else 0
+            })
+            
             logger.debug(f"PHI filtering applied to FHIRDocument {self.id if self.id else 'new'}")
             return filtered
         except Exception as e:
             logger.error(f"PHI filtering failed for FHIRDocument: {e} - text will NOT be stored for HIPAA compliance")
+            self._log_phi_event('phi_filter_failed', {
+                'fhir_document_id': self.id,
+                'error': str(e)
+            })
             return None
+    
+    def _log_phi_event(self, event_type: str, details: dict):
+        """Log PHI-related events for HIPAA audit trail"""
+        try:
+            from flask import has_request_context
+            from flask_login import current_user
+            
+            user_id = None
+            if has_request_context() and current_user and current_user.is_authenticated:
+                user_id = current_user.id
+            
+            admin_log = AdminLog()
+            admin_log.user_id = user_id
+            admin_log.event_type = event_type
+            admin_log.resource_type = 'fhir_document'
+            admin_log.resource_id = self.id
+            admin_log.patient_id = self.patient_id if hasattr(self, 'patient_id') else None
+            admin_log.action_details = f"PHI event: {event_type}"
+            admin_log.data = details
+            admin_log.org_id = self.org_id if hasattr(self, 'org_id') else None
+            
+            db.session.add(admin_log)
+        except Exception as e:
+            logger.warning(f"Failed to log PHI event: {e}")
     
     @hybrid_property
     def ocr_text(self):
