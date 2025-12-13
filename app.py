@@ -288,6 +288,7 @@ def register_blueprints(app):
     from routes.password_reset_routes import password_reset_bp
     from routes.org_approval_routes import org_approval_bp
     from routes.webhook_routes import webhook_bp
+    from routes.main_routes import main_bp
     from ui.routes import ui_bp
 
     app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -311,6 +312,7 @@ def register_blueprints(app):
     app.register_blueprint(epic_public_bp)  # Epic registration routes
     app.register_blueprint(phi_test_bp)    # PHI testing routes with /admin/dashboard/phi prefix
     app.register_blueprint(ui_bp)
+    app.register_blueprint(main_bp)  # Main routes for patient reprocessing etc.
 
     # Exempt all API routes from CSRF
     csrf.exempt(api_bp)

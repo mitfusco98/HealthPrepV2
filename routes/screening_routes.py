@@ -266,7 +266,14 @@ def screening_list():
                                  'patient': '',
                                  'status': '',
                                  'screening_type': ''
-                             })
+                             },
+                             appointment_prioritization={
+                                 'enabled': False,
+                                 'priority_patient_ids': set(),
+                                 'priority_count_on_page': 0,
+                                 'window_days': 14
+                             },
+                             epic_dry_run=False)
 
 @screening_bp.route('/types')
 @login_required
