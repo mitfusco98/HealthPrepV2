@@ -1214,6 +1214,7 @@ def edit_user(user_id):
         db.session.commit()
 
         # Log the action with before/after values
+        username = user.username
         log_admin_event(
             event_type='edit_user',
             user_id=current_user.id,
