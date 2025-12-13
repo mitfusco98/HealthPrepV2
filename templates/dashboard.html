@@ -309,7 +309,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Enhanced refresh functionality that works across all pages
 function refreshScreenings(event, page) {
-    // Prevent default link behavior
     event.preventDefault();
     
     const button = event.target.closest('button') || event.target.closest('a');
@@ -317,9 +316,12 @@ function refreshScreenings(event, page) {
     const confirmMessage = 'Discover and sync patient data from Epic EMR? This will automatically find Epic patients, import them locally, fetch their medical records, conditions, documents, and update all screening statuses.';
 
     if (confirm(confirmMessage)) {
-        // Show loading state
-        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Discovering and syncing from EMR...';
+        // Show loading state on button
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Syncing...';
         button.disabled = true;
+        
+        // Trigger global page refresh overlay (defined in base_user.html)
+        window.triggerPageRefresh();
 
         // Make refresh request to unified endpoint
         fetch('/api/refresh-screenings', {
@@ -332,28 +334,18 @@ function refreshScreenings(event, page) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Show success message
-                const alertDiv = document.createElement('div');
-                alertDiv.className = 'alert alert-success alert-dismissible fade show';
-                alertDiv.innerHTML = `
-                    <i class="fas fa-check-circle me-2"></i>
-                    Patient discovery and EMR sync completed successfully!
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                `;
-                
-                const container = document.querySelector('.container-fluid') || document.querySelector('.container');
-                container.insertBefore(alertDiv, container.firstChild);
-                
-                // Reload page after short delay
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
+                // Reload page - overlay will persist until new page is ready
+                window.location.reload();
             } else {
                 throw new Error(data.error || 'Unknown error occurred');
             }
         })
         .catch(error => {
             console.error('Error refreshing screenings:', error);
+            
+            // Clear refresh state on error
+            document.body.classList.remove('is-refreshing');
+            sessionStorage.removeItem('page_refreshing');
             
             // Show error message
             const alertDiv = document.createElement('div');
@@ -363,11 +355,9 @@ function refreshScreenings(event, page) {
                 Error discovering and syncing EMR data: ${error.message}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             `;
-            
             const container = document.querySelector('.container-fluid') || document.querySelector('.container');
             container.insertBefore(alertDiv, container.firstChild);
-        })
-        .finally(() => {
+            
             // Restore button state
             button.innerHTML = originalText;
             button.disabled = false;

@@ -745,7 +745,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 // Enhanced refresh functionality that works across all tabs
 function refreshScreenings(event, tab) {
-    // Prevent default link behavior
     event.preventDefault();
     
     const button = event.target.closest('button') || event.target.closest('a');
@@ -755,11 +754,14 @@ function refreshScreenings(event, tab) {
         : 'Refresh screening data using existing documents? This will reprocess your local documents with current screening criteria and update all screening statuses based on the latest rules.';
 
     if (confirm(confirmMessage)) {
-        // Show loading state
-        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Refreshing screening data...';
+        // Show loading state on button
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Refreshing...';
         button.disabled = true;
+        
+        // Trigger global page refresh overlay (defined in base_user.html)
+        window.triggerPageRefresh();
 
-        // Make refresh request with force_refresh to recalculate all statuses
+        // Make refresh request
         const csrfToken = document.querySelector('meta[name=csrf-token]')?.getAttribute('content');
         fetch('/screening/refresh', {
             method: 'POST',
@@ -771,7 +773,7 @@ function refreshScreenings(event, tab) {
         })
         .then(response => {
             if (response.ok) {
-                // Redirect successful - reload the page
+                // Reload page - overlay will persist until new page is ready
                 window.location.reload();
             } else {
                 throw new Error('Refresh request failed');
@@ -779,6 +781,10 @@ function refreshScreenings(event, tab) {
         })
         .catch(error => {
             console.error('Error refreshing screenings:', error);
+            
+            // Clear refresh state on error
+            document.body.classList.remove('is-refreshing');
+            sessionStorage.removeItem('page_refreshing');
             
             // Show error message
             const alertDiv = document.createElement('div');
@@ -788,11 +794,9 @@ function refreshScreenings(event, tab) {
                 Error refreshing screening data: ${error.message}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             `;
-            
             const container = document.querySelector('.container-fluid');
             container.insertBefore(alertDiv, container.firstChild);
-        })
-        .finally(() => {
+            
             // Restore button state
             button.innerHTML = originalText;
             button.disabled = false;

@@ -23,9 +23,64 @@
     <link href="{{ url_for('static', filename='css/medical_terminology_ui.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/loading-states.css') }}" rel="stylesheet">
 
+    <!-- Page refresh loading overlay styles -->
+    <style id="refresh-overlay-styles">
+        #page-refresh-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 99999;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        body.is-refreshing #page-refresh-overlay {
+            display: flex !important;
+        }
+        body.is-refreshing > *:not(#page-refresh-overlay) {
+            visibility: hidden !important;
+        }
+        #page-refresh-overlay .spinner-border {
+            width: 3rem;
+            height: 3rem;
+            color: white;
+        }
+        #page-refresh-overlay .loading-text {
+            color: white;
+            font-size: 1.1rem;
+            margin-top: 1rem;
+        }
+    </style>
+    <!-- Early check: if sessionStorage indicates refresh in progress, add class before paint -->
+    <script>
+        (function() {
+            if (sessionStorage.getItem('page_refreshing')) {
+                document.documentElement.className += ' is-refreshing-html';
+            }
+        })();
+    </script>
+
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+    <!-- Page refresh loading overlay (always in DOM, shown via body.is-refreshing class) -->
+    <div id="page-refresh-overlay">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <div class="loading-text">Refreshing data...</div>
+    </div>
+    
+    <script>
+        // Apply is-refreshing class to body immediately if flag is set
+        if (sessionStorage.getItem('page_refreshing')) {
+            document.body.classList.add('is-refreshing');
+        }
+    </script>
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
@@ -119,6 +174,26 @@
 
     <!-- Medical Terminology JS -->
     <script src="{{ url_for('static', filename='js/medical_terminology.js') }}"></script>
+    
+    <!-- Page refresh loading - clear on window load -->
+    <script>
+        window.addEventListener('load', function() {
+            // Small delay to ensure content is painted
+            requestAnimationFrame(function() {
+                setTimeout(function() {
+                    document.body.classList.remove('is-refreshing');
+                    document.documentElement.classList.remove('is-refreshing-html');
+                    sessionStorage.removeItem('page_refreshing');
+                }, 100);
+            });
+        });
+        
+        // Global helper function to trigger page refresh with loading overlay
+        window.triggerPageRefresh = function() {
+            sessionStorage.setItem('page_refreshing', 'true');
+            document.body.classList.add('is-refreshing');
+        };
+    </script>
 
     {% block extra_js %}{% endblock %}
 </body>
