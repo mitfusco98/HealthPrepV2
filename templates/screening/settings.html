@@ -193,47 +193,6 @@
                 {% endif %}
             </div>
         </div>
-        
-        <div class="card mt-3">
-            <div class="card-header">
-                <h6 class="mb-0">
-                    <i class="fas fa-lightbulb me-2"></i>
-                    Best Practices
-                </h6>
-            </div>
-            <div class="card-body">
-                <h6 class="mb-3">Recommended Practices</h6>
-                <ul class="list-unstyled">
-                    <li class="mb-2">
-                        <i class="fas fa-flask text-primary me-2"></i>
-                        <strong>Labs:</strong> 3-6 months for chronic conditions, 12+ months for routine
-                    </li>
-                    <li class="mb-2">
-                        <i class="fas fa-x-ray text-info me-2"></i>
-                        <strong>Imaging:</strong> 6-12 months for follow-ups, 24+ months for screening
-                    </li>
-                    <li class="mb-2">
-                        <i class="fas fa-user-md text-success me-2"></i>
-                        <strong>Consults:</strong> 3-6 months for active care, 12+ months for stable conditions
-                    </li>
-                    <li class="mb-2">
-                        <i class="fas fa-hospital text-danger me-2"></i>
-                        <strong>Hospital:</strong> 6-12 months for recent admissions
-                    </li>
-                </ul>
-                
-                <h6 class="mb-3 mt-4">Cutoff Logic</h6>
-                <p class="mb-2">The system applies cutoffs in this hierarchy:</p>
-                <ol class="mb-2">
-                    <li><strong>Data type-specific cutoffs</strong> - Individual values set above</li>
-                    <li><strong>"To Last Appointment" fallback</strong> - When set to 0, uses patient's last appointment date</li>
-                    <li><strong>Default fallback</strong> - 6 months ago if no past appointments found</li>
-                </ol>
-                <p class="mb-0">
-                    <strong>Note:</strong> Setting any cutoff to <code>0</code> enables "To Last Appointment" mode for that data type.
-                </p>
-            </div>
-        </div>
     </div>
 </div>
 
