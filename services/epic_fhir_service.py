@@ -571,7 +571,7 @@ class EpicFHIRService:
         
         try:
             from datetime import date
-            from dateutil.relativedelta import relativedelta
+            from core.criteria import EligibilityCriteria
             
             vaccine_codes = screening_type.vaccine_codes_list
             
@@ -587,38 +587,50 @@ class EpicFHIRService:
                     'requires_vaccine_codes': True
                 }
             
-            frequency_years = 1
-            if screening_type.frequency and screening_type.frequency_unit:
-                if screening_type.frequency_unit == 'year':
-                    frequency_years = screening_type.frequency
-                elif screening_type.frequency_unit == 'month':
-                    frequency_years = screening_type.frequency / 12
-            
-            immunization_status = self.fhir_client.check_immunization_status(
+            # Fetch immunization records from FHIR
+            immunizations = self.fhir_client.get_patient_immunizations(
                 patient.epic_patient_id,
-                vaccine_codes,
-                frequency_years
+                vaccine_codes
             )
             
-            status = 'due'
-            if immunization_status['is_current']:
-                today = date.today()
-                next_due = immunization_status.get('next_due_date')
-                
-                if next_due:
-                    days_until_due = (next_due - today).days
-                    if days_until_due <= 30:
-                        status = 'due_soon'
-                    else:
-                        status = 'complete'
-                else:
-                    status = 'complete'
+            # Extract the most recent immunization date as last_completed
+            last_completed = None
+            if immunizations:
+                # Parse dates from immunization records and find the most recent
+                for imm in immunizations:
+                    occurrence_date = imm.get('occurrenceDateTime') or imm.get('occurrenceString')
+                    if occurrence_date:
+                        try:
+                            # Parse FHIR date format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)
+                            if 'T' in str(occurrence_date):
+                                imm_date = date.fromisoformat(str(occurrence_date).split('T')[0])
+                            else:
+                                imm_date = date.fromisoformat(str(occurrence_date))
+                            
+                            if last_completed is None or imm_date > last_completed:
+                                last_completed = imm_date
+                        except (ValueError, TypeError) as e:
+                            logger.warning(f"Could not parse immunization date {occurrence_date}: {e}")
+            
+            # Use the shared criteria engine for consistent status calculation
+            # This ensures immunization screenings follow the same rules as document-based screenings
+            criteria = EligibilityCriteria()
+            status = criteria.calculate_screening_status(screening_type, last_completed)
+            
+            # Calculate next due date for response
+            next_due = None
+            if last_completed and screening_type.frequency_value and screening_type.frequency_unit:
+                next_due = criteria._calculate_next_due_date(
+                    last_completed,
+                    screening_type.frequency_value,
+                    screening_type.frequency_unit
+                )
             
             return {
                 'status': status,
-                'last_completed': immunization_status.get('last_immunization_date'),
-                'next_due': immunization_status.get('next_due_date'),
-                'immunization_records': immunization_status.get('immunization_records', [])
+                'last_completed': last_completed,
+                'next_due': next_due,
+                'immunization_records': immunizations or []
             }
             
         except Exception as e:
