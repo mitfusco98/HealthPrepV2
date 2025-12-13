@@ -157,10 +157,11 @@ def screening_list():
 @main_bp.route('/patient/<int:patient_id>/reprocess', methods=['POST'])
 @login_required
 def reprocess_patient(patient_id):
-    """Manual patient reprocessing - refreshes screenings and marks patient as active"""
+    """Manual patient reprocessing - performs full EMR sync like batch sync but for individual patient"""
     try:
         from datetime import datetime
         from core.engine import ScreeningEngine
+        from services.comprehensive_emr_sync import ComprehensiveEMRSync
         
         patient = Patient.query.get_or_404(patient_id)
         
@@ -168,7 +169,21 @@ def reprocess_patient(patient_id):
             flash('You do not have access to this patient.', 'error')
             return redirect(url_for('main.patients'))
         
-        # Run screening criteria against existing OCR transcripts
+        sync_results = {'documents_processed': 0, 'screenings_updated': 0}
+        
+        # If patient has Epic ID, do full EMR sync (new documents, conditions, observations, etc.)
+        if patient.epic_patient_id:
+            try:
+                emr_sync = ComprehensiveEMRSync(current_user.org_id)
+                sync_result = emr_sync.sync_patient_comprehensive(patient.epic_patient_id, sync_options={'force_refresh': True})
+                if sync_result.get('success'):
+                    sync_results['documents_processed'] = sync_result.get('documents_processed', 0)
+                    sync_results['screenings_updated'] = sync_result.get('screenings_updated', 0)
+                    logger.info(f"EMR sync for patient {patient.name}: {sync_results}")
+            except Exception as sync_error:
+                logger.warning(f"EMR sync failed for patient {patient.name}, continuing with local refresh: {str(sync_error)}")
+        
+        # Run screening criteria against all documents (existing + newly synced)
         engine = ScreeningEngine()
         updated_count = engine.refresh_patient_screenings(patient.id, force_refresh=True)
         
@@ -181,7 +196,11 @@ def reprocess_patient(patient_id):
         
         db.session.commit()
         
-        flash(f'Successfully reprocessed {patient.name}. Updated {updated_count} screening(s). Send to Epic is now available.', 'success')
+        # Build success message with sync details
+        if sync_results['documents_processed'] > 0:
+            flash(f'Successfully reprocessed {patient.name}. Synced {sync_results["documents_processed"]} new document(s) from Epic. Updated {updated_count} screening(s). Send to Epic is now available.', 'success')
+        else:
+            flash(f'Successfully reprocessed {patient.name}. Updated {updated_count} screening(s). Send to Epic is now available.', 'success')
         
         # Redirect back to the referer or screening list
         referer = request.referrer
