@@ -460,17 +460,6 @@
             </div>
             {% endif %}
             
-            <!-- Patient Status Legend -->
-            {% if appointment_prioritization.enabled %}
-            <div class="confidence-legend mb-2">
-                <strong>Patient Status:</strong>
-                <span class="me-3"><i class="fas fa-star text-warning me-1"></i> Priority (upcoming appointment)</span>
-                <span class="me-3"><i class="fas fa-moon text-warning me-1"></i> Stale (needs reprocessing)</span>
-                <span class="me-3"><i class="fas fa-file-medical text-primary me-1"></i> Send to Epic</span>
-                <span><i class="fas fa-sync-alt text-warning me-1"></i> Reprocess first</span>
-            </div>
-            {% endif %}
-            
             <!-- Document Confidence Legend -->
             <div class="confidence-legend mb-3">
                 <strong>Document Confidence:</strong>
@@ -506,9 +495,7 @@
                             <td class="patient-info">
                                 <div class="patient-name">
                                     {% if screening.is_dormant %}
-                                    <i class="fas fa-moon text-warning me-1" title="Stale - needs reprocessing (outside appointment window)"></i>
-                                    {% elif appointment_prioritization.enabled and screening.patient_id in appointment_prioritization.priority_patient_ids %}
-                                    <i class="fas fa-star text-warning me-1" title="Has upcoming appointment"></i>
+                                    <i class="fas fa-sync-alt text-warning me-1" title="Stale - needs reprocessing (outside appointment window)"></i>
                                     {% endif %}
                                     {{ screening.patient.full_name }}
                                 </div>
