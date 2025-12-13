@@ -1091,6 +1091,21 @@ def create_user():
         db.session.add(new_user)
         db.session.commit()
 
+        # Auto-assign new user to all active providers in the organization
+        org_providers = Provider.query.filter_by(org_id=org_id, is_active=True).all()
+        for provider in org_providers:
+            assignment = UserProviderAssignment(
+                user_id=new_user.id,
+                provider_id=provider.id,
+                org_id=org_id,
+                can_view_patients=True,
+                can_edit_screenings=(role in ['admin', 'nurse']),
+                can_generate_prep_sheets=True,
+                can_sync_epic=(role == 'admin')
+            )
+            db.session.add(assignment)
+        db.session.commit()
+
         # Log user creation immediately after commit (for HIPAA audit trail)
         created_values = {
             'username': new_user.username,
