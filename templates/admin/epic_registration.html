@@ -277,16 +277,13 @@
                         </div>
                         
                         <form id="prioritizationForm">
-                            <div class="mb-3 form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="enablePrioritization" 
-                                       {% if organization.appointment_based_prioritization %}checked{% endif %}
-                                       onchange="togglePrioritizationSettings()">
-                                <label class="form-check-label" for="enablePrioritization">
-                                    <strong>Enable Appointment-Based Prioritization</strong>
-                                </label>
+                            <div class="mb-3">
+                                <span class="badge bg-success"><i class="fas fa-check me-1"></i>Enabled</span>
+                                <strong class="ms-2">Appointment-Based Prioritization</strong>
+                                <input type="hidden" id="enablePrioritization" value="true">
                             </div>
                             
-                            <div id="prioritizationSettings" style="{% if not organization.appointment_based_prioritization %}display: none;{% endif %}">
+                            <div id="prioritizationSettings">
                                 <div class="mb-3">
                                     <label class="form-label">Appointment Window (days ahead)</label>
                                     <input type="number" class="form-control" id="windowDays" 
@@ -833,7 +830,7 @@ function togglePrioritizationSettings() {
 
 function savePrioritizationSettings() {
     const data = {
-        appointment_based_prioritization: document.getElementById('enablePrioritization').checked,
+        appointment_based_prioritization: true,  // Always enabled
         prioritization_window_days: parseInt(document.getElementById('windowDays').value),
         process_non_scheduled_patients: document.getElementById('processNonScheduled').checked
     };

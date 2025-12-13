@@ -197,9 +197,8 @@ def update_appointment_prioritization():
         if not data:
             return jsonify({'success': False, 'error': 'No data provided'})
         
-        # Update appointment prioritization settings
-        if 'appointment_based_prioritization' in data:
-            organization.appointment_based_prioritization = bool(data['appointment_based_prioritization'])
+        # Appointment-based prioritization is always enabled
+        organization.appointment_based_prioritization = True
         
         if 'prioritization_window_days' in data:
             window_days = int(data['prioritization_window_days'])
