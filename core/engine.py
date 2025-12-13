@@ -50,9 +50,11 @@ class ScreeningEngine:
                     if priority_patient_ids:
                         self.logger.info(f"Processing {len(priority_patient_ids)} priority patients with upcoming appointments")
                         
-                        # Process priority patients first
+                        # Process priority patients first - mark as NOT dormant
                         for patient_id in priority_patient_ids:
                             updated_count += self.refresh_patient_screenings(patient_id)
+                            # Mark all screenings for this patient as active (not dormant)
+                            self._mark_patient_screenings_dormancy(patient_id, is_dormant=False)
                         
                         # Process non-scheduled patients if enabled
                         if organization.process_non_scheduled_patients:
@@ -63,8 +65,16 @@ class ScreeningEngine:
                             
                             for patient_id in non_scheduled_ids:
                                 updated_count += self.refresh_patient_screenings(patient_id)
+                                # Mark processed non-scheduled patients as active too
+                                self._mark_patient_screenings_dormancy(patient_id, is_dormant=False)
                         else:
-                            self.logger.info(f"Skipping {len(prioritization_service.get_non_scheduled_patients(priority_patient_ids))} non-scheduled patients (process_non_scheduled_patients is disabled)")
+                            # Mark non-scheduled patients as dormant (stale data)
+                            non_scheduled_ids = prioritization_service.get_non_scheduled_patients(
+                                exclude_patient_ids=priority_patient_ids
+                            )
+                            self.logger.info(f"Marking {len(non_scheduled_ids)} non-scheduled patients as dormant (process_non_scheduled_patients is disabled)")
+                            for patient_id in non_scheduled_ids:
+                                self._mark_patient_screenings_dormancy(patient_id, is_dormant=True)
                     else:
                         self.logger.info("No priority patients found - falling back to standard processing")
                         # Fall back to standard processing
@@ -132,6 +142,20 @@ class ScreeningEngine:
             # Continue with local refresh even if Epic sync fails
             
         return updated_count
+    
+    def _mark_patient_screenings_dormancy(self, patient_id, is_dormant=True):
+        """Mark all screenings for a patient as dormant or active
+        
+        Args:
+            patient_id: Patient ID
+            is_dormant: True to mark as dormant (stale), False to mark as active
+        """
+        from datetime import datetime
+        screenings = Screening.query.filter_by(patient_id=patient_id).all()
+        for screening in screenings:
+            screening.is_dormant = is_dormant
+            screening.last_processed = datetime.utcnow()
+        self.logger.debug(f"Marked {len(screenings)} screenings for patient {patient_id} as {'dormant' if is_dormant else 'active'}")
     
     def _should_refresh_screening(self, screening: Screening, screening_type: ScreeningType) -> bool:
         """Determine if a screening needs to be refreshed based on criteria changes
