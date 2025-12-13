@@ -96,6 +96,22 @@ class ComprehensiveEMRSync:
             logger.debug(f"Patient {patient.epic_patient_id} never synced before, cannot skip")
             return False
         
+        # If patient has no screenings OR no documents, they've never been fully processed - don't skip
+        # This ensures the first complete sync always runs even if demographics were synced
+        from models import Screening, Document as ManualDoc, FHIRDocument as FHIRDoc
+        screening_count = Screening.query.filter_by(patient_id=patient.id).count()
+        manual_docs = ManualDoc.query.filter_by(patient_id=patient.id).count()
+        fhir_docs = FHIRDoc.query.filter_by(patient_id=patient.id).count()
+        total_docs = manual_docs + fhir_docs
+        
+        if screening_count == 0:
+            logger.debug(f"Patient {patient.epic_patient_id} has no screenings, cannot skip first full sync")
+            return False
+        
+        if total_docs == 0:
+            logger.debug(f"Patient {patient.epic_patient_id} has no documents, cannot skip - documents never synced")
+            return False
+        
         try:
             # Count current documents
             manual_doc_count = Document.query.filter_by(patient_id=patient.id).count()
