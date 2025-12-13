@@ -1663,7 +1663,12 @@ class Screening(db.Model):
         return f'<Screening {self.screening_type_id} for patient {self.patient_id}>'
 
 class Document(db.Model):
-    """Document model with organization scope and EMR sync tracking"""
+    """Document model with organization scope and EMR sync tracking
+    
+    HIPAA COMPLIANCE: PHI filtering is enforced at the property level.
+    All writes to ocr_text and content are automatically filtered.
+    Direct assignment to these fields will always apply PHI filtering.
+    """
     __tablename__ = 'document'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -1672,8 +1677,8 @@ class Document(db.Model):
     filename = db.Column(db.String(255), nullable=False)
     file_path = db.Column(db.String(500))
     document_type = db.Column(db.String(50))  # 'lab', 'imaging', 'consult', 'hospital'
-    content = db.Column(db.Text)  # OCR extracted text
-    ocr_text = db.Column(db.Text)  # OCR extracted text (primary field)
+    _content = db.Column('content', db.Text)  # PHI-filtered OCR extracted text (private column)
+    _ocr_text = db.Column('ocr_text', db.Text)  # PHI-filtered OCR extracted text (private column)
     ocr_confidence = db.Column(db.Float)
     phi_filtered = db.Column(db.Boolean, default=False)
     processed_at = db.Column(db.DateTime)
@@ -1715,22 +1720,57 @@ class Document(db.Model):
             logger.error(f"PHI filtering failed for Document: {e} - text will NOT be stored for HIPAA compliance")
             return None
     
-    def set_ocr_text(self, text):
-        """Set OCR text with mandatory PHI filtering - use this instead of direct assignment"""
-        self.ocr_text = self._filter_phi_text(text)
+    @hybrid_property
+    def ocr_text(self):
+        """Get PHI-filtered OCR text"""
+        return self._ocr_text
+    
+    @ocr_text.setter
+    def ocr_text(self, value):
+        """Set OCR text with mandatory PHI filtering - HIPAA compliance enforced"""
+        self._ocr_text = self._filter_phi_text(value)
         self.phi_filtered = True
     
-    def set_content(self, text):
-        """Set content with mandatory PHI filtering"""
-        self.content = self._filter_phi_text(text)
+    @ocr_text.expression
+    def ocr_text(cls):
+        """SQL expression for ORM queries"""
+        return cls._ocr_text
+    
+    @hybrid_property
+    def content(self):
+        """Get PHI-filtered content"""
+        return self._content
+    
+    @content.setter
+    def content(self, value):
+        """Set content with mandatory PHI filtering - HIPAA compliance enforced"""
+        self._content = self._filter_phi_text(value)
         self.phi_filtered = True
+    
+    @content.expression
+    def content(cls):
+        """SQL expression for ORM queries"""
+        return cls._content
+    
+    def set_ocr_text(self, text):
+        """Set OCR text with mandatory PHI filtering - legacy method, uses property setter"""
+        self.ocr_text = text
+    
+    def set_content(self, text):
+        """Set content with mandatory PHI filtering - legacy method, uses property setter"""
+        self.content = text
 
     def __repr__(self):
         return f'<Document {self.filename}>'
 
 
 class FHIRDocument(db.Model):
-    """FHIR DocumentReference model for Epic integration"""
+    """FHIR DocumentReference model for Epic integration
+    
+    HIPAA COMPLIANCE: PHI filtering is enforced at the property level.
+    All writes to ocr_text are automatically filtered.
+    Direct assignment to this field will always apply PHI filtering.
+    """
     __tablename__ = 'fhir_documents'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -1760,7 +1800,7 @@ class FHIRDocument(db.Model):
     is_processed = db.Column(db.Boolean, default=False)  # Has been processed by screening engine
     processing_status = db.Column(db.String(50), default='pending')  # pending, processing, completed, failed
     processing_error = db.Column(db.Text)  # Error message if processing failed
-    ocr_text = db.Column(db.Text)  # Extracted text content from OCR
+    _ocr_text = db.Column('ocr_text', db.Text)  # PHI-filtered OCR text (private column)
     relevance_score = db.Column(db.Float)  # Relevance score for screening (0.0-1.0)
     
     # HealthPrep-generated document flag - skip OCR processing for self-generated documents
@@ -1869,17 +1909,6 @@ class FHIRDocument(db.Model):
                             return True
         return False
     
-    def mark_processed(self, status='completed', error=None, ocr_text=None, relevance_score=None):
-        """Mark document as processed with results - PHI filtering is always applied"""
-        self.is_processed = True
-        self.processing_status = status
-        self.processing_error = error
-        if ocr_text:
-            self.ocr_text = self._filter_phi_text(ocr_text)
-        if relevance_score is not None:
-            self.relevance_score = relevance_score
-        self.updated_at = datetime.utcnow()
-    
     def _filter_phi_text(self, text):
         """Apply PHI filtering to text before storage - HIPAA compliance requirement"""
         if not text:
@@ -1894,9 +1923,35 @@ class FHIRDocument(db.Model):
             logger.error(f"PHI filtering failed for FHIRDocument: {e} - text will NOT be stored for HIPAA compliance")
             return None
     
+    @hybrid_property
+    def ocr_text(self):
+        """Get PHI-filtered OCR text"""
+        return self._ocr_text
+    
+    @ocr_text.setter
+    def ocr_text(self, value):
+        """Set OCR text with mandatory PHI filtering - HIPAA compliance enforced"""
+        self._ocr_text = self._filter_phi_text(value)
+    
+    @ocr_text.expression
+    def ocr_text(cls):
+        """SQL expression for ORM queries"""
+        return cls._ocr_text
+    
     def set_ocr_text(self, text):
-        """Set OCR text with mandatory PHI filtering - use this instead of direct assignment"""
-        self.ocr_text = self._filter_phi_text(text)
+        """Set OCR text with mandatory PHI filtering - legacy method, uses property setter"""
+        self.ocr_text = text
+    
+    def mark_processed(self, status='completed', error=None, ocr_text=None, relevance_score=None):
+        """Mark document as processed with results - PHI filtering is always applied via property setter"""
+        self.is_processed = True
+        self.processing_status = status
+        self.processing_error = error
+        if ocr_text:
+            self.ocr_text = ocr_text  # Uses PHI-filtering property setter
+        if relevance_score is not None:
+            self.relevance_score = relevance_score
+        self.updated_at = datetime.utcnow()
     
     @property
     def is_pdf(self):
@@ -2314,7 +2369,7 @@ class OCRStats(db.Model):
     last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class ScreeningDocumentMatch(db.Model):
-    """Junction table for screening-document matches"""
+    """Junction table for screening-document matches with metadata for audit trail"""
     __tablename__ = 'screening_document_match'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -2322,10 +2377,19 @@ class ScreeningDocumentMatch(db.Model):
     document_id = db.Column(db.Integer, db.ForeignKey('document.id'), nullable=False)
     match_confidence = db.Column(db.Float)
     matched_keywords = db.Column(db.Text)  # JSON of matched keywords
+    
+    # Match result metadata for audit trail
+    match_result = db.Column(db.String(50), default='matched')  # matched, dismissed, pending_review
+    dismissal_reason = db.Column(db.Text)  # Reason for dismissal if dismissed
+    dismissed_by = db.Column(db.Integer, db.ForeignKey('users.id'))  # User who dismissed the match
+    dismissed_at = db.Column(db.DateTime)  # When the match was dismissed
+    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     screening = db.relationship('Screening', backref='document_matches')
     document = db.relationship('Document', backref='screening_matches')
+    dismisser = db.relationship('User', backref='dismissed_document_matches', foreign_keys=[dismissed_by])
 
 class ScreeningPreset(db.Model):
     """Screening preset templates with multi-tenant support"""

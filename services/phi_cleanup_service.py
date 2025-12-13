@@ -7,10 +7,12 @@ Responsible for:
 4. Configurable cleanup policies per screening type
 """
 
+import json
 import logging
 from datetime import datetime, timedelta, date
 from typing import Dict, List, Optional, Set, Any
 from dateutil.relativedelta import relativedelta
+from sqlalchemy import or_, and_
 
 from models import (
     db, Patient, Screening, ScreeningType, Document, AdminLog,
@@ -191,14 +193,23 @@ class PHICleanupService:
         """Calculate the cutoff date beyond which documents should have PHI cleaned"""
         try:
             # Use the screening frequency to determine relevance period
-            frequency_years = screening_type.frequency_years or 1
-            frequency_months = screening_type.frequency_months or 0
+            # ScreeningType uses frequency_value and frequency_unit (e.g., 1.0 and 'years')
+            frequency_value = screening_type.frequency_value or 1.0
+            frequency_unit = screening_type.frequency_unit or 'years'
+            
+            # Convert to months for calculation
+            if frequency_unit == 'years':
+                frequency_months = int(frequency_value * 12)
+            elif frequency_unit == 'months':
+                frequency_months = int(frequency_value)
+            else:
+                frequency_months = 12  # Default to 1 year
             
             # Add buffer period to avoid cleaning potentially relevant documents
             buffer_multiplier = cleanup_options.get('buffer_multiplier', 2.0)  # Keep 2x the frequency period
             
             # Calculate total buffer period
-            total_months = int((frequency_years * 12 + frequency_months) * buffer_multiplier)
+            total_months = int(frequency_months * buffer_multiplier)
             
             # Minimum retention period (never clean documents less than 6 months old)
             min_retention_months = cleanup_options.get('min_retention_months', 6)
@@ -378,7 +389,8 @@ class PHICleanupService:
             
             # Check if document matches any screening type keywords
             for screening_type in screening_types:
-                confidence = matcher.fuzzy_match_keywords(document, screening_type)
+                # Use the internal method to calculate match confidence
+                confidence = matcher._calculate_match_confidence(document, screening_type)
                 if confidence > 0.5:  # Has some relevance
                     return True
             
@@ -442,22 +454,19 @@ class PHICleanupService:
             
             # Get current user if available
             user_id = None
-            username = None
             if has_request_context() and current_user and current_user.is_authenticated:
                 user_id = current_user.id
-                username = current_user.username
             
-            # Create admin log entry
-            admin_log = AdminLog(
-                user_id=user_id,
-                username=username or 'system',
-                action=event_type,
-                target_type='phi_cleanup',
-                target_id=self.organization_id,
-                details=json.dumps(details),
-                org_id=self.organization_id,
-                timestamp=datetime.utcnow()
-            )
+            # Create admin log entry using correct AdminLog fields
+            admin_log = AdminLog()
+            admin_log.user_id = user_id
+            admin_log.event_type = event_type
+            admin_log.resource_type = 'phi_cleanup'
+            admin_log.resource_id = self.organization_id
+            admin_log.action_details = f"PHI cleanup: {event_type}"
+            admin_log.data = details
+            admin_log.org_id = self.organization_id
+            admin_log.timestamp = datetime.utcnow()
             
             db.session.add(admin_log)
             db.session.commit()
