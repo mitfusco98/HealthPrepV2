@@ -23,9 +23,10 @@ logger = logging.getLogger(__name__)
 
 def create_test_patients(org_id=None, num_patients=5):
     """Create test patients with past appointments and appropriate demographics"""
-    from app import app, db
+    from app import create_app, db
     from models import Patient, Provider, Appointment, Document, Screening, Organization
     
+    app = create_app()
     with app.app_context():
         if org_id is None:
             org = Organization.query.filter(Organization.id > 0).first()
@@ -98,10 +99,9 @@ def create_test_patients(org_id=None, num_patients=5):
                 name=config['name'],
                 mrn=config['mrn'],
                 date_of_birth=dob.date(),
-                sex=config['sex'],
+                gender=config['sex'],
                 org_id=org_id,
-                provider_id=provider.id,
-                medical_conditions=','.join(config['conditions']) if config['conditions'] else None
+                provider_id=provider.id
             )
             db.session.add(patient)
             db.session.flush()
@@ -123,11 +123,9 @@ def create_test_patients(org_id=None, num_patients=5):
                     patient_id=patient.id,
                     org_id=org_id,
                     filename=f"TEST_clone_{source_doc.filename}",
-                    document_type=source_doc.document_type,
-                    ocr_text=source_doc.ocr_text,
-                    confidence_level=source_doc.confidence_level,
-                    uploaded_at=datetime.now() - timedelta(days=days_ago + 5)
+                    document_type=source_doc.document_type
                 )
+                cloned_doc.ocr_text = source_doc.ocr_text
                 db.session.add(cloned_doc)
                 logger.info(f"  Cloned document: {cloned_doc.filename}")
             
@@ -161,9 +159,10 @@ def create_test_patients(org_id=None, num_patients=5):
 
 def cleanup_test_patients(org_id=None):
     """Remove all TEST_ prefixed patients"""
-    from app import app, db
+    from app import create_app, db
     from models import Patient, Appointment, Document, Screening, Organization
     
+    app = create_app()
     with app.app_context():
         if org_id is None:
             org = Organization.query.filter(Organization.id > 0).first()
