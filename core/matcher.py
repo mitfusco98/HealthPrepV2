@@ -28,52 +28,97 @@ class DocumentMatcher:
             'stress test': ['cardiac stress', 'exercise test']
         }
     
-    def find_document_matches(self, document):
-        """Find all screenings that match this document"""
+    def find_document_matches(self, document, max_matches=None):
+        """
+        Find all screenings that match this document.
+        
+        Args:
+            document: Document to find matches for
+            max_matches: Optional limit on number of matches (for processing guards)
+        
+        Returns:
+            List of (screening_id, confidence) tuples
+        """
+        from utils.keyword_validator import ProcessingGuard
+        
         matches = []
         
         if not document.ocr_text:
             self.logger.debug(f"Document {document.id} has no OCR text")
             return matches
         
+        # Initialize processing guard
+        guard = ProcessingGuard(
+            warning_threshold=100,
+            hard_limit=max_matches or 500,
+            context=f"Document {document.id} matching"
+        )
+        
         # Get patient's existing screenings directly (respects org scoping via Screening records)
         screenings = Screening.query.filter_by(patient_id=document.patient_id).all()
         self.logger.debug(f"Found {len(screenings)} screenings for patient {document.patient_id}")
         
         for screening in screenings:
+            if not guard.can_continue():
+                self.logger.warning(f"Processing guard limit reached for document {document.id}")
+                break
+                
             confidence = self._calculate_match_confidence(document, screening.screening_type)
             self.logger.debug(f"Document {document.id} vs Screening {screening.id} ({screening.screening_type.name}): confidence={confidence:.3f}")
             
             if confidence > 0.75:  # Raised threshold to reduce false positives
-                matches.append((screening.id, confidence))
-                self.logger.info(f"MATCH FOUND: Document {document.id} matches Screening {screening.id} with confidence {confidence:.3f}")
+                if guard.increment():
+                    matches.append((screening.id, confidence))
+                    self.logger.info(f"MATCH FOUND: Document {document.id} matches Screening {screening.id} with confidence {confidence:.3f}")
+                else:
+                    break
+        
+        stats = guard.get_stats()
+        if stats['warning_issued'] or stats['limit_reached']:
+            self.logger.warning(f"Document {document.id} matching stats: {stats}")
         
         self.logger.info(f"Document {document.id} matching complete: {len(matches)} matches found")
         return matches
     
-    def find_screening_matches(self, screening, exclude_dismissed=True):
+    def find_screening_matches(self, screening, exclude_dismissed=True, max_matches=None):
         """
         Find all documents that match this screening
         
         Args:
             screening: Screening object to find matches for
             exclude_dismissed: If True, filters out dismissed matches (default True)
+            max_matches: Optional limit on number of matches (for processing guards)
         
         Returns:
             List of match dicts sorted by document_date (newest first)
         """
         from models import DismissedDocumentMatch, db
+        from utils.keyword_validator import ProcessingGuard
+        
         matches = []
         candidate_matches = []
+        
+        # Initialize processing guard
+        guard = ProcessingGuard(
+            warning_threshold=200,
+            hard_limit=max_matches or 1000,
+            context=f"Screening {screening.id} ({screening.screening_type.name}) matching"
+        )
         
         documents = Document.query.filter_by(patient_id=screening.patient_id).all()
         
         # First pass: find all potential matches
         for document in documents:
+            if not guard.can_continue():
+                self.logger.warning(f"Processing guard limit reached for screening {screening.id}")
+                break
+                
             if document.ocr_text:
                 confidence = self._calculate_match_confidence(document, screening.screening_type)
                 
                 if confidence > 0.75:
+                    if not guard.increment():
+                        break
                     document_date = getattr(document, 'document_date', None) or document.created_at
                     candidate_matches.append({
                         'document': document,
@@ -96,6 +141,11 @@ class DocumentMatcher:
             matches = [m for m in candidate_matches if m['document'].id not in dismissed_ids]
         else:
             matches = candidate_matches
+        
+        # Log processing guard stats if limits were hit
+        stats = guard.get_stats()
+        if stats['warning_issued'] or stats['limit_reached']:
+            self.logger.warning(f"Screening {screening.id} matching stats: {stats}")
         
         return sorted(matches, key=lambda x: x['document_date'] or date.min, reverse=True)
     
@@ -414,29 +464,54 @@ class DocumentMatcher:
         # Return confidence based on best match
         return matches[0][1] if matches else 0.0
     
-    def update_all_matches(self):
-        """Update all document-screening matches in the database"""
+    def update_all_matches(self, max_total_matches=10000):
+        """
+        Update all document-screening matches in the database with processing guards.
+        
+        Args:
+            max_total_matches: Maximum total matches to process (prevents runaway processing)
+        """
+        from utils.keyword_validator import ProcessingGuard
+        
         self.logger.info("Starting to update all document-screening matches")
+        
+        # Global processing guard for entire batch
+        global_guard = ProcessingGuard(
+            warning_threshold=5000,
+            hard_limit=max_total_matches,
+            context="update_all_matches global"
+        )
         
         # Clear existing matches
         ScreeningDocumentMatch.query.delete()
         
         # Process all documents
         documents = Document.query.filter(Document.ocr_text.isnot(None)).all()
+        total_matches = 0
         
         for document in documents:
+            if not global_guard.can_continue():
+                self.logger.warning(f"Global processing guard limit reached after {total_matches} matches")
+                break
+                
             matches = self.find_document_matches(document)
             
             for screening_id, confidence in matches:
-                match = ScreeningDocumentMatch(
-                    screening_id=screening_id,
-                    document_id=document.id,
-                    match_confidence=confidence
-                )
+                if not global_guard.increment():
+                    self.logger.warning(f"Global processing guard hard limit reached at {total_matches} matches")
+                    break
+                    
+                match = ScreeningDocumentMatch()
+                match.screening_id = screening_id
+                match.document_id = document.id
+                match.match_confidence = confidence
                 db.session.add(match)
+                total_matches += 1
         
         db.session.commit()
-        self.logger.info("Completed updating all document-screening matches")
+        
+        stats = global_guard.get_stats()
+        self.logger.info(f"Completed updating all document-screening matches: {total_matches} total, stats: {stats}")
     
     def suggest_keywords_for_screening(self, screening_type_id, sample_documents=None):
         """Suggest keywords for a screening type based on document analysis"""

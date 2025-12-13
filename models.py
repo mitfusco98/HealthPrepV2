@@ -1260,12 +1260,44 @@ class ScreeningType(db.Model):
         """Get keywords for content matching"""
         return self.keywords_list
 
-    def set_content_keywords(self, keywords):
-        """Set keywords for content matching"""
-        if isinstance(keywords, list):
-            self.keywords = json.dumps(keywords)
+    def set_content_keywords(self, keywords, validate=True):
+        """
+        Set keywords for content matching with optional validation.
+        
+        Args:
+            keywords: List of keywords or JSON string
+            validate: If True, filters out stop words and validates keywords (default True)
+        
+        Returns:
+            Tuple of (valid_keywords_set, invalid_keywords_with_reasons) if validate=True
+            None otherwise
+        """
+        from utils.keyword_validator import validate_keywords, filter_stop_words
+        
+        # Parse keywords to list if needed
+        if isinstance(keywords, str):
+            try:
+                keyword_list = json.loads(keywords)
+            except (json.JSONDecodeError, TypeError):
+                keyword_list = [kw.strip() for kw in keywords.split(',') if kw.strip()]
         else:
-            self.keywords = keywords
+            keyword_list = keywords or []
+        
+        if validate and keyword_list:
+            valid_keywords, invalid_keywords = validate_keywords(keyword_list)
+            self.keywords = json.dumps(valid_keywords) if valid_keywords else None
+            
+            if invalid_keywords:
+                logger.warning(f"ScreeningType {self.id or 'new'}: Filtered out invalid keywords: {invalid_keywords}")
+            
+            return valid_keywords, invalid_keywords
+        else:
+            # No validation - store as-is
+            if isinstance(keyword_list, list):
+                self.keywords = json.dumps(keyword_list)
+            else:
+                self.keywords = keywords
+            return None
 
     def get_trigger_conditions(self):
         """Get trigger conditions as a list"""
