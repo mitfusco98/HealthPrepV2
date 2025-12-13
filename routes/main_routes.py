@@ -187,11 +187,14 @@ def reprocess_patient(patient_id):
         engine = ScreeningEngine()
         updated_count = engine.refresh_patient_screenings(patient.id, force_refresh=True)
         
-        # Update last_processed timestamp and mark as active for all screenings
+        # Update timestamps and mark as active for all screenings
+        # This ensures manual reprocess always updates status tracking even when no document changes
         # The is_dormant flag is the source of truth for prioritization
         # Screenings will become dormant again based on future prioritization checks
+        now = datetime.utcnow()
         for screening in patient.screenings:
-            screening.last_processed = datetime.utcnow()
+            screening.last_processed = now
+            screening.updated_at = now  # Always update to reflect manual review
             screening.is_dormant = False  # Mark as active after manual reprocess
         
         db.session.commit()
