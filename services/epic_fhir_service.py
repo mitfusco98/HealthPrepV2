@@ -766,7 +766,7 @@ class EpicFHIRService:
                 fhir_doc.processing_status = "completed"
                 
                 screening_name = screening_type.name if screening_type else ""
-                fhir_doc.ocr_text = f"{vaccine_display} immunization vaccine vaccination {screening_name}".strip()
+                fhir_doc.set_ocr_text(f"{vaccine_display} immunization vaccine vaccination {screening_name}".strip())
                 
                 db.session.add(fhir_doc)
                 synced_docs.append(fhir_doc)
@@ -1000,11 +1000,14 @@ class EpicFHIRService:
                 from ocr.pdf_processor import PDFProcessor
                 processor = PDFProcessor()
                 ocr_result = processor.process_pdf_content(content)
-                fhir_doc.ocr_text = ocr_result.get('text', '')
+                extracted_text = ocr_result.get('text', '')
             elif content:
-                fhir_doc.ocr_text = content.decode('utf-8', errors='ignore')
+                extracted_text = content.decode('utf-8', errors='ignore')
+            else:
+                extracted_text = None
             
-            fhir_doc.mark_processed('completed', ocr_text=fhir_doc.ocr_text)
+            # mark_processed applies PHI filtering automatically
+            fhir_doc.mark_processed('completed', ocr_text=extracted_text)
             fhir_doc.last_accessed = datetime.utcnow()
             
         except Exception as e:

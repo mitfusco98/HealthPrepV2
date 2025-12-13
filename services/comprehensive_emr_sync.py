@@ -416,10 +416,12 @@ class ComprehensiveEMRSync:
                             document_type_display='Imaging Study',
                             title=report_title or 'Imaging Report',
                             document_date=report_date,
-                            ocr_text=report_conclusion[:5000] if report_conclusion else None,
                             fhir_document_reference=json.dumps(report_resource),
                             org_id=self.organization_id
                         )
+                        # Apply PHI filtering to any text content
+                        if report_conclusion:
+                            fhir_doc.set_ocr_text(report_conclusion[:5000])
                         
                         db.session.add(fhir_doc)
                         imaging_synced += 1
@@ -901,10 +903,11 @@ class ComprehensiveEMRSync:
                         document_type_display=doc_type or 'Unknown',
                         title=title or 'Untitled',
                         document_date=doc_date,
-                        ocr_text=extracted_text[:5000],  # Limit text length
                         fhir_document_reference=json.dumps(document_resource),
                         org_id=self.organization_id
                     )
+                    # Apply PHI filtering to extracted text
+                    fhir_doc.set_ocr_text(extracted_text[:5000])
                     
                     db.session.add(fhir_doc)
                     return True

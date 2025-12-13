@@ -212,8 +212,8 @@ def api_process_document():
         result = processor.process_document(document.file_path)
 
         if result['success']:
-            # Update document with OCR results
-            document.ocr_text = result['text']
+            # Update document with OCR results - PHI filtering always applied
+            document.set_ocr_text(result['text'])
             document.ocr_confidence = result['confidence']
             db.session.commit()
 
@@ -299,7 +299,8 @@ def batch_process():
                     result = processor.process_document(document.file_path)
 
                     if result['success']:
-                        document.ocr_text = result['text']
+                        # PHI filtering always applied for HIPAA compliance
+                        document.set_ocr_text(result['text'])
                         document.ocr_confidence = result['confidence']
                         monitor.record_processing_result(document.id, result)
                         processed_count += 1
@@ -366,16 +367,8 @@ def process_uploaded_document(file, patient_id, document_type, document_date):
         ocr_result = processor.process_document(temp_path)
 
         if ocr_result['success']:
-            # Apply PHI filtering
-            phi_filter = PHIFilter()
-            if phi_filter.settings and phi_filter.settings.enabled:
-                filtered_result = phi_filter.filter_text(ocr_result['text'])
-                document.ocr_text = filtered_result['filtered_text']
-                document.phi_filtered = True
-            else:
-                document.ocr_text = ocr_result['text']
-                document.phi_filtered = False
-
+            # PHI filtering is always applied for HIPAA compliance
+            document.set_ocr_text(ocr_result['text'])
             document.ocr_confidence = ocr_result['confidence']
 
             # Record processing statistics

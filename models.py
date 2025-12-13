@@ -1701,6 +1701,30 @@ class Document(db.Model):
         db.Index('idx_document_ingested', 'ingested_at'),
     )
 
+    def _filter_phi_text(self, text):
+        """Apply PHI filtering to text before storage - HIPAA compliance requirement"""
+        if not text:
+            return text
+        try:
+            from ocr.phi_filter import PHIFilter
+            phi_filter = PHIFilter()
+            filtered = phi_filter.filter_phi(text)
+            logger.debug(f"PHI filtering applied to Document {self.id if self.id else 'new'}")
+            return filtered
+        except Exception as e:
+            logger.error(f"PHI filtering failed for Document: {e} - text will NOT be stored for HIPAA compliance")
+            return None
+    
+    def set_ocr_text(self, text):
+        """Set OCR text with mandatory PHI filtering - use this instead of direct assignment"""
+        self.ocr_text = self._filter_phi_text(text)
+        self.phi_filtered = True
+    
+    def set_content(self, text):
+        """Set content with mandatory PHI filtering"""
+        self.content = self._filter_phi_text(text)
+        self.phi_filtered = True
+
     def __repr__(self):
         return f'<Document {self.filename}>'
 
@@ -1846,15 +1870,33 @@ class FHIRDocument(db.Model):
         return False
     
     def mark_processed(self, status='completed', error=None, ocr_text=None, relevance_score=None):
-        """Mark document as processed with results"""
+        """Mark document as processed with results - PHI filtering is always applied"""
         self.is_processed = True
         self.processing_status = status
         self.processing_error = error
         if ocr_text:
-            self.ocr_text = ocr_text
+            self.ocr_text = self._filter_phi_text(ocr_text)
         if relevance_score is not None:
             self.relevance_score = relevance_score
         self.updated_at = datetime.utcnow()
+    
+    def _filter_phi_text(self, text):
+        """Apply PHI filtering to text before storage - HIPAA compliance requirement"""
+        if not text:
+            return text
+        try:
+            from ocr.phi_filter import PHIFilter
+            phi_filter = PHIFilter()
+            filtered = phi_filter.filter_phi(text)
+            logger.debug(f"PHI filtering applied to FHIRDocument {self.id if self.id else 'new'}")
+            return filtered
+        except Exception as e:
+            logger.error(f"PHI filtering failed for FHIRDocument: {e} - text will NOT be stored for HIPAA compliance")
+            return None
+    
+    def set_ocr_text(self, text):
+        """Set OCR text with mandatory PHI filtering - use this instead of direct assignment"""
+        self.ocr_text = self._filter_phi_text(text)
     
     @property
     def is_pdf(self):

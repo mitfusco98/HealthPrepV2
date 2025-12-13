@@ -320,13 +320,15 @@ class EMRSyncService:
                 org_id=patient.org_id,
                 filename=document_title or f"epic_doc_{fhir_doc.get('id')}",
                 document_date=document_date,
-                ocr_text=ocr_text,
                 external_system='epic',
                 external_id=fhir_doc.get('id'),
                 ingested_at=datetime.utcnow(),
                 processed_at=datetime.utcnow() if ocr_text else None,
                 created_at=datetime.utcnow()
             )
+            # Apply PHI filtering to OCR text
+            if ocr_text:
+                document.set_ocr_text(ocr_text)
             
             db.session.add(document)
             db.session.flush()  # Get the ID
