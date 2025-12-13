@@ -294,7 +294,13 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-success">Apply Preset</button>
+                    <button type="submit" class="btn btn-success" id="applyPresetSubmitBtn">
+                        <span class="btn-text">Apply Preset</span>
+                        <span class="btn-loading d-none">
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            Applying...
+                        </span>
+                    </button>
                 </div>
             </form>
         </div>
@@ -399,6 +405,27 @@ document.addEventListener('DOMContentLoaded', function() {
     const replaceCheckbox = document.getElementById('replaceEntireSet');
     if (replaceCheckbox) {
         replaceCheckbox.addEventListener('change', toggleApplicationMode);
+    }
+    
+    // Add loading animation when form is submitted
+    const applyPresetForm = document.getElementById('applyPresetForm');
+    if (applyPresetForm) {
+        applyPresetForm.addEventListener('submit', function(e) {
+            const submitBtn = document.getElementById('applyPresetSubmitBtn');
+            const btnText = submitBtn.querySelector('.btn-text');
+            const btnLoading = submitBtn.querySelector('.btn-loading');
+            
+            // Show loading state
+            btnText.classList.add('d-none');
+            btnLoading.classList.remove('d-none');
+            submitBtn.disabled = true;
+            
+            // Also disable the cancel button
+            const cancelBtn = submitBtn.previousElementSibling;
+            if (cancelBtn) {
+                cancelBtn.disabled = true;
+            }
+        });
     }
 });
 
