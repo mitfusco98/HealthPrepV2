@@ -339,9 +339,10 @@ def screening_settings():
         from forms import PrepSheetSettingsForm
         from models import PrepSheetSettings
         
-        settings = PrepSheetSettings.query.first()
+        # Filter by current user's organization
+        settings = PrepSheetSettings.query.filter_by(org_id=current_user.org_id).first()
         if not settings:
-            settings = PrepSheetSettings()
+            settings = PrepSheetSettings(org_id=current_user.org_id)
             db.session.add(settings)
             db.session.commit()
         
