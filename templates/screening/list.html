@@ -572,7 +572,8 @@
                                         {% endif %}
                                     </div>
                                     {% if screening.effective_dormant %}
-                                    <form method="POST" action="{{ url_for('main.reprocess_patient', patient_id=screening.patient_id) }}" class="d-inline">
+                                    <form method="POST" action="{{ url_for('main.reprocess_patient', patient_id=screening.patient_id) }}" class="d-inline"
+                                          onsubmit="reprocessPatient(this, {{ screening.patient_id }}, '{{ screening.patient.full_name|e }}'); return false;">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <button type="submit" class="btn prep-sheet-btn btn-warning ms-2" 
                                                 title="Patient data is stale (outside appointment window). Click to reprocess and enable Epic upload."
@@ -899,6 +900,28 @@ function generatePrepSheetToEpic(patientId) {
         button.innerHTML = originalHtml;
         button.disabled = false;
     });
+}
+
+// Reprocess patient with loading animation
+function reprocessPatient(form, patientId, patientName) {
+    const button = form.querySelector('button[type="submit"]');
+    const originalHtml = button.innerHTML;
+    
+    // Show loading state
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    button.disabled = true;
+    button.classList.add('btn-secondary');
+    button.classList.remove('btn-warning');
+    
+    // Add loading text next to button
+    const loadingText = document.createElement('span');
+    loadingText.className = 'ms-2 small text-muted reprocess-loading-text';
+    loadingText.innerHTML = 'Syncing...';
+    button.parentNode.appendChild(loadingText);
+    
+    // Remove onsubmit to prevent infinite loop, then submit
+    form.onsubmit = null;
+    form.submit();
 }
 
 // Bulk generate prep sheets for appointment window

@@ -59,14 +59,49 @@ class ScreeningEngine:
                         # Process non-scheduled patients if enabled
                         if organization.process_non_scheduled_patients:
                             self.logger.info("Processing non-scheduled patients (process_non_scheduled_patients is enabled)")
-                            non_scheduled_ids = prioritization_service.get_non_scheduled_patients(
+                            
+                            # Calculate batch size cap - proportional to scheduled patient volume
+                            # Cap at max(1, len(priority_patient_ids) * 0.5) to avoid overwhelming the system
+                            batch_size_cap = max(1, int(len(priority_patient_ids) * 0.5))
+                            self.logger.info(f"Non-scheduled patient batch size cap: {batch_size_cap}")
+                            
+                            # Priority 1: Process stale patients (those with dormant screenings)
+                            stale_patient_ids = prioritization_service.get_stale_patients(
                                 exclude_patient_ids=priority_patient_ids
                             )
                             
-                            for patient_id in non_scheduled_ids:
+                            patients_to_process = []
+                            
+                            if stale_patient_ids:
+                                # Process stale patients first (limited by batch cap)
+                                patients_to_process = stale_patient_ids[:batch_size_cap]
+                                self.logger.info(f"Processing {len(patients_to_process)} stale patients (of {len(stale_patient_ids)} total)")
+                            else:
+                                # No stale patients - check for cold start scenario
+                                if not prioritization_service.has_any_screenings():
+                                    # Cold start: org has no screenings at all
+                                    unprocessed_patient_ids = prioritization_service.get_unprocessed_patients(
+                                        exclude_patient_ids=priority_patient_ids
+                                    )
+                                    patients_to_process = unprocessed_patient_ids[:batch_size_cap]
+                                    self.logger.info(f"Cold start detected - processing {len(patients_to_process)} unprocessed patients (of {len(unprocessed_patient_ids)} total)")
+                                else:
+                                    self.logger.info("No stale patients to process and screenings exist - skipping non-scheduled processing")
+                            
+                            # Process the selected batch
+                            for patient_id in patients_to_process:
                                 updated_count += self.refresh_patient_screenings(patient_id)
-                                # Mark processed non-scheduled patients as active too
+                                # Mark processed non-scheduled patients as active
                                 self._mark_patient_screenings_dormancy(patient_id, is_dormant=False)
+                            
+                            # Mark remaining non-scheduled patients as dormant
+                            all_non_scheduled = prioritization_service.get_non_scheduled_patients(
+                                exclude_patient_ids=priority_patient_ids
+                            )
+                            processed_set = set(patients_to_process)
+                            for patient_id in all_non_scheduled:
+                                if patient_id not in processed_set:
+                                    self._mark_patient_screenings_dormancy(patient_id, is_dormant=True)
                         else:
                             # Mark non-scheduled patients as dormant (stale data)
                             non_scheduled_ids = prioritization_service.get_non_scheduled_patients(

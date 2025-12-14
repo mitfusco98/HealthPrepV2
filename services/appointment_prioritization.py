@@ -171,6 +171,113 @@ class AppointmentBasedPrioritization:
             logger.error(f"Error getting non-scheduled patients: {str(e)}")
             return []
     
+    def get_stale_patients(self, exclude_patient_ids: List[int] = None) -> List[int]:
+        """
+        Get list of patient IDs with stale screenings that need reprocessing.
+        Stale patients are those with existing screenings marked as dormant.
+        
+        Args:
+            exclude_patient_ids: List of patient IDs to exclude (already processed)
+        
+        Returns:
+            List of patient IDs with stale screenings, ordered by staleness
+        """
+        try:
+            if exclude_patient_ids is None:
+                exclude_patient_ids = []
+            
+            # Get patients with dormant screenings (stale data)
+            # Use subquery to get oldest last_processed per patient, then order by that
+            from sqlalchemy import func
+            
+            subquery = db.session.query(
+                Screening.patient_id,
+                func.min(Screening.last_processed).label('oldest_processed')
+            ).filter(
+                and_(
+                    Screening.org_id == self.organization_id,
+                    Screening.is_dormant == True
+                )
+            ).group_by(Screening.patient_id).subquery()
+            
+            query = db.session.query(subquery.c.patient_id)
+            
+            if exclude_patient_ids:
+                query = query.filter(~subquery.c.patient_id.in_(exclude_patient_ids))
+            
+            # Order by oldest_processed to get stalest patients first
+            stale_patient_ids = query.order_by(
+                subquery.c.oldest_processed.asc().nullsfirst()
+            ).all()
+            
+            patient_ids = [p[0] for p in stale_patient_ids]
+            
+            logger.info(f"Found {len(patient_ids)} patients with stale screenings")
+            
+            return patient_ids
+            
+        except Exception as e:
+            logger.error(f"Error getting stale patients: {str(e)}")
+            return []
+    
+    def get_unprocessed_patients(self, exclude_patient_ids: List[int] = None) -> List[int]:
+        """
+        Get list of patient IDs that have no screenings yet (cold start scenario).
+        Used for new organizations or sandbox environments.
+        
+        Args:
+            exclude_patient_ids: List of patient IDs to exclude
+        
+        Returns:
+            List of patient IDs without any screenings
+        """
+        try:
+            if exclude_patient_ids is None:
+                exclude_patient_ids = []
+            
+            # Get all patients for this organization
+            all_patients = Patient.query.filter_by(org_id=self.organization_id)
+            
+            if exclude_patient_ids:
+                all_patients = all_patients.filter(~Patient.id.in_(exclude_patient_ids))
+            
+            all_patient_ids = set([p.id for p in all_patients.all()])
+            
+            # Get patients that have any screenings
+            patients_with_screenings = db.session.query(Screening.patient_id).filter(
+                Screening.org_id == self.organization_id
+            ).distinct().all()
+            patients_with_screenings_ids = set([p[0] for p in patients_with_screenings])
+            
+            # Unprocessed = patients without any screenings
+            unprocessed_patient_ids = all_patient_ids - patients_with_screenings_ids
+            
+            if exclude_patient_ids:
+                unprocessed_patient_ids = unprocessed_patient_ids - set(exclude_patient_ids)
+            
+            logger.info(f"Found {len(unprocessed_patient_ids)} unprocessed patients (no screenings yet)")
+            
+            return list(unprocessed_patient_ids)
+            
+        except Exception as e:
+            logger.error(f"Error getting unprocessed patients: {str(e)}")
+            return []
+    
+    def has_any_screenings(self) -> bool:
+        """
+        Check if the organization has any screenings at all.
+        Used to detect cold start scenario.
+        
+        Returns:
+            True if organization has at least one screening, False otherwise
+        """
+        try:
+            count = Screening.query.filter_by(org_id=self.organization_id).count()
+            return count > 0
+        except Exception as e:
+            logger.error(f"Error checking for screenings: {str(e)}")
+            return False
+    
     def get_prioritization_stats(self) -> Dict:
         """
         Get statistics about appointment-based prioritization
