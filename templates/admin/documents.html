@@ -145,11 +145,11 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <h4 class="card-title">{{ (patient_data | selectattr('conditions') | list) | length if patient_data else 0 }}</h4>
-                            <p class="card-text">With Conditions</p>
+                            <h4 class="card-title">{{ patient_data | sum(attribute='total_immunizations') if patient_data else 0 }}</h4>
+                            <p class="card-text">Immunizations</p>
                         </div>
                         <div class="align-self-center">
-                            <i class="fas fa-heartbeat fa-2x"></i>
+                            <i class="fas fa-syringe fa-2x"></i>
                         </div>
                     </div>
                 </div>
@@ -173,6 +173,7 @@
                             <th>Age/Gender</th>
                             <th>Medical Conditions</th>
                             <th>Total Docs</th>
+                            <th>Immunizations</th>
                             <th>OCR Processed</th>
                             <th>Document Types</th>
                             <th>Actions</th>
@@ -207,6 +208,13 @@
                                 <span class="badge bg-primary fs-6">{{ data.total_documents }}</span>
                             </td>
                             <td>
+                                {% if data.total_immunizations > 0 %}
+                                    <span class="badge bg-success fs-6">{{ data.total_immunizations }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary fs-6">0</span>
+                                {% endif %}
+                            </td>
+                            <td>
                                 {% if data.documents_with_ocr > 0 %}
                                     <span class="badge bg-success fs-6">{{ data.documents_with_ocr }}</span>
                                 {% else %}
@@ -239,7 +247,7 @@
                         </tr>
                         <!-- Document Details Row (Collapsible) -->
                         <tr class="collapse" id="documents-{{ data.patient.id }}">
-                            <td colspan="7">
+                            <td colspan="8">
                                 <div class="card bg-dark border-secondary">
                                     <div class="card-header">
                                         <h6 class="mb-0">
@@ -372,6 +380,64 @@
                                             </div>
                                         {% else %}
                                             <p class="text-muted">No documents found for this patient.</p>
+                                        {% endif %}
+                                        
+                                        <!-- Immunizations Section -->
+                                        {% if data.immunizations %}
+                                        <hr class="my-4">
+                                        <h6 class="mb-3">
+                                            <i class="fas fa-syringe me-2"></i>Immunizations ({{ data.immunizations|length }})
+                                        </h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-dark table-bordered">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Vaccine</th>
+                                                        <th>Group</th>
+                                                        <th>CVX Code</th>
+                                                        <th>Administration Date</th>
+                                                        <th>Status</th>
+                                                        <th>Source</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for imm in data.immunizations %}
+                                                    <tr>
+                                                        <td>{{ imm.vaccine_name or 'Unknown Vaccine' }}</td>
+                                                        <td>
+                                                            {% if imm.vaccine_group %}
+                                                            <span class="badge bg-info">{{ imm.vaccine_group }}</span>
+                                                            {% else %}
+                                                            <span class="text-muted">-</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td>
+                                                            {% if imm.cvx_code %}
+                                                            <code class="text-light">{{ imm.cvx_code }}</code>
+                                                            {% else %}
+                                                            <span class="text-muted">-</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td>{{ imm.administration_date.strftime('%Y-%m-%d') if imm.administration_date else 'Unknown' }}</td>
+                                                        <td>
+                                                            {% if imm.status == 'completed' %}
+                                                            <span class="badge bg-success">Completed</span>
+                                                            {% else %}
+                                                            <span class="badge bg-secondary">{{ imm.status or 'Unknown' }}</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td>
+                                                            {% if imm.is_sample_data %}
+                                                            <span class="badge bg-warning text-dark">Sample</span>
+                                                            {% else %}
+                                                            <span class="badge bg-success">Epic FHIR</span>
+                                                            {% endif %}
+                                                        </td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                         {% endif %}
                                     </div>
                                 </div>

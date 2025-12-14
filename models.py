@@ -2074,6 +2074,185 @@ class FHIRDocument(db.Model):
         return f'<FHIRDocument {self.epic_document_id} - {self.document_type_display or "Unknown Type"}>'
 
 
+class FHIRImmunization(db.Model):
+    """FHIR Immunization model for storing vaccination records
+    
+    Used for immunization-based screening types that match on CVX vaccine codes
+    rather than document keywords. Supports both Epic FHIR synced records and
+    manually entered sample data for organization onboarding.
+    """
+    __tablename__ = 'fhir_immunizations'
+
+    id = db.Column(db.Integer, primary_key=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
+    org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
+    provider_id = db.Column(db.Integer, db.ForeignKey('providers.id'), nullable=True)
+    
+    # FHIR Immunization identifiers
+    epic_immunization_id = db.Column(db.String(100))  # Epic Immunization.id (null for manual entries)
+    fhir_resource = db.Column(db.Text)  # Full FHIR Immunization resource (JSON)
+    
+    # Vaccine identification - CVX codes are the standard for US vaccines
+    cvx_code = db.Column(db.String(10), nullable=False)  # CVX vaccine code (e.g., "141" for Influenza)
+    vaccine_name = db.Column(db.String(300), nullable=False)  # Display name of vaccine
+    vaccine_group = db.Column(db.String(100))  # Vaccine group (e.g., "Influenza", "Pneumococcal", "COVID-19")
+    manufacturer = db.Column(db.String(200))  # Vaccine manufacturer
+    lot_number = db.Column(db.String(50))  # Vaccine lot number
+    
+    # Administration details
+    administration_date = db.Column(db.Date, nullable=False)  # Date vaccine was administered
+    expiration_date = db.Column(db.Date)  # Vaccine expiration date
+    dose_quantity = db.Column(db.Float)  # Dose amount
+    dose_unit = db.Column(db.String(20))  # Dose unit (e.g., "mL")
+    route = db.Column(db.String(50))  # Administration route (e.g., "Intramuscular")
+    site = db.Column(db.String(50))  # Body site (e.g., "Left arm")
+    
+    # Status
+    status = db.Column(db.String(20), default='completed')  # completed, entered-in-error, not-done
+    
+    # Provider who administered (if available)
+    performer_name = db.Column(db.String(200))  # Name of person who administered
+    performer_organization = db.Column(db.String(200))  # Organization where administered
+    
+    # Data source tracking
+    is_manual_entry = db.Column(db.Boolean, default=False)  # True if manually entered vs FHIR sync
+    is_sample_data = db.Column(db.Boolean, default=False)  # True if sample/seed data for onboarding
+    
+    # System fields
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_synced_at = db.Column(db.DateTime)  # Last sync from Epic
+    
+    # Relationships
+    patient = db.relationship('Patient', backref=db.backref('immunizations', lazy='dynamic'))
+    organization = db.relationship('Organization', backref=db.backref('immunizations', lazy='dynamic'))
+    provider = db.relationship('Provider', backref=db.backref('immunizations', lazy='dynamic'))
+    
+    # Indexes for performance
+    __table_args__ = (
+        db.Index('idx_immunization_patient', 'patient_id'),
+        db.Index('idx_immunization_org', 'org_id'),
+        db.Index('idx_immunization_cvx', 'cvx_code'),
+        db.Index('idx_immunization_date', 'administration_date'),
+        db.Index('idx_immunization_vaccine_group', 'vaccine_group'),
+        db.UniqueConstraint('epic_immunization_id', 'org_id', name='unique_epic_immunization_per_org'),
+    )
+    
+    def update_from_fhir(self, fhir_immunization):
+        """Update immunization record from FHIR Immunization resource"""
+        import json
+        
+        if isinstance(fhir_immunization, dict):
+            self.fhir_resource = json.dumps(fhir_immunization)
+            
+            # Extract vaccine code (CVX)
+            if 'vaccineCode' in fhir_immunization:
+                vaccine_code = fhir_immunization['vaccineCode']
+                if 'coding' in vaccine_code:
+                    for coding in vaccine_code['coding']:
+                        # Look for CVX system
+                        if coding.get('system') in ['http://hl7.org/fhir/sid/cvx', 'urn:oid:2.16.840.1.113883.12.292']:
+                            self.cvx_code = coding.get('code')
+                            self.vaccine_name = coding.get('display', self.vaccine_name)
+                            break
+                    # Fallback to first coding if no CVX found
+                    if not self.cvx_code and vaccine_code['coding']:
+                        first_coding = vaccine_code['coding'][0]
+                        self.cvx_code = first_coding.get('code')
+                        self.vaccine_name = first_coding.get('display', 'Unknown Vaccine')
+                
+                # Use text as fallback for vaccine name
+                if 'text' in vaccine_code and not self.vaccine_name:
+                    self.vaccine_name = vaccine_code['text']
+            
+            # Extract administration date
+            if 'occurrenceDateTime' in fhir_immunization:
+                try:
+                    date_str = fhir_immunization['occurrenceDateTime']
+                    if 'T' in date_str:
+                        self.administration_date = datetime.fromisoformat(date_str.replace('Z', '+00:00')).date()
+                    else:
+                        self.administration_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+                except (ValueError, AttributeError):
+                    pass
+            
+            # Extract manufacturer
+            if 'manufacturer' in fhir_immunization:
+                if 'display' in fhir_immunization['manufacturer']:
+                    self.manufacturer = fhir_immunization['manufacturer']['display']
+            
+            # Extract lot number
+            if 'lotNumber' in fhir_immunization:
+                self.lot_number = fhir_immunization['lotNumber']
+            
+            # Extract dose quantity
+            if 'doseQuantity' in fhir_immunization:
+                dose = fhir_immunization['doseQuantity']
+                self.dose_quantity = dose.get('value')
+                self.dose_unit = dose.get('unit')
+            
+            # Extract route
+            if 'route' in fhir_immunization and 'coding' in fhir_immunization['route']:
+                route_coding = fhir_immunization['route']['coding'][0]
+                self.route = route_coding.get('display')
+            
+            # Extract site
+            if 'site' in fhir_immunization and 'coding' in fhir_immunization['site']:
+                site_coding = fhir_immunization['site']['coding'][0]
+                self.site = site_coding.get('display')
+            
+            # Extract status
+            if 'status' in fhir_immunization:
+                self.status = fhir_immunization['status']
+            
+            # Extract performer
+            if 'performer' in fhir_immunization and fhir_immunization['performer']:
+                performer = fhir_immunization['performer'][0]
+                if 'actor' in performer and 'display' in performer['actor']:
+                    self.performer_name = performer['actor']['display']
+            
+            self.last_synced_at = datetime.utcnow()
+        
+        self.updated_at = datetime.utcnow()
+    
+    def matches_screening_type(self, screening_type):
+        """Check if this immunization matches a screening type's vaccine codes"""
+        if not screening_type or not screening_type.is_immunization_based:
+            return False
+        
+        vaccine_codes = screening_type.vaccine_codes_list
+        if not vaccine_codes:
+            return False
+        
+        return self.cvx_code in vaccine_codes
+    
+    @classmethod
+    def get_latest_for_patient(cls, patient_id, cvx_codes=None, vaccine_group=None):
+        """Get the most recent immunization for a patient, optionally filtered by CVX codes or group"""
+        query = cls.query.filter_by(patient_id=patient_id, status='completed')
+        
+        if cvx_codes:
+            query = query.filter(cls.cvx_code.in_(cvx_codes))
+        
+        if vaccine_group:
+            query = query.filter_by(vaccine_group=vaccine_group)
+        
+        return query.order_by(cls.administration_date.desc()).first()
+    
+    @classmethod
+    def get_all_for_patient(cls, patient_id, include_sample=True):
+        """Get all immunizations for a patient"""
+        query = cls.query.filter_by(patient_id=patient_id)
+        
+        if not include_sample:
+            query = query.filter_by(is_sample_data=False)
+        
+        return query.order_by(cls.administration_date.desc()).all()
+    
+    def __repr__(self):
+        return f'<FHIRImmunization {self.cvx_code} - {self.vaccine_name} ({self.administration_date})>'
+
+
 class AsyncJob(db.Model):
     """Model for tracking asynchronous background jobs"""
     __tablename__ = 'async_jobs'

@@ -163,6 +163,15 @@ def create_signup_organization(
         
         logger.info(f"Created default provider {default_provider.id} for new organization {org.id}")
         
+        # Seed organization with sample data for demonstration
+        try:
+            from scripts.seed_org_sample_data import seed_organization_data
+            seed_results = seed_organization_data(org.id, default_provider.id)
+            if seed_results:
+                logger.info(f"Seeded sample data for new organization {org.id}: {seed_results}")
+        except Exception as seed_error:
+            logger.warning(f"Could not seed sample data for org {org.id}: {seed_error}")
+        
         # Create Stripe checkout session
         try:
             # Use provided URLs or generate default ones

@@ -267,45 +267,70 @@ class ScreeningEngine:
         return screening
     
     def _update_screening_status(self, screening):
-        """Update screening status based on documents and criteria"""
-        # Find matching documents
-        matches = self.matcher.find_screening_matches(screening)
+        """Update screening status based on documents, immunizations, and criteria"""
+        from models import FHIRImmunization
         
-        if matches:
-            # Get the most recent matching document with safe date comparison
-            def safe_date_key(match):
-                """Safely extract and normalize date for comparison"""
-                doc_date = match['document_date']
-                if doc_date is None:
-                    return date.min
-                # Ensure we're comparing date objects, not datetime
-                if hasattr(doc_date, 'date'):
-                    return doc_date.date()
-                return doc_date
+        screening_type = screening.screening_type
+        latest_date = None
+        
+        # Check if this is an immunization-based screening type
+        if screening_type.is_immunization_based:
+            # Query FHIRImmunization records for the patient
+            matching_immunizations = FHIRImmunization.query.filter_by(
+                patient_id=screening.patient_id
+            ).order_by(FHIRImmunization.administration_date.desc()).all()
             
-            latest_match = max(matches, key=safe_date_key)
+            # Filter immunizations that match the screening type's vaccine codes
+            for imm in matching_immunizations:
+                if imm.matches_screening_type(screening_type):
+                    imm_date = imm.administration_date
+                    if imm_date:
+                        # Ensure we're using a date object
+                        if hasattr(imm_date, 'date'):
+                            imm_date = imm_date.date()
+                        latest_date = imm_date
+                        self.logger.debug(f"Found matching immunization {imm.vaccine_name} (CVX:{imm.cvx_code}) dated {imm_date} for screening {screening_type.name}")
+                        break  # We already have the most recent match (ordered by date desc)
+        else:
+            # Standard document-based screening matching
+            matches = self.matcher.find_screening_matches(screening)
             
-            # Calculate status based on frequency and last completion
-            # Use document_date if available, otherwise fall back to created_at
-            document_date = latest_match['document_date'] or latest_match['document'].created_at.date()
-            
-            # Ensure document_date is a date object, not datetime
-            if hasattr(document_date, 'date'):
-                document_date = document_date.date()
-            
+            if matches:
+                # Get the most recent matching document with safe date comparison
+                def safe_date_key(match):
+                    """Safely extract and normalize date for comparison"""
+                    doc_date = match['document_date']
+                    if doc_date is None:
+                        return date.min
+                    # Ensure we're comparing date objects, not datetime
+                    if hasattr(doc_date, 'date'):
+                        return doc_date.date()
+                    return doc_date
+                
+                latest_match = max(matches, key=safe_date_key)
+                
+                # Use document_date if available, otherwise fall back to created_at
+                latest_date = latest_match['document_date'] or latest_match['document'].created_at.date()
+                
+                # Ensure latest_date is a date object, not datetime
+                if hasattr(latest_date, 'date'):
+                    latest_date = latest_date.date()
+        
+        # Update screening status if we found a matching date
+        if latest_date:
             new_status = self.criteria.calculate_screening_status(
-                screening.screening_type,
-                document_date
+                screening_type,
+                latest_date
             )
             
             # Always update last_completed if we have a newer date
             status_changed = new_status != screening.status
             date_changed = (screening.last_completed is None or 
-                          document_date > screening.last_completed)
+                          latest_date > screening.last_completed)
             
             if status_changed or date_changed:
                 screening.status = new_status
-                screening.last_completed = document_date
+                screening.last_completed = latest_date
                 screening.updated_at = datetime.utcnow()
                 return True
         

@@ -2091,10 +2091,10 @@ def check_preset_conflicts(preset_id):
 @login_required
 @admin_required
 def admin_documents():
-    """Admin documents page - Show per-patient document inventory including FHIR documents"""
+    """Admin documents page - Show per-patient document inventory including FHIR documents and immunizations"""
     try:
         # Get all patients in the current organization
-        from models import Patient, Document, FHIRDocument, PatientCondition
+        from models import Patient, Document, FHIRDocument, PatientCondition, FHIRImmunization
         from datetime import date
         from core.matcher import DocumentMatcher
         
@@ -2131,7 +2131,7 @@ def admin_documents():
         
         # BATCH OPTIMIZATION: Collect all documents for all patients first
         all_documents = []
-        patient_docs_map = {}  # Map patient_id -> {'manual': [], 'fhir': []}
+        patient_docs_map = {}  # Map patient_id -> {'manual': [], 'fhir': [], 'immunizations': []}
         
         for patient in patients:
             # Get manual documents
@@ -2140,9 +2140,13 @@ def admin_documents():
             # Get FHIR documents
             fhir_documents = FHIRDocument.query.filter_by(patient_id=patient.id).all()
             
+            # Get immunizations
+            immunizations = FHIRImmunization.query.filter_by(patient_id=patient.id).order_by(FHIRImmunization.administration_date.desc()).all()
+            
             patient_docs_map[patient.id] = {
                 'manual': manual_documents,
-                'fhir': fhir_documents
+                'fhir': fhir_documents,
+                'immunizations': immunizations
             }
             
             all_documents.extend(manual_documents)
@@ -2163,6 +2167,7 @@ def admin_documents():
             
             manual_documents = patient_docs_map[patient.id]['manual']
             fhir_documents = patient_docs_map[patient.id]['fhir']
+            immunizations = patient_docs_map[patient.id]['immunizations']
             
             # Combine documents with source markers and match details from batch results
             combined_documents = []
@@ -2243,10 +2248,26 @@ def admin_documents():
                 if doc['ocr_text']:
                     doc_with_ocr += 1
             
+            # Format immunizations for display
+            formatted_immunizations = []
+            for imm in immunizations:
+                formatted_immunizations.append({
+                    'id': imm.id,
+                    'vaccine_name': imm.vaccine_name,
+                    'vaccine_group': imm.vaccine_group,
+                    'cvx_code': imm.cvx_code,
+                    'administration_date': imm.administration_date,
+                    'status': imm.status,
+                    'is_sample_data': imm.is_sample_data,
+                    'source': 'Sample' if imm.is_sample_data else 'Epic FHIR'
+                })
+            
             patient_data.append({
                 'patient': patient,
                 'documents': combined_documents,
+                'immunizations': formatted_immunizations,
                 'total_documents': total_docs,
+                'total_immunizations': len(formatted_immunizations),
                 'documents_with_ocr': doc_with_ocr,
                 'document_counts': doc_counts,
                 'source_counts': source_counts,
