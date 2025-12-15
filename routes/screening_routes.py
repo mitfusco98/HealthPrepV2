@@ -99,52 +99,25 @@ def refresh_screenings():
 @login_required
 @non_admin_required
 def screening_list():
-    """Main screening list view - provider scoped"""
+    """Main screening list view - provider scoped with optimized SQL queries"""
     try:
+        from sqlalchemy import case, func, literal
+        from sqlalchemy.orm import joinedload
+        from datetime import datetime, timedelta
+        
         patient_filter = request.args.get('patient', '', type=str)
         status_filter = request.args.get('status', '', type=str)
         screening_type_filter = request.args.get('screening_type', '', type=str)
+        page = request.args.get('page', 1, type=int)
+        per_page = 50
         
         active_provider = get_active_provider(current_user)
         user_providers = get_user_providers(current_user)
-
-        query = get_provider_screenings(current_user, all_providers=False)
-        query = query.join(Patient).join(ScreeningType).filter(
-            ScreeningType.is_active == True
-        )
-
-        # Apply filters
-        if patient_filter:
-            from sqlalchemy import func
-            query = query.filter(
-                db.or_(
-                    func.lower(Patient.name).like(f'%{patient_filter.lower()}%'),
-                    func.lower(Patient.mrn).like(f'%{patient_filter.lower()}%')
-                )
-            )
-
-        if status_filter:
-            query = query.filter(Screening.status == status_filter)
-
-        if screening_type_filter:
-            query = query.filter(ScreeningType.name == screening_type_filter)
-
-        # Get all screenings
-        all_screenings = query.all()
         
-        # Define status priority (lower number = higher priority, shown at top)
-        # Complete first, then due_soon, then due/overdue
-        status_priority = {
-            'complete': 0,
-            'due_soon': 1,
-            'due': 2,
-            'overdue': 3
-        }
-        
-        # Check if appointment-based prioritization is enabled
+        # Check if appointment-based prioritization is enabled FIRST
         priority_patient_ids = set()
         appointment_prioritization_enabled = False
-        window_days = 14  # Default window
+        window_days = 14
         
         if current_user.organization and current_user.organization.appointment_based_prioritization:
             try:
@@ -157,69 +130,115 @@ def screening_list():
             except Exception as e:
                 logger.error(f"Error getting priority patients: {str(e)}")
         
-        # Helper to determine if screening is effectively dormant
-        # A screening is dormant if is_dormant=True OR if is_dormant=False but last_processed is outside window
-        from datetime import datetime, timedelta
         window_cutoff = datetime.utcnow() - timedelta(days=window_days)
         
-        def is_effectively_dormant(screening):
-            if screening.is_dormant:
-                return True
-            # If not explicitly dormant, check if last_processed is outside window
-            if not appointment_prioritization_enabled:
-                return False
-            if screening.last_processed and screening.last_processed < window_cutoff:
-                return True
-            return False
-        
-        # Auto-reset is_dormant for screenings where last_processed is outside window
-        # This ensures the persisted flag stays in sync with the time-based window
-        if appointment_prioritization_enabled:
-            stale_screenings = [s for s in all_screenings if 
-                                not s.is_dormant and 
-                                s.last_processed and 
-                                s.last_processed < window_cutoff]
-            if stale_screenings:
-                for s in stale_screenings:
-                    s.is_dormant = True
+        # Batch update stale screenings to dormant - scoped to active provider only
+        # This prevents long locks on large org datasets
+        if appointment_prioritization_enabled and active_provider:
+            dormancy_query = Screening.query.filter(
+                Screening.org_id == current_user.org_id,
+                Screening.provider_id == active_provider.id,
+                Screening.is_dormant == False,
+                Screening.last_processed < window_cutoff
+            )
+            stale_count = dormancy_query.update({'is_dormant': True}, synchronize_session=False)
+            if stale_count > 0:
                 db.session.commit()
-                logger.info(f"Auto-reset {len(stale_screenings)} screenings to dormant (last_processed outside window)")
+                logger.info(f"Batch-updated {stale_count} screenings to dormant for provider {active_provider.id}")
+
+        # Build optimized query with eager loading
+        query = get_provider_screenings(current_user, all_providers=False)
+        query = query.options(
+            joinedload(Screening.patient),
+            joinedload(Screening.screening_type)
+        ).join(Patient).join(ScreeningType).filter(
+            ScreeningType.is_active == True
+        )
+
+        # Apply filters
+        if patient_filter:
+            query = query.filter(
+                db.or_(
+                    func.lower(Patient.name).like(f'%{patient_filter.lower()}%'),
+                    func.lower(Patient.mrn).like(f'%{patient_filter.lower()}%')
+                )
+            )
+
+        if status_filter:
+            query = query.filter(Screening.status == status_filter)
+
+        if screening_type_filter:
+            query = query.filter(ScreeningType.name == screening_type_filter)
         
-        # Sort by: dormant last, then appointment priority (if enabled), then status priority, then patient name
-        # Dormant/stale screenings go to the bottom
-        all_sorted_screenings = sorted(all_screenings, 
-                          key=lambda s: (
-                              1 if is_effectively_dormant(s) else 0,  # Dormant screenings at bottom
-                              0 if (appointment_prioritization_enabled and s.patient_id in priority_patient_ids) else 1,
-                              status_priority.get(s.status, 99),
-                              s.patient.name.lower() if s.patient.name else '',
-                              s.screening_type.name.lower() if s.screening_type.name else ''
-                          ))
+        # Get total count for pagination BEFORE adding ORDER BY (more efficient)
+        count_query = query.with_entities(func.count(Screening.id))
+        total_screenings = count_query.scalar() or 0
         
-        # Add effective_dormant attribute to each screening for template use
-        for s in all_sorted_screenings:
-            s.effective_dormant = is_effectively_dormant(s)
+        # Handle pagination correctly for empty result sets
+        if total_screenings == 0:
+            total_pages = 0
+            page = 1
+            start_idx = 0
+            end_idx = 0
+        else:
+            total_pages = (total_screenings + per_page - 1) // per_page
+            page = max(1, min(page, total_pages))
+            start_idx = (page - 1) * per_page
+            end_idx = min(start_idx + per_page, total_screenings)
         
-        # Pagination
-        page = request.args.get('page', 1, type=int)
-        per_page = 50  # Show 50 screenings per page
-        total_screenings = len(all_sorted_screenings)
-        total_pages = (total_screenings + per_page - 1) // per_page if total_screenings > 0 else 1
+        # Build SQL-level sorting with CASE statements for status priority
+        # Complete=0, due_soon=1, due=2, overdue=3
+        status_order = case(
+            (Screening.status == 'complete', 0),
+            (Screening.status == 'due_soon', 1),
+            (Screening.status == 'due', 2),
+            (Screening.status == 'overdue', 3),
+            else_=99
+        )
         
-        # Clamp page number to valid range [1, total_pages]
-        page = max(1, min(page, total_pages))
+        # Dormancy order: non-dormant (0) before dormant (1)
+        # For effective dormancy, we consider is_dormant=True OR last_processed < window_cutoff
+        dormancy_order = case(
+            (Screening.is_dormant == True, 1),
+            (db.and_(Screening.last_processed.isnot(None), Screening.last_processed < window_cutoff), 1),
+            else_=0
+        )
         
-        # Calculate start and end indices for current page
-        start_idx = (page - 1) * per_page
-        end_idx = min(start_idx + per_page, total_screenings)
+        # Priority patient order requires dynamic handling since priority_patient_ids comes from a service
+        if appointment_prioritization_enabled and priority_patient_ids:
+            priority_order = case(
+                (Screening.patient_id.in_(priority_patient_ids), 0),
+                else_=1
+            )
+            query = query.order_by(
+                dormancy_order,
+                priority_order,
+                status_order,
+                func.lower(Patient.name),
+                func.lower(ScreeningType.name)
+            )
+        else:
+            query = query.order_by(
+                dormancy_order,
+                status_order,
+                func.lower(Patient.name),
+                func.lower(ScreeningType.name)
+            )
         
-        # Get screenings for current page
-        screenings = all_sorted_screenings[start_idx:end_idx]
+        # Get paginated results using SQL LIMIT/OFFSET
+        screenings = query.offset(start_idx).limit(per_page).all()
+        
+        # Add effective_dormant attribute for template use
+        for s in screenings:
+            s.effective_dormant = (
+                s.is_dormant or 
+                (appointment_prioritization_enabled and s.last_processed and s.last_processed < window_cutoff)
+            )
         
         # Calculate priority patient count on current page
         priority_count_on_page = sum(1 for s in screenings if s.patient_id in priority_patient_ids) if appointment_prioritization_enabled else 0
 
-        # Get filter options - FILTER BY ORGANIZATION
+        # Get filter options - use efficient queries
         patients = Patient.query.filter_by(org_id=current_user.org_id).order_by(Patient.name).all()
         
         # Get screening types grouped by base name with variant counts for current organization

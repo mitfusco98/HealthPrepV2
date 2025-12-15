@@ -204,6 +204,9 @@ def create_app():
         db.create_all()
         logger.info("Database tables created successfully")
         
+        # Create partial unique indexes for screening table (NULL-safe uniqueness)
+        _create_screening_unique_indexes(db)
+        
         # Ensure System Organization (org_id=0) and root admin configuration
         # This is required before root admin can log in or perform any actions
         _ensure_system_organization(db, models.Organization, models.User)
@@ -494,3 +497,49 @@ def _ensure_system_organization(db, Organization, User):
         logger.error(f"Failed to ensure System Organization/Root Admin: {e}")
         db.session.rollback()
         raise
+
+def _create_screening_unique_indexes(db):
+    """
+    Create partial unique indexes for the screening table to prevent duplicate screenings.
+    
+    These indexes handle NULL provider_id correctly:
+    - uq_screening_patient_type_with_provider: Unique on (patient_id, screening_type_id, provider_id) WHERE provider_id IS NOT NULL
+    - uq_screening_patient_type_null_provider: Unique on (patient_id, screening_type_id) WHERE provider_id IS NULL
+    
+    This ensures only one screening record per patient+type+provider combination.
+    """
+    from sqlalchemy import text
+    
+    try:
+        # Check if indexes already exist
+        result = db.session.execute(text("""
+            SELECT indexname FROM pg_indexes 
+            WHERE tablename = 'screening' 
+            AND indexname IN ('uq_screening_patient_type_with_provider', 'uq_screening_patient_type_null_provider')
+        """))
+        existing_indexes = {row[0] for row in result}
+        
+        # Create partial unique index for non-NULL provider_id
+        if 'uq_screening_patient_type_with_provider' not in existing_indexes:
+            db.session.execute(text("""
+                CREATE UNIQUE INDEX uq_screening_patient_type_with_provider 
+                ON screening (patient_id, screening_type_id, provider_id) 
+                WHERE provider_id IS NOT NULL
+            """))
+            logger.info("Created partial unique index: uq_screening_patient_type_with_provider")
+        
+        # Create partial unique index for NULL provider_id
+        if 'uq_screening_patient_type_null_provider' not in existing_indexes:
+            db.session.execute(text("""
+                CREATE UNIQUE INDEX uq_screening_patient_type_null_provider 
+                ON screening (patient_id, screening_type_id) 
+                WHERE provider_id IS NULL
+            """))
+            logger.info("Created partial unique index: uq_screening_patient_type_null_provider")
+        
+        db.session.commit()
+        
+    except Exception as e:
+        # Non-fatal - indexes may not be created on SQLite or if table doesn't exist yet
+        logger.debug(f"Partial unique indexes not created (may not be PostgreSQL): {e}")
+        db.session.rollback()

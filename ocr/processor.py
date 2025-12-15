@@ -382,3 +382,210 @@ class OCRProcessor:
 
         except Exception as e:
             self.logger.warning(f"Error cleaning up temp files: {str(e)}")
+
+    def process_documents_batch(self, document_ids, max_workers=4, progress_callback=None):
+        """
+        Process multiple documents in parallel using ThreadPoolExecutor.
+        Each thread gets its own Flask app context and session for safe database access.
+        
+        Args:
+            document_ids: List of document IDs to process
+            max_workers: Maximum number of parallel workers (default 4)
+            progress_callback: Optional callback function(processed, total, current_doc_id)
+        
+        Returns:
+            Dict with results summary
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        from app import app, db
+        from sqlalchemy.orm import scoped_session, sessionmaker
+        import time
+        
+        results = {
+            'total': len(document_ids),
+            'successful': [],
+            'failed': [],
+            'start_time': time.time()
+        }
+        
+        if not document_ids:
+            return results
+        
+        self.logger.info(f"Starting parallel OCR processing of {len(document_ids)} documents with {max_workers} workers")
+        
+        def process_single_with_isolated_session(doc_id):
+            """Worker function with isolated session for thread-safe database access"""
+            with app.app_context():
+                try:
+                    thread_session = scoped_session(sessionmaker(bind=db.engine))
+                    try:
+                        success = self._process_document_with_session(doc_id, thread_session)
+                        return (doc_id, success, None)
+                    finally:
+                        thread_session.remove()
+                except Exception as e:
+                    return (doc_id, False, str(e))
+        
+        processed_count = 0
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_doc = {executor.submit(process_single_with_isolated_session, doc_id): doc_id for doc_id in document_ids}
+            
+            for future in as_completed(future_to_doc):
+                doc_id = future_to_doc[future]
+                processed_count += 1
+                
+                try:
+                    doc_id, success, error = future.result()
+                    
+                    if success:
+                        results['successful'].append(doc_id)
+                    else:
+                        results['failed'].append({
+                            'document_id': doc_id,
+                            'error': error or 'Processing failed'
+                        })
+                        
+                except Exception as e:
+                    results['failed'].append({
+                        'document_id': doc_id,
+                        'error': str(e)
+                    })
+                
+                if progress_callback:
+                    try:
+                        progress_callback(processed_count, len(document_ids), doc_id)
+                    except Exception:
+                        pass
+        
+        results['end_time'] = time.time()
+        results['duration_seconds'] = results['end_time'] - results['start_time']
+        results['docs_per_second'] = len(document_ids) / results['duration_seconds'] if results['duration_seconds'] > 0 else 0
+        
+        self.logger.info(
+            f"Parallel OCR complete: {len(results['successful'])}/{len(document_ids)} successful, "
+            f"{results['docs_per_second']:.2f} docs/sec"
+        )
+        
+        return results
+    
+    def _process_document_with_session(self, document_id, session):
+        """
+        Internal document processing with explicit session for thread safety.
+        Used by parallel batch processing.
+        """
+        document = session.query(Document).get(document_id)
+        if not document:
+            self.logger.error(f"Document {document_id} not found")
+            return False
+
+        try:
+            ocr_text, confidence = self._extract_text(document.file_path)
+
+            if ocr_text:
+                filtered_text = self.phi_filter.filter_phi(ocr_text)
+                document.ocr_text = filtered_text
+                document.content = filtered_text
+                document.ocr_confidence = confidence
+                document.phi_filtered = True
+                document.processed_at = datetime.utcnow()
+                session.commit()
+                self.logger.info(f"Successfully processed document {document_id} with confidence {confidence:.2f}")
+                return True
+            else:
+                self.logger.warning(f"No text extracted from document {document_id}")
+                return False
+
+        except Exception as e:
+            self.logger.error(f"Error processing document {document_id}: {str(e)}")
+            session.rollback()
+            return False
+    
+    def process_documents_batch_with_screening_update(self, document_ids, max_workers=4, progress_callback=None):
+        """
+        Process documents in parallel and trigger screening updates after completion.
+        This is the preferred method for bulk document intake.
+        """
+        from app import app
+        
+        results = self.process_documents_batch(document_ids, max_workers, progress_callback)
+        
+        if results['successful']:
+            with app.app_context():
+                try:
+                    from core.engine import ScreeningEngine
+                    engine = ScreeningEngine()
+                    for doc_id in results['successful']:
+                        try:
+                            engine.process_new_document(doc_id)
+                        except Exception as e:
+                            self.logger.warning(f"Screening update failed for doc {doc_id}: {str(e)}")
+                except Exception as e:
+                    self.logger.error(f"Error updating screenings after batch: {str(e)}")
+        
+        return results
+
+    def process_pdf_pages_parallel(self, pdf_path, max_workers=4):
+        """
+        Process PDF pages in parallel for faster OCR.
+        
+        Args:
+            pdf_path: Path to PDF file
+            max_workers: Maximum number of parallel workers
+        
+        Returns:
+            Tuple of (combined_text, average_confidence)
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        import time
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            try:
+                images = pdf2image.convert_from_path(pdf_path)
+                
+                if len(images) <= 2:
+                    return self._process_pdf(pdf_path)
+                
+                self.logger.info(f"Processing {len(images)} PDF pages in parallel")
+                
+                image_paths = []
+                for i, image in enumerate(images):
+                    image_path = os.path.join(temp_dir, f"page_{i}.png")
+                    image.save(image_path, 'PNG')
+                    image_paths.append((i, image_path))
+                
+                page_results = {}
+                
+                def process_page(args):
+                    page_num, image_path = args
+                    text, confidence = self._process_image(image_path)
+                    return (page_num, text, confidence)
+                
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    futures = {executor.submit(process_page, args): args[0] for args in image_paths}
+                    
+                    for future in as_completed(futures):
+                        try:
+                            page_num, text, confidence = future.result()
+                            page_results[page_num] = (text, confidence)
+                        except Exception as e:
+                            page_num = futures[future]
+                            self.logger.error(f"Error processing page {page_num}: {str(e)}")
+                            page_results[page_num] = ('', 0.0)
+                
+                all_text = []
+                confidences = []
+                for i in range(len(images)):
+                    text, confidence = page_results.get(i, ('', 0.0))
+                    if text:
+                        all_text.append(text)
+                        confidences.append(confidence)
+                
+                combined_text = '\n'.join(all_text)
+                avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
+                
+                return combined_text, avg_confidence
+                
+            except Exception as e:
+                self.logger.error(f"Error in parallel PDF processing: {str(e)}")
+                return self._process_pdf(pdf_path)

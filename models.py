@@ -1630,6 +1630,13 @@ screening_immunizations = db.Table('screening_immunizations',
 class Screening(db.Model):
     """Patient screening record with organization scope"""
     __tablename__ = 'screening'
+    __table_args__ = (
+        db.Index('idx_screening_status', 'status'),
+        db.Index('idx_screening_patient', 'patient_id'),
+        db.Index('idx_screening_dormant', 'is_dormant'),
+        db.Index('idx_screening_org', 'org_id'),
+        db.Index('idx_screening_type', 'screening_type_id'),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('patient.id'), nullable=False)
@@ -1639,7 +1646,7 @@ class Screening(db.Model):
     # Provider scope - which provider's screening record this is
     provider_id = db.Column(db.Integer, db.ForeignKey('providers.id'), nullable=True)  # Nullable for migration
     
-    status = db.Column(db.String(20), nullable=False)  # 'due', 'due_soon', 'complete'
+    status = db.Column(db.String(20), nullable=False, index=True)  # 'due', 'due_soon', 'complete'
     last_completed = db.Column(db.Date)
     next_due = db.Column(db.Date)
     matched_documents = db.Column(db.Text)  # JSON string of document IDs
@@ -1648,7 +1655,7 @@ class Screening(db.Model):
     
     # Appointment window tracking for dormancy
     last_processed = db.Column(db.DateTime)  # Last time screening criteria was evaluated
-    is_dormant = db.Column(db.Boolean, default=False)  # True if outside appointment window
+    is_dormant = db.Column(db.Boolean, default=False, index=True)  # True if outside appointment window
 
     # Relationships
     organization = db.relationship('Organization', backref='screenings')
