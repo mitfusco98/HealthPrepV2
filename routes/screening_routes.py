@@ -133,12 +133,12 @@ def screening_list():
         all_screenings = query.all()
         
         # Define status priority (lower number = higher priority, shown at top)
-        # Actionable items first: due/overdue at top, then due_soon, then complete
+        # Complete first, then due_soon, then due/overdue
         status_priority = {
-            'due': 0,
-            'overdue': 1,
-            'due_soon': 2,
-            'complete': 3
+            'complete': 0,
+            'due_soon': 1,
+            'due': 2,
+            'overdue': 3
         }
         
         # Check if appointment-based prioritization is enabled
