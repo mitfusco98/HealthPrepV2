@@ -1620,6 +1620,12 @@ screening_fhir_documents = db.Table('screening_fhir_documents',
     db.Column('fhir_document_id', db.Integer, db.ForeignKey('fhir_documents.id'), primary_key=True)
 )
 
+# Association table for immunizations and screenings (for immunization-based screening types)
+screening_immunizations = db.Table('screening_immunizations',
+    db.Column('screening_id', db.Integer, db.ForeignKey('screening.id'), primary_key=True),
+    db.Column('immunization_id', db.Integer, db.ForeignKey('fhir_immunizations.id'), primary_key=True)
+)
+
 
 class Screening(db.Model):
     """Patient screening record with organization scope"""
@@ -1648,6 +1654,7 @@ class Screening(db.Model):
     organization = db.relationship('Organization', backref='screenings')
     provider = db.relationship('Provider', backref=db.backref('screenings', lazy=True))
     fhir_documents = db.relationship('FHIRDocument', secondary=screening_fhir_documents, back_populates='screenings')
+    immunizations = db.relationship('FHIRImmunization', secondary=screening_immunizations, back_populates='screenings')
 
     @property
     def matched_documents_list(self):
@@ -2127,6 +2134,7 @@ class FHIRImmunization(db.Model):
     patient = db.relationship('Patient', backref=db.backref('immunizations', lazy='dynamic'))
     organization = db.relationship('Organization', backref=db.backref('immunizations', lazy='dynamic'))
     provider = db.relationship('Provider', backref=db.backref('immunizations', lazy='dynamic'))
+    screenings = db.relationship('Screening', secondary='screening_immunizations', back_populates='immunizations')
     
     # Indexes for performance
     __table_args__ = (

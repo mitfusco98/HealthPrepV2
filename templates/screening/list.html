@@ -539,36 +539,60 @@
                                 {{ screening.screening_type.frequency_display }}
                             </td>
                             
-                            <!-- Matched Documents -->
+                            <!-- Matched Documents / Immunizations -->
                             <td class="document-badges">
                                 <div class="d-flex justify-content-between align-items-start">
                                     <div class="documents-list">
                                         {% set active_matches = screening.get_active_document_matches() %}
                                         {% set active_fhir_docs = screening.get_active_fhir_documents() %}
+                                        {% set active_immunizations = screening.immunizations %}
                                         {% set total_docs = (active_matches|length) + (active_fhir_docs|length) %}
-                                        {% if total_docs > 0 %}
-                                            {# Show local documents #}
-                                            {% for match in active_matches[:3] %}
-                                            <span class="badge confidence-{{ match.document.confidence_level if match.document.confidence_level else 'medium' }}" 
-                                                  title="{{ match.document.filename }} - Confidence: {{ (match.match_confidence * 100)|round(1) }}%">
-                                                {{ match.document.filename[:25] }}{% if match.document.filename|length > 25 %}...{% endif %}
-                                            </span>
-                                            {% endfor %}
-                                            
-                                            {# Show FHIR documents #}
-                                            {% for fhir_doc in active_fhir_docs[:(5 - (active_matches[:3]|length))] %}
-                                            <span class="badge confidence-high" 
-                                                  title="{{ fhir_doc.title or fhir_doc.document_type_display }} (Epic) - Date: {{ fhir_doc.document_date.strftime('%m/%d/%Y') if fhir_doc.document_date else 'N/A' }}">
-                                                {{ (fhir_doc.title or fhir_doc.document_type_display)[:25] }}{% if (fhir_doc.title or fhir_doc.document_type_display)|length > 25 %}...{% endif %} 
-                                                <i class="fas fa-cloud text-white-50" style="font-size: 0.7em;" title="From Epic"></i>
-                                            </span>
-                                            {% endfor %}
-                                            
-                                            {% if total_docs > 5 %}
-                                            <div class="document-count-more">+{{ total_docs - 5 }} more documents</div>
+                                        {% set total_immunizations = (active_immunizations|length) if active_immunizations else 0 %}
+                                        
+                                        {# Handle immunization-based vs document-based screenings differently #}
+                                        {% if screening.screening_type.is_immunization_based %}
+                                            {# Immunization-based screening: Show immunization records #}
+                                            {% if total_immunizations > 0 %}
+                                                {% for imm in active_immunizations[:5] %}
+                                                <span class="badge confidence-high" 
+                                                      title="{{ imm.vaccine_name }} (CVX: {{ imm.cvx_code }}) - Administered: {{ imm.administration_date.strftime('%m/%d/%Y') if imm.administration_date else 'N/A' }}">
+                                                    <i class="fas fa-syringe me-1" style="font-size: 0.8em;" title="Immunization Record"></i>
+                                                    {{ imm.vaccine_name[:25] }}{% if imm.vaccine_name|length > 25 %}...{% endif %}
+                                                </span>
+                                                {% endfor %}
+                                                
+                                                {% if total_immunizations > 5 %}
+                                                <div class="document-count-more">+{{ total_immunizations - 5 }} more immunizations</div>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-muted small">No immunization records</span>
                                             {% endif %}
                                         {% else %}
-                                            <span class="text-muted small">No matches</span>
+                                            {# Document-based screenings: Show documents #}
+                                            {% if total_docs > 0 %}
+                                                {# Show local documents #}
+                                                {% for match in active_matches[:3] %}
+                                                <span class="badge confidence-{{ match.document.confidence_level if match.document.confidence_level else 'medium' }}" 
+                                                      title="{{ match.document.filename }} - Confidence: {{ (match.match_confidence * 100)|round(1) }}%">
+                                                    {{ match.document.filename[:25] }}{% if match.document.filename|length > 25 %}...{% endif %}
+                                                </span>
+                                                {% endfor %}
+                                                
+                                                {# Show FHIR documents #}
+                                                {% for fhir_doc in active_fhir_docs[:(5 - (active_matches[:3]|length))] %}
+                                                <span class="badge confidence-high" 
+                                                      title="{{ fhir_doc.title or fhir_doc.document_type_display }} (Epic) - Date: {{ fhir_doc.document_date.strftime('%m/%d/%Y') if fhir_doc.document_date else 'N/A' }}">
+                                                    {{ (fhir_doc.title or fhir_doc.document_type_display)[:25] }}{% if (fhir_doc.title or fhir_doc.document_type_display)|length > 25 %}...{% endif %} 
+                                                    <i class="fas fa-cloud text-white-50" style="font-size: 0.7em;" title="From Epic"></i>
+                                                </span>
+                                                {% endfor %}
+                                                
+                                                {% if total_docs > 5 %}
+                                                <div class="document-count-more">+{{ total_docs - 5 }} more documents</div>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-muted small">No matches</span>
+                                            {% endif %}
                                         {% endif %}
                                     </div>
                                     {% if screening.effective_dormant %}

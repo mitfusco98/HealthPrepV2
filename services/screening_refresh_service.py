@@ -19,7 +19,7 @@ from flask_login import current_user
 
 from models import (
     db, Patient, Screening, ScreeningType, Document, FHIRDocument, AdminLog,
-    PatientCondition, PrepSheetSettings, ScreeningDocumentMatch
+    PatientCondition, PrepSheetSettings, ScreeningDocumentMatch, FHIRImmunization
 )
 from core.matcher import DocumentMatcher
 from core.criteria import EligibilityCriteria
@@ -507,11 +507,18 @@ class ScreeningRefreshService:
     
     def _update_screening_status_with_current_criteria(self, screening: Screening) -> bool:
         """
-        Update screening status based on existing documents with current criteria
-        NO Epic calls - processes existing local documents AND FHIR documents
+        Update screening status based on existing documents/immunizations with current criteria
+        NO Epic calls - processes existing local documents, FHIR documents, AND immunizations
         Automatically excludes dismissed matches via DocumentMatcher
         """
         try:
+            screening_type = screening.screening_type
+            
+            # Check if this is an immunization-based screening type
+            if screening_type.is_immunization_based:
+                return self._update_immunization_based_screening(screening)
+            
+            # Standard document-based screening matching
             # Find matching LOCAL documents (already excludes dismissed matches)
             matches = self.matcher.find_screening_matches(screening, exclude_dismissed=True)
             
@@ -629,6 +636,91 @@ class ScreeningRefreshService:
             
         except Exception as e:
             logger.error(f"Error updating screening {screening.id}: {str(e)}")
+            return False
+    
+    def _update_immunization_based_screening(self, screening: Screening) -> bool:
+        """
+        Update immunization-based screening status using FHIRImmunization records
+        Links matching immunizations to the screening for UI display
+        """
+        try:
+            screening_type = screening.screening_type
+            
+            # Query FHIRImmunization records for the patient
+            patient_immunizations = FHIRImmunization.query.filter_by(
+                patient_id=screening.patient_id,
+                status='completed'
+            ).order_by(FHIRImmunization.administration_date.desc()).all()
+            
+            # Find immunizations that match the screening type's criteria
+            matching_immunizations = []
+            for imm in patient_immunizations:
+                if imm.matches_screening_type(screening_type):
+                    matching_immunizations.append(imm)
+                    logger.debug(f"Matched immunization {imm.vaccine_name} (CVX:{imm.cvx_code}) dated {imm.administration_date} for screening {screening_type.name}")
+            
+            # Clean up stale immunization links and add current matches
+            current_imm_ids = {imm.id for imm in matching_immunizations}
+            
+            # Remove immunizations that no longer match
+            stale_immunizations = [imm for imm in screening.immunizations if imm.id not in current_imm_ids]
+            for stale_imm in stale_immunizations:
+                logger.debug(f"Removing stale immunization link: Screening {screening.id} -> Imm {stale_imm.id}")
+                screening.immunizations.remove(stale_imm)
+            
+            # Link current immunizations to screening for UI display
+            for imm in matching_immunizations:
+                if imm not in screening.immunizations:
+                    screening.immunizations.append(imm)
+                    logger.debug(f"Linked immunization {imm.id} ({imm.vaccine_name}) to screening {screening.id}")
+            
+            if matching_immunizations:
+                # Get the most recent matching immunization
+                latest_imm = matching_immunizations[0]  # Already sorted by date desc
+                imm_date = latest_imm.administration_date
+                
+                # Ensure we're using a date object
+                if imm_date and hasattr(imm_date, 'date'):
+                    imm_date = imm_date.date()
+                
+                # Calculate new status using current criteria
+                new_status = self.criteria.calculate_screening_status(
+                    screening_type,
+                    imm_date
+                )
+                
+                # Update if status changed or we have a newer completion date
+                status_changed = new_status != screening.status
+                date_changed = (screening.last_completed is None or 
+                              (imm_date and imm_date > screening.last_completed))
+                
+                if status_changed or date_changed:
+                    old_status = screening.status
+                    screening.status = new_status
+                    screening.last_completed = imm_date
+                    screening.updated_at = datetime.utcnow()
+                    
+                    logger.info(f"Immunization screening {screening.id} ({screening_type.name}): {old_status} -> {new_status}, completed: {imm_date}, matched {len(matching_immunizations)} immunization(s)")
+                    return True
+            else:
+                # No matching immunizations found - should be 'due'
+                # Also clear any stale immunization links
+                if screening.immunizations:
+                    screening.immunizations.clear()
+                
+                if screening.status != 'due':
+                    old_status = screening.status
+                    screening.status = 'due'
+                    screening.last_completed = None
+                    screening.updated_at = datetime.utcnow()
+                    
+                    logger.debug(f"Immunization screening {screening.id}: {old_status} -> due (no matching immunizations)")
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error updating immunization screening {screening.id}: {str(e)}")
             return False
     
     def refresh_specific_screenings(self, screening_ids: List[int]) -> Dict[str, Any]:
