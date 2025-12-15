@@ -102,7 +102,7 @@ def screening_list():
     """Main screening list view - provider scoped with optimized SQL queries"""
     try:
         from sqlalchemy import case, func, literal
-        from sqlalchemy.orm import joinedload
+        from sqlalchemy.orm import joinedload, selectinload
         from datetime import datetime, timedelta
         
         patient_filter = request.args.get('patient', '', type=str)
@@ -114,43 +114,76 @@ def screening_list():
         active_provider = get_active_provider(current_user)
         user_providers = get_user_providers(current_user)
         
-        # Check if appointment-based prioritization is enabled FIRST
+        # Check if appointment-based prioritization is enabled
         priority_patient_ids = set()
         appointment_prioritization_enabled = False
         window_days = 14
         
         if current_user.organization and current_user.organization.appointment_based_prioritization:
-            try:
-                from services.appointment_prioritization import AppointmentBasedPrioritization
-                prioritization_service = AppointmentBasedPrioritization(current_user.org_id)
-                priority_patient_ids = set(prioritization_service.get_priority_patients())
-                appointment_prioritization_enabled = True
-                window_days = current_user.organization.prioritization_window_days or 14
-                logger.info(f"Appointment prioritization enabled: {len(priority_patient_ids)} priority patients")
-            except Exception as e:
-                logger.error(f"Error getting priority patients: {str(e)}")
+            window_days = current_user.organization.prioritization_window_days or 14
+            appointment_prioritization_enabled = True
+            
+            # Use application-level cache for priority patients (1 hour TTL)
+            # This ensures consistency across all sessions/devices for the same org
+            from utils.app_cache import get_cached_priority_patients, set_cached_priority_patients
+            
+            cached_result = get_cached_priority_patients(current_user.org_id)
+            if cached_result is not None:
+                priority_patient_ids = cached_result
+                logger.debug(f"Using cached priority patients: {len(priority_patient_ids)} patients")
+            else:
+                # Refresh cache
+                try:
+                    from services.appointment_prioritization import AppointmentBasedPrioritization
+                    prioritization_service = AppointmentBasedPrioritization(current_user.org_id)
+                    priority_patient_ids = set(prioritization_service.get_priority_patients())
+                    set_cached_priority_patients(current_user.org_id, priority_patient_ids)
+                    logger.info(f"Refreshed priority patients cache: {len(priority_patient_ids)} patients")
+                except Exception as e:
+                    logger.error(f"Error getting priority patients: {str(e)}")
+                    priority_patient_ids = set()
         
         window_cutoff = datetime.utcnow() - timedelta(days=window_days)
         
-        # Batch update stale screenings to dormant - scoped to active provider only
-        # This prevents long locks on large org datasets
+        # Throttle dormancy batch updates using Provider.last_dormancy_check column
+        # This persists across sessions and ensures once-per-hour limit per provider
         if appointment_prioritization_enabled and active_provider:
-            dormancy_query = Screening.query.filter(
-                Screening.org_id == current_user.org_id,
-                Screening.provider_id == active_provider.id,
-                Screening.is_dormant == False,
-                Screening.last_processed < window_cutoff
+            dormancy_ttl_seconds = 3600  # 1 hour
+            now = datetime.utcnow()
+            
+            should_update_dormancy = (
+                not active_provider.last_dormancy_check or 
+                (now - active_provider.last_dormancy_check).total_seconds() >= dormancy_ttl_seconds
             )
-            stale_count = dormancy_query.update({'is_dormant': True}, synchronize_session=False)
-            if stale_count > 0:
+            
+            if should_update_dormancy:
+                dormancy_query = Screening.query.filter(
+                    Screening.org_id == current_user.org_id,
+                    Screening.provider_id == active_provider.id,
+                    Screening.is_dormant == False,
+                    Screening.last_processed < window_cutoff
+                )
+                stale_count = dormancy_query.update({'is_dormant': True}, synchronize_session=False)
+                
+                # Update provider's last_dormancy_check timestamp
+                active_provider.last_dormancy_check = now
                 db.session.commit()
-                logger.info(f"Batch-updated {stale_count} screenings to dormant for provider {active_provider.id}")
+                
+                if stale_count > 0:
+                    logger.info(f"Batch-updated {stale_count} screenings to dormant for provider {active_provider.id}")
 
-        # Build optimized query with eager loading
+        # Build optimized query with eager loading to prevent N+1 queries
+        # - patient, screening_type: needed for display
+        # - document_matches: for get_active_document_matches() 
+        # - fhir_documents: for get_active_fhir_documents()
+        # - immunizations: for immunization-based screenings
         query = get_provider_screenings(current_user, all_providers=False)
         query = query.options(
             joinedload(Screening.patient),
-            joinedload(Screening.screening_type)
+            joinedload(Screening.screening_type),
+            selectinload(Screening.document_matches),
+            selectinload(Screening.fhir_documents),
+            selectinload(Screening.immunizations)
         ).join(Patient).join(ScreeningType).filter(
             ScreeningType.is_active == True
         )
@@ -227,6 +260,50 @@ def screening_list():
         
         # Get paginated results using SQL LIMIT/OFFSET
         screenings = query.offset(start_idx).limit(per_page).all()
+        
+        # Batch-prefetch dismissed document IDs to avoid N+1 queries in template
+        # This eliminates per-screening queries in get_active_document_matches() and get_active_fhir_documents()
+        if screenings:
+            from models import DismissedDocumentMatch
+            screening_ids = [s.id for s in screenings]
+            
+            # Get all dismissed document IDs for these screenings in one query
+            dismissed_doc_query = db.session.query(
+                DismissedDocumentMatch.screening_id,
+                DismissedDocumentMatch.document_id
+            ).filter(
+                DismissedDocumentMatch.screening_id.in_(screening_ids),
+                DismissedDocumentMatch.is_active == True,
+                DismissedDocumentMatch.document_id.isnot(None)
+            ).all()
+            
+            # Get all dismissed FHIR document IDs
+            dismissed_fhir_query = db.session.query(
+                DismissedDocumentMatch.screening_id,
+                DismissedDocumentMatch.fhir_document_id
+            ).filter(
+                DismissedDocumentMatch.screening_id.in_(screening_ids),
+                DismissedDocumentMatch.is_active == True,
+                DismissedDocumentMatch.fhir_document_id.isnot(None)
+            ).all()
+            
+            # Build lookup dicts
+            dismissed_docs_by_screening = {}
+            for screening_id, doc_id in dismissed_doc_query:
+                if screening_id not in dismissed_docs_by_screening:
+                    dismissed_docs_by_screening[screening_id] = set()
+                dismissed_docs_by_screening[screening_id].add(doc_id)
+            
+            dismissed_fhir_by_screening = {}
+            for screening_id, fhir_id in dismissed_fhir_query:
+                if screening_id not in dismissed_fhir_by_screening:
+                    dismissed_fhir_by_screening[screening_id] = set()
+                dismissed_fhir_by_screening[screening_id].add(fhir_id)
+            
+            # Attach prefetched dismissed IDs to each screening for use in template
+            for s in screenings:
+                s._dismissed_doc_ids = dismissed_docs_by_screening.get(s.id, set())
+                s._dismissed_fhir_ids = dismissed_fhir_by_screening.get(s.id, set())
         
         # Add effective_dormant attribute for template use
         for s in screenings:

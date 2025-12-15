@@ -207,6 +207,9 @@ def create_app():
         # Create partial unique indexes for screening table (NULL-safe uniqueness)
         _create_screening_unique_indexes(db)
         
+        # Add new columns to existing tables (schema migration for existing databases)
+        _add_missing_columns(db)
+        
         # Ensure System Organization (org_id=0) and root admin configuration
         # This is required before root admin can log in or perform any actions
         _ensure_system_organization(db, models.Organization, models.User)
@@ -542,4 +545,31 @@ def _create_screening_unique_indexes(db):
     except Exception as e:
         # Non-fatal - indexes may not be created on SQLite or if table doesn't exist yet
         logger.debug(f"Partial unique indexes not created (may not be PostgreSQL): {e}")
+        db.session.rollback()
+
+def _add_missing_columns(db):
+    """
+    Add missing columns to existing database tables.
+    This handles schema migrations for columns added after initial deployment.
+    """
+    from sqlalchemy import text
+    
+    try:
+        # Check if last_dormancy_check column exists in providers table
+        result = db.session.execute(text("""
+            SELECT column_name FROM information_schema.columns 
+            WHERE table_name = 'providers' AND column_name = 'last_dormancy_check'
+        """))
+        column_exists = result.fetchone() is not None
+        
+        if not column_exists:
+            db.session.execute(text("""
+                ALTER TABLE providers ADD COLUMN last_dormancy_check TIMESTAMP NULL
+            """))
+            db.session.commit()
+            logger.info("Added last_dormancy_check column to providers table")
+        
+    except Exception as e:
+        # Non-fatal - might be SQLite or column might already exist
+        logger.debug(f"Column migration check skipped (may not be PostgreSQL): {e}")
         db.session.rollback()

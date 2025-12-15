@@ -29,8 +29,15 @@ class OCRProcessor:
         # Tesseract configuration for medical documents
         self.tesseract_config = '--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,()[]{}:;/\\-+=%$@#!?"\' \n\t'
 
-    def process_document(self, document_id):
-        """Process a document with OCR and PHI filtering"""
+    def process_document(self, document_id, skip_screening_update=False):
+        """Process a document with OCR and PHI filtering
+        
+        Args:
+            document_id: ID of document to process
+            skip_screening_update: If True, skip the synchronous screening update.
+                                  Use this when processing as part of a batch where
+                                  screening updates will be done after all OCR completes.
+        """
         document = Document.query.get(document_id)
         if not document:
             self.logger.error(f"Document {document_id} not found")
@@ -55,10 +62,11 @@ class OCRProcessor:
 
                 self.logger.info(f"Successfully processed document {document_id} with confidence {confidence:.2f}")
 
-                # Trigger screening engine update
-                from core.engine import ScreeningEngine
-                engine = ScreeningEngine()
-                engine.process_new_document(document_id)
+                # Trigger screening engine update (unless skipped for batch processing)
+                if not skip_screening_update:
+                    from core.engine import ScreeningEngine
+                    engine = ScreeningEngine()
+                    engine.process_new_document(document_id)
 
                 return True
             else:
@@ -503,8 +511,10 @@ class OCRProcessor:
     
     def process_documents_batch_with_screening_update(self, document_ids, max_workers=4, progress_callback=None):
         """
-        Process documents in parallel and trigger screening updates after completion.
+        Process documents in parallel and trigger batch screening updates after completion.
         This is the preferred method for bulk document intake.
+        
+        Uses batched screening refresh instead of per-document updates for efficiency.
         """
         from app import app
         
@@ -513,13 +523,38 @@ class OCRProcessor:
         if results['successful']:
             with app.app_context():
                 try:
-                    from core.engine import ScreeningEngine
-                    engine = ScreeningEngine()
+                    # Get unique patient IDs from processed documents
+                    processed_patient_ids = set()
+                    org_id = None
+                    
                     for doc_id in results['successful']:
-                        try:
-                            engine.process_new_document(doc_id)
-                        except Exception as e:
-                            self.logger.warning(f"Screening update failed for doc {doc_id}: {str(e)}")
+                        doc = Document.query.get(doc_id)
+                        if doc:
+                            processed_patient_ids.add(doc.patient_id)
+                            if org_id is None:
+                                org_id = doc.org_id
+                    
+                    if org_id and processed_patient_ids:
+                        # Use batch screening refresh for all affected patients at once
+                        # This is much more efficient than per-document updates
+                        from services.screening_refresh_service import ScreeningRefreshService
+                        
+                        refresh_service = ScreeningRefreshService(org_id)
+                        refresh_result = refresh_service.refresh_screenings({
+                            'force_refresh': True,
+                            'patient_filter': {'patient_ids': list(processed_patient_ids)},
+                            'max_patients': len(processed_patient_ids)
+                        })
+                        
+                        if refresh_result.get('success'):
+                            self.logger.info(
+                                f"Batch screening refresh completed: "
+                                f"{refresh_result['stats']['screenings_updated']} screenings updated "
+                                f"across {len(processed_patient_ids)} patients"
+                            )
+                        else:
+                            self.logger.warning(f"Batch screening refresh had issues: {refresh_result.get('error')}")
+                    
                 except Exception as e:
                     self.logger.error(f"Error updating screenings after batch: {str(e)}")
         

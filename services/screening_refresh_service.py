@@ -108,10 +108,19 @@ class ScreeningRefreshService:
                     'stats': self.refresh_stats
                 }
             
+            # Pre-fetch screening types once for all patients (avoid per-patient query)
+            screening_types = ScreeningType.query.filter_by(
+                org_id=self.organization_id,
+                is_active=True
+            ).all()
+            
             # Process each affected patient
             for patient in affected_patients:
                 try:
-                    updated_count = self._refresh_patient_screenings(patient, changes_detected, refresh_options)
+                    updated_count = self._refresh_patient_screenings(
+                        patient, changes_detected, refresh_options, 
+                        screening_types=screening_types
+                    )
                     if updated_count > 0:
                         self.refresh_stats['patients_processed'] += 1
                         self.refresh_stats['screenings_updated'] += updated_count
@@ -284,30 +293,44 @@ class ScreeningRefreshService:
                 # Intersect with specified patient IDs
                 affected_patient_ids = affected_patient_ids.intersection(set(patient_filter['patient_ids']))
         
-        # Get actual patient objects
+        # Get actual patient objects with eager loading to prevent N+1 queries
         if not affected_patient_ids:
             return []
+        
+        from sqlalchemy.orm import selectinload
         
         patients = Patient.query.filter(
             Patient.id.in_(affected_patient_ids),
             Patient.org_id == self.organization_id
+        ).options(
+            selectinload(Patient.documents),
+            selectinload(Patient.fhir_documents),
+            selectinload(Patient.conditions)
         ).limit(refresh_options.get('max_patients', 1000)).all()
         
         return patients
     
     def _refresh_patient_screenings(self, patient: Patient, changes_detected: Dict, 
-                                   refresh_options: Dict) -> int:
-        """Refresh screenings for a single patient - NO Epic calls"""
+                                   refresh_options: Dict, screening_types: List[ScreeningType] = None) -> int:
+        """Refresh screenings for a single patient - NO Epic calls
+        
+        Args:
+            patient: Patient to refresh
+            changes_detected: Dict of detected changes
+            refresh_options: Refresh configuration options
+            screening_types: Pre-fetched screening types (avoids per-patient query)
+        """
         updates_count = 0
         
         try:
             logger.debug(f"Refreshing screenings for patient {patient.id} (LOCAL PROCESSING ONLY)")
             
-            # Get all screening types for the organization
-            screening_types = ScreeningType.query.filter_by(
-                org_id=self.organization_id,
-                is_active=True
-            ).all()
+            # Use pre-fetched screening types if provided, otherwise query
+            if screening_types is None:
+                screening_types = ScreeningType.query.filter_by(
+                    org_id=self.organization_id,
+                    is_active=True
+                ).all()
             
             for screening_type in screening_types:
                 try:

@@ -584,6 +584,9 @@ class Provider(db.Model):
     # Provider status
     is_active = db.Column(db.Boolean, default=True)  # Active/inactive status
     
+    # Performance optimization: track last dormancy check to throttle expensive updates
+    last_dormancy_check = db.Column(db.DateTime)  # When dormancy batch update was last run
+    
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -1674,33 +1677,47 @@ class Screening(db.Model):
             return []
     
     def get_active_document_matches(self):
-        """Get document matches excluding dismissed ones"""
-        from models import DismissedDocumentMatch
+        """Get document matches excluding dismissed ones.
         
-        # Get all dismissed document IDs for this screening
-        dismissed_ids = set(
-            row[0] for row in db.session.query(DismissedDocumentMatch.document_id).filter(
-                DismissedDocumentMatch.screening_id == self.id,
-                DismissedDocumentMatch.is_active == True,
-                DismissedDocumentMatch.document_id.isnot(None)
-            ).all()
-        )
+        Uses prefetched _dismissed_doc_ids if available (set by screening_routes.py)
+        to avoid N+1 queries when rendering the screening list.
+        """
+        # Use prefetched dismissed IDs if available (set by batch query in screening_routes)
+        if hasattr(self, '_dismissed_doc_ids'):
+            dismissed_ids = self._dismissed_doc_ids
+        else:
+            # Fallback to database query if not prefetched
+            from models import DismissedDocumentMatch
+            dismissed_ids = set(
+                row[0] for row in db.session.query(DismissedDocumentMatch.document_id).filter(
+                    DismissedDocumentMatch.screening_id == self.id,
+                    DismissedDocumentMatch.is_active == True,
+                    DismissedDocumentMatch.document_id.isnot(None)
+                ).all()
+            )
         
         # Filter out dismissed matches
         return [match for match in self.document_matches if match.document_id not in dismissed_ids]
     
     def get_active_fhir_documents(self):
-        """Get FHIR documents excluding dismissed ones"""
-        from models import DismissedDocumentMatch
+        """Get FHIR documents excluding dismissed ones.
         
-        # Get all dismissed FHIR document IDs for this screening
-        dismissed_ids = set(
-            row[0] for row in db.session.query(DismissedDocumentMatch.fhir_document_id).filter(
-                DismissedDocumentMatch.screening_id == self.id,
-                DismissedDocumentMatch.is_active == True,
-                DismissedDocumentMatch.fhir_document_id.isnot(None)
-            ).all()
-        )
+        Uses prefetched _dismissed_fhir_ids if available (set by screening_routes.py)
+        to avoid N+1 queries when rendering the screening list.
+        """
+        # Use prefetched dismissed IDs if available (set by batch query in screening_routes)
+        if hasattr(self, '_dismissed_fhir_ids'):
+            dismissed_ids = self._dismissed_fhir_ids
+        else:
+            # Fallback to database query if not prefetched
+            from models import DismissedDocumentMatch
+            dismissed_ids = set(
+                row[0] for row in db.session.query(DismissedDocumentMatch.fhir_document_id).filter(
+                    DismissedDocumentMatch.screening_id == self.id,
+                    DismissedDocumentMatch.is_active == True,
+                    DismissedDocumentMatch.fhir_document_id.isnot(None)
+                ).all()
+            )
         
         # Filter out dismissed documents
         return [doc for doc in self.fhir_documents if doc.id not in dismissed_ids]
