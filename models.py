@@ -2216,15 +2216,28 @@ class FHIRImmunization(db.Model):
         self.updated_at = datetime.utcnow()
     
     def matches_screening_type(self, screening_type):
-        """Check if this immunization matches a screening type's vaccine codes"""
+        """Check if this immunization matches a screening type's vaccine codes or keywords"""
+        import re
+        
         if not screening_type or not screening_type.is_immunization_based:
             return False
         
+        # Check CVX codes first (if configured)
         vaccine_codes = screening_type.vaccine_codes_list
-        if not vaccine_codes:
-            return False
+        if vaccine_codes and self.cvx_code and self.cvx_code in vaccine_codes:
+            return True
         
-        return self.cvx_code in vaccine_codes
+        # Check keyword matching against vaccine_name and vaccine_group (word boundary detection)
+        keywords = screening_type.keywords_list
+        if keywords:
+            search_text = f"{self.vaccine_name or ''} {self.vaccine_group or ''}".lower()
+            for keyword in keywords:
+                if keyword:
+                    pattern = r'\b' + re.escape(keyword.lower()) + r'\b'
+                    if re.search(pattern, search_text):
+                        return True
+        
+        return False
     
     @classmethod
     def get_latest_for_patient(cls, patient_id, cvx_codes=None, vaccine_group=None):
