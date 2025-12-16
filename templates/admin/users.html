@@ -182,11 +182,25 @@
 
                     <div class="mb-3">
                         <label for="addRole" class="form-label">Role <span class="text-danger">*</span></label>
-                        <select class="form-control" id="addRole" name="role" required onchange="toggleAdminTypeField('add')">
+                        <select class="form-control" id="addRole" name="role" required onchange="toggleRoleFields('add')">
                             <option value="nurse">Nurse</option>
                             <option value="MA">Medical Assistant</option>
                             <option value="admin">Administrator</option>
                         </select>
+                    </div>
+
+                    <div class="mb-3" id="addProviderField">
+                        <label for="addProvider" class="form-label">Assign to Provider <span class="text-danger">*</span></label>
+                        <select class="form-control" id="addProvider" name="provider_id" required>
+                            <option value="">Select a provider...</option>
+                            {% for provider in providers %}
+                            <option value="{{ provider.id }}">{{ provider.name }}{% if provider.specialty %} ({{ provider.specialty }}){% endif %}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text text-warning">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            <strong>Important:</strong> Nurses and MAs can only be assigned to one provider to prevent EMR sync and criteria conflicts.
+                        </div>
                     </div>
 
                     <div class="mb-3" id="addAdminTypeField" style="display: none;">
@@ -341,6 +355,39 @@ function toggleAdminTypeField(prefix) {
     }
 }
 
+function toggleRoleFields(prefix) {
+    const roleSelect = document.getElementById(prefix + 'Role');
+    const adminTypeField = document.getElementById(prefix + 'AdminTypeField');
+    const providerField = document.getElementById(prefix + 'ProviderField');
+    const providerSelect = document.getElementById(prefix + 'Provider');
+    
+    const isSubuser = roleSelect.value === 'nurse' || roleSelect.value === 'MA';
+    const isAdmin = roleSelect.value === 'admin';
+    
+    // Show/hide admin type field
+    if (adminTypeField) {
+        adminTypeField.style.display = isAdmin ? 'block' : 'none';
+    }
+    
+    // Show/hide provider field (only for subusers)
+    if (providerField) {
+        providerField.style.display = isSubuser ? 'block' : 'none';
+    }
+    
+    // Make provider required only for subusers
+    if (providerSelect) {
+        providerSelect.required = isSubuser;
+        if (!isSubuser) {
+            providerSelect.value = '';  // Clear selection for admins
+        }
+    }
+}
+
+// Initialize role fields on page load
+document.addEventListener('DOMContentLoaded', function() {
+    toggleRoleFields('add');
+});
+
 function editUser(userId, username, email, role, isActive, adminType) {
     editingUserId = userId;
 
@@ -455,19 +502,14 @@ function toggleUserStatus(userId, username, currentStatus) {
 
 // Form validation
 document.getElementById('addUserForm').addEventListener('submit', function(e) {
-    const password = document.getElementById('addPassword').value;
-    if (password.length < 6) {
+    const roleSelect = document.getElementById('addRole');
+    const providerSelect = document.getElementById('addProvider');
+    const isSubuser = roleSelect.value === 'nurse' || roleSelect.value === 'MA';
+    
+    // Validate provider is selected for subusers
+    if (isSubuser && !providerSelect.value) {
         e.preventDefault();
-        showToast('Password must be at least 6 characters long', 'error');
-        return false;
-    }
-});
-
-document.getElementById('editUserForm').addEventListener('submit', function(e) {
-    const password = document.getElementById('editPassword').value;
-    if (password && password.length < 6) {
-        e.preventDefault();
-        showToast('Password must be at least 6 characters long', 'error');
+        showToast('Please select a provider for this subuser', 'error');
         return false;
     }
 });
@@ -519,9 +561,9 @@ document.getElementById('deleteUserModal').addEventListener('hidden.bs.modal', f
     deletingUserId = null;
 });
 
-// Auto-focus on username when adding user
+// Auto-focus on email when adding user
 document.getElementById('addUserModal').addEventListener('shown.bs.modal', function() {
-    document.getElementById('addUsername').focus();
+    document.getElementById('addEmail').focus();
 });
 </script>
 {% endblock %}

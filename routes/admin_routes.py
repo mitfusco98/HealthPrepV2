@@ -973,12 +973,16 @@ def users():
     """User management"""
     try:
         # Apply organization filtering for multi-tenancy
+        org_id = getattr(current_user, 'org_id', 1)
         if hasattr(current_user, 'org_id'):
             users = User.query.filter_by(org_id=current_user.org_id).order_by(User.username).all()
         else:
             users = User.query.order_by(User.username).all()
+        
+        # Get active providers for subuser assignment dropdown
+        providers = Provider.query.filter_by(org_id=org_id, is_active=True).order_by(Provider.name).all()
 
-        return render_template('admin/users.html', users=users)
+        return render_template('admin/users.html', users=users, providers=providers)
 
     except Exception as e:
         logger.error(f"Error loading users: {str(e)}")
@@ -1038,10 +1042,18 @@ def create_user():
         role = request.form.get('role', 'nurse')
         admin_type = request.form.get('admin_type', 'business_admin')  # For admin role: 'provider' or 'business_admin'
         is_active = request.form.get('is_active') == 'on'
+        provider_id = request.form.get('provider_id', type=int)  # For subusers (nurse/MA)
 
         # Validate input
         if not email:
             flash('Email is required', 'error')
+            return redirect(url_for('admin.users'))
+        
+        # Subusers (nurse/MA) MUST be assigned to exactly one provider
+        # This prevents EMR sync conflicts, criteria conflicts, and refresh conflicts
+        is_subuser = role in ['nurse', 'MA']
+        if is_subuser and not provider_id:
+            flash('Subusers (nurses/MAs) must be assigned to exactly one provider', 'error')
             return redirect(url_for('admin.users'))
         
         # Validate admin_type if role is admin
@@ -1059,6 +1071,13 @@ def create_user():
         # Get organization name for email
         org = Organization.query.get(org_id)
         org_name = org.name if org else 'HealthPrep'
+        
+        # Validate provider exists and belongs to org (for subusers)
+        if is_subuser:
+            provider = Provider.query.filter_by(id=provider_id, org_id=org_id, is_active=True).first()
+            if not provider:
+                flash('Selected provider not found or inactive', 'error')
+                return redirect(url_for('admin.users'))
 
         # Check if username already exists - if so, append a number
         base_username = username
@@ -1091,19 +1110,33 @@ def create_user():
         db.session.add(new_user)
         db.session.commit()
 
-        # Auto-assign new user to all active providers in the organization
-        org_providers = Provider.query.filter_by(org_id=org_id, is_active=True).all()
-        for provider in org_providers:
+        # Provider assignment based on role
+        if is_subuser:
+            # Subusers get assigned to exactly ONE provider (selected in form)
             assignment = UserProviderAssignment(
                 user_id=new_user.id,
-                provider_id=provider.id,
+                provider_id=provider_id,
                 org_id=org_id,
                 can_view_patients=True,
-                can_edit_screenings=(role in ['admin', 'nurse']),
+                can_edit_screenings=True,
                 can_generate_prep_sheets=True,
-                can_sync_epic=(role == 'admin')
+                can_sync_epic=False  # Subusers cannot sync Epic
             )
             db.session.add(assignment)
+        else:
+            # Admins get assigned to ALL active providers in the organization
+            org_providers = Provider.query.filter_by(org_id=org_id, is_active=True).all()
+            for provider in org_providers:
+                assignment = UserProviderAssignment(
+                    user_id=new_user.id,
+                    provider_id=provider.id,
+                    org_id=org_id,
+                    can_view_patients=True,
+                    can_edit_screenings=True,
+                    can_generate_prep_sheets=True,
+                    can_sync_epic=(role == 'admin')
+                )
+                db.session.add(assignment)
         db.session.commit()
 
         # Log user creation immediately after commit (for HIPAA audit trail)
@@ -2669,6 +2702,14 @@ def assign_user_to_provider(provider_id):
             flash('User not found', 'error')
             return redirect(url_for('admin.provider_detail', provider_id=provider_id))
         
+        # Check if user is a subuser (nurse/MA) - they can only belong to ONE provider
+        is_subuser = user.role in ['nurse', 'MA']
+        if is_subuser:
+            existing_assignments = UserProviderAssignment.query.filter_by(user_id=user_id).count()
+            if existing_assignments > 0:
+                flash(f'Subusers (nurses/MAs) can only be assigned to one provider. {user.username} is already assigned to another provider.', 'error')
+                return redirect(url_for('admin.provider_detail', provider_id=provider_id))
+        
         existing = UserProviderAssignment.query.filter_by(
             user_id=user_id,
             provider_id=provider_id
@@ -2686,7 +2727,7 @@ def assign_user_to_provider(provider_id):
             can_view_patients=True,
             can_edit_screenings=True,
             can_generate_prep_sheets=True,
-            can_sync_epic=False
+            can_sync_epic=(user.role == 'admin')  # Only admins can sync Epic
         )
         
         db.session.add(assignment)
