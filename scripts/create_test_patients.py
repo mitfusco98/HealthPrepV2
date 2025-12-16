@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 def create_test_patients(org_id=None, num_patients=5):
     """Create test patients with past appointments and appropriate demographics"""
     from app import create_app, db
-    from models import Patient, Provider, Appointment, Document, Screening, Organization
+    from models import Patient, Provider, Appointment, Document, Screening, Organization, PatientCondition
     
     app = create_app()
     with app.app_context():
@@ -129,6 +129,16 @@ def create_test_patients(org_id=None, num_patients=5):
                 db.session.add(cloned_doc)
                 logger.info(f"  Cloned document: {cloned_doc.filename}")
             
+            # Create PatientCondition records for trigger condition testing
+            for condition_name in config['conditions']:
+                condition = PatientCondition(
+                    patient_id=patient.id,
+                    condition_name=condition_name,
+                    is_active=True
+                )
+                db.session.add(condition)
+                logger.info(f"  Added condition: {condition_name}")
+            
             created_patients.append(patient)
             logger.info(f"Created patient: {config['name']} (MRN: {config['mrn']}, Age: {config['age_years']}, Sex: {config['sex']})")
             logger.info(f"  Past appointment: {days_ago} days ago")
@@ -160,7 +170,7 @@ def create_test_patients(org_id=None, num_patients=5):
 def cleanup_test_patients(org_id=None):
     """Remove all TEST_ prefixed patients"""
     from app import create_app, db
-    from models import Patient, Appointment, Document, Screening, Organization
+    from models import Patient, Appointment, Document, Screening, Organization, PatientCondition
     
     app = create_app()
     with app.app_context():
@@ -179,6 +189,7 @@ def cleanup_test_patients(org_id=None):
             Screening.query.filter_by(patient_id=patient.id).delete()
             Document.query.filter_by(patient_id=patient.id).delete()
             Appointment.query.filter_by(patient_id=patient.id).delete()
+            PatientCondition.query.filter_by(patient_id=patient.id).delete()
             db.session.delete(patient)
             logger.info(f"Deleted test patient: {patient.name}")
         

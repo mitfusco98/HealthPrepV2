@@ -263,6 +263,7 @@ class ScreeningEngine:
                 status='due'
             )
             db.session.add(screening)
+            db.session.flush()  # Ensure relationships are loaded for new screenings
         
         return screening
     
@@ -271,6 +272,10 @@ class ScreeningEngine:
         from models import FHIRImmunization
         
         screening_type = screening.screening_type
+        if not screening_type:
+            self.logger.warning(f"Screening {screening.id} has no associated screening_type, skipping update")
+            return False
+        
         latest_date = None
         
         # Check if this is an immunization-based screening type

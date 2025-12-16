@@ -210,7 +210,7 @@ def seed_organization_data(org_id, provider_id=None, clear_existing=False):
     from app import db
     from models import (
         Organization, Provider, Patient, Document, 
-        Appointment, Screening, FHIRImmunization
+        Appointment, Screening, FHIRImmunization, PatientCondition
     )
     
     org = Organization.query.get(org_id)
@@ -273,6 +273,16 @@ def seed_organization_data(org_id, provider_id=None, clear_existing=False):
         created_patients.append(patient)
         results['patients_created'] += 1
         logger.info(f"Created sample patient: {patient.name}")
+        
+        # Create PatientCondition records for trigger condition testing
+        for condition_name in patient_config.get('conditions', []):
+            condition = PatientCondition(
+                patient_id=patient.id,
+                condition_name=condition_name,
+                is_active=True
+            )
+            db.session.add(condition)
+            logger.info(f"  Added condition: {condition_name}")
         
         # Create past appointment to make patient "stale"
         if patient_config.get('is_stale'):
@@ -394,7 +404,7 @@ def seed_organization_data(org_id, provider_id=None, clear_existing=False):
 def _clear_sample_data(org_id):
     """Remove all sample data for an organization"""
     from app import db
-    from models import Patient, Document, FHIRImmunization, Appointment, Screening
+    from models import Patient, Document, FHIRImmunization, Appointment, Screening, PatientCondition
     
     logger.info(f"Clearing existing sample data for org {org_id}...")
     
@@ -412,6 +422,7 @@ def _clear_sample_data(org_id):
         FHIRImmunization.query.filter(FHIRImmunization.patient_id.in_(patient_ids)).delete(synchronize_session=False)
         Document.query.filter(Document.patient_id.in_(patient_ids)).delete(synchronize_session=False)
         Appointment.query.filter(Appointment.patient_id.in_(patient_ids)).delete(synchronize_session=False)
+        PatientCondition.query.filter(PatientCondition.patient_id.in_(patient_ids)).delete(synchronize_session=False)
         Patient.query.filter(Patient.id.in_(patient_ids)).delete(synchronize_session=False)
         
         db.session.commit()
