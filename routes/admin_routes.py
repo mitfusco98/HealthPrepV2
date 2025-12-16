@@ -941,6 +941,155 @@ def ocr_dashboard():
         flash('Error loading OCR dashboard', 'error')
         return render_template('error/500.html'), 500
 
+
+@admin_bp.route('/queue-monitor')
+@login_required
+@admin_required
+def queue_monitor():
+    """
+    Queue monitoring dashboard for OCR processing.
+    Shows queue depth, worker status, and processing metrics for scaling decisions.
+    """
+    try:
+        from redis import Redis
+        from rq import Queue
+        from rq.worker import Worker
+        from rq.job import Job
+        import os
+        
+        redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+        
+        try:
+            conn = Redis.from_url(redis_url)
+            conn.ping()
+            redis_connected = True
+        except Exception as e:
+            logger.warning(f"Redis not available: {str(e)}")
+            redis_connected = False
+            return render_template('admin/queue_monitor.html',
+                                 redis_connected=False,
+                                 error="Redis is not available. Queue monitoring requires Redis.")
+        
+        queue_names = ['fhir_priority', 'fhir_processing']
+        queues_data = []
+        
+        for name in queue_names:
+            queue = Queue(name, connection=conn)
+            
+            jobs_in_queue = []
+            for job in queue.jobs[:10]:
+                jobs_in_queue.append({
+                    'id': job.id,
+                    'func_name': job.func_name if hasattr(job, 'func_name') else 'unknown',
+                    'enqueued_at': job.enqueued_at.isoformat() if job.enqueued_at else None,
+                    'status': job.get_status()
+                })
+            
+            queues_data.append({
+                'name': name,
+                'count': queue.count,
+                'failed_count': queue.failed_job_registry.count,
+                'scheduled_count': queue.scheduled_job_registry.count,
+                'started_count': queue.started_job_registry.count,
+                'finished_count': queue.finished_job_registry.count,
+                'jobs': jobs_in_queue
+            })
+        
+        workers = Worker.all(connection=conn)
+        workers_data = []
+        for worker in workers:
+            current_job = worker.get_current_job()
+            workers_data.append({
+                'name': worker.name,
+                'state': worker.get_state(),
+                'queues': [q.name for q in worker.queues],
+                'current_job_id': current_job.id if current_job else None,
+                'successful_job_count': worker.successful_job_count,
+                'failed_job_count': worker.failed_job_count,
+                'total_working_time': str(worker.total_working_time) if hasattr(worker, 'total_working_time') else 'N/A'
+            })
+        
+        from ocr.processor import get_ocr_max_workers
+        ocr_config = {
+            'max_workers': get_ocr_max_workers(),
+            'env_setting': os.environ.get('OCR_MAX_WORKERS', 'auto-detect')
+        }
+        
+        return render_template('admin/queue_monitor.html',
+                             redis_connected=True,
+                             queues=queues_data,
+                             workers=workers_data,
+                             ocr_config=ocr_config)
+        
+    except Exception as e:
+        logger.error(f"Error in queue monitor: {str(e)}")
+        flash('Error loading queue monitor', 'error')
+        return render_template('error/500.html'), 500
+
+
+@admin_bp.route('/api/queue-status')
+@login_required
+@admin_required
+def queue_status_api():
+    """
+    JSON API for queue status - useful for auto-scaling triggers and monitoring.
+    """
+    try:
+        from redis import Redis
+        from rq import Queue
+        from rq.worker import Worker
+        import os
+        from datetime import datetime
+        
+        redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+        
+        try:
+            conn = Redis.from_url(redis_url)
+            conn.ping()
+        except Exception:
+            return jsonify({
+                'error': 'Redis not available',
+                'timestamp': datetime.utcnow().isoformat()
+            }), 503
+        
+        queue_names = ['fhir_priority', 'fhir_processing']
+        queues_status = {}
+        total_pending = 0
+        
+        for name in queue_names:
+            queue = Queue(name, connection=conn)
+            count = queue.count
+            total_pending += count
+            queues_status[name] = {
+                'pending': count,
+                'failed': queue.failed_job_registry.count,
+                'started': queue.started_job_registry.count
+            }
+        
+        workers = Worker.all(connection=conn)
+        active_workers = sum(1 for w in workers if w.get_state() == 'busy')
+        idle_workers = sum(1 for w in workers if w.get_state() == 'idle')
+        
+        from ocr.processor import get_ocr_max_workers
+        
+        return jsonify({
+            'timestamp': datetime.utcnow().isoformat(),
+            'queues': queues_status,
+            'total_pending': total_pending,
+            'workers': {
+                'total': len(workers),
+                'active': active_workers,
+                'idle': idle_workers
+            },
+            'ocr_max_workers': get_ocr_max_workers(),
+            'scaling_recommendation': 'scale_up' if total_pending > 50 and idle_workers == 0 else 'stable'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in queue status API: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
 # PHI settings route removed - consolidated into dashboard
 
 @admin_bp.route('/phi-test', methods=['POST'])

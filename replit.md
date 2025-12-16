@@ -1,56 +1,7 @@
 # Health-Prep v2 - HIPAA-Compliant Healthcare Preparation System
 
 ## Overview
-Health-Prep v2 is a real-time medical preparation sheet generation engine designed for integration with FHIR-based EMRs like Epic. Its primary purpose is to parse patient documents and data, determine eligibility for medical screenings using customizable logic, and generate comprehensive prep sheets reflecting the patient's current care status. Key capabilities include an intelligent screening engine with fuzzy detection, dynamic status updates for compliance tracking, and robust prep sheet generation with enhanced medical data sections. The system also features advanced variant management, document relevancy filtering, interactive document links, and configurable time periods for medical data display, aiming to improve efficiency and compliance in healthcare preparation.
-
-The system supports both self-service (Stripe billing, per-provider pricing) and manual (enterprise sales, custom billing) organization creation, with a JSON API for marketing website integration to streamline client onboarding.
-
-## Provider-Centric Architecture (v2.1)
-
-The system now uses a **provider-centric model** where each Provider is the core unit of work:
-
-### Provider Model
-- **Provider**: First-class entity representing a practitioner with their own:
-  - Patient roster (patients assigned to this provider)
-  - Screening protocol (ScreeningTypes with presets applied per-provider)
-  - Epic OAuth connection (per-provider tokens stored on Provider model)
-  - Schedule/appointments (filtered by provider)
-  - Specialty (for preset selection)
-
-### Key Data Model Changes
-- `Provider` model: name, specialty, NPI, epic_practitioner_id, OAuth tokens, org_id
-- `UserProviderAssignment`: Junction table for user-to-provider access control
-- `Patient`, `Screening`, `ScreeningType`, `Appointment` now have `provider_id` FK
-- User model has `provider_id` for practitioners who are also system users
-
-### OAuth & Epic Integration
-- OAuth is performed **per-provider** (each practitioner does their own Epic OAuth)
-- `fhirUser` claim extracts Epic Practitioner ID automatically during OAuth
-- FHIR sync filters by Practitioner ID for provider-scoped data
-- New scopes: `patient/Immunization.rs`, `patient/DocumentReference.c`
-
-### Billing Model
-- **Per-provider pricing** ($300/month per provider, per-seat subscription model)
-- Adding/removing providers updates Stripe subscription quantity
-- Business admins manage users/presets; only providers can do Epic OAuth
-- Shared `owner_email` across organizations allows same business admin to manage multiple orgs
-
-### Two-Tier Admin System
-- **Business Admin (`admin_type='business_admin'`)**: Practice managers with full privileges except Epic OAuth
-- **Provider Admin (`admin_type='provider'`)**: Practitioners who can authenticate via Epic Hyperspace
-- Incremental username generation supports same email across organizations (e.g., mitchfusillo, mitchfusillo2)
-
-### Appointment Window Prioritization
-- `appointment_based_prioritization` setting on Organization enables priority filtering
-- `prioritization_window_days` (default 14) defines the look-ahead window
-- Screening list shows tabs: Priority (upcoming appointments), Dormant (outside window), All
-- `last_processed` and `is_dormant` fields on Screening model track processing state
-- Manual patient reprocessing via `/patient/<id>/reprocess` bypasses window filter
-
-### Immunization-Based Screening
-- ScreeningTypes with "immunization", "vaccine", or "vaccination" in name trigger FHIR Immunization queries
-- `vaccine_codes` field stores CVX codes for vaccine matching
-- Queries FHIR Immunization endpoint instead of document scanning
+Health-Prep v2 is a real-time medical preparation sheet generation engine designed for integration with FHIR-based EMRs. Its core purpose is to parse patient data, determine eligibility for medical screenings using customizable logic, and generate comprehensive, dynamic prep sheets. The system aims to enhance efficiency and compliance in healthcare preparation through an intelligent screening engine, dynamic status updates, advanced variant management, and robust document processing capabilities. It supports both self-service and enterprise client onboarding with a JSON API for marketing website integration.
 
 ## User Preferences
 - Focus on healthcare compliance and FHIR integration
@@ -76,57 +27,17 @@ The system now uses a **provider-centric model** where each Provider is the core
 The frontend reuses V1 assets, structured with `base_user.html` and `base_admin.html` for distinct user and administrative interfaces. It is Bootstrap-based, responsive, and supports a dark theme.
 
 ### Technical Implementations
-The backend is modular, with `core/` for screening logic, `emr/` for FHIR data, `ocr/` for document processing, `prep_sheet/` for generation, `services/` for Epic FHIR integration, and `admin/` for tools. Key features include a robust user authentication system with Flask-Login and role-based access control. The system employs clean URL structures, comprehensive error handling, and an OCR processing framework with confidence scoring and PHI filtering.
-
-A standardized screening names database, medical conditions database (FHIR-compatible), and tag-based keyword management facilitate data entry. `ScreeningType` architecture supports gender/age/condition eligibility, fractional frequencies, and JSON storage for keywords. Prep sheet generation includes patient header, quality checklist, recent medical data sections, interactive links, color-coded badges, and dynamic responses to screening type changes. Variant grouping ensures proper display and status syncing.
-
-A dual filtering system controls prep sheet data, combining document relevancy and medical data cutoffs. A selective refreshing system for EMR synchronization uses intelligent change detection to efficiently update affected screenings. An advanced fuzzy detection engine handles semantic separator processing, terminology equivalence, and keyword variation. Medical condition normalization covers 100+ variants.
+The backend is modular, with `core/` for screening logic, `emr/` for FHIR data, `ocr/` for document processing, `prep_sheet/` for generation, `services/` for Epic FHIR integration, and `admin/` for tools. Key features include user authentication with Flask-Login and role-based access control. The system employs clean URL structures, comprehensive error handling, and an OCR processing framework with confidence scoring and PHI filtering. A standardized screening names database, medical conditions database (FHIR-compatible), and tag-based keyword management facilitate data entry. `ScreeningType` architecture supports gender/age/condition eligibility, fractional frequencies, and JSON storage for keywords. Prep sheet generation includes patient header, quality checklist, recent medical data sections, interactive links, color-coded badges, and dynamic responses to screening type changes. Variant grouping ensures proper display and status syncing. A dual filtering system controls prep sheet data, combining document relevancy and medical data cutoffs. A selective refreshing system for EMR synchronization uses intelligent change detection to efficiently update affected screenings. An advanced fuzzy detection engine handles semantic separator processing, terminology equivalence, and keyword variation. Medical condition normalization covers 100+ variants.
 
 Multi-tenancy is supported with an `Organization` model, data isolation via `org_id`, organization-scoped queries, enhanced audit logging, and per-organization Epic credentials. Preset management is consolidated, and a universal screening type system allows for cross-organizational standardization. Enhanced variant management includes user-specific filtering and fuzzy name grouping. A root admin system manages universal presets, and an enhanced baseline screening coverage system addresses trigger condition gaps.
 
-Epic SMART on FHIR integration uses OAuth2 authentication, including token management and session-based secure storage. Architectural adjustments include an enhanced `Patient` model, `FHIRDocument` model for DocumentReference management, and a dedicated FHIR service layer for bidirectional synchronization. Asynchronous processing via RQ (Redis Queue) handles batch operations, rate limiting, and background document processing. A PHI filter testing interface allows real-time detection and redaction testing.
-
-The system features robust multi-tenancy with organization-specific Epic FHIR endpoints, sandbox/production configuration, and comprehensive tenant-scoped token and data storage. HIPAA-compliant audit logging tracks all FHIR operations and API calls. Epic blueprint compliance is ensured through LOINC code mapping, consolidated data structures, unit conversion, and enhanced 401 error handling.
+Epic SMART on FHIR integration uses OAuth2 authentication, including token management and session-based secure storage. Architectural adjustments include an enhanced `Patient` model, `FHIRDocument` model for DocumentReference management, and a dedicated FHIR service layer for bidirectional synchronization. Asynchronous processing via RQ (Redis Queue) handles batch operations, rate limiting, and background document processing. A PHI filter testing interface allows real-time detection and redaction testing. The system features robust multi-tenancy with organization-specific Epic FHIR endpoints, sandbox/production configuration, and comprehensive tenant-scoped token and data storage. HIPAA-compliant audit logging tracks all FHIR operations and API calls. Epic blueprint compliance is ensured through LOINC code mapping, consolidated data structures, unit conversion, and enhanced 401 error handling.
 
 A comprehensive Epic Prep Sheet Write-Back System allows manual PDF generation with WeasyPrint, timestamped versioning, base64-encoded PDF attachments in FHIR R4 DocumentReference format, and automatic OAuth token refresh. This system includes `epic_patient_id` validation, intelligent 401 retry logic, and ensures DocumentReference uses validated Epic patient IDs. It also features a living document concept where each generation creates a new timestamped version in Epic, and comprehensive audit logging. Organization-scoped `PrepSheetSettings` ensure independent configuration per tenant. An Epic Dry-Run Mode enables safe testing of Epic integration without live data transmission, logging FHIR DocumentReference structures with PHI-safe redaction.
 
-User onboarding supports both self-service via Stripe setup mode (payment collected without starting trial, trial starts upon root admin approval) and manual creation by root admins for enterprise clients (no trial, immediate activation). A JSON API endpoint (`/api/signup`) facilitates external marketing website integration for self-service signups, handling organization creation, admin setup, and Stripe checkout URL provisioning. This API is CORS-enabled and CSRF-exempt.
+User onboarding supports both self-service via Stripe setup mode and manual creation by root admins for enterprise clients. A JSON API endpoint (`/api/signup`) facilitates external marketing website integration for self-service signups, handling organization creation, admin setup, and Stripe checkout URL provisioning. This API is CORS-enabled and CSRF-exempt.
 
-### Unified Billing State System
-
-The application uses a unified `billing_state` property on the Organization model that provides consistent access control decisions across all components. This ensures the subscription middleware, admin dashboard, Stripe dashboard changes, and billing portal updates all operate from the same source of truth.
-
-**Billing States:**
-- `active`: Full access, subscription is paid and current
-- `trialing`: Full access during valid trial period (trial_expires > now)
-- `trial_expired`: Trial has ended, payment required to continue
-- `payment_required`: Subscription past_due or incomplete - needs payment update
-- `paused`: Subscription paused via Stripe dashboard or billing portal
-- `suspended`: Account suspended by admin
-- `canceled`: Subscription canceled
-- `pending_approval`: Awaiting root admin approval after signup
-- `pending_activation`: Approved but trial not yet started
-
-**Stripe Webhook Events Handled:**
-- `checkout.session.completed`: Payment method setup completed
-- `customer.subscription.created/updated/deleted`: Subscription lifecycle
-- `customer.subscription.paused/resumed`: Billing pause/resume
-- `invoice.payment_succeeded/failed`: Payment outcomes
-- `customer.subscription.trial_will_end`: Trial ending reminder (3 days before)
-- `customer.updated`: Customer details/payment method changes
-- `setup_intent.succeeded`: Payment method added via billing portal
-
-**Trial-to-Active Transition:**
-When trial expires and organization has valid payment method but no Stripe subscription (can happen if `start_trial_subscription` failed during approval), the `StripeService.activate_subscription_after_trial()` method can create a subscription that charges immediately. The `ensure_subscription_exists()` utility handles this check.
-
-**Automatic Activation in Middleware:**
-The `subscription_required` middleware automatically attempts to activate subscriptions for trial-expired organizations that have a valid payment method. When a user from such an organization attempts to access protected routes:
-1. The middleware checks `org.billing_state` and detects `trial_expired`
-2. If `org.has_valid_payment_method` is True, it calls `StripeService.ensure_subscription_exists(org)`
-3. If subscription is created successfully, the user gains immediate access with a success flash message
-4. If activation fails, the user is redirected to the payment update page
-
-This ensures seamless transition for organizations that completed payment setup but whose trial expired before a subscription was created.
+The application uses a unified `billing_state` property on the `Organization` model to provide consistent access control decisions. This property ensures subscription middleware, admin dashboard, Stripe dashboard changes, and billing portal updates all operate from the same source of truth. Stripe webhooks are handled for subscription lifecycle management, payment outcomes, and trial reminders. Automatic activation in middleware ensures seamless transition for trial-expired organizations with valid payment methods.
 
 ### System Design Choices
 - **Multi-tenancy:** Core design principle with `Organization` model for data isolation.
@@ -134,6 +45,7 @@ This ensures seamless transition for organizations that completed payment setup 
 - **Asynchronous processing:** RQ (Redis Queue) for background tasks.
 - **Security:** HIPAA compliance, robust user authentication (Flask-Login), role-based access control, CSRF protection, comprehensive audit logging.
 - **Extensibility:** Customizable screening logic, universal naming systems, variant management.
+- **OCR Processing Optimizations:** Machine-readable PDF detection using PyMuPDF to bypass Tesseract where possible, configurable parallel workers, and container-ready architecture with separate scaling for web app and OCR workers.
 
 ## External Dependencies
 - **FHIR-based EMRs:** e.g., Epic (for real-time data integration)
@@ -145,4 +57,4 @@ This ensures seamless transition for organizations that completed payment setup 
 - **Werkzeug:** For password hashing.
 - **Bootstrap:** For responsive UI design.
 - **Stripe:** Payment processing.
-- **Resend:** Transactional email service (requires RESEND_API_KEY and FROM_EMAIL environment variables).
+- **Resend:** Transactional email service.

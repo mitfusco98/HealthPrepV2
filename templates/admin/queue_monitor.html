@@ -1,0 +1,203 @@
+{% extends "base_admin.html" %}
+
+{% block title %}Queue Monitor - Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i data-feather="activity" class="me-2"></i>Queue Monitor</h2>
+        <button class="btn btn-outline-primary" onclick="location.reload()">
+            <i data-feather="refresh-cw" class="me-1"></i>Refresh
+        </button>
+    </div>
+
+    {% if not redis_connected %}
+    <div class="alert alert-warning">
+        <i data-feather="alert-triangle" class="me-2"></i>
+        {{ error or "Redis is not available. Queue monitoring requires Redis." }}
+    </div>
+    {% else %}
+
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-dark">
+                <div class="card-body">
+                    <h6 class="text-muted">OCR Workers Configuration</h6>
+                    <h3 class="mb-1">{{ ocr_config.max_workers }} threads</h3>
+                    <small class="text-muted">
+                        {% if ocr_config.env_setting == 'auto-detect' %}
+                        Auto-detected from CPU cores
+                        {% else %}
+                        Set via OCR_MAX_WORKERS={{ ocr_config.env_setting }}
+                        {% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-dark">
+                <div class="card-body">
+                    <h6 class="text-muted">Active Workers</h6>
+                    <h3 class="mb-1">{{ workers|length }}</h3>
+                    <small class="text-muted">
+                        {% set busy = workers|selectattr('state', 'equalto', 'busy')|list|length %}
+                        {% set idle = workers|selectattr('state', 'equalto', 'idle')|list|length %}
+                        {{ busy }} busy, {{ idle }} idle
+                    </small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-dark">
+                <div class="card-body">
+                    <h6 class="text-muted">Total Pending Jobs</h6>
+                    {% set total_pending = queues|sum(attribute='count') %}
+                    <h3 class="mb-1 {% if total_pending > 50 %}text-warning{% endif %}">{{ total_pending }}</h3>
+                    <small class="text-muted">
+                        {% if total_pending > 50 %}
+                        Consider scaling up workers
+                        {% else %}
+                        Queue is healthy
+                        {% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        {% for queue in queues %}
+        <div class="col-md-6">
+            <div class="card bg-dark">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i data-feather="inbox" class="me-2"></i>{{ queue.name }}
+                    </h5>
+                    <span class="badge {% if queue.count > 0 %}bg-primary{% else %}bg-secondary{% endif %}">
+                        {{ queue.count }} pending
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center mb-3">
+                        <div class="col">
+                            <small class="text-muted d-block">Started</small>
+                            <span class="fs-5">{{ queue.started_count }}</span>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted d-block">Scheduled</small>
+                            <span class="fs-5">{{ queue.scheduled_count }}</span>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted d-block">Finished</small>
+                            <span class="fs-5 text-success">{{ queue.finished_count }}</span>
+                        </div>
+                        <div class="col">
+                            <small class="text-muted d-block">Failed</small>
+                            <span class="fs-5 {% if queue.failed_count > 0 %}text-danger{% endif %}">{{ queue.failed_count }}</span>
+                        </div>
+                    </div>
+                    
+                    {% if queue.jobs %}
+                    <h6 class="mt-3">Recent Jobs</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-dark">
+                            <thead>
+                                <tr>
+                                    <th>Job ID</th>
+                                    <th>Function</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for job in queue.jobs[:5] %}
+                                <tr>
+                                    <td><code class="small">{{ job.id[:12] }}...</code></td>
+                                    <td>{{ job.func_name.split('.')[-1] if job.func_name else 'N/A' }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if job.status == 'queued' %}primary{% elif job.status == 'started' %}info{% elif job.status == 'finished' %}success{% else %}secondary{% endif %}">
+                                            {{ job.status }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0"><i data-feather="check-circle" class="me-1"></i>Queue is empty</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="card bg-dark mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i data-feather="cpu" class="me-2"></i>Workers</h5>
+        </div>
+        <div class="card-body">
+            {% if workers %}
+            <div class="table-responsive">
+                <table class="table table-dark">
+                    <thead>
+                        <tr>
+                            <th>Worker Name</th>
+                            <th>State</th>
+                            <th>Queues</th>
+                            <th>Current Job</th>
+                            <th>Successful</th>
+                            <th>Failed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for worker in workers %}
+                        <tr>
+                            <td><code>{{ worker.name }}</code></td>
+                            <td>
+                                <span class="badge bg-{% if worker.state == 'busy' %}warning{% elif worker.state == 'idle' %}success{% else %}secondary{% endif %}">
+                                    {{ worker.state }}
+                                </span>
+                            </td>
+                            <td>{{ worker.queues|join(', ') }}</td>
+                            <td>
+                                {% if worker.current_job_id %}
+                                <code class="small">{{ worker.current_job_id[:12] }}...</code>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-success">{{ worker.successful_job_count }}</td>
+                            <td class="{% if worker.failed_job_count > 0 %}text-danger{% endif %}">{{ worker.failed_job_count }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info mb-0">
+                <i data-feather="info" class="me-2"></i>
+                No workers are currently running. Start a worker with:
+                <code class="ms-2">python worker.py</code>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card bg-dark">
+        <div class="card-header">
+            <h5 class="mb-0"><i data-feather="code" class="me-2"></i>API Endpoint</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted mb-2">Use this endpoint for auto-scaling triggers:</p>
+            <code>GET /admin/api/queue-status</code>
+            <p class="text-muted mt-3 mb-0">
+                Returns JSON with queue depths, worker counts, and scaling recommendations.
+                Use <code>scaling_recommendation</code> field to trigger auto-scaling in AWS/Kubernetes.
+            </p>
+        </div>
+    </div>
+
+    {% endif %}
+</div>
+{% endblock %}
