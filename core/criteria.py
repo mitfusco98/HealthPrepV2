@@ -12,7 +12,12 @@ class EligibilityCriteria:
         self.logger = logging.getLogger(__name__)
     
     def is_patient_eligible(self, patient, screening_type):
-        """Check if a patient is eligible for a specific screening type"""
+        """Check if a patient is eligible for a specific screening type
+        
+        Implements mutual exclusivity: if a patient qualifies for a condition-triggered
+        variant of a screening (e.g., diabetic A1C), they are excluded from the
+        general population variant (e.g., general A1C) to prevent duplicate screenings.
+        """
         
         # Check age criteria
         if not self._check_age_eligibility(patient, screening_type):
@@ -26,7 +31,83 @@ class EligibilityCriteria:
         if not self._check_trigger_conditions(patient, screening_type):
             return False
         
+        # MUTUAL EXCLUSIVITY: If this is a general population screening (no trigger conditions),
+        # check if patient qualifies for a condition-triggered variant of the same screening
+        if not screening_type.trigger_conditions_list:
+            if self._patient_has_condition_specific_variant(patient, screening_type):
+                self.logger.debug(
+                    f"Mutual exclusivity: Patient excluded from general '{screening_type.name}' "
+                    f"because they qualify for a condition-triggered variant"
+                )
+                return False
+        
         return True
+    
+    def _patient_has_condition_specific_variant(self, patient, general_screening_type):
+        """Check if patient qualifies for a condition-triggered variant of this screening
+        
+        Used for mutual exclusivity - patients should only receive one variant of a screening.
+        For example, a diabetic patient should get the diabetes-specific A1C protocol,
+        not both the diabetes A1C AND the general population A1C.
+        """
+        from models import ScreeningType
+        
+        # Find all other screening types with the same name in this organization
+        same_name_variants = ScreeningType.query.filter(
+            ScreeningType.org_id == general_screening_type.org_id,
+            ScreeningType.name == general_screening_type.name,
+            ScreeningType.id != general_screening_type.id,
+            ScreeningType.is_active == True
+        ).all()
+        
+        # Check if patient qualifies for any condition-triggered variant
+        for variant in same_name_variants:
+            # Skip variants that don't have trigger conditions (also general population)
+            if not variant.trigger_conditions_list:
+                continue
+            
+            # Check basic eligibility (age, gender) without recursion
+            if not self._check_age_eligibility(patient, variant):
+                continue
+            if not self._check_gender_eligibility(patient, variant):
+                continue
+            
+            # Check if patient has the required trigger conditions
+            # Use direct trigger check (not is_patient_eligible to avoid recursion)
+            if self._patient_matches_trigger_conditions(patient, variant.trigger_conditions_list):
+                self.logger.debug(
+                    f"Patient qualifies for condition-triggered variant: {variant.name} "
+                    f"(triggers: {variant.trigger_conditions_list})"
+                )
+                return True
+        
+        return False
+    
+    def _patient_matches_trigger_conditions(self, patient, trigger_conditions):
+        """Direct check if patient has any of the specified trigger conditions
+        
+        Unlike _check_trigger_conditions which returns True for empty triggers,
+        this method requires at least one trigger match.
+        """
+        from utils.medical_conditions import medical_conditions_db
+        
+        if not trigger_conditions:
+            return False
+        
+        # Get patient conditions
+        patient_conditions = [c.condition_name for c in patient.conditions if c.is_active]
+        
+        if not patient_conditions:
+            return False
+        
+        # Check if any trigger condition matches patient conditions
+        for trigger_condition in trigger_conditions:
+            trigger_condition = trigger_condition.strip()
+            for patient_condition in patient_conditions:
+                if medical_conditions_db.fuzzy_match_condition(patient_condition, trigger_condition):
+                    return True
+        
+        return False
     
     def calculate_screening_status(self, screening_type, last_completed_date):
         """Calculate screening status based on frequency and last completion date"""
@@ -71,11 +152,39 @@ class EligibilityCriteria:
         return True
     
     def _check_gender_eligibility(self, patient, screening_type):
-        """Check if patient gender meets screening criteria"""
+        """Check if patient gender meets screening criteria
+        
+        Handles both FHIR format ('female', 'male') and normalized format ('F', 'M')
+        """
         if not screening_type.eligible_genders or screening_type.eligible_genders == 'both':
             return True
         
-        return patient.gender == screening_type.eligible_genders
+        # Normalize patient gender to single letter format
+        patient_gender = self._normalize_gender(patient.gender)
+        screening_gender = screening_type.eligible_genders
+        
+        return patient_gender == screening_gender
+    
+    def _normalize_gender(self, gender):
+        """Normalize gender to single letter format (F/M)
+        
+        Handles various input formats:
+        - 'female', 'Female', 'FEMALE' -> 'F'
+        - 'male', 'Male', 'MALE' -> 'M'
+        - 'F', 'M' -> unchanged
+        - None, 'unknown', 'other' -> None
+        """
+        if not gender:
+            return None
+        
+        gender_lower = gender.lower().strip()
+        
+        if gender_lower in ('f', 'female'):
+            return 'F'
+        elif gender_lower in ('m', 'male'):
+            return 'M'
+        else:
+            return None
     
     def _check_trigger_conditions(self, patient, screening_type):
         """Check if patient has required trigger conditions using enhanced fuzzy matching
