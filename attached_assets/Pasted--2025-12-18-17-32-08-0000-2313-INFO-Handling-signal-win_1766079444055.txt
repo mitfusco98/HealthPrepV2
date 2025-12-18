@@ -1,0 +1,15 @@
+[2025-12-18 17:32:08 +0000] [2313] [INFO] Handling signal: winch
+[2025-12-18 17:32:08 +0000] [2313] [INFO] Handling signal: winch
+10.81.0.124 - - [18/Dec/2025:17:32:08 +0000] "GET /root-admin/dashboard HTTP/1.1" 200 23970 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.0.124 - - [18/Dec/2025:17:32:08 +0000] "GET /static/css/custom.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/root-admin/dashboard" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.0.124 - - [18/Dec/2025:17:36:35 +0000] "GET /root-admin/organizations HTTP/1.1" 200 18802 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/root-admin/dashboard" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.0.124 - - [18/Dec/2025:17:36:35 +0000] "GET /static/css/custom.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/root-admin/organizations" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+INFO:routes.root_admin_routes:Reassigned 283 audit log entries from org 1 to System Organization context
+INFO:routes.root_admin_routes:Cleared patient_id from 5 admin log entries for org 1
+ERROR:routes.root_admin_routes:Error deleting organization 1: (psycopg2.errors.ForeignKeyViolation) update or delete on table "screening" violates foreign key constraint "screening_fhir_documents_screening_id_fkey" on table "screening_fhir_documents"
+DETAIL:  Key (id)=(161) is still referenced from table "screening_fhir_documents".
+
+[SQL: DELETE FROM screening WHERE screening.org_id = %(org_id_1)s]
+[parameters: {'org_id_1': 1}]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+10.81.0.124 - - [18/Dec/2025:17:36:47 +0000] "POST /root-admin/organizations/1/delete HTTP/1.1" 500 56 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/root-admin/organizations" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
