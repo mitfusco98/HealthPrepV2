@@ -33,17 +33,33 @@ def epic_registration():
             trial_days_remaining = max(0, delta.days)
         
         # Determine billing status
+        # For manually-created orgs without Stripe, use billing_state property
         billing_status = 'active'  # Default
-        if organization.subscription_status == 'trialing':
-            # Compare trial_expires directly to datetime.utcnow() for accuracy
-            if organization.trial_expires and organization.trial_expires < datetime.utcnow():
-                billing_status = 'trial_expired'
+        
+        # Check if org has subscription_status set (Stripe-managed)
+        if organization.subscription_status:
+            if organization.subscription_status == 'trialing':
+                # Compare trial_expires directly to datetime.utcnow() for accuracy
+                if organization.trial_expires and organization.trial_expires < datetime.utcnow():
+                    billing_status = 'trial_expired'
+                else:
+                    billing_status = 'trial_active'
+            elif organization.subscription_status in ['canceled', 'incomplete_expired', 'unpaid']:
+                billing_status = 'canceled'
+            elif organization.subscription_status in ['past_due', 'incomplete']:
+                billing_status = 'payment_issue'
+            elif organization.subscription_status == 'active':
+                billing_status = 'active'
+        else:
+            # Manual orgs without Stripe - check billing_state property
+            org_billing_state = getattr(organization, 'billing_state', None)
+            if org_billing_state == 'active':
+                billing_status = 'active'
+            elif org_billing_state == 'pending':
+                billing_status = 'pending_payment'
             else:
-                billing_status = 'trial_active'
-        elif organization.subscription_status in ['canceled', 'incomplete_expired', 'unpaid']:
-            billing_status = 'canceled'
-        elif organization.subscription_status in ['past_due', 'incomplete']:
-            billing_status = 'payment_issue'
+                # Default for manual orgs: needs payment setup
+                billing_status = 'needs_setup'
         
         # Check if organization is pending approval
         is_pending_approval = organization.onboarding_status == 'pending_approval'

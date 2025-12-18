@@ -545,10 +545,10 @@ def billing_portal():
             flash('Organization not found', 'error')
             return redirect(url_for('admin.dashboard'))
         
-        # Check if this is a manually-created organization (custom billing)
-        if org.creation_method == 'manual':
-            flash('Your organization uses custom billing. Please contact HealthPrep support for billing inquiries.', 'info')
-            return redirect(url_for('admin.dashboard'))
+        # Check if this is a manually-created organization without Stripe setup
+        # Allow manual orgs to set up payment if they don't have a customer ID yet
+        if org.creation_method == 'manual' and not org.stripe_customer_id:
+            return redirect(url_for('admin.payment_setup'))
         
         # If no payment method, redirect to payment setup
         if not org.stripe_customer_id:

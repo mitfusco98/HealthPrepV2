@@ -58,8 +58,8 @@ def load_preset_from_file(filepath, preset_scope='global', shared=True):
                 screening_data=preset_data,  # Store complete preset data
                 preset_scope=preset_scope,
                 shared=shared,
-                org_id=None,  # Global presets have no org_id
-                created_by=1,  # System-created (use user ID 1 if exists)
+                org_id=0,  # System Organization for global presets
+                created_by=5,  # Root admin user ID
                 created_at=datetime.now(timezone.utc),
                 updated_at=datetime.now(timezone.utc)
             )

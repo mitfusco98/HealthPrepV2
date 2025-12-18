@@ -859,13 +859,14 @@ def delete_organization(org_id):
         # 7. Prep sheet settings
         PrepSheetSettings.query.filter_by(org_id=org_id).delete()
         
-        # 8. Screening presets (delete org-scoped AND presets created by users being deleted)
-        # First delete org-scoped presets
-        ScreeningPreset.query.filter_by(org_id=org_id).delete()
-        # Also delete global presets created by users in this org (created_by is NOT NULL)
-        org_user_ids = [u.id for u in org_users]
-        if org_user_ids:
-            ScreeningPreset.query.filter(ScreeningPreset.created_by.in_(org_user_ids)).delete(synchronize_session=False)
+        # 8. Screening presets (delete ONLY org-scoped presets, preserve global ones)
+        # Global presets (org_id=0 or preset_scope='global') should NEVER be deleted
+        # Only delete presets that belong to this specific organization
+        ScreeningPreset.query.filter(
+            ScreeningPreset.org_id == org_id,
+            ScreeningPreset.org_id != 0,  # Never delete system org presets
+            ScreeningPreset.preset_scope != 'global'  # Never delete global presets
+        ).delete(synchronize_session=False)
         
         # 9. Screening variants (depends on screening types)
         ScreeningVariant.query.filter_by(org_id=org_id).delete()

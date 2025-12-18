@@ -60,7 +60,7 @@ class EmailService:
             
             settings = items[0].get('settings', {})
             api_key = settings.get('api_key')
-            from_email = settings.get('from_email', 'fuscodigitalsolutions@gmail.com')
+            from_email = settings.get('from_email', 'no-reply@healthprep.app')
             
             if not api_key:
                 logger.error("Resend API key not found in connector settings")
@@ -102,10 +102,10 @@ class EmailService:
             
             <p><strong>Important:</strong> You will be required to change your password and set up security questions on your first login.</p>
             
-            <h3>Your 14-Day Free Trial:</h3>
-            <p>Your trial period has started and you have full access to all HealthPrep features for 14 days.</p>
+            <h3>Your Subscription:</h3>
+            <p>Your organization is set up with HealthPrep at <strong>$300/month per provider</strong>.</p>
             <ul>
-                <li>Unlimited patients and documents</li>
+                <li>Unlimited patients and documents per provider</li>
                 <li>Full Epic FHIR integration</li>
                 <li>Automated screening prep sheets</li>
             </ul>
@@ -202,12 +202,11 @@ class EmailService:
                 <li>Review Epic FHIR integration documentation</li>
             </ul>
             
-            <p><strong>Note:</strong> Epic FHIR integration will be enabled once your organization is approved by our team. You'll receive an email notification when your 14-day trial begins.</p>
+            <p><strong>Note:</strong> Epic FHIR integration will be enabled once your organization is approved by our team. You'll receive an email notification when your organization is activated.</p>
             
             <h3>Your Subscription:</h3>
             <ul>
-                <li><strong>14-day free trial</strong> (starts upon approval)</li>
-                <li><strong>$100/month</strong> after trial - unlimited patients, documents, and users</li>
+                <li><strong>$300/month per provider</strong> - unlimited patients, documents, and users per provider</li>
                 <li>Full Epic FHIR integration for seamless EMR sync</li>
                 <li>Cancel anytime with no long-term commitment</li>
             </ul>
@@ -244,12 +243,12 @@ class EmailService:
             
             <p>Your free trial for <strong>{org_name}</strong> will expire in <strong>{days_remaining} days</strong>.</p>
             
-            <p>To continue using HealthPrep without interruption, your subscription will automatically activate at $100/month.</p>
+            <p>To continue using HealthPrep without interruption, please ensure your subscription is active at <strong>$300/month per provider</strong>.</p>
             
             <h3>What happens next?</h3>
             <ul>
-                <li>Your card on file will be charged $100/month starting after the trial</li>
-                <li>You'll continue to have unlimited access to all features</li>
+                <li>Visit your billing dashboard to manage your subscription</li>
+                <li>You'll continue to have unlimited access to all features per provider</li>
                 <li>You can cancel anytime from your account settings</li>
             </ul>
             
