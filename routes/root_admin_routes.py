@@ -828,10 +828,24 @@ def delete_organization(org_id):
         DismissedDocumentMatch.query.filter_by(org_id=org_id).delete()
         
         # 3. Screening document matches (depends on screenings)
-        if org_patient_ids:
-            screening_ids = [s.id for s in Screening.query.filter_by(org_id=org_id).all()]
-            if screening_ids:
-                ScreeningDocumentMatch.query.filter(ScreeningDocumentMatch.screening_id.in_(screening_ids)).delete(synchronize_session=False)
+        screening_ids = [s.id for s in Screening.query.filter_by(org_id=org_id).all()]
+        if screening_ids:
+            ScreeningDocumentMatch.query.filter(ScreeningDocumentMatch.screening_id.in_(screening_ids)).delete(synchronize_session=False)
+            
+            # 3b. Clear screening_fhir_documents association table (depends on screenings)
+            from models import screening_fhir_documents, screening_immunizations
+            db.session.execute(
+                screening_fhir_documents.delete().where(
+                    screening_fhir_documents.c.screening_id.in_(screening_ids)
+                )
+            )
+            
+            # 3c. Clear screening_immunizations association table (depends on screenings)
+            db.session.execute(
+                screening_immunizations.delete().where(
+                    screening_immunizations.c.screening_id.in_(screening_ids)
+                )
+            )
         
         # 4. Appointments
         Appointment.query.filter_by(org_id=org_id).delete()
@@ -862,6 +876,10 @@ def delete_organization(org_id):
         
         # 13. FHIR documents
         FHIRDocument.query.filter_by(org_id=org_id).delete()
+        
+        # 13b. FHIR immunizations (depends on patients, must be before patients)
+        from models import FHIRImmunization
+        FHIRImmunization.query.filter_by(org_id=org_id).delete()
         
         # 14. Documents
         Document.query.filter_by(org_id=org_id).delete()
