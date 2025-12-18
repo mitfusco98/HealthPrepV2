@@ -27,59 +27,113 @@ class EligibilityCriteria:
         if not self._check_gender_eligibility(patient, screening_type):
             return False
         
-        # Check trigger conditions
+        # Check trigger conditions (with severity awareness)
         if not self._check_trigger_conditions(patient, screening_type):
             return False
         
-        # MUTUAL EXCLUSIVITY: If this is a general population screening (no trigger conditions),
-        # check if patient qualifies for a condition-triggered variant of the same screening
-        if not screening_type.trigger_conditions_list:
-            if self._patient_has_condition_specific_variant(patient, screening_type):
-                self.logger.debug(
-                    f"Mutual exclusivity: Patient excluded from general '{screening_type.name}' "
-                    f"because they qualify for a condition-triggered variant"
-                )
-                return False
+        # MUTUAL EXCLUSIVITY: Check if patient qualifies for a MORE SPECIFIC variant
+        # This applies to both general AND condition-triggered variants
+        # Example: Patient with "severe diabetes" should get severity-specific variant,
+        # not the general diabetic variant or the general population variant
+        if self._patient_has_more_specific_variant(patient, screening_type):
+            self.logger.debug(
+                f"Mutual exclusivity: Patient excluded from '{screening_type.name}' "
+                f"(specificity: {screening_type.specificity_score}) "
+                f"because they qualify for a more specific variant"
+            )
+            return False
         
         return True
     
-    def _patient_has_condition_specific_variant(self, patient, general_screening_type):
-        """Check if patient qualifies for a condition-triggered variant of this screening
+    def _patient_has_more_specific_variant(self, patient, current_screening_type):
+        """Check if patient qualifies for a more specific variant of this screening
         
-        Used for mutual exclusivity - patients should only receive one variant of a screening.
-        For example, a diabetic patient should get the diabetes-specific A1C protocol,
-        not both the diabetes A1C AND the general population A1C.
+        Uses specificity scoring to determine which variant is most appropriate:
+        - General (no triggers): specificity 0
+        - Condition-triggered: specificity 10
+        - Severity-specific (mild): specificity 15
+        - Severity-specific (moderate): specificity 20
+        - Severity-specific (severe): specificity 25
+        - Severity-specific (very_severe): specificity 30
+        
+        Patients receive only the highest-scoring variant they qualify for.
         """
         from models import ScreeningType
+        from utils.condition_metadata import condition_metadata
+        
+        current_specificity = current_screening_type.specificity_score
         
         # Find all other screening types with the same name in this organization
         same_name_variants = ScreeningType.query.filter(
-            ScreeningType.org_id == general_screening_type.org_id,
-            ScreeningType.name == general_screening_type.name,
-            ScreeningType.id != general_screening_type.id,
+            ScreeningType.org_id == current_screening_type.org_id,
+            ScreeningType.name == current_screening_type.name,
+            ScreeningType.id != current_screening_type.id,
             ScreeningType.is_active == True
         ).all()
         
-        # Check if patient qualifies for any condition-triggered variant
+        # Check if patient qualifies for any MORE SPECIFIC variant
         for variant in same_name_variants:
-            # Skip variants that don't have trigger conditions (also general population)
-            if not variant.trigger_conditions_list:
+            variant_specificity = variant.specificity_score
+            
+            # Only consider variants that are MORE specific than current
+            if variant_specificity <= current_specificity:
                 continue
             
-            # Check basic eligibility (age, gender) without recursion
+            # Check basic eligibility (age, gender)
             if not self._check_age_eligibility(patient, variant):
                 continue
             if not self._check_gender_eligibility(patient, variant):
                 continue
             
-            # Check if patient has the required trigger conditions
-            # Use direct trigger check (not is_patient_eligible to avoid recursion)
-            if self._patient_matches_trigger_conditions(patient, variant.trigger_conditions_list):
+            # Check if patient matches trigger conditions with severity awareness
+            if self._patient_matches_trigger_conditions_with_severity(patient, variant):
                 self.logger.debug(
-                    f"Patient qualifies for condition-triggered variant: {variant.name} "
-                    f"(triggers: {variant.trigger_conditions_list})"
+                    f"Patient qualifies for more specific variant: {variant.name} "
+                    f"(specificity: {variant_specificity} > {current_specificity})"
                 )
                 return True
+        
+        return False
+    
+    def _patient_matches_trigger_conditions_with_severity(self, patient, screening_variant):
+        """Check if patient matches trigger conditions including severity requirements
+        
+        If trigger has severity modifier (e.g., "severe diabetes"), patient must have
+        matching severity. If no severity in trigger, any severity matches.
+        """
+        from utils.medical_conditions import medical_conditions_db
+        from utils.condition_metadata import condition_metadata
+        
+        trigger_conditions = screening_variant.trigger_conditions_list
+        if not trigger_conditions:
+            return False
+        
+        # Get patient conditions
+        patient_conditions = [c.condition_name for c in patient.conditions if c.is_active]
+        if not patient_conditions:
+            return False
+        
+        variant_severity = screening_variant.variant_severity
+        
+        for trigger_condition in trigger_conditions:
+            trigger_condition = trigger_condition.strip()
+            trigger_severity = condition_metadata.extract_severity(trigger_condition)
+            
+            for patient_condition in patient_conditions:
+                # First check base condition match
+                if not medical_conditions_db.fuzzy_match_condition(patient_condition, trigger_condition):
+                    continue
+                
+                # Base condition matches - now check severity if variant has severity requirement
+                if variant_severity:
+                    patient_severity = condition_metadata.extract_severity(patient_condition)
+                    
+                    # Check if patient severity matches the variant's severity requirement
+                    if condition_metadata.severity_matches(patient_severity, variant_severity):
+                        return True
+                else:
+                    # No severity requirement - condition match is sufficient
+                    return True
         
         return False
     
@@ -187,21 +241,25 @@ class EligibilityCriteria:
             return None
     
     def _check_trigger_conditions(self, patient, screening_type):
-        """Check if patient has required trigger conditions using enhanced fuzzy matching
+        """Check if patient has required trigger conditions using severity-aware fuzzy matching
         
-        Uses medical_conditions_db.fuzzy_match_condition() which:
+        Uses medical_conditions_db.fuzzy_match_condition() for base condition matching:
         - Strips clinical modifiers (mild, moderate, severe, chronic, acute, etc.)
         - Handles medical abbreviations (PCOS, COPD, MI, CAD, etc.)
         - Uses word boundaries to prevent false matches (diabetes ≠ prediabetes)
         - Matches condition variants (Type 2 diabetes = diabetes mellitus type 2 = T2DM)
         
+        SEVERITY-AWARE: If screening variant has severity requirement (e.g., "severe asthma"),
+        patient must have matching severity to qualify. This prevents patients with
+        "moderate asthma" from matching a "severe asthma" protocol.
+        
         Examples:
-        - "Moderate persistent asthma, uncomplicated" matches trigger "asthma" ✓
-        - "Polycystic ovarian syndrome" matches trigger "PCOS" ✓
-        - "Old myocardial infarction" matches trigger "heart disease" ✓
-        - "diabetes" does NOT match trigger "prediabetes" ✗
+        - "Moderate persistent asthma" matches trigger "asthma" ✓ (no severity requirement)
+        - "Moderate persistent asthma" does NOT match "severe asthma" ✗ (severity mismatch)
+        - "Severe persistent asthma" matches "severe asthma" ✓
         """
         from utils.medical_conditions import medical_conditions_db
+        from utils.condition_metadata import condition_metadata
         
         # If no trigger conditions defined, screening applies to all patients
         if not screening_type.trigger_conditions_list:
@@ -210,23 +268,43 @@ class EligibilityCriteria:
         # Get patient conditions (keep original case for logging)
         patient_conditions = [c.condition_name for c in patient.conditions if c.is_active]
         
+        # Get variant's severity requirement (if any)
+        variant_severity = screening_type.variant_severity
+        
         # Check if any trigger condition is met using enhanced fuzzy matching
         for trigger_condition in screening_type.trigger_conditions_list:
             trigger_condition = trigger_condition.strip()
             
             # Check against each patient condition using fuzzy matcher
             for patient_condition in patient_conditions:
-                if medical_conditions_db.fuzzy_match_condition(patient_condition, trigger_condition):
-                    self.logger.debug(
-                        f"Trigger condition match: Patient '{patient_condition}' matches "
-                        f"screening trigger '{trigger_condition}' for {screening_type.name}"
-                    )
-                    return True
+                if not medical_conditions_db.fuzzy_match_condition(patient_condition, trigger_condition):
+                    continue
+                
+                # Base condition matches - now check severity if variant has severity requirement
+                if variant_severity:
+                    patient_severity = condition_metadata.extract_severity(patient_condition)
+                    
+                    # Patient must have matching severity for severity-specific variants
+                    if not condition_metadata.severity_matches(patient_severity, variant_severity):
+                        self.logger.debug(
+                            f"Severity mismatch: Patient '{patient_condition}' (severity: {patient_severity}) "
+                            f"does not match variant severity requirement '{variant_severity}' for {screening_type.name}"
+                        )
+                        continue
+                
+                # Match found (base condition + severity if required)
+                self.logger.debug(
+                    f"Trigger condition match: Patient '{patient_condition}' matches "
+                    f"screening trigger '{trigger_condition}' for {screening_type.name}"
+                    f"{f' (severity: {variant_severity})' if variant_severity else ''}"
+                )
+                return True
         
-        # Patient doesn't have required trigger conditions
+        # Patient doesn't have required trigger conditions (or severity mismatch)
         self.logger.debug(
             f"No trigger match for {screening_type.name}. Patient has: {patient_conditions}, "
             f"Screening requires: {screening_type.trigger_conditions_list}"
+            f"{f' with severity: {variant_severity}' if variant_severity else ''}"
         )
         return False
     

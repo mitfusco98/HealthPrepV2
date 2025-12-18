@@ -1259,6 +1259,28 @@ class ScreeningType(db.Model):
             # Fallback to comma-separated parsing
             return [cond.strip() for cond in self.trigger_conditions.split(',') if cond and cond.strip()]
 
+    @property
+    def variant_severity(self):
+        """Get severity level for this screening variant (mild/moderate/severe/very_severe or None)
+        
+        Checks trigger conditions and title for severity modifiers.
+        Used for severity-aware screening variant selection.
+        """
+        from utils.condition_metadata import condition_metadata
+        return condition_metadata.get_variant_severity(self)
+    
+    @property
+    def specificity_score(self):
+        """Calculate specificity score for mutual exclusivity ranking
+        
+        Higher score = more specific variant. Patients get the highest-scoring variant.
+        - General (no triggers): 0
+        - Condition-triggered: 10
+        - Severity-specific: +5 per severity level
+        """
+        from utils.condition_metadata import condition_metadata
+        return condition_metadata.calculate_variant_specificity(self)
+
     def get_content_keywords(self):
         """Get keywords for content matching"""
         return self.keywords_list
