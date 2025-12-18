@@ -3341,12 +3341,18 @@ class ScreeningPreset(db.Model):
 
     def approve_for_global_sharing(self, approved_by):
         """Approve preset for global sharing (root admin function)"""
-        self.shared = True
-        self.preset_scope = 'global'
-        self.org_id = None  # Make it available to all organizations
-
+        # Store original org info before making global
         if not self.preset_metadata:
             self.preset_metadata = {}
+        
+        # Preserve provenance if not already saved
+        if 'original_org_id' not in self.preset_metadata:
+            self.preset_metadata['original_org_id'] = self.org_id
+            self.preset_metadata['original_created_by'] = self.created_by
+        
+        self.shared = True
+        self.preset_scope = 'global'
+        self.org_id = 0  # Transfer to System Organization for deletion protection
 
         self.preset_metadata.update({
             'approval_status': 'approved',

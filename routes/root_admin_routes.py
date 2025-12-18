@@ -145,14 +145,16 @@ def make_preset_global(preset_id):
             'original_org_id': original_org_id,
             'original_org_name': original_org_name,
             'original_creator_username': original_creator,
+            'original_created_by': preset.created_by,
             'made_global_at': datetime.utcnow().isoformat(),
             'made_global_by': current_user.username
         })
 
-        # Make preset global
+        # Make preset global - transfer ownership to System Organization (org_id=0)
+        # This ensures the preset is protected from org deletion and truly system-owned
         preset.shared = True
         preset.preset_scope = 'global'
-        preset.org_id = None  # Make it available to all organizations
+        preset.org_id = 0  # Transfer to System Organization for deletion protection
 
         db.session.commit()
 
@@ -186,10 +188,21 @@ def remove_global_preset(preset_id):
     try:
         preset = ScreeningPreset.query.get_or_404(preset_id)
 
-        # Remove global status and assign back to original organization
-        # Note: We need to handle org assignment properly
-        if not preset.organization and preset.creator and preset.creator.org_id:
+        # Remove global status and restore to original organization from metadata
+        original_org_id = None
+        if preset.preset_metadata:
+            original_org_id = preset.preset_metadata.get('original_org_id')
+        
+        # If we have original org from metadata, restore it
+        if original_org_id and original_org_id != 0:
+            preset.org_id = original_org_id
+        # Otherwise try to get from creator
+        elif preset.creator and preset.creator.org_id:
             preset.org_id = preset.creator.org_id
+        else:
+            # Can't demote without a valid org to assign to
+            flash('Cannot demote preset: no original organization found to assign it to', 'warning')
+            return redirect(url_for('root_admin.presets'))
 
         preset.shared = False
         preset.preset_scope = 'organization'
@@ -1419,14 +1432,16 @@ def promote_preset_globally(preset_id):
             'original_org_id': original_org_id,
             'original_org_name': original_org_name,
             'original_creator_username': original_creator,
+            'original_created_by': preset.created_by,
             'made_global_at': datetime.utcnow().isoformat(),
             'made_global_by': current_user.username
         })
 
-        # Make preset global
+        # Make preset global - transfer ownership to System Organization (org_id=0)
+        # This ensures the preset is protected from org deletion and truly system-owned
         preset.shared = True
         preset.preset_scope = 'global'
-        preset.org_id = None  # Make it available to all organizations
+        preset.org_id = 0  # Transfer to System Organization for deletion protection
 
         db.session.commit()
 
