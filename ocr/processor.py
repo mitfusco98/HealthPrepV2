@@ -1,9 +1,11 @@
 """
 Tesseract integration and text cleanup for medical documents
-Supports PDF, images, Word documents (.docx, .doc), and plain text
+Supports PDF, images, Word documents (.docx, .doc), RTF, HTML, EML, and plain text
 
 Performance optimizations:
 - Machine-readable PDF detection: Extracts embedded text before OCR (20-30% faster)
+- Multi-library PDF extraction: PyMuPDF → pdfminer.six → OCR fallback chain
+- Per-page hybrid processing: Only OCR pages that lack embedded text
 - Configurable parallel workers via OCR_MAX_WORKERS environment variable
 - Batch processing with isolated database sessions for thread safety
 """
@@ -17,6 +19,8 @@ from models import Document
 from .phi_filter import PHIFilter
 import logging
 from datetime import datetime
+import email
+from email import policy
 
 try:
     import fitz  # PyMuPDF for embedded text extraction
@@ -25,10 +29,28 @@ except ImportError:
     PYMUPDF_AVAILABLE = False
 
 try:
+    from pdfminer.high_level import extract_text as pdfminer_extract_text
+    PDFMINER_AVAILABLE = True
+except ImportError:
+    PDFMINER_AVAILABLE = False
+
+try:
     from docx import Document as DocxDocument
     DOCX_AVAILABLE = True
 except ImportError:
     DOCX_AVAILABLE = False
+
+try:
+    from striprtf.striprtf import rtf_to_text
+    STRIPRTF_AVAILABLE = True
+except ImportError:
+    STRIPRTF_AVAILABLE = False
+
+try:
+    from bs4 import BeautifulSoup
+    BS4_AVAILABLE = True
+except ImportError:
+    BS4_AVAILABLE = False
 
 # Configurable worker count - defaults to 4, can be overridden via environment
 MIN_TEXT_LENGTH_FOR_SKIP_OCR = 100  # Minimum chars to consider PDF machine-readable
@@ -136,6 +158,12 @@ class OCRProcessor:
                 return self._process_docx(file_path)
             elif file_ext == '.doc':
                 return self._process_doc(file_path)
+            elif file_ext == '.rtf':
+                return self._process_rtf(file_path)
+            elif file_ext in ['.html', '.htm']:
+                return self._process_html(file_path)
+            elif file_ext == '.eml':
+                return self._process_eml(file_path)
             elif file_ext == '.txt':
                 with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                     return f.read(), 1.0
@@ -185,52 +213,121 @@ class OCRProcessor:
             self.logger.warning(f"Error extracting embedded PDF text: {str(e)}")
             return None, False
 
+    def _extract_pdf_text_pdfminer(self, pdf_path):
+        """
+        Fallback PDF text extraction using pdfminer.six.
+        Used when PyMuPDF returns insufficient text.
+        """
+        if not PDFMINER_AVAILABLE:
+            return None, False
+        
+        try:
+            text = pdfminer_extract_text(pdf_path)
+            if text and len(text.strip()) >= MIN_TEXT_LENGTH_FOR_SKIP_OCR:
+                self.logger.info(
+                    f"pdfminer.six extracted {len(text)} chars from PDF, skipping OCR"
+                )
+                return text.strip(), True
+            return None, False
+        except Exception as e:
+            self.logger.warning(f"pdfminer.six extraction failed: {str(e)}")
+            return None, False
+
     def _process_pdf(self, pdf_path):
         """
         Process PDF document and extract text.
         
-        Optimization: First attempts to extract embedded text (machine-readable PDFs).
-        Falls back to OCR only for scanned/image-based documents.
+        Extraction chain (in order of preference):
+        1. PyMuPDF embedded text extraction (fastest)
+        2. pdfminer.six text extraction (catches edge cases)
+        3. OCR via Tesseract (slowest, for scanned documents)
+        
         This reduces processing time by 20-30% for typical document sets.
         """
-        # First, try to extract embedded text (much faster than OCR)
+        # First, try to extract embedded text with PyMuPDF (fastest)
         embedded_text, is_machine_readable = self._extract_embedded_pdf_text(pdf_path)
         
         if is_machine_readable and embedded_text:
             # Machine-readable PDF - no OCR needed, confidence is 1.0
             return embedded_text, 1.0
         
-        # Fall back to OCR for scanned/image-based PDFs
-        self.logger.info(f"PDF requires OCR processing: {pdf_path}")
+        # Second, try pdfminer.six as fallback (catches some PDFs PyMuPDF misses)
+        pdfminer_text, pdfminer_success = self._extract_pdf_text_pdfminer(pdf_path)
+        
+        if pdfminer_success and pdfminer_text:
+            return pdfminer_text, 0.95  # Slightly lower confidence than PyMuPDF
+        
+        # Fall back to hybrid per-page processing
+        # For each page: use embedded text if available, otherwise OCR
+        self.logger.info(f"PDF requires hybrid per-page processing: {pdf_path}")
+        
+        return self._process_pdf_hybrid(pdf_path)
+
+    def _process_pdf_hybrid(self, pdf_path):
+        """
+        Hybrid per-page PDF processing.
+        
+        For each page:
+        - If the page has embedded text (>50 chars), use it directly
+        - If not, OCR that specific page
+        
+        This optimizes mixed PDFs where some pages are scanned and some are digital.
+        """
+        all_text = []
+        confidences = []
+        pages_extracted = 0
+        pages_ocred = 0
         
         with tempfile.TemporaryDirectory() as temp_dir:
             try:
-                # Convert PDF to images
-                images = pdf2image.convert_from_path(pdf_path)
-
-                all_text = []
-                confidences = []
-
-                for i, image in enumerate(images):
-                    # Save image temporarily
-                    image_path = os.path.join(temp_dir, f"page_{i}.png")
-                    image.save(image_path, 'PNG')
-
-                    # Extract text from image
-                    text, confidence = self._process_image(image_path)
-
-                    if text:
-                        all_text.append(text)
-                        confidences.append(confidence)
-
-                # Combine all text and calculate average confidence
+                if PYMUPDF_AVAILABLE:
+                    doc = fitz.open(pdf_path)
+                    num_pages = len(doc)
+                    
+                    images = pdf2image.convert_from_path(pdf_path)
+                    
+                    for i in range(num_pages):
+                        page = doc[i]
+                        page_text = page.get_text("text").strip()
+                        
+                        if len(page_text) >= 50:
+                            all_text.append(page_text)
+                            confidences.append(1.0)
+                            pages_extracted += 1
+                        else:
+                            if i < len(images):
+                                image_path = os.path.join(temp_dir, f"page_{i}.png")
+                                images[i].save(image_path, 'PNG')
+                                text, confidence = self._process_image(image_path)
+                                if text:
+                                    all_text.append(text)
+                                    confidences.append(confidence)
+                                    pages_ocred += 1
+                    
+                    doc.close()
+                else:
+                    images = pdf2image.convert_from_path(pdf_path)
+                    for i, image in enumerate(images):
+                        image_path = os.path.join(temp_dir, f"page_{i}.png")
+                        image.save(image_path, 'PNG')
+                        text, confidence = self._process_image(image_path)
+                        if text:
+                            all_text.append(text)
+                            confidences.append(confidence)
+                            pages_ocred += 1
+                
+                self.logger.info(
+                    f"Hybrid PDF processing: {pages_extracted} pages extracted, "
+                    f"{pages_ocred} pages OCR'd"
+                )
+                
                 combined_text = '\n'.join(all_text)
                 avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
-
+                
                 return combined_text, avg_confidence
-
+                
             except Exception as e:
-                self.logger.error(f"Error processing PDF {pdf_path}: {str(e)}")
+                self.logger.error(f"Error in hybrid PDF processing {pdf_path}: {str(e)}")
                 return None, 0.0
 
     def _process_image(self, image_path):
@@ -451,6 +548,120 @@ class OCRProcessor:
         
         self.logger.error(f"Unable to extract text from DOC file: {doc_path}")
         return None, 0.0
+
+    def _process_rtf(self, rtf_path):
+        """
+        Extract text from RTF (Rich Text Format) files.
+        Common format for medical referrals and legacy documents.
+        """
+        if not STRIPRTF_AVAILABLE:
+            self.logger.error("striprtf library not available for RTF processing")
+            return None, 0.0
+        
+        try:
+            with open(rtf_path, 'r', encoding='utf-8', errors='ignore') as f:
+                rtf_content = f.read()
+            
+            text = rtf_to_text(rtf_content)
+            
+            if text and text.strip():
+                cleaned_text = text.strip()
+                self.logger.info(f"Successfully extracted {len(cleaned_text)} characters from RTF")
+                return cleaned_text, 1.0
+            else:
+                self.logger.warning("No text found in RTF document")
+                return None, 0.0
+                
+        except Exception as e:
+            self.logger.error(f"Error processing RTF {rtf_path}: {str(e)}")
+            return None, 0.0
+
+    def _process_html(self, html_path):
+        """
+        Extract text from HTML files.
+        Common format for patient portal exports and email attachments.
+        """
+        if not BS4_AVAILABLE:
+            self.logger.error("BeautifulSoup library not available for HTML processing")
+            return None, 0.0
+        
+        try:
+            with open(html_path, 'r', encoding='utf-8', errors='ignore') as f:
+                html_content = f.read()
+            
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            for script in soup(["script", "style", "meta", "link", "noscript"]):
+                script.decompose()
+            
+            text = soup.get_text(separator='\n', strip=True)
+            
+            if text:
+                self.logger.info(f"Successfully extracted {len(text)} characters from HTML")
+                return text, 1.0
+            else:
+                self.logger.warning("No text found in HTML document")
+                return None, 0.0
+                
+        except Exception as e:
+            self.logger.error(f"Error processing HTML {html_path}: {str(e)}")
+            return None, 0.0
+
+    def _process_eml(self, eml_path):
+        """
+        Extract text from EML (email) files.
+        Common format for forwarded medical records and referrals.
+        """
+        try:
+            with open(eml_path, 'rb') as f:
+                msg = email.message_from_binary_file(f, policy=policy.default)
+            
+            text_parts = []
+            
+            if msg['subject']:
+                text_parts.append(f"Subject: {msg['subject']}")
+            if msg['from']:
+                text_parts.append(f"From: {msg['from']}")
+            if msg['date']:
+                text_parts.append(f"Date: {msg['date']}")
+            
+            text_parts.append("")
+            
+            if msg.is_multipart():
+                for part in msg.walk():
+                    content_type = part.get_content_type()
+                    if content_type == 'text/plain':
+                        payload = part.get_payload(decode=True)
+                        if payload:
+                            charset = part.get_content_charset() or 'utf-8'
+                            text_parts.append(payload.decode(charset, errors='ignore'))
+                    elif content_type == 'text/html' and BS4_AVAILABLE:
+                        payload = part.get_payload(decode=True)
+                        if payload:
+                            charset = part.get_content_charset() or 'utf-8'
+                            html_content = payload.decode(charset, errors='ignore')
+                            soup = BeautifulSoup(html_content, 'html.parser')
+                            for script in soup(["script", "style"]):
+                                script.decompose()
+                            text_parts.append(soup.get_text(separator='\n', strip=True))
+            else:
+                payload = msg.get_payload(decode=True)
+                if payload:
+                    charset = msg.get_content_charset() or 'utf-8'
+                    text_parts.append(payload.decode(charset, errors='ignore'))
+            
+            combined_text = '\n'.join(text_parts).strip()
+            
+            if combined_text:
+                self.logger.info(f"Successfully extracted {len(combined_text)} characters from EML")
+                return combined_text, 1.0
+            else:
+                self.logger.warning("No text found in EML document")
+                return None, 0.0
+                
+        except Exception as e:
+            self.logger.error(f"Error processing EML {eml_path}: {str(e)}")
+            return None, 0.0
 
     def reprocess_document(self, document_id):
         """Reprocess an existing document"""

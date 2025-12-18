@@ -45,7 +45,39 @@ The application uses a unified `billing_state` property on the `Organization` mo
 - **Asynchronous processing:** RQ (Redis Queue) for background tasks.
 - **Security:** HIPAA compliance, robust user authentication (Flask-Login), role-based access control, CSRF protection, comprehensive audit logging.
 - **Extensibility:** Customizable screening logic, universal naming systems, variant management.
-- **OCR Processing Optimizations:** Machine-readable PDF detection using PyMuPDF to bypass Tesseract where possible, configurable parallel workers, and container-ready architecture with separate scaling for web app and OCR workers.
+- **OCR Processing Optimizations:** Multi-library text extraction to minimize OCR usage and maximize processing speed.
+
+### Document Text Extraction
+
+The system uses a cascading extraction strategy to avoid expensive OCR whenever possible:
+
+**PDF Extraction Chain:**
+1. **PyMuPDF** (fastest) - Extracts embedded text from machine-readable PDFs
+2. **pdfminer.six** (fallback) - Catches edge cases PyMuPDF misses
+3. **Hybrid per-page processing** - For mixed PDFs, extracts text from digital pages and only OCRs scanned pages
+4. **Tesseract OCR** (last resort) - For fully scanned/image-based documents
+
+**Supported File Formats (Direct Extraction):**
+- PDF (PyMuPDF + pdfminer.six)
+- DOCX (python-docx)
+- DOC (antiword/catdoc/LibreOffice)
+- RTF (striprtf)
+- HTML/HTM (BeautifulSoup)
+- EML (Python email library)
+- TXT (direct read)
+
+**Image Formats (OCR Required):**
+- PNG, JPG, JPEG, TIFF, BMP
+
+**Configuration:**
+- `OCR_MAX_WORKERS` env var controls parallel threads
+- Auto-detects CPU cores if not set
+- `MIN_TEXT_LENGTH_FOR_SKIP_OCR = 100` chars threshold
+
+**Container-Ready Architecture:**
+- `worker.py` runs RQ workers independently for horizontal scaling
+- Queue monitoring at `/admin/queue-monitor` and `/admin/api/queue-status`
+- Supports AWS Spot instances for cost-effective OCR workers
 
 ## External Dependencies
 - **FHIR-based EMRs:** e.g., Epic (for real-time data integration)
