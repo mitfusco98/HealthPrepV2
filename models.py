@@ -1780,6 +1780,10 @@ class Document(db.Model):
     
     # Document date from EMR vs local creation date
     document_date = db.Column(db.Date)  # Date from EMR system (preferred for screening logic)
+    
+    # HIPAA compliance: Original file disposal tracking
+    file_disposed = db.Column(db.Boolean, default=False)  # True after secure deletion
+    file_disposed_at = db.Column(db.DateTime)  # When original file was securely deleted
 
     # Relationships
     organization = db.relationship('Organization', backref='documents')
@@ -1947,39 +1951,78 @@ class FHIRDocument(db.Model):
     )
     
     def update_from_fhir(self, fhir_document_reference):
-        """Update document metadata from FHIR DocumentReference resource"""
+        """Update document metadata from FHIR DocumentReference resource.
+        
+        HIPAA COMPLIANCE: The raw FHIR resource is sanitized before storage to 
+        remove PHI (patient names, practitioner names, addresses, etc.) while 
+        preserving essential metadata for system operation.
+        """
         import json
         from hashlib import sha256
         
         if isinstance(fhir_document_reference, dict):
-            self.fhir_document_reference = json.dumps(fhir_document_reference)
+            # HIPAA: Sanitize FHIR resource before storage to remove PHI
+            from utils.fhir_sanitizer import fhir_sanitizer
+            sanitized_resource = fhir_sanitizer.sanitize_document_reference(fhir_document_reference)
+            self.fhir_document_reference = json.dumps(sanitized_resource)
             
             # Check if document is HealthPrep-generated (skip OCR processing)
             self.is_healthprep_generated = self._check_healthprep_identifier(fhir_document_reference)
             
-            # Extract document type information
+            # Extract document type information (safe metadata)
             if 'type' in fhir_document_reference and 'coding' in fhir_document_reference['type']:
                 type_coding = fhir_document_reference['type']['coding'][0]
                 self.document_type_code = type_coding.get('code')
                 self.document_type_display = type_coding.get('display')
             
-            # Extract title and description
-            self.title = fhir_document_reference.get('description')
+            # Extract title and description - sanitize PHI from free text
+            raw_description = fhir_document_reference.get('description')
+            if raw_description:
+                self.title = fhir_sanitizer._sanitize_text(raw_description)
             
-            # Extract creation date
+            # Extract creation date (safe metadata)
             if 'date' in fhir_document_reference:
                 try:
                     self.creation_date = datetime.fromisoformat(fhir_document_reference['date'].replace('Z', '+00:00'))
                 except (ValueError, AttributeError):
                     pass
             
-            # Extract author information
+            # Extract author information - hash ID with salt for PHI safety
+            # CRITICAL: Never store display names - they contain practitioner PHI
             if 'author' in fhir_document_reference and fhir_document_reference['author']:
+                import hashlib
+                import os
                 author = fhir_document_reference['author'][0]
-                if 'display' in author:
-                    self.author_name = author['display']
+                
+                # Get salt to prevent rainbow table attacks
+                # Use SESSION_SECRET or cached runtime salt for consistent hashing
+                salt = os.environ.get('SESSION_SECRET', '')
+                if not salt:
+                    import secrets as sec_module
+                    if not hasattr(FHIRDocument, '_runtime_salt'):
+                        FHIRDocument._runtime_salt = sec_module.token_hex(32)
+                        logger.warning("SESSION_SECRET not set - using runtime salt for FHIRDocument author hashing")
+                    salt = FHIRDocument._runtime_salt
+                
+                # Hash practitioner ID to prevent PHI leakage - IDs may be identifiable
+                if 'reference' in author:
+                    ref = author['reference']
+                    if '/' in ref:
+                        practitioner_id = ref.rsplit('/', 1)[1]
+                        salted_id = f"{salt}:{practitioner_id}"
+                        hashed_id = hashlib.sha256(salted_id.encode()).hexdigest()[:8]
+                        self.author_name = f"[Practitioner #{hashed_id}]"
+                    else:
+                        salted_ref = f"{salt}:{ref}"
+                        hashed_ref = hashlib.sha256(salted_ref.encode()).hexdigest()[:8]
+                        self.author_name = f"[Author #{hashed_ref}]"
+                else:
+                    # No reference ID - use generic placeholder (never store display name)
+                    self.author_name = "[Author Unknown]"
+            else:
+                self.author_name = None
             
-            # Extract content information
+            # Extract content information (safe metadata)
             if 'content' in fhir_document_reference and fhir_document_reference['content']:
                 content = fhir_document_reference['content'][0]
                 attachment = content.get('attachment', {})
@@ -1988,7 +2031,7 @@ class FHIRDocument(db.Model):
                 self.content_type = attachment.get('contentType')
                 self.content_size = attachment.get('size')
                 
-                # Generate content hash if data is available
+                # Generate content hash if data is available (then discard binary data)
                 if 'data' in attachment:
                     import base64
                     content_bytes = base64.b64decode(attachment['data'])

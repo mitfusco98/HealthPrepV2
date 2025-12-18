@@ -79,6 +79,43 @@ The system uses a cascading extraction strategy to avoid expensive OCR whenever 
 - Queue monitoring at `/admin/queue-monitor` and `/admin/api/queue-status`
 - Supports AWS Spot instances for cost-effective OCR workers
 
+### HIPAA Document Lifecycle & PHI Protection
+
+The system implements comprehensive HIPAA-compliant document handling:
+
+**Document Storage Policy:**
+- Original uploaded files are securely deleted after text extraction
+- Only PHI-filtered OCR transcripts are stored in the database
+- FHIR metadata is sanitized before storage to remove PHI
+
+**Secure Deletion (utils/secure_delete.py):**
+- Multi-pass overwrite with random data before file deletion
+- Configurable pass count (default 3 for HIPAA compliance)
+- Context managers for secure temp files and directories
+- Automatic audit logging of all file disposals
+
+**PHI Filtering Layers:**
+1. **OCR Text** - All extracted text passes through PHIFilter (ocr/phi_filter.py)
+2. **FHIR Metadata** - DocumentReference resources sanitized via FHIRSanitizer (utils/fhir_sanitizer.py)
+3. **Author Names** - Replaced with practitioner IDs only
+4. **Free Text Fields** - Pattern-based redaction of SSN, phone, email, addresses
+
+**Document Model Tracking:**
+- `file_disposed` - Boolean flag indicating original was securely deleted
+- `file_disposed_at` - Timestamp of secure deletion
+- `phi_filtered` - Confirms PHI filtering was applied
+
+**Maintenance Scripts:**
+- `scripts/secure_purge_uploads.py` - Backfill script to purge existing originals
+  - `--dry-run` mode for preview
+  - `--execute` mode for actual deletion
+  - `--include-orphans` to clean unreferenced files
+
+**Audit Trail:**
+- AdminLog entries for all secure deletion events
+- FHIR API call logging with PHI-safe redaction
+- Document processing events tracked
+
 ## External Dependencies
 - **FHIR-based EMRs:** e.g., Epic (for real-time data integration)
 - **FHIR R4:** For EMR compatibility and interoperability.

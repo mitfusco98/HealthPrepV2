@@ -94,20 +94,28 @@ class OCRProcessor:
         # Tesseract configuration for medical documents
         self.tesseract_config = '--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,()[]{}:;/\\-+=%$@#!?"\' \n\t'
 
-    def process_document(self, document_id, skip_screening_update=False):
+    def process_document(self, document_id, skip_screening_update=False, secure_delete_original=True):
         """Process a document with OCR and PHI filtering
+        
+        HIPAA COMPLIANCE: After successful text extraction, the original file is
+        securely deleted (overwritten with random data before unlinking) to ensure
+        PHI cannot be recovered from disk.
         
         Args:
             document_id: ID of document to process
             skip_screening_update: If True, skip the synchronous screening update.
                                   Use this when processing as part of a batch where
                                   screening updates will be done after all OCR completes.
+            secure_delete_original: If True (default), securely delete the original file
+                                   after successful text extraction for HIPAA compliance.
         """
         document = Document.query.get(document_id)
         if not document:
             self.logger.error(f"Document {document_id} not found")
             return False
 
+        original_file_path = document.file_path
+        
         try:
             # Extract text using OCR
             ocr_text, confidence = self._extract_text(document.file_path)
@@ -126,6 +134,10 @@ class OCRProcessor:
                 db.session.commit()
 
                 self.logger.info(f"Successfully processed document {document_id} with confidence {confidence:.2f}")
+                
+                # HIPAA: Securely delete original file after successful extraction
+                if secure_delete_original and original_file_path:
+                    self._secure_delete_original(document, original_file_path)
 
                 # Trigger screening engine update (unless skipped for batch processing)
                 if not skip_screening_update:
@@ -141,6 +153,37 @@ class OCRProcessor:
         except Exception as e:
             self.logger.error(f"Error processing document {document_id}: {str(e)}")
             return False
+    
+    def _secure_delete_original(self, document, file_path):
+        """Securely delete original file after text extraction for HIPAA compliance.
+        
+        This overwrites the file with random data before deletion to prevent
+        PHI recovery from disk.
+        """
+        try:
+            from utils.secure_delete import secure_delete_file, audit_log_deletion
+            
+            if secure_delete_file(file_path):
+                # Update document record to reflect disposal
+                document.file_path = None
+                document.file_disposed = True
+                document.file_disposed_at = datetime.utcnow()
+                db.session.commit()
+                
+                # Log for HIPAA audit trail
+                audit_log_deletion(
+                    file_path=file_path,
+                    file_type='uploaded_document',
+                    patient_id=document.patient_id,
+                    org_id=document.org_id
+                )
+                
+                self.logger.info(f"HIPAA: Securely deleted original file for document {document.id}")
+            else:
+                self.logger.warning(f"Failed to securely delete original file for document {document.id}")
+                
+        except Exception as e:
+            self.logger.error(f"Error during secure deletion of original file: {e}")
 
     def _extract_text(self, file_path):
         """Extract text from document using appropriate method"""
@@ -687,15 +730,25 @@ class OCRProcessor:
         }
 
     def cleanup_temp_files(self):
-        """Clean up any temporary files created during processing"""
+        """Clean up any temporary files created during processing with secure deletion.
+        
+        HIPAA COMPLIANCE: Uses secure deletion (overwrite before unlink) to prevent
+        PHI recovery from temp files created during OCR processing.
+        """
+        from utils.secure_delete import secure_delete_file
         temp_dir = tempfile.gettempdir()
+        deleted_count = 0
 
         try:
             for filename in os.listdir(temp_dir):
-                if filename.startswith('tesseract_') or filename.startswith('ocr_'):
+                if filename.startswith('tesseract_') or filename.startswith('ocr_') or filename.startswith('healthprep_'):
                     file_path = os.path.join(temp_dir, filename)
                     if os.path.isfile(file_path):
-                        os.remove(file_path)
+                        if secure_delete_file(file_path):
+                            deleted_count += 1
+            
+            if deleted_count > 0:
+                self.logger.info(f"HIPAA: Securely deleted {deleted_count} temp files")
 
         except Exception as e:
             self.logger.warning(f"Error cleaning up temp files: {str(e)}")
