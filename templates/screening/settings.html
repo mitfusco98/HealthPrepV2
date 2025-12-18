@@ -44,9 +44,7 @@
                 </h5>
             </div>
             <div class="card-body">
-                <!-- Quick Preset Buttons -->
                 <div class="mb-4">
-                    <h6 class="mb-3">Quick Presets</h6>
                     <div class="d-flex flex-wrap gap-2">
                         <button type="button" class="btn btn-outline-info btn-sm" onclick="applyPreset('conservative')">
                             <i class="fas fa-shield-alt me-1"></i>Conservative (3 months)
@@ -61,10 +59,6 @@
                             <i class="fas fa-user-clock me-1"></i>To Last Appointment
                         </button>
                     </div>
-                    <div class="form-text mt-2">
-                        <i class="fas fa-info-circle me-1"></i>
-                        Quick presets apply the same cutoff to all data types. You can customize individual settings below.
-                    </div>
                 </div>
 
                 <form method="POST" id="settingsForm">
@@ -78,10 +72,6 @@
                                     {{ form.labs_cutoff_months(class="form-control") }}
                                     <span class="input-group-text">months</span>
                                 </div>
-                                <div class="form-text">
-                                    <span class="cutoff-description" id="labs-description">{{ settings.get_cutoff_description('labs') if settings else '12 months' }}</span>
-                                    <br><small class="text-muted">Lab results, blood work, urine tests</small>
-                                </div>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -90,10 +80,6 @@
                                 <div class="input-group">
                                     {{ form.imaging_cutoff_months(class="form-control") }}
                                     <span class="input-group-text">months</span>
-                                </div>
-                                <div class="form-text">
-                                    <span class="cutoff-description" id="imaging-description">{{ settings.get_cutoff_description('imaging') if settings else '12 months' }}</span>
-                                    <br><small class="text-muted">X-rays, CT scans, MRI, ultrasounds</small>
                                 </div>
                             </div>
                         </div>
@@ -107,10 +93,6 @@
                                     {{ form.consults_cutoff_months(class="form-control") }}
                                     <span class="input-group-text">months</span>
                                 </div>
-                                <div class="form-text">
-                                    <span class="cutoff-description" id="consults-description">{{ settings.get_cutoff_description('consults') if settings else '12 months' }}</span>
-                                    <br><small class="text-muted">Specialist notes, referral reports</small>
-                                </div>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -119,10 +101,6 @@
                                 <div class="input-group">
                                     {{ form.hospital_cutoff_months(class="form-control") }}
                                     <span class="input-group-text">months</span>
-                                </div>
-                                <div class="form-text">
-                                    <span class="cutoff-description" id="hospital-description">{{ settings.get_cutoff_description('hospital') if settings else '12 months' }}</span>
-                                    <br><small class="text-muted">Admission records, discharge summaries</small>
                                 </div>
                             </div>
                         </div>

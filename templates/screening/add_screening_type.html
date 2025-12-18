@@ -40,9 +40,6 @@
                                     {{ form.name(class="form-control", id="screeningNameInput", autocomplete="off") }}
                                     <div class="autocomplete-dropdown" id="screeningNameAutocomplete"></div>
                                 </div>
-                                <div class="form-text">
-                                    Start typing for standardized screening names (e.g., "Mammogram", "Pap Smear", "A1C Test")
-                                </div>
                                 <div class="mt-1">
                                     <button type="button" class="btn btn-sm btn-outline-secondary" onclick="showPopularScreenings()">
                                         <i class="fas fa-lightbulb me-1"></i>Show Popular Screenings
@@ -59,27 +56,18 @@
                             <div class="mb-3">
                                 {{ form.eligible_genders.label(class="form-label") }}
                                 {{ form.eligible_genders(class="form-select") }}
-                                <div class="form-text">
-                                    Gender eligibility (e.g., Mammograms are Female Only)
-                                </div>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="mb-3">
                                 {{ form.min_age.label(class="form-label") }}
                                 {{ form.min_age(class="form-control") }}
-                                <div class="form-text">
-                                    Minimum age for this screening
-                                </div>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="mb-3">
                                 {{ form.max_age.label(class="form-label") }}
                                 {{ form.max_age(class="form-control") }}
-                                <div class="form-text">
-                                    Maximum age (leave blank for no limit)
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -92,9 +80,6 @@
                                     {{ form.frequency_value(class="form-control") }}
                                     {{ form.frequency_unit(class="form-select", style="max-width: 100px;") }}
                                 </div>
-                                <div class="form-text">
-                                    How often this screening should be done (e.g., 1 year, 6 months, 2 years)
-                                </div>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -104,8 +89,7 @@
 
                                 <!-- Integrated Condition Management -->
                                 <div class="condition-management-container">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <small class="text-muted">Medical conditions that trigger this screening</small>
+                                    <div class="d-flex justify-content-end align-items-center mb-2">
                                         <button type="button" class="btn btn-sm btn-import-conditions" onclick="showPopularScreenings()"
                                                 title="Import standard medical conditions">
                                             <i class="fas fa-download me-1"></i>Import Conditions
@@ -146,36 +130,6 @@
         </div>
     </div>
 
-    <div class="col-lg-4">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0">
-                    <i class="fas fa-lightbulb me-2"></i>
-                    Examples
-                </h6>
-            </div>
-            <div class="card-body">
-                <h6>Mammogram Example:</h6>
-                <ul class="list-unstyled">
-                    <li><strong>Name:</strong> Mammogram</li>
-                    <li><strong>Gender:</strong> Female Only</li>
-                    <li><strong>Age:</strong> 40+ years</li>
-                    <li><strong>Frequency:</strong> 1.0 years</li>
-                    <li><strong>Keywords:</strong> mammogram, breast cancer screening</li>
-                </ul>
-
-                <hr>
-
-                <h6>A1C Test Example:</h6>
-                <ul class="list-unstyled">
-                    <li><strong>Name:</strong> A1C Test</li>
-                    <li><strong>Gender:</strong> Both Genders</li>
-                    <li><strong>Age:</strong> 18+ years</li>
-                    <li><strong>Frequency:</strong> 0.25 years (for diabetics)</li>
-                    <li><strong>Triggers:</strong> diabetes, prediabetes</li>
-                </ul>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -209,9 +163,6 @@
                             </button>
                         </div>
                         <div class="autocomplete-dropdown" id="conditionAutocompleteDropdown"></div>
-                    </div>
-                    <div class="form-text">
-                        Add medical conditions that trigger different screening protocols. Start typing for suggestions.
                     </div>
                 </div>
 

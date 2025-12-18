@@ -13,7 +13,6 @@
                     <i class="fas fa-stethoscope me-2 text-primary"></i>
                     Screening Management
                 </h1>
-                <p class="text-muted">Manage screening types and configurations</p>
             </div>
             <div>
                 <a href="{{ url_for('screening.add_screening_type') }}" class="btn btn-success">
@@ -79,9 +78,6 @@
                                         </div>
                                     </div>
                                 {% else %}
-                                    <div class="mt-1">
-                                        <small class="text-warning">No keywords configured</small>
-                                    </div>
                                 {% endif %}
                                 <div class="mt-1">
                                     <small class="text-muted">Conditions:</small>
@@ -262,9 +258,6 @@
                             </button>
                         </div>
                         <div class="autocomplete-dropdown" id="conditionAutocompleteDropdown"></div>
-                    </div>
-                    <div class="form-text">
-                        Add medical conditions that trigger different screening protocols. Start typing for suggestions.
                     </div>
                 </div>
                 

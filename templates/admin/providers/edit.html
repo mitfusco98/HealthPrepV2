@@ -14,7 +14,6 @@
                 </ol>
             </nav>
             <h2><i class="fas fa-edit me-2"></i>Edit Provider</h2>
-            <p class="text-muted">Update provider information</p>
         </div>
     </div>
 
@@ -43,11 +42,10 @@
                         </div>
 
                         <div class="mb-3">
-                            <label for="npi" class="form-label">NPI Number</label>
+                            <label for="npi" class="form-label">NPI Number (10 digits)</label>
                             <input type="text" class="form-control" id="npi" name="npi" 
                                    pattern="[0-9]{10}" maxlength="10"
                                    value="{{ provider.npi or '' }}">
-                            <div class="form-text">10-digit National Provider Identifier</div>
                         </div>
 
                         <div class="mb-4">
@@ -55,9 +53,6 @@
                                 <input class="form-check-input" type="checkbox" id="is_active" name="is_active"
                                        {% if provider.is_active %}checked{% endif %}>
                                 <label class="form-check-label" for="is_active">Active Provider</label>
-                            </div>
-                            <div class="form-text">
-                                Deactivating a provider will remove them from your billing but preserve their data.
                             </div>
                         </div>
 

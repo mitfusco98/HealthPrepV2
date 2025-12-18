@@ -34,7 +34,6 @@
                             <input type="url" class="form-control" id="emr_endpoint" name="emr_endpoint" 
                                    value="{{ settings.emr_endpoint }}" 
                                    placeholder="https://fhir.epic.com/api/FHIR/R4/">
-                            <div class="form-text">FHIR R4 endpoint URL for your EMR system</div>
                         </div>
                         
                         <div class="mb-3">
@@ -65,7 +64,6 @@
                                     Enable Real-time Webhooks
                                 </label>
                             </div>
-                            <div class="form-text">Allow EMR system to send real-time change notifications</div>
                         </div>
                         
                         <div class="mb-3">
@@ -76,7 +74,6 @@
                                     Enable Selective Refresh
                                 </label>
                             </div>
-                            <div class="form-text">Only update affected screenings for improved efficiency</div>
                         </div>
                         
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
@@ -95,67 +92,11 @@
             <div class="card">
                 <div class="card-header bg-light">
                     <h6 class="card-title mb-0">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Selective Refresh Benefits
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <h6 class="text-primary">Maximum Efficiency</h6>
-                    <p class="small text-muted">
-                        Selective refresh automatically detects what has changed and only regenerates affected screenings, 
-                        preserving unchanged data for optimal performance.
-                    </p>
-                    
-                    <h6 class="text-primary">Change Detection</h6>
-                    <ul class="small text-muted">
-                        <li>Screening type modifications</li>
-                        <li>New or deleted documents</li>
-                        <li>Patient demographic changes</li>
-                        <li>Condition updates</li>
-                    </ul>
-                    
-                    <h6 class="text-primary">Smart Updates</h6>
-                    <p class="small text-muted">
-                        The system identifies which screenings are affected by changes and only updates those, 
-                        while preserving all unaffected screening data.
-                    </p>
-                </div>
-            </div>
-            
-            <div class="card mt-3">
-                <div class="card-header bg-light">
-                    <h6 class="card-title mb-0">
-                        <i class="fas fa-shield-alt me-2"></i>
-                        Security & Compliance
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <h6 class="text-primary">FHIR R4 Compliance</h6>
-                    <p class="small text-muted">
-                        Full support for FHIR R4 standard ensuring compatibility with major EMR systems.
-                    </p>
-                    
-                    <h6 class="text-primary">HIPAA Security</h6>
-                    <p class="small text-muted">
-                        All data transmission is encrypted and complies with HIPAA security requirements.
-                    </p>
-                    
-                    <h6 class="text-primary">Audit Trail</h6>
-                    <p class="small text-muted">
-                        Complete logging of all synchronization activities for compliance and monitoring.
-                    </p>
-                </div>
-            </div>
-            
-            <div class="card mt-3">
-                <div class="card-header bg-light">
-                    <h6 class="card-title mb-0">
                         <i class="fas fa-test-tube me-2"></i>
                         Connection Test
                     </h6>
                 </div>
                 <div class="card-body">
-                    <p class="small text-muted">Test your EMR connection before saving settings</p>
                     <button type="button" class="btn btn-outline-primary btn-sm" onclick="testConnection()">
                         <i class="fas fa-plug me-1"></i>
                         Test Connection
