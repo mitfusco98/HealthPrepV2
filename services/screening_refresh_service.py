@@ -19,7 +19,8 @@ from flask_login import current_user
 
 from models import (
     db, Patient, Screening, ScreeningType, Document, FHIRDocument, AdminLog,
-    PatientCondition, PrepSheetSettings, ScreeningDocumentMatch, FHIRImmunization
+    PatientCondition, PrepSheetSettings, ScreeningDocumentMatch, FHIRImmunization,
+    Organization
 )
 from core.matcher import DocumentMatcher
 from core.criteria import EligibilityCriteria
@@ -82,31 +83,61 @@ class ScreeningRefreshService:
             
             # Early termination if no changes needed
             if not changes_detected['needs_refresh']:
-                logger.info("No changes detected - early termination")
+                logger.info("No changes detected - applying dormancy check only")
+                # Still apply dormancy logic even if no document/criteria changes
+                dormancy_result = self._apply_appointment_prioritization_dormancy()
                 self._log_refresh_event('screening_refresh_completed_early', {
                     'reason': 'no_changes_detected',
-                    'organization_id': self.organization_id
+                    'organization_id': self.organization_id,
+                    'dormancy_applied': dormancy_result
                 })
-                return {
-                    'success': True,
-                    'message': 'No changes detected - screenings are up to date',
-                    'stats': self.refresh_stats
-                }
+                # Commit with rollback on failure to ensure clean session state
+                try:
+                    db.session.commit()
+                    return {
+                        'success': True,
+                        'message': 'No changes detected - dormancy updated based on appointments',
+                        'stats': self.refresh_stats,
+                        'dormancy_applied': dormancy_result
+                    }
+                except Exception as commit_error:
+                    logger.error(f"Commit failed in early-return: {commit_error}")
+                    db.session.rollback()
+                    return {
+                        'success': False,
+                        'error': f"Commit failed: {str(commit_error)}",
+                        'stats': self.refresh_stats
+                    }
             
             # Process affected screenings
             affected_patients = self._get_affected_patients(changes_detected, refresh_options)
             
             if not affected_patients:
-                logger.info("No affected patients found - early termination")
+                logger.info("No affected patients found - applying dormancy check only")
+                # Still apply dormancy logic even if no affected patients
+                dormancy_result = self._apply_appointment_prioritization_dormancy()
                 self._log_refresh_event('screening_refresh_completed_early', {
                     'reason': 'no_affected_patients',
-                    'organization_id': self.organization_id
+                    'organization_id': self.organization_id,
+                    'dormancy_applied': dormancy_result
                 })
-                return {
-                    'success': True,
-                    'message': 'No patients affected by changes',
-                    'stats': self.refresh_stats
-                }
+                # Commit with rollback on failure to ensure clean session state
+                try:
+                    db.session.commit()
+                    return {
+                        'success': True,
+                        'message': 'No patients affected - dormancy updated based on appointments',
+                        'stats': self.refresh_stats,
+                        'dormancy_applied': dormancy_result
+                    }
+                except Exception as commit_error:
+                    logger.error(f"Commit failed in early-return: {commit_error}")
+                    db.session.rollback()
+                    return {
+                        'success': False,
+                        'error': f"Commit failed: {str(commit_error)}",
+                        'stats': self.refresh_stats
+                    }
             
             # Pre-fetch screening types once for all patients (avoid per-patient query)
             screening_types = ScreeningType.query.filter_by(
@@ -132,27 +163,52 @@ class ScreeningRefreshService:
             
             # Early termination if no actual updates occurred
             if self.refresh_stats['screenings_updated'] == 0:
-                logger.info("No screening updates needed - early termination")
+                logger.info("No screening updates needed - applying dormancy check")
+                # Still apply dormancy logic even if no screening updates
+                dormancy_result = self._apply_appointment_prioritization_dormancy()
                 self._log_refresh_event('screening_refresh_completed_early', {
                     'reason': 'no_updates_needed',
                     'patients_processed': len(affected_patients),
-                    'organization_id': self.organization_id
+                    'organization_id': self.organization_id,
+                    'dormancy_applied': dormancy_result
                 })
-                return {
-                    'success': True,
-                    'message': 'No screening updates needed',
-                    'stats': self.refresh_stats
-                }
+                # Commit with rollback on failure to ensure clean session state
+                try:
+                    db.session.commit()
+                    return {
+                        'success': True,
+                        'message': 'No screening updates needed',
+                        'stats': self.refresh_stats,
+                        'dormancy_applied': dormancy_result
+                    }
+                except Exception as commit_error:
+                    logger.error(f"Commit failed in early-return: {commit_error}")
+                    db.session.rollback()
+                    return {
+                        'success': False,
+                        'error': f"Commit failed: {str(commit_error)}",
+                        'stats': self.refresh_stats
+                    }
             
-            db.session.commit()
+            # Apply appointment prioritization dormancy after processing
+            dormancy_result = self._apply_appointment_prioritization_dormancy()
+            self.refresh_stats['dormancy_result'] = dormancy_result
             self.refresh_stats['end_time'] = datetime.utcnow()
             
-            # Log successful completion
+            # Log successful completion before commit so it's included in the transaction
             self._log_refresh_event('screening_refresh_completed', {
                 'organization_id': self.organization_id,
                 'stats': self.refresh_stats,
                 'duration_seconds': (self.refresh_stats['end_time'] - self.refresh_stats['start_time']).total_seconds()
             })
+            
+            # Commit with rollback on failure to ensure clean session state
+            try:
+                db.session.commit()
+            except Exception as commit_error:
+                logger.error(f"Commit failed in success path: {commit_error}")
+                db.session.rollback()
+                raise  # Re-raise to trigger error handling
             
             logger.info(f"Screening refresh completed successfully: {self.refresh_stats}")
             
@@ -170,12 +226,17 @@ class ScreeningRefreshService:
             self.refresh_stats['end_time'] = datetime.utcnow()
             self.refresh_stats['errors'].append(error_msg)
             
-            # Log error
-            self._log_refresh_event('screening_refresh_error', {
-                'organization_id': self.organization_id,
-                'error': str(e),
-                'stats': self.refresh_stats
-            })
+            # Log error in a new transaction after rollback
+            try:
+                self._log_refresh_event('screening_refresh_error', {
+                    'organization_id': self.organization_id,
+                    'error': str(e),
+                    'stats': self.refresh_stats
+                })
+                db.session.commit()  # Commit the error log
+            except Exception as log_error:
+                logger.error(f"Failed to log refresh error: {log_error}")
+                db.session.rollback()  # Ensure clean session state
             
             return {
                 'success': False,
@@ -846,10 +907,142 @@ class ScreeningRefreshService:
             )
             
             db.session.add(admin_log)
-            db.session.commit()
+            # Don't commit or flush here - let the caller's commit include this log entry
+            # This ensures atomic transaction handling across all paths
             
         except Exception as e:
             logger.error(f"Error logging refresh event: {str(e)}")
+    
+    def _apply_appointment_prioritization_dormancy(self) -> Dict[str, Any]:
+        """
+        Apply appointment prioritization dormancy rules to screenings.
+        
+        This method checks the organization's appointment prioritization settings
+        and marks screenings as dormant/active based on whether patients have
+        upcoming appointments.
+        
+        Returns:
+            Dict with dormancy application results
+        """
+        result = {
+            'applied': False,
+            'priority_patients_activated': 0,
+            'non_scheduled_marked_dormant': 0,
+            'stale_patients_reactivated': 0,
+            'setting_enabled': False,
+            'process_non_scheduled': False
+        }
+        
+        try:
+            # Get organization settings
+            organization = Organization.query.get(self.organization_id)
+            if not organization:
+                logger.warning(f"Organization {self.organization_id} not found for dormancy check")
+                return result
+            
+            # Check if appointment prioritization is enabled
+            if not organization.appointment_based_prioritization:
+                logger.info("Appointment prioritization is disabled - skipping dormancy logic")
+                return result
+            
+            result['setting_enabled'] = True
+            result['process_non_scheduled'] = organization.process_non_scheduled_patients
+            
+            # Get priority patients (those with upcoming appointments)
+            from services.appointment_prioritization import AppointmentBasedPrioritization
+            prioritization_service = AppointmentBasedPrioritization(self.organization_id)
+            priority_patient_ids = set(prioritization_service.get_priority_patients())
+            
+            logger.info(f"Found {len(priority_patient_ids)} priority patients with upcoming appointments")
+            
+            # Mark priority patients as NOT dormant (active)
+            if priority_patient_ids:
+                active_count = Screening.query.filter(
+                    Screening.org_id == self.organization_id,
+                    Screening.patient_id.in_(priority_patient_ids),
+                    Screening.is_dormant == True
+                ).update({'is_dormant': False, 'last_processed': datetime.utcnow()}, synchronize_session=False)
+                
+                result['priority_patients_activated'] = active_count
+                if active_count > 0:
+                    logger.info(f"Reactivated {active_count} screenings for priority patients")
+            
+            # Get non-scheduled patients
+            non_scheduled_ids = prioritization_service.get_non_scheduled_patients(
+                exclude_patient_ids=list(priority_patient_ids)
+            )
+            
+            if organization.process_non_scheduled_patients:
+                # Process stale patients in batches when enabled
+                logger.info("Processing non-scheduled patients (process_non_scheduled_patients is enabled)")
+                
+                # Calculate batch size cap - proportional to scheduled patient volume
+                batch_size_cap = max(1, int(len(priority_patient_ids) * 0.5)) if priority_patient_ids else 5
+                
+                # Get stale patients (those with dormant screenings) for reactivation
+                stale_patient_ids = prioritization_service.get_stale_patients(
+                    exclude_patient_ids=list(priority_patient_ids)
+                )
+                
+                if stale_patient_ids:
+                    # Process up to batch_size_cap stale patients
+                    patients_to_reactivate = stale_patient_ids[:batch_size_cap]
+                    
+                    if patients_to_reactivate:
+                        reactivate_count = Screening.query.filter(
+                            Screening.org_id == self.organization_id,
+                            Screening.patient_id.in_(patients_to_reactivate),
+                            Screening.is_dormant == True
+                        ).update({'is_dormant': False, 'last_processed': datetime.utcnow()}, synchronize_session=False)
+                        
+                        result['stale_patients_reactivated'] = reactivate_count
+                        logger.info(f"Reactivated {reactivate_count} screenings for {len(patients_to_reactivate)} stale non-scheduled patients")
+                    
+                    # Mark remaining non-scheduled patients as dormant
+                    remaining_non_scheduled = [pid for pid in non_scheduled_ids if pid not in patients_to_reactivate]
+                    if remaining_non_scheduled:
+                        dormant_count = Screening.query.filter(
+                            Screening.org_id == self.organization_id,
+                            Screening.patient_id.in_(remaining_non_scheduled),
+                            Screening.is_dormant == False
+                        ).update({'is_dormant': True}, synchronize_session=False)
+                        
+                        result['non_scheduled_marked_dormant'] = dormant_count
+                        if dormant_count > 0:
+                            logger.info(f"Marked {dormant_count} screenings as dormant for remaining non-scheduled patients")
+                else:
+                    # No stale patients - mark all non-scheduled as dormant (they're already processed)
+                    dormant_count = Screening.query.filter(
+                        Screening.org_id == self.organization_id,
+                        Screening.patient_id.in_(non_scheduled_ids),
+                        Screening.is_dormant == False
+                    ).update({'is_dormant': True}, synchronize_session=False)
+                    
+                    result['non_scheduled_marked_dormant'] = dormant_count
+            else:
+                # Mark ALL non-scheduled patients as dormant when disabled
+                logger.info(f"Marking {len(non_scheduled_ids)} non-scheduled patients as dormant (process_non_scheduled_patients is disabled)")
+                
+                if non_scheduled_ids:
+                    dormant_count = Screening.query.filter(
+                        Screening.org_id == self.organization_id,
+                        Screening.patient_id.in_(non_scheduled_ids),
+                        Screening.is_dormant == False
+                    ).update({'is_dormant': True}, synchronize_session=False)
+                    
+                    result['non_scheduled_marked_dormant'] = dormant_count
+                    if dormant_count > 0:
+                        logger.info(f"Marked {dormant_count} screenings as dormant for non-scheduled patients")
+            
+            result['applied'] = True
+            logger.info(f"Appointment prioritization dormancy applied: {result}")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error applying appointment prioritization dormancy: {str(e)}")
+            result['error'] = str(e)
+            return result
     
     def _get_default_refresh_options(self) -> Dict:
         """Get default refresh options"""
