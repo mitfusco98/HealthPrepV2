@@ -214,6 +214,11 @@ def create_app():
         # This is required before root admin can log in or perform any actions
         _ensure_system_organization(db, models.Organization, models.User)
         
+        # Ensure global screening presets exist and are owned by system
+        # These presets persist across AWS migrations and user deletions
+        from utils.seed_global_presets import ensure_global_presets
+        ensure_global_presets(db, models.ScreeningPreset, models.User)
+        
         # Process any existing unmatched documents on startup (disabled by default for performance)
         # Enable with environment variable: STARTUP_PROCESS_DOCS=true
         # Document processing should be triggered by EMR sync or screening list refresh instead

@@ -1440,6 +1440,16 @@ def delete_user(user_id):
 
         username = user.username
         
+        # Reassign any global presets created by this user to root admin
+        # This ensures global presets persist when their creator is deleted
+        from utils.seed_global_presets import reassign_user_global_presets
+        from models import ScreeningPreset, User as UserModel
+        root_admin = UserModel.query.filter_by(is_root_admin=True).first()
+        if root_admin and root_admin.id != user.id:
+            reassigned_count = reassign_user_global_presets(db, ScreeningPreset, user.id, root_admin.id)
+            if reassigned_count > 0:
+                logger.info(f"Reassigned {reassigned_count} global presets from user {user.id} to root admin before deletion")
+        
         # Log the action before deletion
         try:
             log_admin_event(

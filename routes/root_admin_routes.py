@@ -239,6 +239,13 @@ def delete_universal_preset(preset_id):
         preset = ScreeningPreset.query.get_or_404(preset_id)
         preset_name = preset.name
 
+        # Protect ALL system global presets from deletion
+        # Global presets (org_id=0 and preset_scope='global') are system-owned and should never be deleted
+        # They persist across AWS migrations and are the source of truth for standard screening protocols
+        if preset.preset_scope == 'global' and preset.org_id == 0:
+            flash(f'Cannot delete system global preset "{preset_name}" - system presets are protected', 'error')
+            return redirect(url_for('root_admin.presets'))
+
         # Log the action before deletion
         log_admin_event(
             event_type='universal_preset_deleted',
@@ -1279,6 +1286,16 @@ def delete_user(user_id):
 
         username = user.username
         org_name = user.organization.name if user.organization else 'Unknown'
+
+        # Reassign any global presets created by this user to root admin
+        # This ensures global presets persist when their creator is deleted
+        from utils.seed_global_presets import reassign_user_global_presets
+        from models import ScreeningPreset
+        root_admin = User.query.filter_by(is_root_admin=True).first()
+        if root_admin and root_admin.id != user_id:
+            reassigned_count = reassign_user_global_presets(db, ScreeningPreset, user_id, root_admin.id)
+            if reassigned_count > 0:
+                logger.info(f"Reassigned {reassigned_count} global presets from user {user_id} to root admin before deletion")
 
         # Log before deletion
         log_admin_event(
