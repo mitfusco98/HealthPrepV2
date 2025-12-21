@@ -94,14 +94,13 @@ class ScreeningEngine:
                                 # Mark processed non-scheduled patients as active
                                 self._mark_patient_screenings_dormancy(patient_id, is_dormant=False)
                             
-                            # Mark remaining non-scheduled patients as dormant
+                            # When process_non_scheduled_patients is enabled, keep ALL non-scheduled active
+                            # Do NOT mark any as dormant - they should all remain processable
                             all_non_scheduled = prioritization_service.get_non_scheduled_patients(
                                 exclude_patient_ids=priority_patient_ids
                             )
-                            processed_set = set(patients_to_process)
                             for patient_id in all_non_scheduled:
-                                if patient_id not in processed_set:
-                                    self._mark_patient_screenings_dormancy(patient_id, is_dormant=True)
+                                self._mark_patient_screenings_dormancy(patient_id, is_dormant=False)
                         else:
                             # Mark non-scheduled patients as dormant (stale data)
                             non_scheduled_ids = prioritization_service.get_non_scheduled_patients(

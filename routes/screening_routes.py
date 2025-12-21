@@ -147,7 +147,10 @@ def screening_list():
         
         # Throttle dormancy batch updates using Provider.last_dormancy_check column
         # This persists across sessions and ensures once-per-hour limit per provider
-        if appointment_prioritization_enabled and active_provider:
+        # Skip dormancy marking entirely when process_non_scheduled_patients is enabled
+        process_non_scheduled = current_user.organization and current_user.organization.process_non_scheduled_patients
+        
+        if appointment_prioritization_enabled and active_provider and not process_non_scheduled:
             dormancy_ttl_seconds = 3600  # 1 hour
             now = datetime.utcnow()
             

@@ -973,52 +973,26 @@ class ScreeningRefreshService:
             )
             
             if organization.process_non_scheduled_patients:
-                # Process stale patients in batches when enabled
+                # When enabled, keep ALL non-scheduled patients active (not dormant)
+                # This ensures their screenings continue to be processed
                 logger.info("Processing non-scheduled patients (process_non_scheduled_patients is enabled)")
                 
-                # Calculate batch size cap - proportional to scheduled patient volume
-                batch_size_cap = max(1, int(len(priority_patient_ids) * 0.5)) if priority_patient_ids else 5
-                
-                # Get stale patients (those with dormant screenings) for reactivation
-                stale_patient_ids = prioritization_service.get_stale_patients(
-                    exclude_patient_ids=list(priority_patient_ids)
-                )
-                
-                if stale_patient_ids:
-                    # Process up to batch_size_cap stale patients
-                    patients_to_reactivate = stale_patient_ids[:batch_size_cap]
-                    
-                    if patients_to_reactivate:
-                        reactivate_count = Screening.query.filter(
-                            Screening.org_id == self.organization_id,
-                            Screening.patient_id.in_(patients_to_reactivate),
-                            Screening.is_dormant == True
-                        ).update({'is_dormant': False, 'last_processed': datetime.utcnow()}, synchronize_session=False)
-                        
-                        result['stale_patients_reactivated'] = reactivate_count
-                        logger.info(f"Reactivated {reactivate_count} screenings for {len(patients_to_reactivate)} stale non-scheduled patients")
-                    
-                    # Mark remaining non-scheduled patients as dormant
-                    remaining_non_scheduled = [pid for pid in non_scheduled_ids if pid not in patients_to_reactivate]
-                    if remaining_non_scheduled:
-                        dormant_count = Screening.query.filter(
-                            Screening.org_id == self.organization_id,
-                            Screening.patient_id.in_(remaining_non_scheduled),
-                            Screening.is_dormant == False
-                        ).update({'is_dormant': True}, synchronize_session=False)
-                        
-                        result['non_scheduled_marked_dormant'] = dormant_count
-                        if dormant_count > 0:
-                            logger.info(f"Marked {dormant_count} screenings as dormant for remaining non-scheduled patients")
-                else:
-                    # No stale patients - mark all non-scheduled as dormant (they're already processed)
-                    dormant_count = Screening.query.filter(
+                if non_scheduled_ids:
+                    # Reactivate any dormant non-scheduled patients
+                    reactivate_count = Screening.query.filter(
                         Screening.org_id == self.organization_id,
                         Screening.patient_id.in_(non_scheduled_ids),
-                        Screening.is_dormant == False
-                    ).update({'is_dormant': True}, synchronize_session=False)
+                        Screening.is_dormant == True
+                    ).update({'is_dormant': False, 'last_processed': datetime.utcnow()}, synchronize_session=False)
                     
-                    result['non_scheduled_marked_dormant'] = dormant_count
+                    if reactivate_count > 0:
+                        result['non_scheduled_reactivated'] = reactivate_count
+                        logger.info(f"Reactivated {reactivate_count} screenings for non-scheduled patients (setting enabled)")
+                    else:
+                        logger.info(f"All {len(non_scheduled_ids)} non-scheduled patients already active")
+                
+                # Do NOT mark any non-scheduled patients as dormant when setting is enabled
+                result['non_scheduled_marked_dormant'] = 0
             else:
                 # Mark ALL non-scheduled patients as dormant when disabled
                 logger.info(f"Marking {len(non_scheduled_ids)} non-scheduled patients as dormant (process_non_scheduled_patients is disabled)")
