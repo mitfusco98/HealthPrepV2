@@ -171,7 +171,7 @@ SAMPLE_PATIENTS = [
     {
         'name': 'SAMPLE_Williams_Mary',
         'mrn': 'SAMPLE001',
-        'gender': 'female',
+        'gender': 'F',
         'age_years': 52,
         'conditions': ['diabetes type 2'],
         'is_stale': True
@@ -179,7 +179,7 @@ SAMPLE_PATIENTS = [
     {
         'name': 'SAMPLE_Johnson_Robert',
         'mrn': 'SAMPLE002',
-        'gender': 'male',
+        'gender': 'M',
         'age_years': 67,
         'conditions': ['hypertension', 'copd'],
         'is_stale': True
@@ -187,7 +187,7 @@ SAMPLE_PATIENTS = [
     {
         'name': 'SAMPLE_Davis_Patricia',
         'mrn': 'SAMPLE003',
-        'gender': 'female',
+        'gender': 'F',
         'age_years': 45,
         'conditions': [],
         'is_stale': True
