@@ -1346,25 +1346,18 @@ def edit_user(user_id):
             flash('Access denied', 'error')
             return redirect(url_for('admin.users'))
 
-        email = request.form.get('email')
         role = request.form.get('role')
         admin_type = request.form.get('admin_type', 'business_admin')  # For admin role
         is_active = request.form.get('is_active') == 'on'
 
-        # Validate input
-        if not email or not role:
-            flash('Email and role are required', 'error')
+        # Validate input (email cannot be changed after account creation)
+        if not role:
+            flash('Role is required', 'error')
             return redirect(url_for('admin.users'))
         
         # Validate admin_type if role is admin
         if role == 'admin' and admin_type not in ('provider', 'business_admin'):
             admin_type = 'business_admin'
-
-        # Check for duplicate email within organization (excluding current user)
-        existing_email = User.query.filter_by(email=email, org_id=org_id).filter(User.id != user_id).first()
-        if existing_email:
-            flash('Email already exists in this organization', 'error')
-            return redirect(url_for('admin.users'))
 
         # Capture before values for logging
         before_values = {
@@ -1376,8 +1369,7 @@ def edit_user(user_id):
             'is_active_user': user.is_active_user
         }
 
-        # Update user (username cannot be changed)
-        user.email = email
+        # Update user (username and email cannot be changed after account creation)
         user.role = role
         user.is_admin = (role == 'admin')
         user.admin_type = admin_type if role == 'admin' else None
