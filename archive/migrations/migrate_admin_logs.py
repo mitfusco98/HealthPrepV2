@@ -36,16 +36,13 @@ def migrate_admin_logs():
             print("event_type column already exists")
         
         # Check for other missing columns and add them
-        expected_columns = ['id', 'timestamp', 'event_type', 'user_id', 'ip_address', 'data']
+        if 'data' not in columns:
+            print("Adding data column...")
+            cursor.execute("ALTER TABLE admin_logs ADD COLUMN data JSON")
         
-        for col in expected_columns:
-            if col not in columns:
-                if col == 'data':
-                    print(f"Adding {col} column...")
-                    cursor.execute(f"ALTER TABLE admin_logs ADD COLUMN {col} JSON")
-                elif col == 'ip_address':
-                    print(f"Adding {col} column...")
-                    cursor.execute(f"ALTER TABLE admin_logs ADD COLUMN {col} VARCHAR(45)")
+        if 'ip_address' not in columns:
+            print("Adding ip_address column...")
+            cursor.execute("ALTER TABLE admin_logs ADD COLUMN ip_address VARCHAR(45)")
                     
         conn.commit()
         conn.close()
