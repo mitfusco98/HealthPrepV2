@@ -882,19 +882,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pdfminer-six"
-version = "20251107"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "charset-normalizer" },
-    { name = "cryptography" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/1d/50/5315f381a25dc80a8d2ea7c62d9a28c0137f10ccc263623a0db8b49fcced/pdfminer_six-20251107.tar.gz", hash = "sha256:5fb0c553799c591777f22c0c72b77fc2522d7d10c70654e25f4c5f1fd996e008", size = 7387104, upload-time = "2025-11-07T20:01:10.286Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/64/29/d1d9f6b900191288b77613ddefb73ed35b48fb35e44aaf8b01b0422b759d/pdfminer_six-20251107-py3-none-any.whl", hash = "sha256:c09df33e4cbe6b26b2a79248a4ffcccafaa5c5d39c9fff0e6e81567f165b5401", size = 5620299, upload-time = "2025-11-07T20:01:08.722Z" },
-]
-
-[[package]]
 name = "pillow"
 version = "11.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1276,7 +1263,6 @@ dependencies = [
     { name = "oauthlib" },
     { name = "opencv-python" },
     { name = "pdf2image" },
-    { name = "pdfminer-six" },
     { name = "pillow" },
     { name = "psutil" },
     { name = "psycopg2-binary" },
@@ -1317,7 +1303,6 @@ requires-dist = [
     { name = "oauthlib", specifier = ">=3.3.1" },
     { name = "opencv-python", specifier = ">=4.12.0.88" },
     { name = "pdf2image", specifier = ">=1.17.0" },
-    { name = "pdfminer-six", specifier = ">=20251107" },
     { name = "pillow", specifier = ">=11.3.0" },
     { name = "psutil", specifier = ">=7.0.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.10" },

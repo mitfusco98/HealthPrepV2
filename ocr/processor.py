@@ -4,7 +4,7 @@ Supports PDF, images, Word documents (.docx, .doc), RTF, HTML, EML, and plain te
 
 Performance optimizations:
 - Machine-readable PDF detection: Extracts embedded text before OCR (20-30% faster)
-- Multi-library PDF extraction: PyMuPDF → pdfminer.six → OCR fallback chain
+- PDF extraction: PyMuPDF → OCR fallback chain
 - Per-page hybrid processing: Only OCR pages that lack embedded text
 - Configurable parallel workers via OCR_MAX_WORKERS environment variable
 - Batch processing with isolated database sessions for thread safety
@@ -28,11 +28,6 @@ try:
 except ImportError:
     PYMUPDF_AVAILABLE = False
 
-try:
-    from pdfminer.high_level import extract_text as pdfminer_extract_text
-    PDFMINER_AVAILABLE = True
-except ImportError:
-    PDFMINER_AVAILABLE = False
 
 try:
     from docx import Document as DocxDocument
@@ -256,25 +251,6 @@ class OCRProcessor:
             self.logger.warning(f"Error extracting embedded PDF text: {str(e)}")
             return None, False
 
-    def _extract_pdf_text_pdfminer(self, pdf_path):
-        """
-        Fallback PDF text extraction using pdfminer.six.
-        Used when PyMuPDF returns insufficient text.
-        """
-        if not PDFMINER_AVAILABLE:
-            return None, False
-        
-        try:
-            text = pdfminer_extract_text(pdf_path)
-            if text and len(text.strip()) >= MIN_TEXT_LENGTH_FOR_SKIP_OCR:
-                self.logger.info(
-                    f"pdfminer.six extracted {len(text)} chars from PDF, skipping OCR"
-                )
-                return text.strip(), True
-            return None, False
-        except Exception as e:
-            self.logger.warning(f"pdfminer.six extraction failed: {str(e)}")
-            return None, False
 
     def _process_pdf(self, pdf_path):
         """
@@ -282,8 +258,7 @@ class OCRProcessor:
         
         Extraction chain (in order of preference):
         1. PyMuPDF embedded text extraction (fastest)
-        2. pdfminer.six text extraction (catches edge cases)
-        3. OCR via Tesseract (slowest, for scanned documents)
+        2. OCR via Tesseract (slowest, for scanned documents)
         
         This reduces processing time by 20-30% for typical document sets.
         """
@@ -293,12 +268,6 @@ class OCRProcessor:
         if is_machine_readable and embedded_text:
             # Machine-readable PDF - no OCR needed, confidence is 1.0
             return embedded_text, 1.0
-        
-        # Second, try pdfminer.six as fallback (catches some PDFs PyMuPDF misses)
-        pdfminer_text, pdfminer_success = self._extract_pdf_text_pdfminer(pdf_path)
-        
-        if pdfminer_success and pdfminer_text:
-            return pdfminer_text, 0.95  # Slightly lower confidence than PyMuPDF
         
         # Fall back to hybrid per-page processing
         # For each page: use embedded text if available, otherwise OCR

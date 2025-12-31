@@ -53,12 +53,11 @@ The system uses a cascading extraction strategy to avoid expensive OCR whenever 
 
 **PDF Extraction Chain:**
 1. **PyMuPDF** (fastest) - Extracts embedded text from machine-readable PDFs
-2. **pdfminer.six** (fallback) - Catches edge cases PyMuPDF misses
-3. **Hybrid per-page processing** - For mixed PDFs, extracts text from digital pages and only OCRs scanned pages
-4. **Tesseract OCR** (last resort) - For fully scanned/image-based documents
+2. **Hybrid per-page processing** - For mixed PDFs, extracts text from digital pages and only OCRs scanned pages
+3. **Tesseract OCR** (last resort) - For fully scanned/image-based documents
 
 **Supported File Formats (Direct Extraction):**
-- PDF (PyMuPDF + pdfminer.six)
+- PDF (PyMuPDF)
 - DOCX (python-docx)
 - DOC (antiword/catdoc/LibreOffice)
 - RTF (striprtf)
