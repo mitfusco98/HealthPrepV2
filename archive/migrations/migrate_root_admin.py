@@ -59,15 +59,20 @@ def create_root_admin_interactive():
             print(f"📧 Email: {existing_root.email}")
             return
         
-        # Create root admin with default credentials for testing
-        username = "rootadmin"
-        email = "admin@healthprep.com"
-        password = "rootadmin123"
+        # Create root admin with credentials from environment variables
+        username = os.environ.get("ROOT_ADMIN_USERNAME", "rootadmin")
+        email = os.environ.get("ROOT_ADMIN_EMAIL", "admin@healthprep.com")
+        password = os.environ.get("ROOT_ADMIN_PASSWORD")
         
-        print(f"Creating default root admin user:")
+        if not password:
+            print("❌ ROOT_ADMIN_PASSWORD environment variable is required")
+            print("   Set it using: export ROOT_ADMIN_PASSWORD='your-secure-password'")
+            return
+        
+        print(f"Creating root admin user:")
         print(f"Username: {username}")
         print(f"Email: {email}")
-        print(f"Password: {password}")
+        print(f"Password: [REDACTED]")
         print()
         
         try:
@@ -93,7 +98,7 @@ def create_root_admin_interactive():
             print()
             print("📋 Login credentials:")
             print(f"   Username: {username}")
-            print(f"   Password: {password}")
+            print(f"   Password: [use ROOT_ADMIN_PASSWORD env var value]")
             print()
             print("⚠️  Remember to change the password after first login!")
             
