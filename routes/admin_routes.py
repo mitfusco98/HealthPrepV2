@@ -833,7 +833,7 @@ def view_log_details(log_id):
 def export_logs():
     """Export admin logs as CSV"""
     try:
-        import csv
+        import defusedcsv as csv
         from io import StringIO
         
         # Get export parameters

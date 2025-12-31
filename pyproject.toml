@@ -40,4 +40,5 @@ dependencies = [
     "python-docx>=1.2.0",
     "striprtf>=0.0.29",
     "beautifulsoup4>=4.14.3",
+    "defusedcsv>=3.0.0",
 ]
