@@ -48,13 +48,15 @@ def add_fhir_mapping_columns():
                 'fhir_document_types'
             ]
             
+            allowed_columns = frozenset(columns_to_add)
+            
             for column in columns_to_add:
+                if column not in allowed_columns:
+                    raise ValueError(f"Invalid column name: {column}")
                 if column not in existing_columns:
                     logger.info(f"Adding column: {column}")
-                    db.session.execute(text(f"""
-                        ALTER TABLE screening_type 
-                        ADD COLUMN {column} TEXT
-                    """))
+                    stmt = text("ALTER TABLE screening_type ADD COLUMN " + column + " TEXT")
+                    db.session.execute(stmt)
                     db.session.commit()
                     logger.info(f"Successfully added column: {column}")
                 else:
