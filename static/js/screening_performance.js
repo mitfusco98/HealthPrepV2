@@ -516,35 +516,76 @@ class ScreeningPerformance {
     }
 
     /**
-     * Load document preview
+     * Load document preview using safe DOM methods
      */
     loadDocumentPreview(element, documentId) {
         const cacheKey = `document-preview-${documentId}`;
         
         if (this.cache.has(cacheKey)) {
-            element.innerHTML = this.cache.get(cacheKey);
+            this.renderDocumentPreview(element, this.cache.get(cacheKey));
             return;
         }
 
-        element.innerHTML = '<div class="loading-inline"><span class="loading-spinner loading-spinner-sm me-2"></span>Loading preview...</div>';
+        this.renderLoadingState(element, 'Loading preview...');
 
         // Simulate document preview loading
         setTimeout(() => {
-            const previewHtml = `
-                <div class="medical-document-preview">
-                    <div class="document-preview-header">
-                        <strong>Document Preview</strong>
-                        <span class="badge confidence-high ms-2">High Confidence</span>
-                    </div>
-                    <div class="document-preview-content">
-                        Preview content would be loaded here...
-                    </div>
-                </div>
-            `;
+            const previewData = {
+                title: 'Document Preview',
+                badgeText: 'High Confidence',
+                content: 'Preview content would be loaded here...'
+            };
             
-            this.cache.set(cacheKey, previewHtml);
-            element.innerHTML = previewHtml;
+            this.cache.set(cacheKey, previewData);
+            this.renderDocumentPreview(element, previewData);
         }, 500);
+    }
+
+    /**
+     * Render document preview using safe DOM methods (prevents XSS)
+     */
+    renderDocumentPreview(element, data) {
+        element.textContent = '';
+        
+        const container = document.createElement('div');
+        container.className = 'medical-document-preview';
+        
+        const header = document.createElement('div');
+        header.className = 'document-preview-header';
+        
+        const title = document.createElement('strong');
+        title.textContent = data.title;
+        header.appendChild(title);
+        
+        const badge = document.createElement('span');
+        badge.className = 'badge confidence-high ms-2';
+        badge.textContent = data.badgeText;
+        header.appendChild(badge);
+        
+        const content = document.createElement('div');
+        content.className = 'document-preview-content';
+        content.textContent = data.content;
+        
+        container.appendChild(header);
+        container.appendChild(content);
+        element.appendChild(container);
+    }
+
+    /**
+     * Render loading state using safe DOM methods
+     */
+    renderLoadingState(element, message) {
+        element.textContent = '';
+        
+        const container = document.createElement('div');
+        container.className = 'loading-inline';
+        
+        const spinner = document.createElement('span');
+        spinner.className = 'loading-spinner loading-spinner-sm me-2';
+        container.appendChild(spinner);
+        
+        container.appendChild(document.createTextNode(message));
+        element.appendChild(container);
     }
 
     /**
