@@ -589,38 +589,80 @@ class ScreeningPerformance {
     }
 
     /**
-     * Load screening details
+     * Load screening details using safe DOM methods
      */
     loadScreeningDetails(element, screeningId) {
         const cacheKey = `screening-details-${screeningId}`;
         
         if (this.cache.has(cacheKey)) {
-            element.innerHTML = this.cache.get(cacheKey);
+            this.renderScreeningDetails(element, this.cache.get(cacheKey));
             return;
         }
 
-        element.innerHTML = '<div class="skeleton skeleton-text"></div><div class="skeleton skeleton-text"></div>';
+        this.renderSkeletonLoader(element);
 
-        // Simulate screening details loading
         setTimeout(() => {
-            const detailsHtml = `
-                <div class="screening-details">
-                    <div class="row">
-                        <div class="col-6">
-                            <small class="text-muted">Status</small>
-                            <div class="fw-bold">Due Soon</div>
-                        </div>
-                        <div class="col-6">
-                            <small class="text-muted">Due Date</small>
-                            <div class="fw-bold">2024-03-15</div>
-                        </div>
-                    </div>
-                </div>
-            `;
+            const detailsData = {
+                status: 'Due Soon',
+                dueDate: '2024-03-15'
+            };
             
-            this.cache.set(cacheKey, detailsHtml);
-            element.innerHTML = detailsHtml;
+            this.cache.set(cacheKey, detailsData);
+            this.renderScreeningDetails(element, detailsData);
         }, 300);
+    }
+
+    /**
+     * Render skeleton loader using safe DOM methods
+     */
+    renderSkeletonLoader(element) {
+        element.textContent = '';
+        
+        for (let i = 0; i < 2; i++) {
+            const skeleton = document.createElement('div');
+            skeleton.className = 'skeleton skeleton-text';
+            element.appendChild(skeleton);
+        }
+    }
+
+    /**
+     * Render screening details using safe DOM methods
+     */
+    renderScreeningDetails(element, data) {
+        element.textContent = '';
+        
+        const container = document.createElement('div');
+        container.className = 'screening-details';
+        
+        const row = document.createElement('div');
+        row.className = 'row';
+        
+        const col1 = document.createElement('div');
+        col1.className = 'col-6';
+        const label1 = document.createElement('small');
+        label1.className = 'text-muted';
+        label1.textContent = 'Status';
+        const value1 = document.createElement('div');
+        value1.className = 'fw-bold';
+        value1.textContent = data.status;
+        col1.appendChild(label1);
+        col1.appendChild(value1);
+        
+        const col2 = document.createElement('div');
+        col2.className = 'col-6';
+        const label2 = document.createElement('small');
+        label2.className = 'text-muted';
+        label2.textContent = 'Due Date';
+        const value2 = document.createElement('div');
+        value2.className = 'fw-bold';
+        value2.textContent = data.dueDate;
+        col2.appendChild(label2);
+        col2.appendChild(value2);
+        
+        row.appendChild(col1);
+        row.appendChild(col2);
+        container.appendChild(row);
+        element.appendChild(container);
     }
 
     /**
