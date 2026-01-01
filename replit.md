@@ -115,6 +115,44 @@ The system implements comprehensive HIPAA-compliant document handling:
 - FHIR API call logging with PHI-safe redaction
 - Document processing events tracked
 
+### Security Hardening (January 2026)
+
+**Account Recovery Hardening:**
+- Rate limiting on password reset and username retrieval (5 attempts/5 min, 15 min lockout)
+- Opaque responses to prevent user enumeration attacks
+- Secure cryptographic token generation with 30-minute expiry
+- Session timeouts (10 min for password reset, 5 min for 2FA verification)
+- Maximum attempt tracking with lockout protection
+
+**OAuth & EMR Security:**
+- State parameter validation with 10-minute timeout for CSRF protection
+- Per-organization credential isolation
+- Session token tied to organization ID for security isolation
+- Comprehensive audit logging for OAuth connections
+
+**Document Security:**
+- Tenant-scoped RBAC for document access
+- Audit logging for document match dismissal/restoration
+- PHI-redacted CSV export with row integrity hashing
+- Immutable linkage tables for Epic IDs, matches, and dismissals
+
+**Session Security:**
+- Secure session cookies (HttpOnly, SameSite=Lax, Secure in production)
+- 1-hour session lifetime with refresh on each request
+- Session invalidation on security events
+
+**Security Headers:**
+- HSTS with 1-year max-age and preload
+- CSP to mitigate XSS and injection attacks
+- X-Frame-Options SAMEORIGIN for clickjacking protection
+- Permissions-Policy to disable unused browser features
+
+**2FA Hardening:**
+- Rate limiting on security question verification
+- Maximum 3 attempts with session-based tracking
+- Account lockout after failed verification attempts
+- Security event logging for failed and successful attempts
+
 ## External Dependencies
 - **FHIR-based EMRs:** e.g., Epic (for real-time data integration)
 - **FHIR R4:** For EMR compatibility and interoperability.

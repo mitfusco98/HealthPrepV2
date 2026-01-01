@@ -831,14 +831,16 @@ def view_log_details(log_id):
 @login_required
 @admin_required
 def export_logs():
-    """Export admin logs as CSV"""
+    """Export admin logs as CSV with PHI redaction for compliance"""
     try:
         import defusedcsv as csv
         from io import StringIO
+        import hashlib
         
         # Get export parameters
         days = request.args.get('days', 30, type=int)
         event_type = request.args.get('event_type', '')
+        include_phi = request.args.get('include_phi', 'false').lower() == 'true'
 
         # Export logs directly from AdminLog model - ORGANIZATION SCOPED
         start_date = datetime.utcnow() - timedelta(days=days)
@@ -857,45 +859,108 @@ def export_logs():
         si = StringIO()
         writer = csv.writer(si)
         
-        # Write header
+        # Write header with integrity hash column
         writer.writerow([
             'Timestamp',
             'Event Type',
             'User ID',
             'Username',
             'IP Address',
-            'Patient ID',
+            'Patient ID (Redacted)' if not include_phi else 'Patient ID',
             'Resource Type',
             'Resource ID',
             'Action Details',
-            'Data'
+            'Data (PHI Stripped)',
+            'Row Hash'  # Integrity verification
         ])
+        
+        # PHI fields to redact from data
+        phi_fields = {'patient_name', 'patient_email', 'patient_phone', 'patient_address', 
+                      'patient_dob', 'date_of_birth', 'ssn', 'social_security', 'email', 
+                      'phone', 'address', 'name', 'first_name', 'last_name'}
+        
+        def redact_phi_from_data(data_dict):
+            """Recursively redact PHI fields from data dictionary"""
+            if not isinstance(data_dict, dict):
+                return data_dict
+            
+            redacted = {}
+            for key, value in data_dict.items():
+                if key.lower() in phi_fields:
+                    redacted[key] = '[REDACTED]'
+                elif isinstance(value, dict):
+                    redacted[key] = redact_phi_from_data(value)
+                elif isinstance(value, list):
+                    redacted[key] = [redact_phi_from_data(item) if isinstance(item, dict) else item for item in value]
+                else:
+                    redacted[key] = value
+            return redacted
+        
+        def compute_row_hash(row_data):
+            """Compute SHA-256 hash for row integrity verification"""
+            row_str = '|'.join(str(field) for field in row_data)
+            return hashlib.sha256(row_str.encode()).hexdigest()[:16]
         
         # Write data rows
         for log in logs:
-            writer.writerow([
+            # Redact patient ID if PHI not included
+            patient_id_display = log.patient_id if include_phi else (f'P{hash(log.patient_id) % 10000:04d}' if log.patient_id else '')
+            
+            # Redact PHI from data field
+            data_display = ''
+            if log.data:
+                if include_phi:
+                    data_display = str(log.data)
+                else:
+                    redacted_data = redact_phi_from_data(log.data if isinstance(log.data, dict) else {})
+                    data_display = str(redacted_data)
+            
+            row_data = [
                 log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
                 log.event_type or '',
                 log.user_id or '',
                 log.user.username if log.user else 'System',
                 log.ip_address or '',
-                log.patient_id or '',
+                patient_id_display,
                 log.resource_type or '',
                 log.resource_id or '',
                 log.action_details or '',
-                str(log.data) if log.data else ''
-            ])
+                data_display
+            ]
+            
+            # Add row hash for integrity verification
+            row_hash = compute_row_hash(row_data)
+            row_data.append(row_hash)
+            
+            writer.writerow(row_data)
         
         # Prepare response
         output = si.getvalue()
         si.close()
         
-        # Generate filename with timestamp
-        filename = f"admin_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        # Generate filename with timestamp and PHI indicator
+        phi_marker = 'with_phi' if include_phi else 'phi_redacted'
+        filename = f"admin_logs_{phi_marker}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        
+        # Log the export for audit trail
+        log_admin_event(
+            event_type='audit_log_export',
+            user_id=current_user.id,
+            org_id=current_user.org_id,
+            ip=request.remote_addr,
+            data={
+                'days_exported': days,
+                'event_type_filter': event_type or 'all',
+                'include_phi': include_phi,
+                'record_count': len(logs),
+                'description': f'Audit log exported by {current_user.username} ({phi_marker})'
+            }
+        )
         
         response = make_response(output)
         response.headers['Content-Disposition'] = f'attachment; filename={filename}'
         response.headers['Content-Type'] = 'text/csv'
+        response.headers['X-Content-Type-Options'] = 'nosniff'
         
         return response
 
@@ -2540,6 +2605,23 @@ def dismiss_document_match():
         db.session.add(dismissal)
         db.session.commit()
         
+        # Audit log for document match dismissal (security compliance)
+        log_admin_event(
+            event_type='document_match_dismissed',
+            user_id=current_user.id,
+            org_id=current_user.org_id,
+            ip=request.remote_addr,
+            data={
+                'document_id': document_id,
+                'fhir_document_id': fhir_document_id,
+                'screening_id': screening_id,
+                'dismissal_id': dismissal.id,
+                'reason': reason or 'Not specified',
+                'patient_id': screening.patient_id,
+                'description': f'Document match dismissed by {current_user.username}'
+            }
+        )
+        
         logger.info(f"User {current_user.id} dismissed document match: Doc={document_id or fhir_document_id} -> Screening={screening_id}")
         
         # Refresh screening status to reflect dismissed match
@@ -2593,6 +2675,22 @@ def restore_document_match():
         dismissal.restored_at = datetime.utcnow()
         
         db.session.commit()
+        
+        # Audit log for document match restoration (security compliance)
+        log_admin_event(
+            event_type='document_match_restored',
+            user_id=current_user.id,
+            org_id=current_user.org_id,
+            ip=request.remote_addr,
+            data={
+                'dismissal_id': dismissal_id,
+                'document_id': dismissal.document_id,
+                'fhir_document_id': dismissal.fhir_document_id,
+                'screening_id': dismissal.screening_id,
+                'patient_id': screening.patient_id,
+                'description': f'Document match restored by {current_user.username}'
+            }
+        )
         
         logger.info(f"User {current_user.id} restored document match: Dismissal={dismissal_id}")
         

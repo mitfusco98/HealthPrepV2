@@ -789,16 +789,43 @@ def epic_callback():
                 redirect_url=url_for('epic_registration.epic_registration')
             )
 
-        # Validate state parameter
+        # Validate state parameter (CSRF protection)
         stored_state = session.get('epic_oauth_state')
         if not stored_state or stored_state != state:
             logger.error(f"Invalid OAuth state parameter - stored: {stored_state}, received: {state}")
+            # Log security event for potential CSRF attack
+            try:
+                from utils.security import log_security_event
+                log_security_event('oauth_state_mismatch', {
+                    'stored_state_present': bool(stored_state),
+                    'received_state_present': bool(state)
+                })
+            except Exception:
+                pass
             flash('Invalid authorization state. Please try again.', 'error')
             return render_oauth_completion_page(
                 success=False,
                 message='Invalid authorization state. Please try again.',
                 redirect_url=url_for('epic_registration.epic_registration')
             )
+        
+        # Validate OAuth state timeout (10 minutes max for OAuth flow)
+        auth_timestamp = session.get('epic_auth_timestamp')
+        if auth_timestamp:
+            try:
+                auth_time = datetime.fromisoformat(auth_timestamp)
+                if (datetime.now() - auth_time).total_seconds() > 600:  # 10 minutes
+                    logger.error(f"OAuth flow timeout - started at {auth_timestamp}")
+                    flash('Authorization session expired. Please try again.', 'error')
+                    session.pop('epic_oauth_state', None)
+                    session.pop('epic_auth_timestamp', None)
+                    return render_oauth_completion_page(
+                        success=False,
+                        message='Authorization session expired. Please try again.',
+                        redirect_url=url_for('epic_registration.epic_registration')
+                    )
+            except ValueError:
+                pass
 
         # Check if user is still logged in
         if not current_user.is_authenticated:
@@ -900,6 +927,23 @@ def epic_callback():
             session.pop('epic_oauth_provider_id', None)
             session.pop('epic_oauth_type', None)
             
+            # Log audit event for provider OAuth connection
+            try:
+                log_admin_event(
+                    event_type='provider_epic_oauth_connected',
+                    user_id=current_user.id,
+                    org_id=org.id,
+                    ip=request.remote_addr,
+                    data={
+                        'provider_id': provider.id,
+                        'provider_name': provider.name,
+                        'practitioner_id': practitioner_id,
+                        'description': f'Epic OAuth connected for provider {provider.name}'
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"Failed to log provider OAuth event: {e}")
+            
             logger.info(f"Epic OAuth flow completed for provider {provider.id} ({provider.name})")
             flash(f'Successfully connected {provider.name} to Epic FHIR!', 'success')
             
@@ -945,6 +989,22 @@ def epic_callback():
             # Clean up OAuth state
             session.pop('epic_oauth_state', None)
             session.pop('epic_auth_timestamp', None)
+            
+            # Log audit event for organization OAuth connection
+            try:
+                log_admin_event(
+                    event_type='organization_epic_oauth_connected',
+                    user_id=current_user.id,
+                    org_id=org.id,
+                    ip=request.remote_addr,
+                    data={
+                        'organization_name': org.name,
+                        'token_scope': token_data.get('scope', ''),
+                        'description': f'Epic OAuth connected for organization {org.name}'
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"Failed to log organization OAuth event: {e}")
 
             logger.info(f"Epic OAuth flow completed successfully for organization {org.id}")
             flash('Successfully connected to Epic FHIR! All users in your organization can now sync with Epic.', 'success')

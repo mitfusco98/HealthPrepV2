@@ -1,16 +1,23 @@
 """
 Authentication routes for user login and session management
+Enhanced with rate limiting and security hardening
 """
 
 import logging
+from datetime import datetime
 from urllib.parse import urlparse
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
 from models import log_admin_event
+from utils.security import RateLimiter, log_security_event
 
 logger = logging.getLogger(__name__)
 auth_bp = Blueprint('auth', __name__)
+
+# Security question verification limits
+SECURITY_QUESTION_MAX_ATTEMPTS = 3
+SECURITY_VERIFICATION_TIMEOUT_SECONDS = 300  # 5 minutes
 
 
 def _requires_login_security_questions(user):
@@ -108,6 +115,8 @@ def login():
                 # Store user ID in session for security question verification
                 session['login_pending_user_id'] = user.id
                 session['login_pending_next'] = request.args.get('next')
+                session['login_pending_initiated_at'] = datetime.utcnow().isoformat()
+                session['login_security_attempts'] = 0
                 logger.info(f"Security question verification required for user: {user.username}")
                 return redirect(url_for('auth.verify_login_security'))
 
@@ -231,7 +240,7 @@ def logout():
 
 @auth_bp.route('/verify-login-security', methods=['GET', 'POST'])
 def verify_login_security():
-    """Verify security questions for admin users at login"""
+    """Verify security questions for admin users at login with rate limiting and lockout"""
     # Check if there's a pending login
     user_id = session.get('login_pending_user_id')
     if not user_id:
@@ -245,6 +254,45 @@ def verify_login_security():
     if not user:
         session.clear()
         flash('Invalid session. Please log in again.', 'error')
+        return redirect(url_for('auth.login'))
+    
+    # Check for session timeout (5 minutes for security verification)
+    initiated_at = session.get('login_pending_initiated_at')
+    if initiated_at:
+        try:
+            initiated_time = datetime.fromisoformat(initiated_at)
+            if (datetime.utcnow() - initiated_time).total_seconds() > SECURITY_VERIFICATION_TIMEOUT_SECONDS:
+                session.clear()
+                flash('Security verification timed out. Please log in again.', 'error')
+                log_security_event('security_verification_timeout', {
+                    'username': user.username
+                }, user_id=user.id, org_id=user.org_id or 0)
+                return redirect(url_for('auth.login'))
+        except ValueError:
+            pass
+    
+    # Check rate limiting
+    is_allowed, wait_time = RateLimiter.check_rate_limit('2fa_verification', user.username)
+    if not is_allowed:
+        session.clear()
+        flash(f'Too many failed attempts. Please wait {wait_time // 60} minutes before trying again.', 'error')
+        log_security_event('security_verification_rate_limited', {
+            'username': user.username
+        }, user_id=user.id, org_id=user.org_id or 0)
+        return redirect(url_for('auth.login'))
+    
+    # Check attempt counter
+    attempts = session.get('login_security_attempts', 0)
+    if attempts >= SECURITY_QUESTION_MAX_ATTEMPTS:
+        session.clear()
+        user.record_login_attempt(success=False)  # Count as failed login
+        db.session.commit()
+        RateLimiter.record_attempt('2fa_verification', user.username, success=False)
+        flash('Too many failed attempts. Please try again later.', 'error')
+        log_security_event('security_verification_lockout', {
+            'username': user.username,
+            'attempts': attempts
+        }, user_id=user.id, org_id=user.org_id or 0)
         return redirect(url_for('auth.login'))
     
     if request.method == 'POST':
@@ -261,6 +309,9 @@ def verify_login_security():
             # Successful verification
             user.record_login_attempt(success=True)
             login_user(user)
+            
+            # Reset rate limiter on success
+            RateLimiter.record_attempt('2fa_verification', user.username, success=True)
             
             # Log the login event to audit log
             # Root admin logs to org_id=0 (System Org), org admins log to their org_id
@@ -283,10 +334,12 @@ def verify_login_security():
                 }
             )
             
-            # Clear session
+            # Clear session login state
             next_page = session.get('login_pending_next')
             session.pop('login_pending_user_id', None)
             session.pop('login_pending_next', None)
+            session.pop('login_pending_initiated_at', None)
+            session.pop('login_security_attempts', None)
             
             logger.info(f"{user.role} {user.username} verified security questions successfully")
             flash('Login successful!', 'success')
@@ -299,8 +352,29 @@ def verify_login_security():
             else:
                 return redirect(url_for('admin.dashboard'))
         else:
-            flash('Both security answers must be correct. Please try again.', 'error')
-            logger.warning(f"Failed security verification for {user.role}: {user.username}")
+            # Increment attempt counter
+            session['login_security_attempts'] = attempts + 1
+            remaining = SECURITY_QUESTION_MAX_ATTEMPTS - attempts - 1
+            
+            # Record failed attempt for rate limiting
+            RateLimiter.record_attempt('2fa_verification', user.username, success=False)
+            
+            if remaining > 0:
+                flash(f'Security answers are incorrect. {remaining} attempt(s) remaining.', 'error')
+            else:
+                flash('Security answers are incorrect. Maximum attempts reached.', 'error')
+            
+            logger.warning(f"Failed security verification for {user.role}: {user.username} (attempt {attempts + 1})")
+            log_security_event('security_verification_failed', {
+                'username': user.username,
+                'attempt_number': attempts + 1
+            }, user_id=user.id, org_id=user.org_id or 0)
+            
+            if remaining <= 0:
+                session.clear()
+                user.record_login_attempt(success=False)
+                db.session.commit()
+                return redirect(url_for('auth.login'))
     
     # Display security questions
     return render_template('auth/verify_login_security.html',

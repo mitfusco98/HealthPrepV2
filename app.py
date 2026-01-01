@@ -61,6 +61,16 @@ def create_app():
     
     # Configuration - SECRET_KEY validated above
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+    
+    # Determine if production environment for security settings
+    is_production = os.environ.get('FLASK_ENV') == 'production'
+    
+    # Session security configuration
+    app.config['SESSION_COOKIE_SECURE'] = is_production  # HTTPS only in production
+    app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent JavaScript access to session cookie
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection for sessions
+    app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session lifetime
+    app.config['SESSION_REFRESH_EACH_REQUEST'] = True  # Refresh session on each request
 
     # Database configuration with fallback
     database_url = os.environ.get('DATABASE_URL', 'sqlite:///instance/healthprep.db')
@@ -91,8 +101,7 @@ def create_app():
     # Configure security headers and HTTPS enforcement
     from utils.security_headers import configure_security_middleware
     
-    # Enable HTTPS enforcement in production only
-    is_production = os.environ.get('FLASK_ENV') == 'production'
+    # is_production already defined above for session config
     configure_security_middleware(app, force_https=is_production)
     
     # Initialize extensions
