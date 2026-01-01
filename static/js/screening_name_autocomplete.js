@@ -3,6 +3,16 @@
  * Provides fuzzy detection and standardized name suggestions for screening types
  */
 
+function escapeHtml(str) {
+    if (typeof str !== 'string') return '';
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 let screeningNameTimeout;
 
 /**
@@ -197,14 +207,15 @@ function showStandardizationSuggestion(originalName, standardizedName, suggestio
         }
     }
     
+    const escapedName = escapeHtml(standardizedName);
     let html = `
         <div class="d-flex justify-content-between align-items-start">
             <div>
-                <strong>Suggestion:</strong> Did you mean "<strong>${standardizedName}</strong>"?
+                <strong>Suggestion:</strong> Did you mean "<strong>${escapedName}</strong>"?
             </div>
             <div>
                 <button type="button" class="btn btn-sm btn-outline-primary me-1" 
-                        onclick="acceptStandardization('${standardizedName}')">
+                        onclick="acceptStandardization('${escapedName}')">
                     Use This
                 </button>
                 <button type="button" class="btn btn-sm btn-outline-secondary" 
@@ -219,10 +230,11 @@ function showStandardizationSuggestion(originalName, standardizedName, suggestio
         html += `
             <div class="mt-2">
                 <small>Other suggestions: </small>
-                ${suggestions.slice(0, 3).map(s => 
-                    `<button type="button" class="btn btn-xs btn-outline-info me-1" 
-                             onclick="acceptStandardization('${s}')">${s}</button>`
-                ).join('')}
+                ${suggestions.slice(0, 3).map(s => {
+                    const escapedS = escapeHtml(s);
+                    return `<button type="button" class="btn btn-xs btn-outline-info me-1" 
+                             onclick="acceptStandardization('${escapedS}')">${escapedS}</button>`;
+                }).join('')}
             </div>
         `;
     }
