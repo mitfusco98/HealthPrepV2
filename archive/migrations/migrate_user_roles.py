@@ -38,21 +38,23 @@ def migrate_user_roles():
             print("role column already exists")
         
         # Check for other missing columns that might be needed
-        expected_columns = ['id', 'username', 'email', 'password_hash', 'role', 'is_admin', 'is_active_user', 'created_at', 'last_login', 'created_by', 'updated_at']
+        # SECURITY NOTE: Column names are from this hardcoded allowlist only (not user input)
+        ALLOWED_COLUMNS = frozenset(['id', 'username', 'email', 'password_hash', 'role', 'is_admin', 'is_active_user', 'created_at', 'last_login', 'created_by', 'updated_at'])
         
-        for col in expected_columns:
+        for col in ALLOWED_COLUMNS:
             if col not in columns:
+                if col not in ALLOWED_COLUMNS:
+                    raise ValueError(f"Invalid column name: {col}")
                 if col == 'created_by':
                     print(f"Adding {col} column...")
-                    cursor.execute(f"ALTER TABLE users ADD COLUMN {col} INTEGER")
+                    cursor.execute("ALTER TABLE users ADD COLUMN created_by INTEGER")
                 elif col == 'updated_at':
                     print(f"Adding {col} column...")
-                    # Add column without default first, then update with current timestamp
-                    cursor.execute(f"ALTER TABLE users ADD COLUMN {col} DATETIME")
-                    cursor.execute(f"UPDATE users SET {col} = CURRENT_TIMESTAMP WHERE {col} IS NULL")
+                    cursor.execute("ALTER TABLE users ADD COLUMN updated_at DATETIME")
+                    cursor.execute("UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL")
                 elif col == 'is_active_user':
                     print(f"Adding {col} column...")
-                    cursor.execute(f"ALTER TABLE users ADD COLUMN {col} BOOLEAN DEFAULT 1 NOT NULL")
+                    cursor.execute("ALTER TABLE users ADD COLUMN is_active_user BOOLEAN DEFAULT 1 NOT NULL")
                     
         conn.commit()
         conn.close()
