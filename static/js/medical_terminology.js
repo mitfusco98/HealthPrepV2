@@ -147,17 +147,21 @@ function showMedicalSuggestions(input, value) {
             input.parentNode.appendChild(suggestionContainer);
         }
         
-        suggestionContainer.innerHTML = suggestions.map(suggestion => 
-            `<div class="suggestion-item" data-value="${suggestion}">${suggestion}</div>`
-        ).join('');
+        // Clear existing suggestions safely
+        suggestionContainer.textContent = '';
         
-        // Add click handlers to suggestions
-        suggestionContainer.querySelectorAll('.suggestion-item').forEach(item => {
+        // Build suggestions using safe DOM methods
+        suggestions.forEach(suggestion => {
+            const item = document.createElement('div');
+            item.className = 'suggestion-item';
+            item.dataset.value = suggestion;
+            item.textContent = suggestion;
             item.addEventListener('click', function() {
                 input.value = this.dataset.value;
                 hideMedicalSuggestions(input);
                 input.dispatchEvent(new Event('change'));
             });
+            suggestionContainer.appendChild(item);
         });
         
         suggestionContainer.style.display = 'block';
