@@ -33,11 +33,17 @@ function displayInlineConditions() {
     inlineConditions.forEach((condition, index) => {
         const conditionElement = document.createElement('span');
         conditionElement.className = 'badge condition-tag me-1 mb-1';
-        conditionElement.innerHTML = `
-            ${condition}
-            <button type="button" class="btn-close btn-close-white ms-1" 
-                    onclick="removeInlineCondition(${index})" aria-label="Remove"></button>
-        `;
+        
+        const textNode = document.createTextNode(condition);
+        conditionElement.appendChild(textNode);
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn-close btn-close-white ms-1';
+        removeBtn.setAttribute('aria-label', 'Remove');
+        removeBtn.onclick = () => removeInlineCondition(index);
+        conditionElement.appendChild(removeBtn);
+        
         container.appendChild(conditionElement);
     });
 }
