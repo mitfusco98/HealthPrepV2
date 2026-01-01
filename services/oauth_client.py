@@ -263,6 +263,95 @@ class OAuthClientService:
         
         return True
     
+    def _fetch_jwks(self, iss: str) -> Optional[Dict]:
+        """
+        Fetch JWKS from the OAuth provider's discovery document
+        
+        Args:
+            iss: Issuer URL
+            
+        Returns:
+            JWKS dictionary or None if unavailable
+        """
+        try:
+            config = smart_discovery.fetch(iss)
+            jwks_uri = config.get('jwks_uri')
+            
+            if not jwks_uri:
+                logger.warning(f"No jwks_uri found in discovery for {iss}")
+                return None
+            
+            response = requests.get(jwks_uri, timeout=10)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.warning(f"Failed to fetch JWKS from {iss}: {e}")
+            return None
+    
+    def _decode_and_verify_id_token(self, id_token: str, iss: str = None) -> Optional[Dict]:
+        """
+        Decode and verify an ID token with signature validation
+        
+        Args:
+            id_token: The JWT ID token string
+            iss: Issuer URL for JWKS lookup
+            
+        Returns:
+            Decoded token claims if valid, None otherwise
+        """
+        try:
+            # First, decode header to get the key ID (kid)
+            unverified_header = jwt.get_unverified_header(id_token)
+            kid = unverified_header.get('kid')
+            alg = unverified_header.get('alg', 'RS256')
+            
+            # Try to fetch JWKS and verify signature
+            if iss:
+                jwks = self._fetch_jwks(iss)
+                if jwks and 'keys' in jwks:
+                    # Find the matching key
+                    for key_data in jwks['keys']:
+                        if key_data.get('kid') == kid or kid is None:
+                            try:
+                                from jwt import PyJWK
+                                public_key = PyJWK.from_dict(key_data).key
+                                
+                                # Decode with signature verification
+                                claims = jwt.decode(
+                                    id_token,
+                                    public_key,
+                                    algorithms=[alg],
+                                    options={
+                                        "verify_aud": False,  # Audience varies by provider
+                                        "verify_iss": False,  # ISS format varies
+                                    }
+                                )
+                                logger.info("ID token signature verified successfully")
+                                return claims
+                            except jwt.InvalidSignatureError:
+                                logger.error("ID token signature verification failed - token may be tampered")
+                                return None
+                            except Exception as e:
+                                logger.warning(f"Key verification attempt failed: {e}")
+                                continue
+            
+            # If verification couldn't be performed, log security warning and reject
+            logger.error(
+                "SECURITY: Unable to verify ID token signature - "
+                "JWKS unavailable or key not found. Token rejected for security."
+            )
+            return None
+            
+        except jwt.ExpiredSignatureError:
+            logger.error("ID token has expired")
+            return None
+        except jwt.InvalidTokenError as e:
+            logger.error(f"Invalid ID token: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Failed to decode/verify ID token: {e}")
+            return None
+    
     def parse_fhir_user(self, token_response: Dict) -> Optional[Dict]:
         """
         Parse FHIR user information from token response
@@ -289,12 +378,12 @@ class OAuthClientService:
             # Parse ID token if present
             if 'id_token' in token_response:
                 try:
-                    # Note: In production, you should verify the ID token signature
-                    id_token = jwt.decode(
-                        token_response['id_token'], 
-                        options={"verify_signature": False}  # Skip verification for now
+                    id_token_claims = self._decode_and_verify_id_token(
+                        token_response['id_token'],
+                        token_response.get('iss')
                     )
-                    user_info['id_token_claims'] = id_token
+                    if id_token_claims:
+                        user_info['id_token_claims'] = id_token_claims
                 except Exception as e:
                     logger.warning(f"Failed to parse ID token: {e}")
             
