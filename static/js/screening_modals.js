@@ -84,13 +84,19 @@ function displayKeywords() {
     currentKeywords.forEach((keyword, index) => {
         const keywordElement = document.createElement('div');
         keywordElement.className = 'keyword-tag';
-        keywordElement.innerHTML = `
-            <span class="badge bg-primary me-2 mb-2 p-2">
-                ${escapeHtml(keyword)}
-                <button type="button" class="btn-close btn-close-white ms-2" 
-                        onclick="removeKeyword(${index})" aria-label="Remove keyword"></button>
-            </span>
-        `;
+
+        const badge = document.createElement('span');
+        badge.className = 'badge bg-primary me-2 mb-2 p-2';
+        badge.textContent = keyword;
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn-close btn-close-white ms-2';
+        removeBtn.setAttribute('aria-label', 'Remove keyword');
+        removeBtn.onclick = () => removeKeyword(index);
+
+        badge.appendChild(removeBtn);
+        keywordElement.appendChild(badge);
         container.appendChild(keywordElement);
     });
 }
