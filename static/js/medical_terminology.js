@@ -241,12 +241,20 @@ function validateMedicalForm(form) {
 function showProcessingIndicator(element, message = 'Processing medical data...') {
     const indicator = document.createElement('div');
     indicator.className = 'medical-processing-indicator';
-    indicator.innerHTML = `
-        <div class="spinner-border spinner-border-sm me-2" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-        ${message}
-    `;
+    
+    const spinner = document.createElement('div');
+    spinner.className = 'spinner-border spinner-border-sm me-2';
+    spinner.setAttribute('role', 'status');
+    
+    const spinnerText = document.createElement('span');
+    spinnerText.className = 'visually-hidden';
+    spinnerText.textContent = 'Loading...';
+    spinner.appendChild(spinnerText);
+    
+    const messageText = document.createTextNode(message);
+    
+    indicator.appendChild(spinner);
+    indicator.appendChild(messageText);
     
     element.appendChild(indicator);
     return indicator;
