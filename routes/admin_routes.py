@@ -1155,6 +1155,79 @@ def queue_status_api():
         return jsonify({'error': str(e)}), 500
 
 
+@admin_bp.route('/api/performance-metrics')
+@login_required
+@admin_required
+def performance_metrics_api():
+    """
+    JSON API for comprehensive performance metrics.
+    
+    Returns system resource usage, throughput metrics, queue status,
+    and scaling recommendations for capacity planning.
+    """
+    try:
+        from utils.performance import PerformanceMonitor, get_ocr_max_workers_recommendation
+        from datetime import datetime
+        
+        monitor = PerformanceMonitor()
+        
+        response = {
+            'timestamp': datetime.utcnow().isoformat(),
+            'system': monitor.get_system_metrics(),
+            'queue': monitor.get_queue_metrics(),
+            'throughput': {
+                '1min': monitor.get_throughput_metrics(60),
+                '5min': monitor.get_throughput_metrics(300)
+            },
+            'scaling': monitor.get_scaling_recommendations(),
+            'worker_recommendations': get_ocr_max_workers_recommendation()
+        }
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Error in performance metrics API: {str(e)}")
+        return jsonify({
+            'error': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
+
+
+@admin_bp.route('/api/performance-report')
+@login_required
+@admin_required
+def performance_report_api():
+    """
+    JSON API for full performance report.
+    
+    Returns comprehensive performance data including historical metrics
+    and SLA compliance analysis.
+    """
+    try:
+        from utils.performance import PerformanceMonitor
+        from datetime import datetime
+        
+        monitor = PerformanceMonitor()
+        report = monitor.get_full_report()
+        
+        # Add SLA compliance summary
+        throughput_1min = report.get('throughput_1min', {})
+        avg_job_time = throughput_1min.get('avg_job_time', 0)
+        
+        report['sla_compliance'] = {
+            'target_seconds': 10,
+            'current_avg': avg_job_time,
+            'meets_sla': avg_job_time <= 10 or throughput_1min.get('jobs_completed', 0) == 0,
+            'status': 'healthy' if avg_job_time <= 10 else 'at_risk'
+        }
+        
+        return jsonify(report)
+        
+    except Exception as e:
+        logger.error(f"Error in performance report API: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
 # PHI settings route removed - consolidated into dashboard
 
 @admin_bp.route('/phi-test', methods=['POST'])

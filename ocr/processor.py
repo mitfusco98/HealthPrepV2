@@ -104,6 +104,8 @@ class OCRProcessor:
             secure_delete_original: If True (default), securely delete the original file
                                    after successful text extraction for HIPAA compliance.
         """
+        from utils.performance import TrackJob
+        
         document = Document.query.get(document_id)
         if not document:
             self.logger.error(f"Document {document_id} not found")
@@ -111,43 +113,55 @@ class OCRProcessor:
 
         original_file_path = document.file_path
         
-        try:
-            # Extract text using OCR
-            ocr_text, confidence = self._extract_text(document.file_path)
-
-            if ocr_text:
-                # Apply PHI filtering if enabled
-                filtered_text = self.phi_filter.filter_phi(ocr_text)
-
-                # Update document record
-                document.ocr_text = filtered_text
-                document.content = filtered_text  # Also update content field for backward compatibility
-                document.ocr_confidence = confidence
-                document.phi_filtered = True
-                document.processed_at = datetime.utcnow()
-
-                db.session.commit()
-
-                self.logger.info(f"Successfully processed document {document_id} with confidence {confidence:.2f}")
+        with TrackJob(f"ocr_{document_id}", 'ocr') as tracker:
+            try:
+                # Get file size for metrics
+                file_size = 0
+                if document.file_path and os.path.exists(document.file_path):
+                    file_size = os.path.getsize(document.file_path)
                 
-                # HIPAA: Securely delete original file after successful extraction
-                if secure_delete_original and original_file_path:
-                    self._secure_delete_original(document, original_file_path)
+                # Extract text using OCR
+                ocr_text, confidence = self._extract_text(document.file_path)
+                
+                # Estimate page count from file size (PDF ~100KB/page average for medical docs)
+                estimated_pages = max(1, file_size // 100000) if file_size > 0 else 1
+                tracker.update(pages=estimated_pages, bytes_processed=file_size)
 
-                # Trigger screening engine update (unless skipped for batch processing)
-                if not skip_screening_update:
-                    from core.engine import ScreeningEngine
-                    engine = ScreeningEngine()
-                    engine.process_new_document(document_id)
+                if ocr_text:
+                    # Apply PHI filtering if enabled
+                    filtered_text = self.phi_filter.filter_phi(ocr_text)
 
-                return True
-            else:
-                self.logger.warning(f"No text extracted from document {document_id}")
+                    # Update document record
+                    document.ocr_text = filtered_text
+                    document.content = filtered_text  # Also update content field for backward compatibility
+                    document.ocr_confidence = confidence
+                    document.phi_filtered = True
+                    document.processed_at = datetime.utcnow()
+
+                    db.session.commit()
+
+                    self.logger.info(f"Successfully processed document {document_id} with confidence {confidence:.2f}")
+                    
+                    # HIPAA: Securely delete original file after successful extraction
+                    if secure_delete_original and original_file_path:
+                        self._secure_delete_original(document, original_file_path)
+
+                    # Trigger screening engine update (unless skipped for batch processing)
+                    if not skip_screening_update:
+                        from core.engine import ScreeningEngine
+                        engine = ScreeningEngine()
+                        engine.process_new_document(document_id)
+
+                    return True
+                else:
+                    tracker.mark_failed("No text extracted")
+                    self.logger.warning(f"No text extracted from document {document_id}")
+                    return False
+
+            except Exception as e:
+                tracker.mark_failed(str(e))
+                self.logger.error(f"Error processing document {document_id}: {str(e)}")
                 return False
-
-        except Exception as e:
-            self.logger.error(f"Error processing document {document_id}: {str(e)}")
-            return False
     
     def _secure_delete_original(self, document, file_path):
         """Securely delete original file after text extraction for HIPAA compliance.

@@ -153,6 +153,33 @@ The system implements comprehensive HIPAA-compliant document handling:
 - Account lockout after failed verification attempts
 - Security event logging for failed and successful attempts
 
+### Performance Monitoring & Scaling (January 2026)
+
+**Performance Instrumentation (utils/performance.py):**
+- PerformanceMonitor singleton for thread-safe job tracking
+- Per-job CPU time, wall-clock timing, and memory metrics
+- JobMetrics dataclass for comprehensive processing analytics
+- TrackJob context manager for automatic job instrumentation
+- Pages-per-second and bytes-per-second throughput calculation
+
+**API Endpoints:**
+- `/admin/api/performance-metrics` - Real-time system metrics, queue status, throughput
+- `/admin/api/performance-report` - Full report with SLA compliance analysis
+- `/admin/api/queue-status` - Queue depth and worker status for auto-scaling triggers
+
+**Benchmarking (scripts/benchmark_processing.py):**
+- Document processing throughput benchmarking
+- CPU/memory utilization monitoring during processing
+- Scaling analysis across different worker counts
+- SLA compliance testing (10-second target)
+- Optimal worker count recommendations
+
+**Scaling Features:**
+- Auto-detection of optimal OCR_MAX_WORKERS based on CPU cores
+- Queue depth monitoring for scale-up triggers
+- Scaling efficiency calculations for capacity planning
+- Recommendations engine for infrastructure decisions
+
 ## External Dependencies
 - **FHIR-based EMRs:** e.g., Epic (for real-time data integration)
 - **FHIR R4:** For EMR compatibility and interoperability.
