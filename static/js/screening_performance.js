@@ -298,7 +298,7 @@ class ScreeningPerformance {
     }
 
     /**
-     * Highlight search terms
+     * Highlight search terms using safe DOM methods
      */
     highlightSearchTerm(element, searchTerm) {
         const originalText = element.dataset.originalText || element.textContent;
@@ -307,8 +307,20 @@ class ScreeningPerformance {
         }
 
         const regex = new RegExp(`(${this.escapeRegex(searchTerm)})`, 'gi');
-        const highlightedText = originalText.replace(regex, '<mark class="medical-search-highlight">$1</mark>');
-        element.innerHTML = highlightedText;
+        const parts = originalText.split(regex);
+        
+        element.textContent = '';
+        
+        parts.forEach(part => {
+            if (part.toLowerCase() === searchTerm.toLowerCase()) {
+                const mark = document.createElement('mark');
+                mark.className = 'medical-search-highlight';
+                mark.textContent = part;
+                element.appendChild(mark);
+            } else if (part) {
+                element.appendChild(document.createTextNode(part));
+            }
+        });
     }
 
     /**
