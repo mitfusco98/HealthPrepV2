@@ -4,6 +4,7 @@ Apply the changes described in the prompt, fixing the dashboard route and addres
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, g
 from flask_login import login_required, current_user
 from datetime import datetime
+from urllib.parse import urlparse
 import logging
 
 from app import db
@@ -323,7 +324,12 @@ def switch_provider(provider_id):
     else:
         flash('Unable to switch to that provider.', 'error')
     
-    return redirect(request.referrer or url_for('main.dashboard'))
+    next_url = url_for('main.dashboard')
+    if request.referrer:
+        parsed = urlparse(request.referrer)
+        if not parsed.netloc or parsed.netloc == request.host:
+            next_url = request.referrer
+    return redirect(next_url)
 
 @main_bp.route('/refresh-screenings', methods=['POST'])
 @login_required
