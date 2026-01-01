@@ -40,22 +40,17 @@ def add_fhir_mapping_columns():
             inspector = db.inspect(db.engine)
             existing_columns = [col['name'] for col in inspector.get_columns('screening_type')]
             
-            columns_to_add = [
-                'fhir_search_params',
-                'epic_query_context', 
-                'fhir_condition_codes',
-                'fhir_observation_codes',
-                'fhir_document_types'
-            ]
+            column_statements = {
+                'fhir_search_params': text("ALTER TABLE screening_type ADD COLUMN fhir_search_params TEXT"),
+                'epic_query_context': text("ALTER TABLE screening_type ADD COLUMN epic_query_context TEXT"),
+                'fhir_condition_codes': text("ALTER TABLE screening_type ADD COLUMN fhir_condition_codes TEXT"),
+                'fhir_observation_codes': text("ALTER TABLE screening_type ADD COLUMN fhir_observation_codes TEXT"),
+                'fhir_document_types': text("ALTER TABLE screening_type ADD COLUMN fhir_document_types TEXT"),
+            }
             
-            allowed_columns = frozenset(columns_to_add)
-            
-            for column in columns_to_add:
-                if column not in allowed_columns:
-                    raise ValueError(f"Invalid column name: {column}")
+            for column, stmt in column_statements.items():
                 if column not in existing_columns:
                     logger.info(f"Adding column: {column}")
-                    stmt = text("ALTER TABLE screening_type ADD COLUMN " + column + " TEXT")
                     db.session.execute(stmt)
                     db.session.commit()
                     logger.info(f"Successfully added column: {column}")
