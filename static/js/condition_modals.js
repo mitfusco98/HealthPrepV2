@@ -360,12 +360,23 @@ function showNotification(message, type = 'info') {
     const alertClass = type === 'success' ? 'alert-success' : 
                      type === 'error' ? 'alert-danger' : 'alert-info';
     
-    notification.innerHTML = `
-        <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    `;
+    // Clear previous content safely
+    notification.textContent = '';
+    
+    // Create alert div
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert ${alertClass} alert-dismissible fade show`;
+    alertDiv.setAttribute('role', 'alert');
+    alertDiv.textContent = message;
+    
+    // Create close button
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'btn-close';
+    closeBtn.setAttribute('data-bs-dismiss', 'alert');
+    
+    alertDiv.appendChild(closeBtn);
+    notification.appendChild(alertDiv);
     
     // Auto-hide after 5 seconds
     setTimeout(() => {
@@ -373,7 +384,7 @@ function showNotification(message, type = 'info') {
         if (alert) {
             alert.classList.remove('show');
             setTimeout(() => {
-                notification.innerHTML = '';
+                notification.textContent = '';
             }, 500);
         }
     }, 5000);
