@@ -218,7 +218,7 @@ class EMRSyncService:
         new_data_found = False
         
         try:
-            logger.info(f"Syncing new data for patient {patient.id} (MRN: {patient.mrn})")
+            logger.info(f"Syncing new data for patient {patient.id}")
             
             # Get last sync time for incremental sync
             last_sync = self._get_last_sync_time(patient)
