@@ -3,6 +3,7 @@ Authentication routes for user login and session management
 """
 
 import logging
+from urllib.parse import urlparse
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -139,15 +140,17 @@ def login():
             # Redirect to next page or appropriate dashboard
             next_page = request.args.get('next')
             if next_page:
-                return redirect(next_page)
+                parsed = urlparse(next_page)
+                if not parsed.netloc and not parsed.scheme:
+                    return redirect(next_page)
+            
+            # Redirect based on user role (default fallback)
+            if user.is_root_admin_user():
+                return redirect(url_for('root_admin.dashboard'))
+            elif user.is_admin_user():
+                return redirect(url_for('admin.dashboard'))
             else:
-                # Redirect based on user role
-                if user.is_root_admin_user():
-                    return redirect(url_for('root_admin.dashboard'))
-                elif user.is_admin_user():
-                    return redirect(url_for('admin.dashboard'))
-                else:
-                    return redirect(url_for('index'))
+                return redirect(url_for('index'))
         else:
             # Record failed login attempt if user exists
             if user:
