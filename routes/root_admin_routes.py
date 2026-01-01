@@ -1062,7 +1062,7 @@ def system_logs():
 def export_logs():
     """Export audit logs to CSV for HIPAA compliance"""
     try:
-        import csv
+        import defusedcsv as csv
         from io import StringIO
         from datetime import datetime
         
