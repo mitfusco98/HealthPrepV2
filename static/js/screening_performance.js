@@ -194,16 +194,22 @@ class ScreeningPerformance {
      * Display keywords as badges
      */
     displayKeywords(container, keywords) {
+        container.innerHTML = '';
+        
         if (!keywords || keywords.length === 0) {
-            container.innerHTML = '<small class="text-muted">No keywords defined</small>';
+            const noKeywords = document.createElement('small');
+            noKeywords.className = 'text-muted';
+            noKeywords.textContent = 'No keywords defined';
+            container.appendChild(noKeywords);
             return;
         }
 
-        const keywordsHtml = keywords.map(keyword => 
-            `<span class="badge bg-primary me-1 mb-1">${this.escapeHtml(keyword)}</span>`
-        ).join('');
-
-        container.innerHTML = keywordsHtml;
+        keywords.forEach(keyword => {
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-primary me-1 mb-1';
+            badge.textContent = keyword;
+            container.appendChild(badge);
+        });
     }
 
     /**
