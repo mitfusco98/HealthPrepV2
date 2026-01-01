@@ -194,7 +194,6 @@ async function checkScreeningNameStandardization(inputName) {
  * Show standardization suggestion
  */
 function showStandardizationSuggestion(originalName, standardizedName, suggestions) {
-    // Create or update suggestion element
     let suggestionDiv = document.getElementById('nameStandardizationSuggestion');
     if (!suggestionDiv) {
         suggestionDiv = document.createElement('div');
@@ -207,39 +206,65 @@ function showStandardizationSuggestion(originalName, standardizedName, suggestio
         }
     }
     
-    const escapedName = escapeHtml(standardizedName);
-    let html = `
-        <div class="d-flex justify-content-between align-items-start">
-            <div>
-                <strong>Suggestion:</strong> Did you mean "<strong>${escapedName}</strong>"?
-            </div>
-            <div>
-                <button type="button" class="btn btn-sm btn-outline-primary me-1" 
-                        onclick="acceptStandardization('${escapedName}')">
-                    Use This
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" 
-                        onclick="dismissStandardization()">
-                    Dismiss
-                </button>
-            </div>
-        </div>
-    `;
+    suggestionDiv.innerHTML = '';
+    
+    const wrapper = document.createElement('div');
+    wrapper.className = 'd-flex justify-content-between align-items-start';
+    
+    const textDiv = document.createElement('div');
+    const suggestionLabel = document.createElement('strong');
+    suggestionLabel.textContent = 'Suggestion:';
+    textDiv.appendChild(suggestionLabel);
+    textDiv.appendChild(document.createTextNode(' Did you mean "'));
+    const nameStrong = document.createElement('strong');
+    nameStrong.textContent = standardizedName;
+    textDiv.appendChild(nameStrong);
+    textDiv.appendChild(document.createTextNode('"?'));
+    
+    const buttonDiv = document.createElement('div');
+    
+    const useBtn = document.createElement('button');
+    useBtn.type = 'button';
+    useBtn.className = 'btn btn-sm btn-outline-primary me-1';
+    useBtn.textContent = 'Use This';
+    useBtn.addEventListener('click', function() {
+        acceptStandardization(standardizedName);
+    });
+    buttonDiv.appendChild(useBtn);
+    
+    const dismissBtn = document.createElement('button');
+    dismissBtn.type = 'button';
+    dismissBtn.className = 'btn btn-sm btn-outline-secondary';
+    dismissBtn.textContent = 'Dismiss';
+    dismissBtn.addEventListener('click', dismissStandardization);
+    buttonDiv.appendChild(dismissBtn);
+    
+    wrapper.appendChild(textDiv);
+    wrapper.appendChild(buttonDiv);
+    suggestionDiv.appendChild(wrapper);
     
     if (suggestions && suggestions.length > 0) {
-        html += `
-            <div class="mt-2">
-                <small>Other suggestions: </small>
-                ${suggestions.slice(0, 3).map(s => {
-                    const escapedS = escapeHtml(s);
-                    return `<button type="button" class="btn btn-xs btn-outline-info me-1" 
-                             onclick="acceptStandardization('${escapedS}')">${escapedS}</button>`;
-                }).join('')}
-            </div>
-        `;
+        const suggestionsDiv = document.createElement('div');
+        suggestionsDiv.className = 'mt-2';
+        
+        const smallLabel = document.createElement('small');
+        smallLabel.textContent = 'Other suggestions: ';
+        suggestionsDiv.appendChild(smallLabel);
+        
+        suggestions.slice(0, 3).forEach(function(s) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-xs btn-outline-info me-1';
+            btn.textContent = s;
+            btn.addEventListener('click', function() {
+                acceptStandardization(s);
+            });
+            suggestionsDiv.appendChild(btn);
+        });
+        
+        suggestionDiv.appendChild(suggestionsDiv);
     }
     
-    suggestionDiv.innerHTML = html;
     suggestionDiv.style.display = 'block';
 }
 
