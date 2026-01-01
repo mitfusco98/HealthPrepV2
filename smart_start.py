@@ -120,13 +120,13 @@ def smart_start(server_type='dev'):
         logger.info("Starting Gunicorn production server...")
         cmd = [
             'gunicorn',
-            '--bind', f'0.0.0.0:{available_port}',
+            '--bind', f'0.0.0.0:{int(available_port)}',
             '--reload',
             '--worker-class', 'sync',
             '--workers', '1',
             'main:app'
         ]
-        subprocess.run(cmd)
+        subprocess.run(cmd, check=False)
     
     else:
         logger.error(f"Unknown server type: {server_type}")
