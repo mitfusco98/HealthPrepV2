@@ -41,13 +41,32 @@ function highlightMedicalTerms() {
     
     textElements.forEach(element => {
         if (element.children.length === 0) { // Only process text nodes
-            let content = element.textContent;
-            medicalTerms.forEach(term => {
-                const regex = new RegExp(`\\b${term}\\b`, 'gi');
-                content = content.replace(regex, `<span class="medical-term" title="Medical Term: ${term}">${term}</span>`);
-            });
-            if (content !== element.textContent) {
-                element.innerHTML = content;
+            const originalText = element.textContent;
+            const termsPattern = new RegExp(`\\b(${medicalTerms.join('|')})\\b`, 'gi');
+            
+            if (termsPattern.test(originalText)) {
+                const fragment = document.createDocumentFragment();
+                let lastIndex = 0;
+                
+                termsPattern.lastIndex = 0;
+                let match;
+                while ((match = termsPattern.exec(originalText)) !== null) {
+                    if (match.index > lastIndex) {
+                        fragment.appendChild(document.createTextNode(originalText.slice(lastIndex, match.index)));
+                    }
+                    const span = document.createElement('span');
+                    span.className = 'medical-term';
+                    span.title = `Medical Term: ${match[0].toLowerCase()}`;
+                    span.textContent = match[0];
+                    fragment.appendChild(span);
+                    lastIndex = termsPattern.lastIndex;
+                }
+                if (lastIndex < originalText.length) {
+                    fragment.appendChild(document.createTextNode(originalText.slice(lastIndex)));
+                }
+                
+                element.textContent = '';
+                element.appendChild(fragment);
             }
         }
     });
