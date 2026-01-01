@@ -434,10 +434,19 @@ function showAlert(type, message) {
     // Create alert element
     const alertDiv = document.createElement('div');
     alertDiv.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show`;
-    alertDiv.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    `;
+    
+    // Create text node for message (safe from XSS)
+    const messageSpan = document.createElement('span');
+    messageSpan.textContent = message;
+    alertDiv.appendChild(messageSpan);
+    
+    // Create close button
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.className = 'btn-close';
+    closeButton.setAttribute('data-bs-dismiss', 'alert');
+    closeButton.setAttribute('aria-label', 'Close');
+    alertDiv.appendChild(closeButton);
 
     // Insert at top of main content
     const main = document.querySelector('main') || document.querySelector('.container').firstElementChild;
