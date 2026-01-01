@@ -49,11 +49,17 @@ function displayConditions() {
     currentConditions.forEach((condition, index) => {
         const conditionElement = document.createElement('span');
         conditionElement.className = 'badge bg-primary me-2 mb-2 condition-tag';
-        conditionElement.innerHTML = `
-            ${condition}
-            <button type="button" class="btn-close btn-close-white ms-2" 
-                    onclick="removeCondition(${index})" aria-label="Remove"></button>
-        `;
+        
+        const textNode = document.createTextNode(condition + ' ');
+        conditionElement.appendChild(textNode);
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn-close btn-close-white ms-2';
+        removeBtn.setAttribute('aria-label', 'Remove');
+        removeBtn.onclick = () => removeCondition(index);
+        conditionElement.appendChild(removeBtn);
+        
         container.appendChild(conditionElement);
     });
 }
