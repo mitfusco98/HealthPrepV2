@@ -289,7 +289,7 @@ def batch_sync_patients_from_epic(job_data: Dict[str, Any]):
             except Exception as e:
                 error_msg = str(e)
                 results['failed_syncs'].append({'mrn': mrn, 'error': error_msg})
-                logger.error(f"Failed to sync patient {mrn}: {error_msg}")
+                logger.error(f"Failed to sync patient: {error_msg}")
                 
                 # Log failed sync
                 log_admin_event(
