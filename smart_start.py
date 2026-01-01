@@ -42,8 +42,7 @@ def kill_related_processes():
     for pattern in patterns:
         try:
             result = subprocess.run(
-                f"pkill -f '{pattern}' || true", 
-                shell=True, 
+                ['pkill', '-f', pattern],
                 capture_output=True, 
                 text=True
             )
