@@ -5,6 +5,7 @@ from app import db
 from models import Document, Screening, ScreeningType, ScreeningDocumentMatch
 from .fuzzy_detection import FuzzyDetectionEngine
 from datetime import date
+import json
 import logging
 
 class DocumentMatcher:
@@ -37,7 +38,7 @@ class DocumentMatcher:
             max_matches: Optional limit on number of matches (for processing guards)
         
         Returns:
-            List of (screening_id, confidence) tuples
+            List of (screening_id, confidence, matched_keywords) tuples
         """
         from utils.keyword_validator import ProcessingGuard
         
@@ -69,7 +70,7 @@ class DocumentMatcher:
             # AUDIT TRAIL: Log match explanation regardless of outcome
             if confidence > 0.75:  # Raised threshold to reduce false positives
                 if guard.increment():
-                    matches.append((screening.id, confidence))
+                    matches.append((screening.id, confidence, matched_keywords))
                     # Log successful match with full explanation
                     self._log_match_explanation(
                         document_id=document.id,
@@ -550,7 +551,7 @@ class DocumentMatcher:
                 
             matches = self.find_document_matches(document)
             
-            for screening_id, confidence in matches:
+            for screening_id, confidence, matched_keywords in matches:
                 if not global_guard.increment():
                     self.logger.warning(f"Global processing guard hard limit reached at {total_matches} matches")
                     break
@@ -559,6 +560,7 @@ class DocumentMatcher:
                 match.screening_id = screening_id
                 match.document_id = document.id
                 match.match_confidence = confidence
+                match.matched_keywords = json.dumps(matched_keywords) if matched_keywords else None
                 db.session.add(match)
                 total_matches += 1
         
