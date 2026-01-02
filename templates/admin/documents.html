@@ -281,39 +281,19 @@
                                                                     <small class="text-info"><i class="fas fa-check-circle me-1"></i>Active Matches ({{ doc.active_matches|length }}):</small>
                                                                     <div class="mt-1">
                                                                         {% for match in doc.active_matches %}
-                                                                        <div class="mb-2 p-2 bg-dark rounded border border-info">
-                                                                            <div class="d-flex justify-content-between align-items-start">
-                                                                                <div>
-                                                                                    <span class="badge bg-info" style="font-size: 0.8rem;">
-                                                                                        {{ match.screening_name }}
-                                                                                    </span>
-                                                                                    <span class="badge bg-success ms-1" title="Match confidence">
-                                                                                        <i class="fas fa-chart-line me-1"></i>{{ (match.confidence * 100)|round }}%
-                                                                                    </span>
-                                                                                </div>
-                                                                                <button class="btn btn-xs btn-outline-danger dismiss-match-btn" 
-                                                                                        data-doc-id="{{ doc.id }}"
-                                                                                        data-screening-id="{{ match.screening_id }}"
-                                                                                        data-source="{{ doc.source }}"
-                                                                                        data-doc-title="{{ doc.title }}"
-                                                                                        data-screening-name="{{ match.screening_name }}"
-                                                                                        title="Dismiss this match (false positive)">
-                                                                                    <i class="fas fa-times"></i>
-                                                                                </button>
-                                                                            </div>
-                                                                            <!-- Match Explanation: Keywords that triggered this match -->
-                                                                            {% if match.matched_keywords %}
-                                                                            <div class="mt-2">
-                                                                                <small class="text-warning d-block mb-1">
-                                                                                    <i class="fas fa-key me-1"></i>Matched Keywords:
-                                                                                </small>
-                                                                                {% for keyword in match.matched_keywords %}
-                                                                                <span class="badge bg-warning text-dark me-1 mb-1" style="font-size: 0.7rem;">
-                                                                                    {{ keyword }}
-                                                                                </span>
-                                                                                {% endfor %}
-                                                                            </div>
-                                                                            {% endif %}
+                                                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                                                            <span class="badge bg-info" style="font-size: 0.8rem;">
+                                                                                {{ match.screening_name }}
+                                                                            </span>
+                                                                            <button class="btn btn-xs btn-outline-danger dismiss-match-btn" 
+                                                                                    data-doc-id="{{ doc.id }}"
+                                                                                    data-screening-id="{{ match.screening_id }}"
+                                                                                    data-source="{{ doc.source }}"
+                                                                                    data-doc-title="{{ doc.title }}"
+                                                                                    data-screening-name="{{ match.screening_name }}"
+                                                                                    title="Dismiss this match (false positive)">
+                                                                                <i class="fas fa-times"></i>
+                                                                            </button>
                                                                         </div>
                                                                         {% endfor %}
                                                                     </div>
@@ -326,45 +306,23 @@
                                                                     <small class="text-muted"><i class="fas fa-ban me-1"></i>Dismissed Matches ({{ doc.dismissed_matches|length }}):</small>
                                                                     <div class="mt-1">
                                                                         {% for match in doc.dismissed_matches %}
-                                                                        <div class="mb-2 p-2 bg-dark rounded border border-secondary opacity-75">
-                                                                            <div class="d-flex justify-content-between align-items-start">
-                                                                                <div>
-                                                                                    <span class="badge bg-secondary" style="font-size: 0.8rem;">
-                                                                                        <i class="fas fa-ban me-1"></i>{{ match.screening_name }}
-                                                                                    </span>
-                                                                                    <span class="badge bg-secondary ms-1" title="Match confidence">
-                                                                                        {{ (match.confidence * 100)|round }}%
-                                                                                    </span>
-                                                                                </div>
-                                                                                <button class="btn btn-xs btn-outline-success restore-match-btn" 
-                                                                                        data-dismissal-id="{{ match.dismissal_id }}"
-                                                                                        data-doc-title="{{ doc.title }}"
-                                                                                        data-screening-name="{{ match.screening_name }}"
-                                                                                        title="Restore this match">
-                                                                                    <i class="fas fa-undo"></i>
-                                                                                </button>
-                                                                            </div>
-                                                                            <!-- Dismissal reason and original match keywords -->
-                                                                            {% if match.dismissal_reason %}
-                                                                            <div class="mt-1">
-                                                                                <small class="text-muted">
-                                                                                    <i class="fas fa-comment me-1"></i>Reason: {{ match.dismissal_reason }}
-                                                                                </small>
-                                                                            </div>
-                                                                            {% endif %}
-                                                                            {% if match.matched_keywords %}
-                                                                            <div class="mt-1">
-                                                                                <small class="text-muted d-block">
-                                                                                    <i class="fas fa-key me-1"></i>Was matched by:
-                                                                                </small>
-                                                                                {% for keyword in match.matched_keywords %}
-                                                                                <span class="badge bg-secondary text-light me-1" style="font-size: 0.65rem;">
-                                                                                    {{ keyword }}
-                                                                                </span>
-                                                                                {% endfor %}
-                                                                            </div>
-                                                                            {% endif %}
+                                                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                                                            <span class="badge bg-secondary" style="font-size: 0.8rem;">
+                                                                                <i class="fas fa-ban me-1"></i>{{ match.screening_name }}
+                                                                            </span>
+                                                                            <button class="btn btn-xs btn-outline-success restore-match-btn" 
+                                                                                    data-dismissal-id="{{ match.dismissal_id }}"
+                                                                                    data-doc-title="{{ doc.title }}"
+                                                                                    data-screening-name="{{ match.screening_name }}"
+                                                                                    title="Restore this match">
+                                                                                <i class="fas fa-undo"></i>
+                                                                            </button>
                                                                         </div>
+                                                                        {% if match.dismissal_reason %}
+                                                                        <small class="text-muted d-block">
+                                                                            <i class="fas fa-comment me-1"></i>{{ match.dismissal_reason }}
+                                                                        </small>
+                                                                        {% endif %}
                                                                         {% endfor %}
                                                                     </div>
                                                                 </div>
