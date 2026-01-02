@@ -82,14 +82,21 @@ def get_ocr_max_workers():
 
 def get_ocr_timeout_seconds():
     """
-    Get the timeout for individual OCR tasks from environment.
+    Get the batch timeout for OCR processing from environment.
     
     Priority:
     1. OCR_TIMEOUT_SECONDS environment variable
-    2. Fallback to 30 seconds (sufficient for most single-page docs)
+    2. Fallback to 10 seconds (aligned with sub-10s SLA target)
     
-    This timeout acts as a circuit breaker to prevent indefinite blocking
-    on problematic documents while allowing adequate time for multi-page PDFs.
+    This timeout acts as a RESPONSE TIME circuit breaker - ensuring the batch
+    function returns within SLA bounds. Note that ThreadPoolExecutor threads
+    cannot be forcibly terminated; stalled workers may continue in background
+    but the batch call returns promptly for the caller.
+    
+    For true task cancellation (e.g., hung Tesseract), consider:
+    - ProcessPoolExecutor with os.kill()
+    - External watchdog process
+    - Container-level timeouts
     """
     env_timeout = os.environ.get('OCR_TIMEOUT_SECONDS')
     if env_timeout:
@@ -100,7 +107,7 @@ def get_ocr_timeout_seconds():
         except ValueError:
             pass
     
-    return 30  # Default: 30 seconds per document
+    return 10  # Default: 10 seconds (sub-10s SLA target)
 
 class OCRProcessor:
     """Handles OCR processing of medical documents using Tesseract"""
@@ -810,48 +817,65 @@ class OCRProcessor:
         timeout_seconds = get_ocr_timeout_seconds()
         timed_out_docs = []
         
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        from concurrent.futures import wait, FIRST_COMPLETED
+        
+        # Use executor without context manager to allow non-blocking shutdown on timeout
+        executor = ThreadPoolExecutor(max_workers=max_workers)
+        try:
             future_to_doc = {executor.submit(process_single_with_isolated_session, doc_id): doc_id for doc_id in document_ids}
+            pending = set(future_to_doc.keys())
             
-            for future in as_completed(future_to_doc, timeout=None):
-                doc_id = future_to_doc[future]
-                processed_count += 1
+            while pending:
+                # Wait for at least one future to complete OR timeout
+                done, pending = wait(pending, timeout=timeout_seconds, return_when=FIRST_COMPLETED)
                 
-                try:
-                    # Apply per-document timeout as circuit breaker
-                    doc_id, success, error = future.result(timeout=timeout_seconds)
+                # Handle completed futures
+                for future in done:
+                    doc_id = future_to_doc[future]
+                    processed_count += 1
                     
-                    if success:
-                        results['successful'].append(doc_id)
-                    else:
+                    try:
+                        result_doc_id, success, error = future.result()
+                        
+                        if success:
+                            results['successful'].append(result_doc_id)
+                        else:
+                            results['failed'].append({
+                                'document_id': result_doc_id,
+                                'error': error or 'Processing failed'
+                            })
+                            
+                    except Exception as e:
                         results['failed'].append({
                             'document_id': doc_id,
-                            'error': error or 'Processing failed'
+                            'error': str(e)
                         })
-                        
-                except TimeoutError:
-                    timed_out_docs.append(doc_id)
-                    results['failed'].append({
-                        'document_id': doc_id,
-                        'error': f'OCR timeout after {timeout_seconds}s (circuit breaker triggered)'
-                    })
-                    self.logger.warning(f"Document {doc_id} OCR timed out after {timeout_seconds}s")
-                        
-                except Exception as e:
-                    results['failed'].append({
-                        'document_id': doc_id,
-                        'error': str(e)
-                    })
+                    
+                    if progress_callback:
+                        try:
+                            progress_callback(processed_count, len(document_ids), doc_id)
+                        except Exception:
+                            pass
                 
-                if progress_callback:
-                    try:
-                        progress_callback(processed_count, len(document_ids), doc_id)
-                    except Exception:
-                        pass
+                # If nothing completed and we still have pending, batch timeout was hit
+                if not done and pending:
+                    for future in pending:
+                        doc_id = future_to_doc[future]
+                        timed_out_docs.append(doc_id)
+                        results['failed'].append({
+                            'document_id': doc_id,
+                            'error': f'OCR timeout after {timeout_seconds}s (circuit breaker)'
+                        })
+                        self.logger.warning(f"Document {doc_id} exceeded timeout of {timeout_seconds}s")
+                    break
+        finally:
+            # Non-blocking shutdown: don't wait for stalled workers, let them complete in background
+            # This ensures the batch returns promptly even if some OCR tasks are hung
+            executor.shutdown(wait=False, cancel_futures=True)
         
         if timed_out_docs:
             results['timed_out'] = timed_out_docs
-            self.logger.warning(f"OCR processing: {len(timed_out_docs)} documents timed out")
+            self.logger.warning(f"OCR processing: {len(timed_out_docs)} documents timed out and cancelled")
         
         results['end_time'] = time.time()
         results['duration_seconds'] = results['end_time'] - results['start_time']

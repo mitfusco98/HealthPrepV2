@@ -115,10 +115,11 @@ class DocumentMatcher:
     
     def _quick_keyword_prefilter(self, screening_type, ocr_text_lower):
         """
-        Fast pre-filter check: does the document contain ANY of the screening's keywords?
+        Fast pre-filter check: does the document contain ANY of the screening's keywords or stems?
         
-        This is a quick substring check to skip screenings that definitely won't match,
-        avoiding expensive fuzzy matching. Returns True if any keyword is found.
+        This is a quick check to skip screenings that definitely won't match,
+        avoiding expensive fuzzy matching. Errs on the side of inclusion (returns True
+        when uncertain) to prevent false negatives.
         
         PERFORMANCE: This check is O(k) where k is keyword count, vs O(n*k) for fuzzy matching.
         """
@@ -127,7 +128,15 @@ class DocumentMatcher:
             # No keywords defined - can't pre-filter, must do full matching
             return True
         
-        # Check if ANY keyword (or its core term) appears in the document
+        # Medical suffix variations to check (handles mammogram/mammography, colonoscopy/colon, etc.)
+        suffix_stems = {
+            'gram': ['graphy', 'graphic', 'grams'],
+            'scopy': ['scope', 'scopic'],
+            'ectomy': ['ectomies'],
+            'oscopy': ['oscope', 'oscopic'],
+        }
+        
+        # Check if ANY keyword (or its stem/variant) appears in the document
         for keyword in keywords:
             keyword_lower = keyword.lower().strip()
             if not keyword_lower:
@@ -137,10 +146,34 @@ class DocumentMatcher:
             if keyword_lower in ocr_text_lower:
                 return True
             
-            # Check first word of multi-word keywords (e.g., "mammogram" from "mammogram screening")
-            first_word = keyword_lower.split()[0] if ' ' in keyword_lower else keyword_lower
-            if len(first_word) >= 4 and first_word in ocr_text_lower:
+            # Extract stem for variant matching (remove common suffixes)
+            stem = keyword_lower
+            for suffix in ['graphy', 'gram', 'scopy', 'scope', 'ectomy', 'screening', 'test', 'exam']:
+                if keyword_lower.endswith(suffix) and len(keyword_lower) > len(suffix) + 2:
+                    stem = keyword_lower[:-len(suffix)]
+                    break
+            
+            # Check if stem (at least 4 chars) appears in document
+            if len(stem) >= 4 and stem in ocr_text_lower:
                 return True
+            
+            # Check medical suffix variations
+            for base_suffix, variants in suffix_stems.items():
+                if keyword_lower.endswith(base_suffix):
+                    base = keyword_lower[:-len(base_suffix)]
+                    for variant in variants:
+                        if f"{base}{variant}" in ocr_text_lower:
+                            return True
+            
+            # Check term mappings from the class (legacy synonym support)
+            for base_term, synonyms in self.term_mappings.items():
+                if keyword_lower == base_term or keyword_lower in synonyms:
+                    # Check all synonyms in document
+                    if base_term in ocr_text_lower:
+                        return True
+                    for synonym in synonyms:
+                        if synonym in ocr_text_lower:
+                            return True
         
         # No keywords found - skip this screening
         return False
