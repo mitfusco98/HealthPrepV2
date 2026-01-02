@@ -771,6 +771,16 @@ class OCRProcessor:
         Process multiple documents in parallel using ThreadPoolExecutor.
         Each thread gets its own Flask app context and session for safe database access.
         
+        TIMEOUT HANDLING: Uses a response-time circuit breaker that ensures this function
+        returns within OCR_TIMEOUT_SECONDS (default 10s) even if some documents stall.
+        
+        NOTE: For production PHI workloads requiring true task cancellation, use RQ
+        async processing (services/async_processing.py) which has proper job_timeout
+        that can terminate hung workers. This synchronous batch method is suitable for:
+        - Development/testing scenarios
+        - Small batches where response time is acceptable
+        - Cases where background completion of stalled tasks is acceptable
+        
         Args:
             document_ids: List of document IDs to process
             max_workers: Maximum number of parallel workers (None = auto-detect from 
@@ -778,7 +788,7 @@ class OCRProcessor:
             progress_callback: Optional callback function(processed, total, current_doc_id)
         
         Returns:
-            Dict with results summary
+            Dict with results summary including 'timed_out' list if any documents stalled
         """
         # Use configurable worker count
         if max_workers is None:

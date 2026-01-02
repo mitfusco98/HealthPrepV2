@@ -41,8 +41,10 @@ User onboarding supports both self-service via Stripe setup mode and manual crea
 - **Asynchronous processing:** RQ (Redis Queue) for background tasks.
 - **Security:** HIPAA compliance, robust user authentication (Flask-Login), role-based access control, CSRF protection, comprehensive audit logging, secure deletion of original files, and PHI filtering at multiple layers. Account recovery, OAuth, EMR, document, and session security are hardened with rate limiting, secure tokens, isolation, and audit trails.
 - **Extensibility:** Customizable screening logic, universal naming systems, variant management.
-- **OCR Processing Optimizations:** Cascading text extraction strategy prioritizing PyMuPDF, then hybrid processing, and finally Tesseract OCR for efficiency. Supports various file and image formats.
-- **Performance:** Performance monitoring via a singleton `PerformanceMonitor` and API endpoints for real-time metrics and reports. Benchmarking scripts analyze throughput and scaling efficiency.
+- **OCR Processing Optimizations:** Cascading text extraction strategy prioritizing PyMuPDF, then hybrid processing, and finally Tesseract OCR for efficiency. Supports various file and image formats. Parallelized via ThreadPoolExecutor with configurable OCR_MAX_WORKERS (auto-detects CPU cores). Response-time circuit breaker with OCR_TIMEOUT_SECONDS (default 10s) ensures synchronous batch calls return within SLA. For production PHI workloads requiring true task cancellation, use RQ async processing (services/async_processing.py) with job_timeout.
+- **Document Matching Optimization:** Keyword pre-filtering with medical suffix stem matching (gram/graphy, scopy/scope) skips non-matching screenings before expensive fuzzy matching.
+- **Queue Depth Alerting:** PerformanceMonitor.get_queue_metrics() triggers warnings when pending jobs exceed threshold (default 50), alerting operators to SLA risks.
+- **Performance:** Performance monitoring via a singleton `PerformanceMonitor` and API endpoints for real-time metrics and reports. Benchmarking scripts (scripts/benchmark_processing.py) analyze throughput and scaling efficiency.
 - **Reliability:** Deterministic eligibility calculations, idempotent PHI redaction, match explanation audit trails, and atomic refresh operations using per-patient savepoints.
 
 ## External Dependencies
