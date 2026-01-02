@@ -1,0 +1,70 @@
+INFO:werkzeug:10.81.9.26 - - [02/Jan/2026 19:59:06] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:services.screening_refresh_service:ScreeningRefreshService initialized for organization 31 - LOCAL PROCESSING ONLY
+INFO:services.screening_refresh_service:Starting screening refresh for EXISTING data only - NO Epic calls
+INFO:services.screening_refresh_service:Found 1 modified screening types (active: 1, inactive: 0)
+INFO:services.screening_refresh_service:Force refresh requested
+INFO:services.screening_refresh_service:Screening type criteria changed - checking ALL 10 patients for eligibility
+ERROR:services.screening_refresh_service:Error processing screening type 151 for patient 46: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 152 for patient 46: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 153 for patient 46: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 154 for patient 46: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 158 for patient 46: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 151 for patient 43: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 151 for patient 44: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 152 for patient 44: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 153 for patient 44: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 157 for patient 44: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 156 for patient 44: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 154 for patient 44: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 157 for patient 45: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 151 for patient 37: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 152 for patient 37: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 153 for patient 37: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 155 for patient 37: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 157 for patient 37: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 156 for patient 37: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 154 for patient 37: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 151 for patient 38: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 152 for patient 38: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 153 for patient 38: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 154 for patient 38: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 158 for patient 38: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 151 for patient 39: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 152 for patient 39: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 157 for patient 39: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 156 for patient 39: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 154 for patient 39: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 151 for patient 40: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 157 for patient 40: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 151 for patient 41: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 152 for patient 41: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 153 for patient 41: 'property' object has no attribute 'desc'
+ERROR:services.screening_refresh_service:Error processing screening type 154 for patient 41: 'property' object has no attribute 'desc'
+INFO:services.screening_refresh_service:No screening updates needed - applying dormancy check
+INFO:services.appointment_prioritization:Initialized AppointmentBasedPrioritization for organization 31
+INFO:services.appointment_prioritization:Getting priority patients with appointments between 2026-01-02 and 2026-01-16
+INFO:services.appointment_prioritization:Found 9 priority patients (0 from appointments, 9 from recently processed non-dormant screenings)
+INFO:services.screening_refresh_service:Found 9 priority patients with upcoming appointments
+INFO:services.appointment_prioritization:Found 1 non-scheduled patients
+INFO:services.screening_refresh_service:Processing non-scheduled patients (process_non_scheduled_patients is enabled)
+INFO:services.screening_refresh_service:All 1 non-scheduled patients already active
+INFO:services.screening_refresh_service:Appointment prioritization dormancy applied: {'applied': True, 'priority_patients_activated': 0, 'non_scheduled_marked_dormant': 0, 'stale_patients_reactivated': 0, 'setting_enabled': True, 'process_non_scheduled': True}
+INFO:werkzeug:10.81.9.26 - - [02/Jan/2026 19:59:19] "POST /screening/refresh HTTP/1.1" 302 -
+INFO:werkzeug:10.81.9.26 - - [02/Jan/2026 19:59:20] "GET /screening/list HTTP/1.1" 200 -
+INFO:werkzeug:10.81.5.221 - - [02/Jan/2026 19:59:21] "GET /screening/list HTTP/1.1" 200 -
+INFO:werkzeug:10.81.9.26 - - [02/Jan/2026 19:59:21] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.6.100 - - [02/Jan/2026 19:59:21] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.6.100 - - [02/Jan/2026 19:59:21] "GET /static/css/medical_styles.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.11.129 - - [02/Jan/2026 19:59:21] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.5.221 - - [02/Jan/2026 19:59:21] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.4.98 - - [02/Jan/2026 19:59:21] "GET /static/js/screening_performance.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.6.100 - - [02/Jan/2026 19:59:21] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.6.100 - - [02/Jan/2026 19:59:34] "GET /screening/types HTTP/1.1" 200 -
+INFO:werkzeug:10.81.9.26 - - [02/Jan/2026 19:59:34] "GET /static/css/medical_styles.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.5.221 - - [02/Jan/2026 19:59:34] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.11.129 - - [02/Jan/2026 19:59:34] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.4.98 - - [02/Jan/2026 19:59:34] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.6.100 - - [02/Jan/2026 19:59:34] "GET /static/css/keyword_modal.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.6.100 - - [02/Jan/2026 19:59:34] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.4.98 - - [02/Jan/2026 19:59:34] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.5.221 - - [02/Jan/2026 19:59:34] "GET /static/js/condition_modals.js HTTP/1.1" 304 -

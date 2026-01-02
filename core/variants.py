@@ -19,14 +19,15 @@ class ScreeningVariants:
         """
         
         # Get all variants of this screening type (including the base type itself)
-        # DETERMINISTIC ORDERING: Order by specificity (desc) then ID for consistent results
+        # DETERMINISTIC ORDERING: Sort by specificity (desc) then ID for consistent results
+        # Note: specificity_score is a computed @property, so we sort in Python, not SQL
         variants = ScreeningType.query.filter(
             ScreeningType.name.like(f"{base_screening_type.name}%"),
             ScreeningType.is_active == True
-        ).order_by(
-            ScreeningType.specificity_score.desc(),
-            ScreeningType.id
         ).all()
+        
+        # Sort by specificity_score (desc), then id (asc) for deterministic ordering
+        variants.sort(key=lambda v: (-v.specificity_score, v.id))
         
         if not variants:
             return base_screening_type

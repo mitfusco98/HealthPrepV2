@@ -64,16 +64,17 @@ class EligibilityCriteria:
         current_specificity = current_screening_type.specificity_score
         
         # Find all other screening types with the same name in this organization
-        # DETERMINISTIC ORDERING: Order by specificity (desc) then ID for consistent results
+        # DETERMINISTIC ORDERING: Sort by specificity (desc) then ID for consistent results
+        # Note: specificity_score is a computed @property, so we sort in Python, not SQL
         same_name_variants = ScreeningType.query.filter(
             ScreeningType.org_id == current_screening_type.org_id,
             ScreeningType.name == current_screening_type.name,
             ScreeningType.id != current_screening_type.id,
             ScreeningType.is_active == True
-        ).order_by(
-            ScreeningType.specificity_score.desc(),
-            ScreeningType.id
         ).all()
+        
+        # Sort by specificity_score (desc), then id (asc) for deterministic ordering
+        same_name_variants.sort(key=lambda v: (-v.specificity_score, v.id))
         
         # Check if patient qualifies for any MORE SPECIFIC variant
         for variant in same_name_variants:
