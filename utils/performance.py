@@ -215,8 +215,15 @@ class PerformanceMonitor:
             logger.error(f"Error getting system metrics: {e}")
             return {}
     
-    def get_queue_metrics(self) -> Dict[str, Any]:
-        """Get RQ queue depth and status"""
+    def get_queue_metrics(self, alert_threshold: int = 50) -> Dict[str, Any]:
+        """Get RQ queue depth and status with alerting
+        
+        Args:
+            alert_threshold: Number of pending jobs to trigger a warning alert (default: 50)
+        
+        Returns:
+            Queue metrics dict with alert status
+        """
         try:
             from redis import Redis
             from rq import Queue
@@ -229,18 +236,30 @@ class PerformanceMonitor:
                 'timestamp': datetime.utcnow().isoformat(),
                 'queues': {},
                 'total_pending': 0,
-                'total_started': 0
+                'total_started': 0,
+                'alert_threshold': alert_threshold,
+                'alert_triggered': False
             }
             
             for name in queue_names:
                 queue = Queue(name, connection=conn)
+                pending = queue.count
                 metrics['queues'][name] = {
-                    'pending': queue.count,
+                    'pending': pending,
                     'started': queue.started_job_registry.count,
                     'failed': queue.failed_job_registry.count
                 }
-                metrics['total_pending'] += queue.count
+                metrics['total_pending'] += pending
                 metrics['total_started'] += queue.started_job_registry.count
+            
+            # Queue depth alerting - log warning when threshold exceeded
+            if metrics['total_pending'] > alert_threshold:
+                metrics['alert_triggered'] = True
+                logger.warning(
+                    f"QUEUE DEPTH ALERT: {metrics['total_pending']} pending jobs exceeds "
+                    f"threshold of {alert_threshold}. SLA may be at risk. "
+                    f"Consider scaling workers or investigating backlog."
+                )
             
             return metrics
             

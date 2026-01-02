@@ -79,6 +79,29 @@ def get_ocr_max_workers():
     
     return 4  # Fallback default
 
+
+def get_ocr_timeout_seconds():
+    """
+    Get the timeout for individual OCR tasks from environment.
+    
+    Priority:
+    1. OCR_TIMEOUT_SECONDS environment variable
+    2. Fallback to 30 seconds (sufficient for most single-page docs)
+    
+    This timeout acts as a circuit breaker to prevent indefinite blocking
+    on problematic documents while allowing adequate time for multi-page PDFs.
+    """
+    env_timeout = os.environ.get('OCR_TIMEOUT_SECONDS')
+    if env_timeout:
+        try:
+            timeout = int(env_timeout)
+            if timeout > 0:
+                return timeout
+        except ValueError:
+            pass
+    
+    return 30  # Default: 30 seconds per document
+
 class OCRProcessor:
     """Handles OCR processing of medical documents using Tesseract"""
 
@@ -784,16 +807,19 @@ class OCRProcessor:
                     return (doc_id, False, str(e))
         
         processed_count = 0
+        timeout_seconds = get_ocr_timeout_seconds()
+        timed_out_docs = []
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_doc = {executor.submit(process_single_with_isolated_session, doc_id): doc_id for doc_id in document_ids}
             
-            for future in as_completed(future_to_doc):
+            for future in as_completed(future_to_doc, timeout=None):
                 doc_id = future_to_doc[future]
                 processed_count += 1
                 
                 try:
-                    doc_id, success, error = future.result()
+                    # Apply per-document timeout as circuit breaker
+                    doc_id, success, error = future.result(timeout=timeout_seconds)
                     
                     if success:
                         results['successful'].append(doc_id)
@@ -802,6 +828,14 @@ class OCRProcessor:
                             'document_id': doc_id,
                             'error': error or 'Processing failed'
                         })
+                        
+                except TimeoutError:
+                    timed_out_docs.append(doc_id)
+                    results['failed'].append({
+                        'document_id': doc_id,
+                        'error': f'OCR timeout after {timeout_seconds}s (circuit breaker triggered)'
+                    })
+                    self.logger.warning(f"Document {doc_id} OCR timed out after {timeout_seconds}s")
                         
                 except Exception as e:
                     results['failed'].append({
@@ -814,6 +848,10 @@ class OCRProcessor:
                         progress_callback(processed_count, len(document_ids), doc_id)
                     except Exception:
                         pass
+        
+        if timed_out_docs:
+            results['timed_out'] = timed_out_docs
+            self.logger.warning(f"OCR processing: {len(timed_out_docs)} documents timed out")
         
         results['end_time'] = time.time()
         results['duration_seconds'] = results['end_time'] - results['start_time']

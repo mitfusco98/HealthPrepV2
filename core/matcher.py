@@ -33,6 +33,9 @@ class DocumentMatcher:
         """
         Find all screenings that match this document.
         
+        PERFORMANCE: Uses keyword pre-filtering to skip screenings that definitely
+        won't match, reducing expensive fuzzy matching operations.
+        
         Args:
             document: Document to find matches for
             max_matches: Optional limit on number of matches (for processing guards)
@@ -59,10 +62,20 @@ class DocumentMatcher:
         screenings = Screening.query.filter_by(patient_id=document.patient_id).all()
         self.logger.debug(f"Found {len(screenings)} screenings for patient {document.patient_id}")
         
+        # Pre-compute lowercase OCR text for fast keyword pre-filtering
+        ocr_text_lower = document.ocr_text.lower()
+        skipped_by_prefilter = 0
+        
         for screening in screenings:
             if not guard.can_continue():
                 self.logger.warning(f"Processing guard limit reached for document {document.id}")
                 break
+            
+            # PERFORMANCE: Quick keyword pre-filter before expensive fuzzy matching
+            # Skip screenings that have no keyword overlap with document text
+            if not self._quick_keyword_prefilter(screening.screening_type, ocr_text_lower):
+                skipped_by_prefilter += 1
+                continue
             
             # Use detailed match calculation for audit trail
             confidence, matched_keywords = self._calculate_match_with_keywords(document, screening.screening_type)
@@ -90,12 +103,47 @@ class DocumentMatcher:
                     f"keywords_found={matched_keywords}"
                 )
         
+        if skipped_by_prefilter > 0:
+            self.logger.debug(f"Pre-filter skipped {skipped_by_prefilter}/{len(screenings)} screenings for document {document.id}")
+        
         stats = guard.get_stats()
         if stats['warning_issued'] or stats['limit_reached']:
             self.logger.warning(f"Document {document.id} matching stats: {stats}")
         
         self.logger.info(f"Document {document.id} matching complete: {len(matches)} matches found")
         return matches
+    
+    def _quick_keyword_prefilter(self, screening_type, ocr_text_lower):
+        """
+        Fast pre-filter check: does the document contain ANY of the screening's keywords?
+        
+        This is a quick substring check to skip screenings that definitely won't match,
+        avoiding expensive fuzzy matching. Returns True if any keyword is found.
+        
+        PERFORMANCE: This check is O(k) where k is keyword count, vs O(n*k) for fuzzy matching.
+        """
+        keywords = screening_type.keywords_list
+        if not keywords:
+            # No keywords defined - can't pre-filter, must do full matching
+            return True
+        
+        # Check if ANY keyword (or its core term) appears in the document
+        for keyword in keywords:
+            keyword_lower = keyword.lower().strip()
+            if not keyword_lower:
+                continue
+            
+            # Direct substring check (fast)
+            if keyword_lower in ocr_text_lower:
+                return True
+            
+            # Check first word of multi-word keywords (e.g., "mammogram" from "mammogram screening")
+            first_word = keyword_lower.split()[0] if ' ' in keyword_lower else keyword_lower
+            if len(first_word) >= 4 and first_word in ocr_text_lower:
+                return True
+        
+        # No keywords found - skip this screening
+        return False
     
     def find_screening_matches(self, screening, exclude_dismissed=True, max_matches=None):
         """
