@@ -44,6 +44,7 @@ User onboarding supports both self-service via Stripe setup mode and manual crea
 - **OCR Processing Optimizations:** Cascading text extraction strategy prioritizing PyMuPDF, then hybrid processing, and finally Tesseract OCR for efficiency. Supports various file and image formats.
 - **Performance:** Performance monitoring via a singleton `PerformanceMonitor` and API endpoints for real-time metrics and reports. Benchmarking scripts analyze throughput and scaling efficiency.
 - **Reliability:** Deterministic eligibility calculations, idempotent PHI redaction, match explanation audit trails, and atomic refresh operations using per-patient savepoints.
+- **Match Explanation UI:** `/admin/documents` displays prominent match explanations showing confidence percentages and matched keywords for each document-screening match, supporting regulatory compliance and debugging.
 
 ## External Dependencies
 - **FHIR-based EMRs:** e.g., Epic (for real-time data integration)
