@@ -62,16 +62,32 @@ class DocumentMatcher:
             if not guard.can_continue():
                 self.logger.warning(f"Processing guard limit reached for document {document.id}")
                 break
-                
-            confidence = self._calculate_match_confidence(document, screening.screening_type)
-            self.logger.debug(f"Document {document.id} vs Screening {screening.id} ({screening.screening_type.name}): confidence={confidence:.3f}")
             
+            # Use detailed match calculation for audit trail
+            confidence, matched_keywords = self._calculate_match_with_keywords(document, screening.screening_type)
+            
+            # AUDIT TRAIL: Log match explanation regardless of outcome
             if confidence > 0.75:  # Raised threshold to reduce false positives
                 if guard.increment():
                     matches.append((screening.id, confidence))
-                    self.logger.info(f"MATCH FOUND: Document {document.id} matches Screening {screening.id} with confidence {confidence:.3f}")
+                    # Log successful match with full explanation
+                    self._log_match_explanation(
+                        document_id=document.id,
+                        screening_id=screening.id,
+                        screening_name=screening.screening_type.name,
+                        confidence=confidence,
+                        matched_keywords=matched_keywords,
+                        matched=True
+                    )
                 else:
                     break
+            else:
+                # Log why match failed (for debugging/audit)
+                self.logger.debug(
+                    f"NO MATCH: Document {document.id} vs Screening {screening.id} "
+                    f"({screening.screening_type.name}): confidence={confidence:.3f} < 0.75, "
+                    f"keywords_found={matched_keywords}"
+                )
         
         stats = guard.get_stats()
         if stats['warning_issued'] or stats['limit_reached']:
@@ -114,7 +130,8 @@ class DocumentMatcher:
                 break
                 
             if document.ocr_text:
-                confidence = self._calculate_match_confidence(document, screening.screening_type)
+                # Use detailed match calculation for audit trail
+                confidence, matched_keywords = self._calculate_match_with_keywords(document, screening.screening_type)
                 
                 if confidence > 0.75:
                     if not guard.increment():
@@ -123,8 +140,18 @@ class DocumentMatcher:
                     candidate_matches.append({
                         'document': document,
                         'confidence': confidence,
-                        'document_date': document_date
+                        'document_date': document_date,
+                        'matched_keywords': matched_keywords
                     })
+                    # Log successful match with explanation
+                    self._log_match_explanation(
+                        document_id=document.id,
+                        screening_id=screening.id,
+                        screening_name=screening.screening_type.name,
+                        confidence=confidence,
+                        matched_keywords=matched_keywords,
+                        matched=True
+                    )
         
         # If dismissal filtering enabled, batch query for all dismissed document IDs
         if exclude_dismissed and candidate_matches:
@@ -324,6 +351,33 @@ class DocumentMatcher:
                 results[composite_key] = {'active': [], 'dismissed': []} if include_dismissed else []
         
         return results
+    
+    def _log_match_explanation(self, document_id: int, screening_id: int, 
+                               screening_name: str, confidence: float,
+                               matched_keywords: list, matched: bool):
+        """Log detailed match explanation for audit trail
+        
+        AUDIT TRAIL: Provides complete explanation of why a document matched
+        or didn't match a screening, including:
+        - Document and screening identifiers
+        - Confidence score breakdown
+        - Which keywords were found
+        - Match decision (above/below threshold)
+        
+        This enables debugging of matching logic and regulatory compliance.
+        """
+        if matched:
+            self.logger.info(
+                f"MATCH EXPLANATION: Document {document_id} -> Screening {screening_id} "
+                f"({screening_name}) | confidence={confidence:.3f} | "
+                f"matched_keywords={matched_keywords} | ACCEPTED (>0.75)"
+            )
+        else:
+            self.logger.debug(
+                f"MATCH EXPLANATION: Document {document_id} -> Screening {screening_id} "
+                f"({screening_name}) | confidence={confidence:.3f} | "
+                f"matched_keywords={matched_keywords} | REJECTED (<0.75)"
+            )
     
     def _calculate_match_with_keywords(self, document, screening_type):
         """

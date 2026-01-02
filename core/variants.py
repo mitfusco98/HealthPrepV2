@@ -12,18 +12,27 @@ class ScreeningVariants:
         self.logger = logging.getLogger(__name__)
     
     def get_applicable_variant(self, patient, base_screening_type):
-        """Get the most applicable screening variant for a patient"""
+        """Get the most applicable screening variant for a patient
+        
+        DETERMINISTIC: Uses consistent ordering (specificity desc, then id) to ensure
+        the same patient + same criteria always produces the same result.
+        """
         
         # Get all variants of this screening type (including the base type itself)
+        # DETERMINISTIC ORDERING: Order by specificity (desc) then ID for consistent results
         variants = ScreeningType.query.filter(
             ScreeningType.name.like(f"{base_screening_type.name}%"),
             ScreeningType.is_active == True
+        ).order_by(
+            ScreeningType.specificity_score.desc(),
+            ScreeningType.id
         ).all()
         
         if not variants:
             return base_screening_type
         
         # Separate general population and conditional variants
+        # Lists maintain the deterministic ordering from the query
         general_variants = []
         conditional_variants = []
         
@@ -35,6 +44,7 @@ class ScreeningVariants:
                 conditional_variants.append(variant)
         
         # First try to find a matching conditional variant
+        # DETERMINISTIC: On ties, prefer higher specificity, then lower ID (from query order)
         best_conditional = None
         max_matched_conditions = 0
         
@@ -44,13 +54,17 @@ class ScreeningVariants:
             if matched_conditions > max_matched_conditions:
                 max_matched_conditions = matched_conditions
                 best_conditional = variant
+            elif matched_conditions == max_matched_conditions and matched_conditions > 0:
+                # Tie-breaker: already in deterministic order, first one wins
+                # (higher specificity or lower ID from query ordering)
+                pass
         
         # If patient has conditions matching a conditional variant, use it
         if best_conditional and max_matched_conditions > 0:
             return best_conditional
         
         # Otherwise, use the most appropriate general variant
-        # Prefer variants over base types for more specific protocols
+        # DETERMINISTIC: Prefer variants over base types, already sorted by specificity/id
         preferred_general = None
         for variant in general_variants:
             if variant.name != base_screening_type.name:  # Prefer variants over base

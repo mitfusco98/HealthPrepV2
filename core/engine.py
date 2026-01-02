@@ -52,9 +52,13 @@ class ScreeningEngine:
                         
                         # Process priority patients first - mark as NOT dormant
                         for patient_id in priority_patient_ids:
-                            updated_count += self.refresh_patient_screenings(patient_id)
-                            # Mark all screenings for this patient as active (not dormant)
-                            self._mark_patient_screenings_dormancy(patient_id, is_dormant=False)
+                            try:
+                                updated_count += self.refresh_patient_screenings(patient_id)
+                                # Mark all screenings for this patient as active (not dormant)
+                                self._mark_patient_screenings_dormancy(patient_id, is_dormant=False)
+                            except Exception as e:
+                                # Log but continue - one patient failure shouldn't stop all others
+                                self.logger.warning(f"Patient {patient_id} refresh failed, continuing with others: {str(e)}")
                         
                         # Process non-scheduled patients if enabled
                         if organization.process_non_scheduled_patients:
@@ -90,9 +94,13 @@ class ScreeningEngine:
                             
                             # Process the selected batch
                             for patient_id in patients_to_process:
-                                updated_count += self.refresh_patient_screenings(patient_id)
-                                # Mark processed non-scheduled patients as active
-                                self._mark_patient_screenings_dormancy(patient_id, is_dormant=False)
+                                try:
+                                    updated_count += self.refresh_patient_screenings(patient_id)
+                                    # Mark processed non-scheduled patients as active
+                                    self._mark_patient_screenings_dormancy(patient_id, is_dormant=False)
+                                except Exception as e:
+                                    # Log but continue - one patient failure shouldn't stop all others
+                                    self.logger.warning(f"Patient {patient_id} refresh failed, continuing with others: {str(e)}")
                             
                             # When process_non_scheduled_patients is enabled, keep ALL non-scheduled active
                             # Do NOT mark any as dormant - they should all remain processable
@@ -114,19 +122,28 @@ class ScreeningEngine:
                         # Fall back to standard processing
                         patients = Patient.query.filter_by(org_id=org_id).all()
                         for patient in patients:
-                            updated_count += self.refresh_patient_screenings(patient.id)
+                            try:
+                                updated_count += self.refresh_patient_screenings(patient.id)
+                            except Exception as e:
+                                self.logger.warning(f"Patient {patient.id} refresh failed, continuing with others: {str(e)}")
                 else:
                     # Standard processing for org without prioritization
                     self.logger.info("Appointment-based prioritization is DISABLED - processing all patients")
                     patients = Patient.query.filter_by(org_id=org_id).all()
                     for patient in patients:
-                        updated_count += self.refresh_patient_screenings(patient.id)
+                        try:
+                            updated_count += self.refresh_patient_screenings(patient.id)
+                        except Exception as e:
+                            self.logger.warning(f"Patient {patient.id} refresh failed, continuing with others: {str(e)}")
             else:
                 # No org_id provided - process all patients (legacy behavior)
                 self.logger.info("No org_id provided - processing all patients across all organizations")
                 patients = Patient.query.all()
                 for patient in patients:
-                    updated_count += self.refresh_patient_screenings(patient.id)
+                    try:
+                        updated_count += self.refresh_patient_screenings(patient.id)
+                    except Exception as e:
+                        self.logger.warning(f"Patient {patient.id} refresh failed, continuing with others: {str(e)}")
             
             db.session.commit()
             self.logger.info(f"Successfully refreshed {updated_count} screenings")
@@ -141,9 +158,18 @@ class ScreeningEngine:
     def refresh_patient_screenings(self, patient_id, force_refresh=False):
         """Refresh screenings for a specific patient and sync with Epic if available
         
+        ATOMIC OPERATION: Uses savepoint to ensure all-or-nothing update for this patient.
+        If any part of the patient refresh fails, the entire patient's changes are rolled back.
+        
         Args:
             patient_id: Patient ID to refresh
             force_refresh: If True, refresh all screenings regardless of criteria changes
+            
+        Returns:
+            Number of screenings updated (0 if failed or patient not found)
+            
+        Raises:
+            Exception: Re-raises the original exception after logging and rollback
         """
         patient = Patient.query.get(patient_id)
         if not patient:
@@ -151,29 +177,37 @@ class ScreeningEngine:
         
         updated_count = 0
         
+        # ATOMIC: Use context manager for proper savepoint handling
+        # If anything fails, we roll back just this patient, not the entire batch
         try:
-            # Sync with Epic if integration is available
-            if self.epic_integration and patient.mrn:
-                self._sync_patient_with_epic(patient)
-            
-            # CRITICAL: Only get screening types from patient's organization
-            screening_types = ScreeningType.query.filter_by(is_active=True, org_id=patient.org_id).all()
-            
-            for screening_type in screening_types:
-                # Check if patient is eligible
-                if self.criteria.is_patient_eligible(patient, screening_type):
-                    screening = self._get_or_create_screening(patient, screening_type)
-                    
-                    # SELECTIVE REFRESH: Only reprocess if criteria changed or force refresh
-                    if force_refresh or self._should_refresh_screening(screening, screening_type):
-                        if self._update_screening_status(screening):
-                            updated_count += 1
-                    else:
-                        self.logger.debug(f"Skipping {screening_type.name} for patient {patient_id} - no criteria changes")
+            with db.session.begin_nested():
+                # Sync with Epic if integration is available
+                if self.epic_integration and patient.mrn:
+                    self._sync_patient_with_epic(patient)
+                
+                # CRITICAL: Only get screening types from patient's organization
+                screening_types = ScreeningType.query.filter_by(is_active=True, org_id=patient.org_id).all()
+                
+                for screening_type in screening_types:
+                    # Check if patient is eligible
+                    if self.criteria.is_patient_eligible(patient, screening_type):
+                        screening = self._get_or_create_screening(patient, screening_type)
+                        
+                        # SELECTIVE REFRESH: Only reprocess if criteria changed or force refresh
+                        if force_refresh or self._should_refresh_screening(screening, screening_type):
+                            if self._update_screening_status(screening):
+                                updated_count += 1
+                        else:
+                            self.logger.debug(f"Skipping {screening_type.name} for patient {patient_id} - no criteria changes")
+                
+                # Savepoint auto-commits on successful exit from context
+                self.logger.debug(f"Patient {patient_id}: atomic refresh complete, {updated_count} screenings updated")
                         
         except Exception as e:
-            self.logger.error(f"Error refreshing patient {patient_id} screenings: {str(e)}")
-            # Continue with local refresh even if Epic sync fails
+            # ATOMIC: Savepoint auto-rolls back on exception
+            self.logger.error(f"Error refreshing patient {patient_id} screenings (rolled back): {str(e)}")
+            # Re-raise to allow caller to handle or track failures
+            raise
             
         return updated_count
     

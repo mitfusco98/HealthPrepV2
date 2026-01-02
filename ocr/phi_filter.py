@@ -7,23 +7,40 @@ from models import PHIFilterSettings
 import logging
 
 class PHIFilter:
-    """HIPAA-compliant PHI filtering using regex patterns"""
+    """HIPAA-compliant PHI filtering using regex patterns
+    
+    IDEMPOTENCY: This filter detects already-redacted patterns and skips them
+    to prevent double-redaction (e.g., "[SSN REDACTED]" becoming "[[SSN REDACTED] REDACTED]").
+    """
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         
+        # Patterns for already-redacted content (idempotency protection)
+        self.redacted_patterns = [
+            r'\[SSN REDACTED\]',
+            r'\[PHONE REDACTED\]',
+            r'\[MRN REDACTED\]',
+            r'\[INSURANCE REDACTED\]',
+            r'\[ADDRESS REDACTED\]',
+            r'\[NAME REDACTED\]',
+            r'\[DATE REDACTED\]',
+            r'\[[A-Z\s]+ REDACTED\]'  # Catch-all for any redaction marker
+        ]
+        
         # PHI patterns for detection and redaction
+        # SSN patterns are more precise to avoid false positives on account numbers
         self.phi_patterns = {
             'ssn': [
-                r'\b\d{3}-\d{2}-\d{4}\b',  # XXX-XX-XXXX
-                r'\b\d{3}\s+\d{2}\s+\d{4}\b',  # XXX XX XXXX
-                r'\b\d{9}\b'  # XXXXXXXXX
+                r'\b\d{3}-\d{2}-\d{4}\b',  # XXX-XX-XXXX (standard SSN format)
+                r'\b\d{3}\s+\d{2}\s+\d{4}\b',  # XXX XX XXXX (space-separated)
+                r'(?i)(?:SSN|Social\s*Security(?:\s*Number)?|SS#)[\s:]*\d{9}\b',  # 9 digits with SSN context
             ],
             'phone': [
                 r'\(\d{3}\)\s*\d{3}-\d{4}',  # (XXX) XXX-XXXX
                 r'\d{3}-\d{3}-\d{4}',  # XXX-XXX-XXXX
                 r'\d{3}\.\d{3}\.\d{4}',  # XXX.XXX.XXXX
-                r'\b\d{10}\b'  # XXXXXXXXXX
+                r'\b\d{10}\b'  # XXXXXXXXXX (bare 10 digits with word boundaries)
             ],
             'mrn': [
                 r'\bMRN[\s:]*\d+',  # MRN: XXXXXXX
@@ -66,18 +83,21 @@ class PHIFilter:
         ]
     
     def filter_phi(self, text):
-        """Apply PHI filtering to text - always enabled for HIPAA compliance"""
+        """Apply PHI filtering to text - always enabled for HIPAA compliance
+        
+        IDEMPOTENCY: Detects already-redacted patterns and protects them from
+        double-redaction. Safe to call multiple times on the same text.
+        """
         if not text:
             return text
         
         settings = self._get_filter_settings()
-        # PHI filtering is always enabled for HIPAA compliance
-        # The enabled flag is ignored - filtering cannot be disabled
         
         filtered_text = text
         
         # Track what we're filtering to avoid corrupting medical terms
-        protected_spans = self._identify_medical_terms(text)
+        # AND already-redacted content (idempotency protection)
+        protected_spans = self._identify_protected_spans(text)
         
         # Apply each filter type based on settings
         filter_methods = {
@@ -106,8 +126,35 @@ class PHIFilter:
             db.session.commit()
         return settings
     
+    def _identify_protected_spans(self, text):
+        """Identify spans that should be protected from filtering
+        
+        This includes:
+        1. Medical terms (blood pressure, lab values, etc.)
+        2. Already-redacted content (idempotency protection)
+        """
+        protected_spans = []
+        
+        # Protect medical terms
+        for pattern in self.medical_terms:
+            matches = re.finditer(pattern, text, re.IGNORECASE)
+            for match in matches:
+                protected_spans.append((match.start(), match.end()))
+        
+        # Protect already-redacted content (idempotency)
+        for pattern in self.redacted_patterns:
+            matches = re.finditer(pattern, text)
+            for match in matches:
+                protected_spans.append((match.start(), match.end()))
+        
+        return protected_spans
+    
     def _identify_medical_terms(self, text):
-        """Identify medical terms that should be protected from filtering"""
+        """Identify medical terms that should be protected from filtering
+        
+        DEPRECATED: Use _identify_protected_spans instead for idempotency support.
+        Kept for backward compatibility.
+        """
         protected_spans = []
         
         for pattern in self.medical_terms:
