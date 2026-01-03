@@ -751,11 +751,18 @@ class EpicFHIRService:
                     except (ValueError, TypeError):
                         pass
                 
-                # HIPAA COMPLIANCE: Use structured code-derived title, not free text with vaccine name
-                # The vaccine name may be PHI-safe, but we enforce consistency with the deterministic approach
+                # HIPAA COMPLIANCE: Initialize PHI filter for sanitization
+                from ocr.phi_filter import PHIFilter
+                phi_filter = PHIFilter()
+                
+                # DUAL-TITLE ARCHITECTURE:
+                # - title: deterministic LOINC-derived display name
+                # - search_title: PHI-filtered but keyword-rich for matching
                 fhir_doc.title = "Immunization Record"
                 fhir_doc.document_type_display = "Immunization Record"
                 fhir_doc.document_type_code = "11369-6"
+                # search_title: preserve vaccine name for keyword matching (after PHI filtering)
+                fhir_doc.search_title = phi_filter.sanitize_title_for_keywords(vaccine_display) if vaccine_display else "Immunization Record"
                 # Description redacted - vaccine_display may contain PHI
                 fhir_doc.description = None
                 fhir_doc.document_date = occurrence_date
@@ -764,8 +771,6 @@ class EpicFHIRService:
                     fhir_doc.creation_date = occurrence_datetime or dt.utcnow()
                 
                 # HIPAA COMPLIANCE: Sanitize FHIR resource before storage
-                from ocr.phi_filter import PHIFilter
-                phi_filter = PHIFilter()
                 fhir_doc.fhir_document_reference = phi_filter.sanitize_fhir_resource(json.dumps(imm_record))
                 fhir_doc.content_type = "application/fhir+json"
                 fhir_doc.is_processed = True

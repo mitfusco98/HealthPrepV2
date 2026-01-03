@@ -334,6 +334,187 @@ We do NOT store:
 
 ---
 
+## Dual-Title Architecture for Keyword Matching
+
+### Challenge: PHI Safety vs. Keyword Matching
+
+Document titles from Epic often contain both medical keywords needed for screening matching AND patient names (PHI):
+- "Smith, John - Complete Blood Count with Differential"
+- "Colonoscopy Report - Dr. Wilson - Mary Jane"
+
+Using LOINC-derived titles alone (e.g., "Laboratory Report") is PHI-safe but loses keyword-rich content needed for accurate screening matching.
+
+### Solution: Dual-Title Fields
+
+Each FHIRDocument stores two title fields:
+
+| Field | Purpose | Source | PHI Status |
+|-------|---------|--------|------------|
+| `title` | UI Display | LOINC codes only | **PHI-Free** (deterministic) |
+| `search_title` | Keyword Matching | Original title (PHI-filtered) | **PHI-Filtered** (whitelist) |
+
+### How search_title Works
+
+1. **Extract Original Title**: From Epic's `description` or `attachment.title`
+2. **Whitelist Filtering**: Only preserve words in medical keyword dictionary (300+ terms)
+3. **Remove Non-Whitelisted Words**: Assumed to be patient names
+4. **Store Filtered Result**: "Smith, John - Complete Blood Count" → "Complete Blood Count"
+
+### Example Transformations
+
+| Original Title | search_title | title (LOINC) |
+|---------------|--------------|---------------|
+| Smith, John - Complete Blood Count | Complete Blood Count | Laboratory Report |
+| Mammography - Jane Doe Annual | Mammography - Annual | Diagnostic Imaging |
+| Colonoscopy Screening - Dr. Wilson | Colonoscopy Screening | Procedure Report |
+
+### Security Guarantees
+
+- **No Patient Names**: Whitelist approach removes all non-medical words
+- **Keyword Preservation**: Medical terms preserved for accurate matching
+- **Deterministic Fallback**: If search_title is empty, uses LOINC title
+- **Audit Trail**: Original titles never stored - only filtered versions
+
+---
+
+## AWS Backup & Recovery Architecture
+
+### Design Principles
+
+HealthPrep's backup strategy is designed for **deterministic recovery** with **minimal data storage**. Most application state can be reconstructed from Epic sync, so we only store data that cannot be regenerated.
+
+### Data Classification
+
+#### Essential Data (Must Be Backed Up)
+
+| Data Type | Table(s) | Why Essential |
+|-----------|----------|---------------|
+| **Organizations** | `organizations` | Configuration, billing, Epic credentials |
+| **Users** | `users` | Credentials, roles, security questions |
+| **PHI-Filtered Transcripts** | `fhir_documents.ocr_text` | OCR processing is expensive |
+| **Screening Matches** | `screening_document_match` | User-verified matches |
+| **Screening Types** | `screening_types` | Custom org-specific screenings |
+| **Presets** | `presets`, `preset_screenings` | User-configured screening sets |
+| **Dismissed Matches** | `dismissed_document_matches` | User decisions |
+| **Audit Logs** | `audit_logs` | HIPAA compliance |
+
+#### Regenerable Data (Not Backed Up)
+
+| Data Type | How Regenerated |
+|-----------|-----------------|
+| Document Metadata | Epic sync → `FHIRDocument.update_from_fhir()` |
+| Patient Demographics | Epic sync → `Patient.update_from_fhir()` |
+| Screening Due Dates | Deterministic calculation from eligibility rules |
+| Prep Sheet Content | Generated from matched documents + screening status |
+| FHIR Resources | Re-fetched from Epic DocumentReference API |
+
+### AWS Infrastructure
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    AWS Backup Architecture                   │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌─────────────────┐    ┌──────────────────────────────┐   │
+│  │  RDS PostgreSQL │───▶│ Automated Snapshots (PITR)   │   │
+│  │  (Primary DB)   │    │ • Retention: 7-35 days       │   │
+│  └────────┬────────┘    │ • Encryption: AES-256        │   │
+│           │              │ • Cross-Region: Optional     │   │
+│           │              └──────────────────────────────┘   │
+│           │                                                  │
+│           ▼                                                  │
+│  ┌─────────────────┐    ┌──────────────────────────────┐   │
+│  │  AWS Backup     │───▶│ Daily Logical Dumps (S3)     │   │
+│  │  (Vault)        │    │ • pg_dump compressed         │   │
+│  │                 │    │ • S3 Lifecycle: 90 days      │   │
+│  └─────────────────┘    │ • Glacier Archive: 7 years   │   │
+│                         └──────────────────────────────┘   │
+│                                                              │
+│  ┌─────────────────┐    ┌──────────────────────────────┐   │
+│  │  Secrets Manager│───▶│ Application Secrets          │   │
+│  │                 │    │ • Epic OAuth credentials     │   │
+│  │                 │    │ • Encryption keys            │   │
+│  └─────────────────┘    │ • Session secrets            │   │
+│                         └──────────────────────────────┘   │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Recovery Scenarios
+
+#### Scenario 1: Database Corruption (Single Table)
+
+| Step | Action | Time |
+|------|--------|------|
+| 1 | Identify corrupted table | 5 min |
+| 2 | Point-in-time recovery to pre-corruption | 15-30 min |
+| 3 | Extract clean table from recovery DB | 10 min |
+| 4 | Restore table to production | 10 min |
+| **Total** | | **~1 hour** |
+
+#### Scenario 2: Full Database Failure
+
+| Step | Action | Time |
+|------|--------|------|
+| 1 | Restore latest RDS snapshot | 30-60 min |
+| 2 | Apply secrets from Secrets Manager | 5 min |
+| 3 | Trigger Epic incremental sync | Background |
+| 4 | Application online (degraded) | **~1 hour** |
+| 5 | Full sync complete | +2-4 hours |
+
+#### Scenario 3: Complete Region Failure
+
+| Step | Action | Time |
+|------|--------|------|
+| 1 | Failover to DR region | 15 min |
+| 2 | Restore cross-region snapshot | 1-2 hours |
+| 3 | Update DNS records | 5 min |
+| 4 | Application online (degraded) | **~2 hours** |
+| 5 | Full Epic re-sync | +4-8 hours |
+
+### Deterministic Recovery Process
+
+After database restoration, these pages automatically regenerate:
+
+| Page | How Regenerated |
+|------|-----------------|
+| `/admin/documents` | Epic sync populates FHIRDocument metadata |
+| `/screening/list` | Screening engine recalculates due dates |
+| Prep Sheets | Generated from OCR text + screening matches |
+
+**Manual steps required:**
+1. Trigger Epic OAuth re-authentication (tokens may have expired)
+2. Initiate bulk document sync for each organization
+3. Verify screening match counts against pre-backup metrics
+
+### Encryption Standards
+
+| Data Type | At Rest | In Transit |
+|-----------|---------|------------|
+| RDS Snapshots | AES-256 | N/A |
+| S3 Backups | SSE-S3 or SSE-KMS | TLS 1.2+ |
+| Secrets Manager | AWS KMS | TLS 1.2+ |
+| Epic OAuth Tokens | Application-level (Fernet) | TLS 1.2+ |
+
+### Compliance Considerations
+
+1. **HIPAA BAA Required**: Ensure AWS BAA covers all backup services
+2. **Retention Periods**: 7 years for audit logs (configurable per org)
+3. **Access Controls**: IAM policies restrict backup access to authorized personnel
+4. **Audit Trail**: AWS CloudTrail logs all backup/restore operations
+
+### Disaster Recovery Checklist
+
+- [ ] RDS automated backups enabled (7+ day retention)
+- [ ] Cross-region replication configured for critical orgs
+- [ ] S3 backup bucket with versioning and lifecycle rules
+- [ ] Secrets Manager secrets backed up to secondary region
+- [ ] Recovery runbook tested quarterly
+- [ ] Epic re-sync procedure documented
+- [ ] DNS failover configured (Route 53 health checks)
+
+---
+
 ## Contact
 
 For security questions or to report vulnerabilities:
@@ -343,4 +524,4 @@ For security questions or to report vulnerabilities:
 ---
 
 *Last Updated: January 2026*
-*Version: 1.0*
+*Version: 1.1*

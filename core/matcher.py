@@ -470,9 +470,12 @@ class DocumentMatcher:
         from models import FHIRDocument
         
         # Hybrid approach: use both filename/title AND OCR text for comprehensive matching
-        # Handle both Document (has 'filename') and FHIRDocument (has 'title')
+        # Handle both Document (has 'filename') and FHIRDocument (has 'search_title' for keyword matching)
+        # DUAL-TITLE ARCHITECTURE: search_title is PHI-filtered but preserves medical keywords
         if isinstance(document, FHIRDocument):
-            filename = document.title or document.document_type_display or ''
+            # Prefer search_title for keyword matching (PHI-safe, keyword-rich)
+            # Falls back to title (LOINC-derived) if search_title not available
+            filename = document.search_title or document.title or document.document_type_display or ''
         else:
             filename = getattr(document, 'filename', '') or ''
         

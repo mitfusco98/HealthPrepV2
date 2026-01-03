@@ -277,39 +277,98 @@ class PHIFilter:
     
     # Class-level medical keywords whitelist for title filtering
     MEDICAL_KEYWORDS = {
+        # Document types and sections
         'lab', 'labs', 'results', 'report', 'note', 'notes', 'progress', 'assessment',
         'plan', 'summary', 'discharge', 'admission', 'consultation', 'referral',
         'order', 'orders', 'prescription', 'imaging', 'xray', 'x-ray', 'ct', 'mri',
+        'record', 'documentation', 'narrative', 'addendum', 'amendment', 'correction',
+        # Imaging procedures
         'ultrasound', 'ecg', 'ekg', 'mammogram', 'mammography', 'colonoscopy',
-        'blood', 'panel', 'cbc', 'cmp', 'lipid', 'a1c', 'glucose', 'cholesterol',
+        'echocardiogram', 'echo', 'dexa', 'dxa', 'densitometry', 'density', 'angiogram',
+        'fluoroscopy', 'tomography', 'arteriogram', 'venogram',
+        # Lab tests and panels
+        'blood', 'panel', 'cbc', 'cmp', 'bmp', 'lipid', 'a1c', 'glucose', 'cholesterol',
+        'hemoglobin', 'hematocrit', 'platelet', 'count', 'differential', 'smear',
+        'triglyceride', 'hdl', 'ldl', 'creatinine', 'bun', 'electrolyte', 'potassium',
+        'sodium', 'calcium', 'magnesium', 'phosphorus', 'albumin', 'bilirubin',
+        'enzyme', 'troponin', 'bnp', 'procalcitonin', 'ferritin', 'iron', 'vitamin',
+        'thyroid', 'tsh', 't3', 't4', 'psa', 'cea', 'afp', 'hcg', 'ige', 'culture',
+        'urinalysis', 'urine', 'stool', 'fecal', 'occult', 'coagulation', 'pt', 'inr',
+        # Pathology and cytology
         'pathology', 'biopsy', 'cytology', 'radiology', 'nuclear', 'pet', 'scan',
-        'physical', 'exam', 'history', 'visit', 'encounter', 'follow-up', 'followup',
+        'histology', 'specimen', 'tissue', 'cell', 'cells', 'cellular',
+        # Physical exams and visits
+        'physical', 'exam', 'examination', 'history', 'visit', 'encounter', 'follow-up', 'followup',
+        'evaluation', 'eval', 'consult', 'review', 'assessment', 'checkup',
+        # Preventive care
         'vaccine', 'vaccination', 'immunization', 'screening', 'preventive', 'annual',
+        'wellness', 'prophylaxis', 'prophylactic', 'flu', 'influenza', 'covid', 'tdap',
+        'pneumococcal', 'shingles', 'hepatitis', 'mmr', 'polio', 'varicella', 'hpv',
+        # Surgical and procedural
         'operative', 'surgical', 'procedure', 'anesthesia', 'recovery', 'surgery',
+        'endoscopy', 'arthroscopy', 'laparoscopy', 'thoracoscopy', 'bronchoscopy',
+        'cystoscopy', 'sigmoidoscopy', 'esophagogastroduodenoscopy', 'egd',
+        # Care settings
         'emergency', 'urgent', 'inpatient', 'outpatient', 'clinic', 'clinical',
+        'ambulatory', 'acute', 'chronic', 'critical', 'intensive', 'icu', 'nicu',
+        # Medical specialties
         'cardiology', 'oncology', 'neurology', 'dermatology', 'ophthalmology',
         'gastroenterology', 'pulmonology', 'endocrinology', 'rheumatology',
         'urology', 'nephrology', 'hematology', 'infectious', 'disease', 'internal',
         'medicine', 'pediatric', 'obstetric', 'gynecology', 'ob', 'gyn', 'obgyn',
+        'orthopedic', 'ortho', 'podiatry', 'radiology', 'pathology', 'anesthesiology',
+        'psychiatry', 'psychology', 'geriatric', 'neonatal', 'palliative', 'hospice',
+        # Healthcare roles and settings
         'primary', 'care', 'specialist', 'specialty', 'department', 'unit',
+        # Test descriptors
         'test', 'testing', 'analysis', 'complete', 'comprehensive', 'basic',
         'metabolic', 'diagnostic', 'therapeutic', 'final', 'preliminary', 'draft',
+        'random', 'fasting', 'timed', 'serial', 'stat', 'routine', 'urgent',
+        # Body parts and systems
         'chest', 'abdominal', 'pelvic', 'bone', 'joint', 'spine', 'brain', 'head',
         'neck', 'cardiac', 'vascular', 'hepatic', 'renal', 'pulmonary', 'dental',
         'vision', 'hearing', 'mental', 'health', 'behavioral', 'psychiatric',
+        'skeletal', 'muscular', 'nervous', 'digestive', 'respiratory', 'circulatory',
+        'lymphatic', 'endocrine', 'reproductive', 'urinary', 'integumentary', 'ocular',
+        # Therapy and rehabilitation
         'therapy', 'rehabilitation', 'occupational', 'speech', 'dietary', 'nutrition',
+        'physical', 'respiratory', 'cardiac', 'pulmonary', 'aquatic', 'vestibular',
+        # Common conditions/diagnoses
         'allergy', 'asthma', 'diabetes', 'hypertension', 'cancer', 'tumor',
         'infection', 'viral', 'bacterial', 'fungal', 'antibiotic', 'medication',
+        'anemia', 'leukemia', 'lymphoma', 'melanoma', 'carcinoma', 'sarcoma',
+        # Administrative/billing
         'prescription', 'refill', 'renewal', 'authorization', 'prior', 'auth',
         'insurance', 'billing', 'payment', 'invoice', 'statement', 'receipt',
         'consent', 'release', 'authorization', 'hipaa', 'privacy', 'notice',
         'demographic', 'registration', 'intake', 'form', 'questionnaire', 'survey',
+        # Time-related
         'after', 'before', 'during', 'pre', 'post', 'day', 'week', 'month', 'year',
         'first', 'second', 'third', 'initial', 'follow', 'up', 'routine', 'regular',
+        # Visit types
         'new', 'established', 'patient', 'office', 'telehealth', 'telemedicine',
         'video', 'phone', 'call', 'message', 'portal', 'mychart', 'epic', 'chart',
-        'record', 'documentation', 'narrative', 'addendum', 'amendment', 'correction'
+        # Modifiers
+        'with', 'without', 'and', 'or', 'for', 'of', 'the', 'to', 'in', 'on', 'at'
     }
+    
+    def sanitize_title_for_keywords(self, title):
+        """Apply PHI filtering to document titles while preserving keyword-rich medical content.
+        
+        DUAL-TITLE ARCHITECTURE: This method is used for the search_title field, which
+        enables keyword matching while maintaining HIPAA compliance. The result preserves
+        medical terms and document type descriptors but removes patient identifying information.
+        
+        Use this for FHIRDocument.search_title (enables keyword matching).
+        Use get_safe_document_type() for FHIRDocument.title (deterministic LOINC-based).
+        
+        Args:
+            title: Original document title/description from Epic
+            
+        Returns:
+            Sanitized title with PHI removed but medical keywords preserved
+        """
+        return self.filter_title(title)
     
     def filter_title(self, title):
         """Apply aggressive PHI filtering to document titles using whitelist approach

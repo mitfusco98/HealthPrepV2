@@ -2069,7 +2069,8 @@ class FHIRDocument(db.Model):
     document_type_display = db.Column(db.String(200))  # Human readable document type
     
     # Document metadata
-    title = db.Column(db.String(300))
+    title = db.Column(db.String(300))  # PHI-safe display title (derived from LOINC codes)
+    search_title = db.Column(db.String(500))  # Keyword-rich title (PHI-filtered, preserves medical terms)
     description = db.Column(db.Text)
     creation_date = db.Column(db.DateTime)  # When document was created in Epic
     document_date = db.Column(db.Date)  # Actual date from FHIR resource (preferred for screening logic)
@@ -2133,17 +2134,34 @@ class FHIRDocument(db.Model):
             # Check if document is HealthPrep-generated (skip OCR processing)
             self.is_healthprep_generated = self._check_healthprep_identifier(fhir_document_reference)
             
-            # HIPAA COMPLIANCE: Extract title from structured codes ONLY
-            # NEVER use free-text description/title fields from Epic
+            # DUAL-TITLE ARCHITECTURE FOR PHI SAFETY + KEYWORD MATCHING:
+            # 1. title = deterministic LOINC-derived display name (for UI)
+            # 2. search_title = PHI-filtered but keyword-rich title (for matching)
             from utils.document_types import get_safe_document_type, get_document_type_code
             
             type_coding = fhir_document_reference.get('type', {}).get('coding', [])
             category = fhir_document_reference.get('category', [])
             
-            # Get PHI-safe title from structured codes only
+            # Title 1: PHI-safe display title from structured LOINC codes only
             self.title = get_safe_document_type(type_coding, category)
             self.document_type_code = get_document_type_code(type_coding, category) or None
             self.document_type_display = self.title  # Same as title - both from codes
+            
+            # Title 2: Keyword-rich search title from original Epic title/description (PHI-filtered)
+            # This preserves medical keywords like "Complete Blood Count" for screening matching
+            # while removing patient names using the whitelist approach
+            original_title = fhir_document_reference.get('description', '')
+            if not original_title:
+                # Fallback to content attachment title if no description
+                content = fhir_document_reference.get('content', [])
+                if content and 'attachment' in content[0]:
+                    original_title = content[0]['attachment'].get('title', '')
+            
+            if original_title:
+                self.search_title = phi_filter.sanitize_title_for_keywords(original_title)
+            else:
+                # No original title available - use the LOINC-derived title for search too
+                self.search_title = self.title
             
             # Extract creation date (safe metadata)
             if 'date' in fhir_document_reference:
