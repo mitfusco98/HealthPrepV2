@@ -275,6 +275,305 @@ class PHIFilter:
                         text = text[:match.start()] + '[DATE REDACTED]' + text[match.end():]
         return text
     
+    # Class-level medical keywords whitelist for title filtering
+    MEDICAL_KEYWORDS = {
+        'lab', 'labs', 'results', 'report', 'note', 'notes', 'progress', 'assessment',
+        'plan', 'summary', 'discharge', 'admission', 'consultation', 'referral',
+        'order', 'orders', 'prescription', 'imaging', 'xray', 'x-ray', 'ct', 'mri',
+        'ultrasound', 'ecg', 'ekg', 'mammogram', 'mammography', 'colonoscopy',
+        'blood', 'panel', 'cbc', 'cmp', 'lipid', 'a1c', 'glucose', 'cholesterol',
+        'pathology', 'biopsy', 'cytology', 'radiology', 'nuclear', 'pet', 'scan',
+        'physical', 'exam', 'history', 'visit', 'encounter', 'follow-up', 'followup',
+        'vaccine', 'vaccination', 'immunization', 'screening', 'preventive', 'annual',
+        'operative', 'surgical', 'procedure', 'anesthesia', 'recovery', 'surgery',
+        'emergency', 'urgent', 'inpatient', 'outpatient', 'clinic', 'clinical',
+        'cardiology', 'oncology', 'neurology', 'dermatology', 'ophthalmology',
+        'gastroenterology', 'pulmonology', 'endocrinology', 'rheumatology',
+        'urology', 'nephrology', 'hematology', 'infectious', 'disease', 'internal',
+        'medicine', 'pediatric', 'obstetric', 'gynecology', 'ob', 'gyn', 'obgyn',
+        'primary', 'care', 'specialist', 'specialty', 'department', 'unit',
+        'test', 'testing', 'analysis', 'complete', 'comprehensive', 'basic',
+        'metabolic', 'diagnostic', 'therapeutic', 'final', 'preliminary', 'draft',
+        'chest', 'abdominal', 'pelvic', 'bone', 'joint', 'spine', 'brain', 'head',
+        'neck', 'cardiac', 'vascular', 'hepatic', 'renal', 'pulmonary', 'dental',
+        'vision', 'hearing', 'mental', 'health', 'behavioral', 'psychiatric',
+        'therapy', 'rehabilitation', 'occupational', 'speech', 'dietary', 'nutrition',
+        'allergy', 'asthma', 'diabetes', 'hypertension', 'cancer', 'tumor',
+        'infection', 'viral', 'bacterial', 'fungal', 'antibiotic', 'medication',
+        'prescription', 'refill', 'renewal', 'authorization', 'prior', 'auth',
+        'insurance', 'billing', 'payment', 'invoice', 'statement', 'receipt',
+        'consent', 'release', 'authorization', 'hipaa', 'privacy', 'notice',
+        'demographic', 'registration', 'intake', 'form', 'questionnaire', 'survey',
+        'after', 'before', 'during', 'pre', 'post', 'day', 'week', 'month', 'year',
+        'first', 'second', 'third', 'initial', 'follow', 'up', 'routine', 'regular',
+        'new', 'established', 'patient', 'office', 'telehealth', 'telemedicine',
+        'video', 'phone', 'call', 'message', 'portal', 'mychart', 'epic', 'chart',
+        'record', 'documentation', 'narrative', 'addendum', 'amendment', 'correction'
+    }
+    
+    def filter_title(self, title):
+        """Apply aggressive PHI filtering to document titles using whitelist approach
+        
+        HIPAA COMPLIANCE: Uses a whitelist strategy - only whitelisted medical/document
+        keywords are preserved. All other words are assumed to potentially be PHI
+        (patient names) and are redacted.
+        
+        Args:
+            title: Document title string
+            
+        Returns:
+            Filtered title with only whitelisted medical terms preserved
+        """
+        if not title:
+            return title
+        
+        # Step 1: First apply existing PHI patterns (SSN, phone, MRN)
+        filtered = title
+        
+        # Filter SSN
+        filtered = re.sub(r'\b\d{3}-\d{2}-\d{4}\b', '', filtered)
+        
+        # Filter MRN patterns
+        filtered = re.sub(r'\bMRN[\s:]*\d+', '', filtered, flags=re.IGNORECASE)
+        
+        # Filter phone numbers
+        filtered = re.sub(r'\(\d{3}\)\s*\d{3}-\d{4}', '', filtered)
+        filtered = re.sub(r'\b\d{3}-\d{3}-\d{4}\b', '', filtered)
+        
+        # Step 2: Split into tokens and filter using whitelist
+        # Preserve separators for reconstruction
+        tokens = re.split(r'(\s+|[-–—:,/\\|]+)', filtered)
+        
+        result_tokens = []
+        for token in tokens:
+            # Preserve separators and punctuation
+            if not token or re.match(r'^[\s\-–—:,/\\|]+$', token):
+                result_tokens.append(token)
+                continue
+            
+            # Preserve numbers and dates (may be medically relevant)
+            if re.match(r'^[\d./]+$', token):
+                result_tokens.append(token)
+                continue
+            
+            # Check if token (or its base form) is a whitelisted keyword
+            token_lower = token.lower().strip()
+            
+            # Direct match
+            if token_lower in self.MEDICAL_KEYWORDS:
+                result_tokens.append(token)
+                continue
+            
+            # Check for plural/possessive forms
+            if token_lower.endswith('s') and token_lower[:-1] in self.MEDICAL_KEYWORDS:
+                result_tokens.append(token)
+                continue
+            
+            # Check for common suffixes (-ology, -ography, -oscopy, etc.)
+            if any(token_lower.endswith(suffix) for suffix in 
+                   ['ology', 'ography', 'oscopy', 'ectomy', 'otomy', 'plasty', 'itis', 'osis']):
+                result_tokens.append(token)
+                continue
+            
+            # Token not whitelisted - likely a name, skip it
+            # (don't add anything to preserve just the medical context)
+        
+        # Step 3: Reconstruct and clean up
+        result = ''.join(result_tokens)
+        
+        # Clean up extra separators and whitespace
+        result = re.sub(r'[-–—:,/\\|]{2,}', ' - ', result)
+        result = re.sub(r'\s{2,}', ' ', result)
+        result = re.sub(r'^[\s\-–—:,/\\|]+', '', result)
+        result = re.sub(r'[\s\-–—:,/\\|]+$', '', result)
+        
+        # If nothing remains, return generic title
+        if not result.strip():
+            return 'Document'
+        
+        return result.strip()
+    
+    def sanitize_fhir_resource(self, fhir_json_str):
+        """Sanitize FHIR resource JSON to remove PHI before storage
+        
+        HIPAA COMPLIANCE: FHIR resources from Epic contain patient names, addresses,
+        identifiers, and other PHI. This method recursively removes or redacts 
+        sensitive fields while preserving clinically-relevant metadata.
+        
+        Args:
+            fhir_json_str: JSON string of FHIR resource
+            
+        Returns:
+            Sanitized JSON string with PHI removed
+        """
+        import json
+        
+        if not fhir_json_str:
+            return fhir_json_str
+        
+        try:
+            resource = json.loads(fhir_json_str)
+        except json.JSONDecodeError:
+            return fhir_json_str
+        
+        # Recursively sanitize the resource
+        sanitized = self._sanitize_fhir_object(resource)
+        
+        return json.dumps(sanitized)
+    
+    def _sanitize_fhir_object(self, obj):
+        """Recursively sanitize a FHIR object, removing PHI fields
+        
+        Args:
+            obj: Dict, list, or primitive value
+            
+        Returns:
+            Sanitized object
+        """
+        if obj is None:
+            return None
+        
+        # Handle lists - recursively sanitize each item
+        if isinstance(obj, list):
+            return [self._sanitize_fhir_object(item) for item in obj]
+        
+        # Handle primitives
+        if not isinstance(obj, dict):
+            return obj
+        
+        # Fields to completely remove (contain direct PHI)
+        phi_fields_remove = {
+            'name', 'telecom', 'address', 'photo', 'contact',
+            'communication', 'generalPractitioner', 'managingOrganization',
+            'link', 'text', 'contained', 'extension', 'modifierExtension',
+            'birthDate', 'deceasedBoolean', 'deceasedDateTime',
+            'multipleBirthBoolean', 'multipleBirthInteger',
+            'maritalStatus', 'language'
+        }
+        
+        # Fields that always contain PHI strings and should be redacted
+        phi_string_fields = {
+            'display', 'description', 'comment', 'note', 'notes',
+            'valueString', 'valueMarkdown', 'patientInstruction',
+            'div', 'narrative', 'label', 'title', 'summary', 'subtitle',
+            'conclusion', 'clinicalNotes', 'presentedForm'
+        }
+        
+        # Fields where 'value' should be redacted
+        identifier_fields = {'identifier', 'masterIdentifier'}
+        
+        result = {}
+        
+        for key, value in obj.items():
+            # Skip PHI fields entirely
+            if key in phi_fields_remove:
+                continue
+            
+            # Redact all PHI string fields to [REDACTED]
+            # HIPAA COMPLIANCE: Free-text fields like 'title', 'summary', 'description' 
+            # may contain patient names. We redact them entirely in stored FHIR JSON.
+            # The application uses structured type codes for display instead.
+            if key in phi_string_fields:
+                if isinstance(value, str):
+                    result[key] = '[REDACTED]'
+                else:
+                    result[key] = self._sanitize_fhir_object(value)
+                continue
+            
+            # Redact identifier values but keep type info
+            if key in identifier_fields:
+                if isinstance(value, list):
+                    result[key] = [self._sanitize_identifier(id_obj) for id_obj in value]
+                elif isinstance(value, dict):
+                    result[key] = self._sanitize_identifier(value)
+                else:
+                    result[key] = value
+                continue
+            
+            # Handle 'content' array (contains attachments with titles)
+            if key == 'content' and isinstance(value, list):
+                result[key] = [self._sanitize_content_item(item) for item in value]
+                continue
+            
+            # Handle 'attachment' objects
+            if key == 'attachment' and isinstance(value, dict):
+                result[key] = self._sanitize_attachment(value)
+                continue
+            
+            # Recursively process nested objects
+            result[key] = self._sanitize_fhir_object(value)
+        
+        return result
+    
+    def _sanitize_identifier(self, identifier):
+        """Sanitize an identifier object - keep type, redact value"""
+        if not isinstance(identifier, dict):
+            return identifier
+        
+        result = {}
+        for key, value in identifier.items():
+            if key == 'value':
+                result[key] = '[REDACTED]'
+            elif key in ('assigner',):
+                # Recursively sanitize assigner reference
+                result[key] = self._sanitize_reference(value) if isinstance(value, dict) else value
+            else:
+                result[key] = self._sanitize_fhir_object(value)
+        return result
+    
+    def _sanitize_reference(self, ref):
+        """Sanitize a reference object - redact display name"""
+        if not isinstance(ref, dict):
+            return ref
+        
+        result = {}
+        for key, value in ref.items():
+            if key == 'display':
+                result[key] = '[REDACTED]'
+            elif key == 'identifier':
+                result[key] = self._sanitize_identifier(value) if isinstance(value, dict) else value
+            else:
+                result[key] = self._sanitize_fhir_object(value)
+        return result
+    
+    def _sanitize_content_item(self, content):
+        """Sanitize a content array item (DocumentReference.content)"""
+        if not isinstance(content, dict):
+            return content
+        
+        result = {}
+        for key, value in content.items():
+            if key == 'attachment':
+                result[key] = self._sanitize_attachment(value) if isinstance(value, dict) else value
+            else:
+                result[key] = self._sanitize_fhir_object(value)
+        return result
+    
+    def _sanitize_attachment(self, attachment):
+        """Sanitize an attachment object - redact title and data
+        
+        HIPAA COMPLIANCE: Attachment titles may contain patient names.
+        We redact them entirely since the application uses structured type codes
+        for document identification instead.
+        """
+        if not isinstance(attachment, dict):
+            return attachment
+        
+        result = {}
+        for key, value in attachment.items():
+            if key == 'title':
+                # HIPAA: Redact title entirely - may contain patient names
+                result[key] = '[REDACTED]'
+            elif key == 'data':
+                # Remove inline base64 data (may contain PHI)
+                result[key] = '[REMOVED]'
+            elif key == 'url':
+                # Keep URL for reference but content must be fetched fresh
+                result[key] = value
+            else:
+                result[key] = self._sanitize_fhir_object(value)
+        return result
+    
     def test_filter(self, test_text):
         """Test PHI filtering on sample text"""
         return {

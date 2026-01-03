@@ -18,6 +18,7 @@ from services.epic_fhir_service import EpicFHIRService, get_epic_fhir_service_ba
 from emr.fhir_client import FHIRClient
 from core.engine import ScreeningEngine
 from ocr.document_processor import DocumentProcessor
+from ocr.phi_filter import PHIFilter
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,7 @@ class ComprehensiveEMRSync:
             
         self.screening_engine = ScreeningEngine()
         self.document_processor = DocumentProcessor()
+        self.phi_filter = PHIFilter()
         
         # Track sync progress
         self.sync_stats = {
@@ -443,14 +445,28 @@ class ComprehensiveEMRSync:
                     ).first()
                     
                     if not existing_doc:
-                        # Create FHIRDocument record for imaging report
+                        # HIPAA COMPLIANCE: Extract structured codes for PHI-safe title
+                        # Never use free-text title from Epic - use LOINC codes only
+                        from utils.document_types import get_safe_document_type, get_document_type_code
+                        
+                        code = report_resource.get('code', {})
+                        type_coding = code.get('coding', [])
+                        category = report_resource.get('category', [])
+                        
+                        # Get PHI-safe title from structured codes
+                        safe_title = get_safe_document_type(type_coding, category, fallback_code='imaging')
+                        type_code = get_document_type_code(type_coding, category)
+                        
+                        # Sanitize FHIR resource JSON to remove PHI
+                        sanitized_resource = self.phi_filter.sanitize_fhir_resource(json.dumps(report_resource))
                         fhir_doc = FHIRDocument(
                             patient_id=patient.id,
                             epic_document_id=report_id,
-                            document_type_display='Imaging Study',
-                            title=report_title or 'Imaging Report',
+                            document_type_code=type_code or None,
+                            document_type_display=safe_title,
+                            title=safe_title,  # Use structured code-derived title
                             document_date=report_date,
-                            fhir_document_reference=json.dumps(report_resource),
+                            fhir_document_reference=sanitized_resource,
                             org_id=self.organization_id
                         )
                         # Apply PHI filtering to any text content
@@ -929,7 +945,14 @@ class ComprehensiveEMRSync:
     
     def _process_document_content(self, patient: Patient, document_resource: Dict,
                                 title: str, doc_date: datetime, doc_type: str) -> bool:
-        """Download and process document content for screening keywords"""
+        """Download and process document content for screening keywords
+        
+        HIPAA COMPLIANCE: Document titles are derived ONLY from structured FHIR
+        type codes, never from free-text fields that could contain patient names.
+        This ensures deterministic PHI protection regardless of input data.
+        """
+        from utils.document_types import get_safe_document_type, get_document_type_code
+        
         try:
             # Extract content type from document metadata
             content_type = self._extract_content_type(document_resource)
@@ -942,14 +965,27 @@ class ComprehensiveEMRSync:
                 extracted_text = self.document_processor.process_document(doc_content, title, content_type)
                 
                 if extracted_text:
-                    # Create FHIRDocument record
+                    # HIPAA COMPLIANCE: Extract structured codes for PHI-safe title
+                    # NEVER use free-text 'description' or 'title' fields from Epic
+                    type_coding = document_resource.get('type', {}).get('coding', [])
+                    category = document_resource.get('category', [])
+                    
+                    # Get PHI-safe title from structured codes only
+                    safe_title = get_safe_document_type(type_coding, category)
+                    
+                    # Get document type code for database storage
+                    type_code = get_document_type_code(type_coding, category)
+                    
+                    # Sanitize FHIR resource JSON to remove PHI
+                    sanitized_resource = self.phi_filter.sanitize_fhir_resource(json.dumps(document_resource))
                     fhir_doc = FHIRDocument(
                         patient_id=patient.id,
                         epic_document_id=document_resource.get('id'),
-                        document_type_display=doc_type or 'Unknown',
-                        title=title or 'Untitled',
+                        document_type_code=type_code or None,
+                        document_type_display=safe_title,
+                        title=safe_title,  # Use structured code-derived title, not free text
                         document_date=doc_date,
-                        fhir_document_reference=json.dumps(document_resource),
+                        fhir_document_reference=sanitized_resource,
                         org_id=self.organization_id
                     )
                     # Apply PHI filtering to extracted text

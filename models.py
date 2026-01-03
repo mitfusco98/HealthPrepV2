@@ -2115,32 +2115,35 @@ class FHIRDocument(db.Model):
     def update_from_fhir(self, fhir_document_reference):
         """Update document metadata from FHIR DocumentReference resource.
         
-        HIPAA COMPLIANCE: The raw FHIR resource is sanitized before storage to 
-        remove PHI (patient names, practitioner names, addresses, etc.) while 
-        preserving essential metadata for system operation.
+        HIPAA COMPLIANCE: Document titles are derived ONLY from structured FHIR
+        type codes (LOINC), never from free-text fields that could contain patient
+        names. The raw FHIR resource is sanitized before storage to remove all
+        PHI (names, addresses, free-text descriptions, etc.).
         """
         import json
         from hashlib import sha256
         
         if isinstance(fhir_document_reference, dict):
-            # HIPAA: Sanitize FHIR resource before storage to remove PHI
-            from utils.fhir_sanitizer import fhir_sanitizer
-            sanitized_resource = fhir_sanitizer.sanitize_document_reference(fhir_document_reference)
-            self.fhir_document_reference = json.dumps(sanitized_resource)
+            # HIPAA COMPLIANCE: Sanitize FHIR resource using PHI filter
+            from ocr.phi_filter import PHIFilter
+            phi_filter = PHIFilter()
+            sanitized_resource = phi_filter.sanitize_fhir_resource(json.dumps(fhir_document_reference))
+            self.fhir_document_reference = sanitized_resource
             
             # Check if document is HealthPrep-generated (skip OCR processing)
             self.is_healthprep_generated = self._check_healthprep_identifier(fhir_document_reference)
             
-            # Extract document type information (safe metadata)
-            if 'type' in fhir_document_reference and 'coding' in fhir_document_reference['type']:
-                type_coding = fhir_document_reference['type']['coding'][0]
-                self.document_type_code = type_coding.get('code')
-                self.document_type_display = type_coding.get('display')
+            # HIPAA COMPLIANCE: Extract title from structured codes ONLY
+            # NEVER use free-text description/title fields from Epic
+            from utils.document_types import get_safe_document_type, get_document_type_code
             
-            # Extract title and description - sanitize PHI from free text
-            raw_description = fhir_document_reference.get('description')
-            if raw_description:
-                self.title = fhir_sanitizer._sanitize_text(raw_description)
+            type_coding = fhir_document_reference.get('type', {}).get('coding', [])
+            category = fhir_document_reference.get('category', [])
+            
+            # Get PHI-safe title from structured codes only
+            self.title = get_safe_document_type(type_coding, category)
+            self.document_type_code = get_document_type_code(type_coding, category) or None
+            self.document_type_display = self.title  # Same as title - both from codes
             
             # Extract creation date (safe metadata)
             if 'date' in fhir_document_reference:

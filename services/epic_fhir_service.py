@@ -751,22 +751,28 @@ class EpicFHIRService:
                     except (ValueError, TypeError):
                         pass
                 
-                fhir_doc.title = f"Immunization: {vaccine_display}"
+                # HIPAA COMPLIANCE: Use structured code-derived title, not free text with vaccine name
+                # The vaccine name may be PHI-safe, but we enforce consistency with the deterministic approach
+                fhir_doc.title = "Immunization Record"
                 fhir_doc.document_type_display = "Immunization Record"
                 fhir_doc.document_type_code = "11369-6"
-                fhir_doc.description = f"FHIR Immunization record for {vaccine_display}"
+                # Description redacted - vaccine_display may contain PHI
+                fhir_doc.description = None
                 fhir_doc.document_date = occurrence_date
                 
                 if is_new:
                     fhir_doc.creation_date = occurrence_datetime or dt.utcnow()
                 
-                fhir_doc.fhir_document_reference = json.dumps(imm_record)
+                # HIPAA COMPLIANCE: Sanitize FHIR resource before storage
+                from ocr.phi_filter import PHIFilter
+                phi_filter = PHIFilter()
+                fhir_doc.fhir_document_reference = phi_filter.sanitize_fhir_resource(json.dumps(imm_record))
                 fhir_doc.content_type = "application/fhir+json"
                 fhir_doc.is_processed = True
                 fhir_doc.processing_status = "completed"
                 
-                screening_name = screening_type.name if screening_type else ""
-                fhir_doc.set_ocr_text(f"{vaccine_display} immunization vaccine vaccination {screening_name}".strip())
+                # HIPAA COMPLIANCE: Use generic searchable terms, not patient-specific data
+                fhir_doc.set_ocr_text("immunization vaccine vaccination record")
                 
                 db.session.add(fhir_doc)
                 synced_docs.append(fhir_doc)

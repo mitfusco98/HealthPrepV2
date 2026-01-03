@@ -48,6 +48,7 @@ User onboarding supports both self-service via Stripe setup mode and manual crea
 - **Reliability:** Deterministic eligibility calculations, idempotent PHI redaction, match explanation audit trails, and atomic refresh operations using per-patient savepoints.
 - **Selective Refresh Optimization:** ScreeningType includes `criteria_signature` (SHA-256 hash of keywords/eligibility/frequency) and `criteria_last_changed_at` timestamp, auto-updated via SQLAlchemy event listeners. Patient model includes `documents_last_evaluated_at` with `needs_document_evaluation(criteria_changed_at)` for skip logic. Document/FHIRDocument models include `content_hash` and `last_processed_at` for unchanged document detection. These optimizations reduce redundant processing when criteria haven't changed.
 - **Verified Secure Deletion:** All OCR temp files use `secure_temp_directory()` with 3-pass overwrite before deletion. Preprocessed images tracked via `cleanup_temp_files()` method. HIPAA-compliant PHI disposal with audit logging via `utils/secure_delete.py`.
+- **Deterministic PHI Metadata Protection:** Document titles derived exclusively from structured FHIR type codes (LOINC) via `utils/document_types.py`, eliminating PHI leakage from free-text metadata. Free-text title/description/display fields in stored FHIR JSON are redacted to `[REDACTED]`. This provides deterministic HIPAA compliance without relying on regex/NLP name detection.
 
 ## External Dependencies
 - **FHIR-based EMRs:** e.g., Epic (for real-time data integration)
