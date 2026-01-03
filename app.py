@@ -411,28 +411,41 @@ def configure_csrf_exemptions(app):
 def configure_jinja_filters(app):
     """Configure custom Jinja2 filters"""
     try:
-        from markupsafe import Markup
+        from markupsafe import Markup, escape
     except ImportError:
         try:
-            from jinja2 import Markup  # type: ignore
+            from jinja2 import Markup, escape  # type: ignore
         except ImportError:
             # Fallback for older versions
-            def Markup(object):
-                return str(object)
+            def Markup(text):
+                return str(text)
+            def escape(text):
+                import html
+                return html.escape(str(text))
     import json
 
     @app.template_filter('tojsonpretty')
     def tojsonpretty_filter(value):
-        """Converts a Python object to a pretty-printed JSON string"""
+        """Converts a Python object to a pretty-printed JSON string.
+        
+        SECURITY: Escapes all content before wrapping in Markup to prevent XSS.
+        Any user-controlled data (document titles, log entries, org names) 
+        will have <script> and other dangerous tags escaped.
+        """
         if not value:
             return ""
         try:
-            # Use json.dumps for pretty printing and escape HTML characters
+            # Use json.dumps for pretty printing
             pretty_json = json.dumps(value, indent=2, sort_keys=True)
-            return Markup(f'<pre>{pretty_json}</pre>')
+            # CRITICAL: Escape the JSON content to prevent XSS
+            # This converts <script> to &lt;script&gt; etc.
+            escaped_json = escape(pretty_json)
+            return Markup(f'<pre>{escaped_json}</pre>')
         except Exception as e:
             logger.error(f"Error formatting JSON for log data: {e}")
-            return Markup(f'<pre>Error formatting data: {e}</pre>')
+            # Escape error message too - could contain user input
+            escaped_error = escape(str(e))
+            return Markup(f'<pre>Error formatting data: {escaped_error}</pre>')
 
 
 def _ensure_system_organization(db, Organization, User):
