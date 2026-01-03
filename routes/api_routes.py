@@ -137,7 +137,11 @@ def api_register_endpoint():
 @login_required
 def screening_keywords(screening_type_id):
     """Get or update keywords for a screening type"""
-    screening_type = ScreeningType.query.get_or_404(screening_type_id)
+    # SECURITY: Filter by org_id to prevent IDOR attacks
+    screening_type = ScreeningType.query.filter_by(
+        id=screening_type_id,
+        org_id=current_user.org_id
+    ).first_or_404()
 
     if request.method == 'GET':
         # Get keywords

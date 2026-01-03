@@ -547,7 +547,11 @@ def add_screening_type():
 def edit_screening_type(type_id):
     """Edit existing screening type"""
     try:
-        screening_type = ScreeningType.query.get_or_404(type_id)
+        # SECURITY: Filter by org_id to prevent IDOR attacks
+        screening_type = ScreeningType.query.filter_by(
+            id=type_id, 
+            org_id=current_user.org_id
+        ).first_or_404()
         form = ScreeningTypeForm(obj=screening_type)
 
         if form.validate_on_submit():
@@ -699,7 +703,11 @@ def edit_screening_type(type_id):
 def toggle_screening_type_status(type_id):
     """Toggle screening type active status and sync to all variants"""
     try:
-        screening_type = ScreeningType.query.get_or_404(type_id)
+        # SECURITY: Filter by org_id to prevent IDOR attacks
+        screening_type = ScreeningType.query.filter_by(
+            id=type_id,
+            org_id=current_user.org_id
+        ).first_or_404()
         
         old_status = screening_type.is_active
         screening_type.is_active = not screening_type.is_active
@@ -997,7 +1005,11 @@ def import_preset():
 @login_required
 def manage_screening_keywords(screening_type_id):  # type: ignore
     """Get or update keywords for a screening type (tag-based system)"""
-    screening_type = ScreeningType.query.get_or_404(screening_type_id)
+    # SECURITY: Filter by org_id to prevent IDOR attacks
+    screening_type = ScreeningType.query.filter_by(
+        id=screening_type_id,
+        org_id=current_user.org_id
+    ).first_or_404()
     
     if request.method == 'GET':
         # Get keywords
@@ -1133,7 +1145,11 @@ def get_keyword_suggestions():
 def import_medical_keywords(screening_type_id):
     """Import standard medical keywords for a screening type with options"""
     try:
-        screening_type = ScreeningType.query.get_or_404(screening_type_id)
+        # SECURITY: Filter by org_id to prevent IDOR attacks
+        screening_type = ScreeningType.query.filter_by(
+            id=screening_type_id,
+            org_id=current_user.org_id
+        ).first_or_404()
         
         # Get import options from query parameters
         max_keywords = request.args.get('max_keywords', 8, type=int)

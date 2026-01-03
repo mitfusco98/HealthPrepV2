@@ -77,7 +77,7 @@ def _requires_login_security_questions(user):
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
-    """User login page"""
+    """User login page with IP-based rate limiting to prevent credential stuffing"""
     if current_user.is_authenticated:
         return redirect(url_for('index'))
 
@@ -88,6 +88,18 @@ def login():
         from models import User
         from datetime import datetime
         from app import db
+        
+        # SECURITY: IP-based rate limiting to prevent credential stuffing attacks
+        # This protects against attackers trying many usernames from the same IP
+        is_allowed, wait_time = RateLimiter.check_rate_limit('login')
+        if not is_allowed:
+            log_security_event('login_rate_limited', {
+                'ip': request.remote_addr,
+                'username_attempted': form.username.data,
+                'wait_time': wait_time
+            })
+            flash(f'Too many login attempts. Please wait {wait_time} seconds before trying again.', 'error')
+            return render_template('auth/login.html', form=form)
 
         # Find user by username - note: usernames are unique within organizations
         user = User.query.filter_by(username=form.username.data).first()
@@ -122,6 +134,8 @@ def login():
 
             # Record successful login
             user.record_login_attempt(success=True)
+            # SECURITY: Reset IP rate limiter on successful login
+            RateLimiter.record_attempt('login', success=True)
             login_user(user)
             
             # Log the login event to audit log
@@ -165,6 +179,8 @@ def login():
             if user:
                 user.record_login_attempt(success=False)
                 db.session.commit()
+            # SECURITY: Record failed attempt for IP-based rate limiting
+            RateLimiter.record_attempt('login', success=False)
             flash('Invalid username or password.', 'error')
 
     return render_template('auth/login.html', form=form)
