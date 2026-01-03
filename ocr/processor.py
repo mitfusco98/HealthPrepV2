@@ -334,7 +334,10 @@ class OCRProcessor:
         pages_extracted = 0
         pages_ocred = 0
         
-        with tempfile.TemporaryDirectory() as temp_dir:
+        # Use secure temp directory for HIPAA-compliant cleanup of PDF page images
+        from utils.secure_delete import secure_temp_directory
+        
+        with secure_temp_directory(prefix='healthprep_pdf_') as temp_dir:
             try:
                 if PYMUPDF_AVAILABLE:
                     doc = fitz.open(pdf_path)
@@ -381,6 +384,7 @@ class OCRProcessor:
                 avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
                 
                 return combined_text, avg_confidence
+                # secure_temp_directory handles verified secure deletion on exit
                 
             except Exception as e:
                 self.logger.error(f"Error in hybrid PDF processing {pdf_path}: {str(e)}")
@@ -408,24 +412,47 @@ class OCRProcessor:
 
                 # Get confidence score
                 confidence = self._calculate_confidence(processed_image_path)
+                
+                # Secure cleanup of preprocessed image (HIPAA compliance)
+                self.cleanup_temp_files()
 
                 return text, confidence
             else:
                 self.logger.error(f"Tesseract failed with return code {result.returncode}: {result.stderr}")
+                self.cleanup_temp_files()  # Cleanup on error path too
                 return None, 0.0
 
         except subprocess.TimeoutExpired:
             self.logger.error(f"Tesseract timeout processing {image_path}")
+            self.cleanup_temp_files()
             return None, 0.0
         except Exception as e:
             self.logger.error(f"Error processing image {image_path}: {str(e)}")
+            self.cleanup_temp_files()
             return None, 0.0
 
     def _preprocess_image(self, image_path):
-        """Preprocess image to improve OCR accuracy"""
+        """Preprocess image to improve OCR accuracy
+        
+        Uses HIPAA-compliant temp file handling with crash recovery registry.
+        Returns a temp file path - cleanup happens via cleanup_temp_files().
+        """
+        from utils.secure_delete import secure_delete_file, register_temp_path, unregister_temp_path
+        import tempfile as tf
+        
+        temp_path = None
         try:
-            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
-                temp_path = temp_file.name
+            # Create temp file for preprocessing
+            fd, temp_path = tf.mkstemp(suffix='.png', prefix='healthprep_ocr_')
+            os.close(fd)
+            
+            # Register for crash recovery (HIPAA compliance)
+            register_temp_path(temp_path)
+            
+            # Track for secure cleanup
+            if not hasattr(self, '_temp_files_to_cleanup'):
+                self._temp_files_to_cleanup = []
+            self._temp_files_to_cleanup.append(temp_path)
 
             # Open and preprocess image
             with Image.open(image_path) as image:
@@ -455,7 +482,34 @@ class OCRProcessor:
 
         except Exception as e:
             self.logger.error(f"Error preprocessing image {image_path}: {str(e)}")
+            # Immediately secure delete any temp file created on exception
+            if temp_path and os.path.exists(temp_path):
+                secure_delete_file(temp_path)
+                # Unregister from crash recovery and remove from tracking list
+                unregister_temp_path(temp_path)
+                if hasattr(self, '_temp_files_to_cleanup') and temp_path in self._temp_files_to_cleanup:
+                    self._temp_files_to_cleanup.remove(temp_path)
             return image_path  # Return original if preprocessing fails
+    
+    def cleanup_temp_files(self):
+        """Securely delete any temporary files created during processing (HIPAA compliance)"""
+        from utils.secure_delete import secure_delete_file, unregister_temp_path
+        
+        remaining = []
+        if hasattr(self, '_temp_files_to_cleanup'):
+            for temp_path in self._temp_files_to_cleanup:
+                if os.path.exists(temp_path):
+                    success = secure_delete_file(temp_path)
+                    if success:
+                        # Only unregister on successful deletion
+                        unregister_temp_path(temp_path)
+                    else:
+                        self.logger.warning(f"Failed to securely delete temp file (HIPAA risk) - keeping in registry")
+                        remaining.append(temp_path)
+                else:
+                    # File already gone, can unregister
+                    unregister_temp_path(temp_path)
+            self._temp_files_to_cleanup = remaining
 
     def _calculate_confidence(self, image_path):
         """Calculate OCR confidence score"""
@@ -581,7 +635,8 @@ class OCRProcessor:
         
         # Method 3: Try LibreOffice conversion to PDF then OCR
         try:
-            with tempfile.TemporaryDirectory() as temp_dir:
+            from utils.secure_delete import secure_temp_directory
+            with secure_temp_directory(prefix='healthprep_doc_') as temp_dir:
                 result = subprocess.run(
                     ['libreoffice', '--headless', '--convert-to', 'pdf', '--outdir', temp_dir, doc_path],
                     capture_output=True,
@@ -597,6 +652,7 @@ class OCRProcessor:
                         if text:
                             self.logger.info(f"Successfully extracted text from DOC via PDF conversion")
                             return text, confidence * 0.9
+                # secure_temp_directory handles verified secure deletion on exit
         except (subprocess.TimeoutExpired, FileNotFoundError):
             pass
         except Exception as e:
@@ -1003,7 +1059,10 @@ class OCRProcessor:
         if max_workers is None:
             max_workers = get_ocr_max_workers()
         
-        with tempfile.TemporaryDirectory() as temp_dir:
+        # Use secure temp directory for HIPAA-compliant cleanup
+        from utils.secure_delete import secure_temp_directory
+        
+        with secure_temp_directory(prefix='healthprep_pdf_parallel_') as temp_dir:
             try:
                 images = pdf2image.convert_from_path(pdf_path)
                 
@@ -1049,6 +1108,7 @@ class OCRProcessor:
                 avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
                 
                 return combined_text, avg_confidence
+                # secure_temp_directory handles verified secure deletion on exit
                 
             except Exception as e:
                 self.logger.error(f"Error in parallel PDF processing: {str(e)}")

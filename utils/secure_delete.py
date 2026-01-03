@@ -22,6 +22,99 @@ logger = logging.getLogger(__name__)
 
 OVERWRITE_PASSES = 3
 BLOCK_SIZE = 65536
+TEMP_REGISTRY_FILE = os.path.join(tempfile.gettempdir(), 'healthprep_temp_registry.txt')
+
+
+def register_temp_path(path: str) -> None:
+    """Register a temp file path for crash-safe cleanup.
+    
+    HIPAA COMPLIANCE: On process crash, registered paths will be securely
+    deleted on next startup via cleanup_registered_temp_files().
+    """
+    try:
+        with open(TEMP_REGISTRY_FILE, 'a') as f:
+            f.write(f"{path}\n")
+    except Exception as e:
+        logger.debug(f"Failed to register temp path: {e}")
+
+
+def unregister_temp_path(path: str) -> None:
+    """Remove a temp file path from the registry after successful cleanup."""
+    try:
+        if not os.path.exists(TEMP_REGISTRY_FILE):
+            return
+        with open(TEMP_REGISTRY_FILE, 'r') as f:
+            paths = [p.strip() for p in f.readlines()]
+        paths = [p for p in paths if p and p != path]
+        with open(TEMP_REGISTRY_FILE, 'w') as f:
+            f.write('\n'.join(paths) + '\n' if paths else '')
+    except Exception as e:
+        logger.debug(f"Failed to unregister temp path: {e}")
+
+
+def cleanup_registered_temp_files() -> int:
+    """Cleanup any temp files/directories registered from previous runs (crash recovery).
+    
+    HIPAA COMPLIANCE: Call this on application startup to ensure no PHI
+    temp files or directories persist after a crash. Paths are only removed
+    from the registry after successful secure deletion.
+    
+    Returns:
+        Number of items (files + directories) securely deleted
+    """
+    deleted = 0
+    failed_paths = []
+    
+    try:
+        if not os.path.exists(TEMP_REGISTRY_FILE):
+            return 0
+        with open(TEMP_REGISTRY_FILE, 'r') as f:
+            paths = [p.strip() for p in f.readlines()]
+        
+        for path in paths:
+            if not path:
+                continue
+            if not os.path.exists(path):
+                # Path already gone, can remove from registry
+                continue
+            
+            # Handle both files and directories
+            success = False
+            if os.path.isdir(path):
+                files_deleted, files_failed = secure_delete_directory(path)
+                # Verify directory is actually gone
+                if not os.path.exists(path):
+                    success = True
+                    deleted += 1
+                    logger.info(f"Crash recovery: securely deleted directory {hash_path_for_log(path)}")
+                else:
+                    logger.error(f"Crash recovery FAILED: directory still exists {hash_path_for_log(path)} - HIPAA ALERT")
+            else:
+                if secure_delete_file(path):
+                    success = True
+                    deleted += 1
+                    logger.info(f"Crash recovery: securely deleted {hash_path_for_log(path)}")
+                else:
+                    logger.error(f"Crash recovery FAILED: file deletion failed {hash_path_for_log(path)} - HIPAA ALERT")
+            
+            if not success and os.path.exists(path):
+                # Keep failed paths in registry for future retry
+                failed_paths.append(path)
+        
+        # Rewrite registry with only failed paths (or delete if empty)
+        if failed_paths:
+            with open(TEMP_REGISTRY_FILE, 'w') as f:
+                f.write('\n'.join(failed_paths) + '\n')
+            logger.error(f"HIPAA ALERT: {len(failed_paths)} temp paths failed secure deletion and remain on disk")
+        else:
+            if os.path.exists(TEMP_REGISTRY_FILE):
+                os.unlink(TEMP_REGISTRY_FILE)
+        
+        if deleted > 0:
+            logger.info(f"Crash recovery: cleaned up {deleted} orphaned temp items")
+    except Exception as e:
+        logger.warning(f"Error during crash recovery cleanup: {e}")
+    return deleted
 
 
 def _get_hash_salt() -> str:
@@ -197,6 +290,9 @@ def secure_delete_directory(dir_path: str, passes: int = OVERWRITE_PASSES) -> tu
 def secure_temp_directory(prefix: str = "healthprep_", suffix: str = ""):
     """Context manager for a temporary directory with secure cleanup.
     
+    HIPAA COMPLIANCE: Directory is registered for crash recovery and
+    securely deleted on exit (3-pass overwrite for all files).
+    
     Usage:
         with secure_temp_directory() as temp_dir:
             # Use temp_dir for processing
@@ -211,15 +307,27 @@ def secure_temp_directory(prefix: str = "healthprep_", suffix: str = ""):
     """
     temp_dir = tempfile.mkdtemp(prefix=prefix, suffix=suffix)
     
+    # Register for crash recovery
+    register_temp_path(temp_dir)
+    
     try:
         yield temp_dir
     finally:
         secure_delete_directory(temp_dir)
+        # Verify directory is gone before unregistering
+        if not os.path.exists(temp_dir):
+            unregister_temp_path(temp_dir)
+        else:
+            # Keep in registry for crash recovery if deletion failed
+            logger.warning(f"Secure temp directory deletion failed - keeping in registry: {hash_path_for_log(temp_dir)}")
 
 
 @contextmanager
 def secure_temp_file(suffix: str = "", prefix: str = "healthprep_", dir: str = None):
     """Context manager for a temporary file with secure cleanup.
+    
+    HIPAA COMPLIANCE: File is registered for crash recovery and securely
+    deleted on exit (3-pass overwrite).
     
     Usage:
         with secure_temp_file(suffix='.pdf') as temp_path:
@@ -237,10 +345,17 @@ def secure_temp_file(suffix: str = "", prefix: str = "healthprep_", dir: str = N
     fd, temp_path = tempfile.mkstemp(suffix=suffix, prefix=prefix, dir=dir)
     os.close(fd)
     
+    # Register for crash recovery
+    register_temp_path(temp_path)
+    
     try:
         yield temp_path
     finally:
-        secure_delete_file(temp_path)
+        if secure_delete_file(temp_path):
+            unregister_temp_path(temp_path)
+        else:
+            # Keep in registry for crash recovery if deletion failed
+            logger.warning(f"Secure temp file deletion failed - keeping in registry: {hash_path_for_log(temp_path)}")
 
 
 def _hash_filename(filename: str) -> str:

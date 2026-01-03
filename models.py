@@ -1051,6 +1051,9 @@ class Patient(db.Model):
     fhir_patient_resource = db.Column(db.Text)  # Full FHIR Patient resource (JSON)
     last_fhir_sync = db.Column(db.DateTime)  # Last time data was synced from Epic
     fhir_version_id = db.Column(db.String(50))  # FHIR resource version for change detection
+    
+    # Selective refresh optimization - tracks when patient's documents were last evaluated
+    documents_last_evaluated_at = db.Column(db.DateTime, nullable=True)  # When documents were last processed for screenings
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -1156,6 +1159,30 @@ class Patient(db.Model):
         
         return min(future_appointments, key=lambda a: a.appointment_date)
     
+    def mark_documents_evaluated(self):
+        """Mark this patient's documents as evaluated for screenings.
+        
+        Updates documents_last_evaluated_at timestamp. Used by selective refresh
+        to skip patients already evaluated after last criteria change.
+        """
+        self.documents_last_evaluated_at = datetime.utcnow()
+    
+    def needs_document_evaluation(self, criteria_changed_at: datetime = None) -> bool:
+        """Check if patient needs document re-evaluation.
+        
+        Args:
+            criteria_changed_at: When screening criteria last changed.
+                               If None, always returns True.
+                               
+        Returns:
+            bool: True if documents need evaluation, False if can be skipped
+        """
+        if not self.documents_last_evaluated_at:
+            return True  # Never evaluated
+        if not criteria_changed_at:
+            return True  # No criteria timestamp to compare
+        return self.documents_last_evaluated_at < criteria_changed_at
+    
     def __repr__(self):
         epic_info = f" [Epic: {self.epic_patient_id}]" if self.epic_patient_id else ""
         return f'<Patient {self.name} ({self.mrn}){epic_info}>'
@@ -1185,6 +1212,10 @@ class ScreeningType(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # User who created this screening type
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Selective refresh optimization - tracks criteria changes for skip logic
+    criteria_signature = db.Column(db.String(64), nullable=True)  # SHA-256 hash of all criteria
+    criteria_last_changed_at = db.Column(db.DateTime, nullable=True)  # When criteria actually changed
     
     # FHIR Mapping Fields for Epic Interoperability
     fhir_search_params = db.Column(db.Text)  # JSON string of FHIR search parameters
@@ -1336,6 +1367,64 @@ class ScreeningType(db.Model):
     def set_trigger_conditions(self, conditions):
         """Set trigger conditions from a list"""
         self.trigger_conditions = json.dumps(conditions) if conditions else None
+
+    def compute_criteria_signature(self):
+        """Compute a hash of all eligibility criteria for change detection.
+        
+        Includes: keywords, age range, gender, trigger conditions, frequency.
+        Used by selective refresh to skip patients already evaluated after last criteria change.
+        
+        Returns:
+            str: SHA-256 hash of normalized criteria
+        """
+        import hashlib
+        
+        # Safe accessors with fallbacks for legacy/malformed data
+        try:
+            keywords = sorted(self.keywords_list) if self.keywords_list else []
+        except Exception:
+            keywords = []
+        
+        try:
+            trigger_conditions = sorted(self.trigger_conditions_list) if self.trigger_conditions_list else []
+        except Exception:
+            trigger_conditions = []
+        
+        # Build canonical criteria dict (sorted for consistency)
+        criteria = {
+            'keywords': keywords,
+            'min_age': self.min_age,
+            'max_age': self.max_age,
+            'eligible_genders': self.eligible_genders or 'both',
+            'trigger_conditions': trigger_conditions,
+            'frequency_value': self.frequency_value,
+            'frequency_unit': self.frequency_unit or 'years'
+        }
+        
+        # Create deterministic JSON string
+        criteria_json = json.dumps(criteria, sort_keys=True, separators=(',', ':'))
+        
+        # Return SHA-256 hash
+        return hashlib.sha256(criteria_json.encode()).hexdigest()
+    
+    def update_criteria_signature(self):
+        """Update criteria signature and timestamp if criteria changed.
+        
+        Call this after any modification to keywords, eligibility, or frequency.
+        Only updates criteria_last_changed_at if the signature actually changed.
+        On first insert (when criteria_signature is None), always sets both fields.
+        
+        Returns:
+            bool: True if criteria changed or first insert, False if unchanged
+        """
+        new_signature = self.compute_criteria_signature()
+        
+        # Always update on first insert (signature is None) or when signature changed
+        if self.criteria_signature is None or new_signature != self.criteria_signature:
+            self.criteria_signature = new_signature
+            self.criteria_last_changed_at = datetime.utcnow()
+            return True
+        return False
 
     @property
     def frequency_years(self):
@@ -1639,6 +1728,39 @@ class ScreeningType(db.Model):
         return f'<ScreeningType {self.name}>'
 
 
+# SQLAlchemy event listeners for automatic criteria signature updates
+# Uses Session 'before_flush' with flag_modified for reliable persistence
+from sqlalchemy.orm import attributes as orm_attributes
+
+@event.listens_for(db.session, 'before_flush')
+def screening_type_before_flush(session, flush_context, instances):
+    """Auto-compute/update criteria signature before flush for all ScreeningType changes"""
+    for obj in session.new:
+        if isinstance(obj, ScreeningType):
+            try:
+                new_signature = obj.compute_criteria_signature()
+                obj.criteria_signature = new_signature
+                obj.criteria_last_changed_at = datetime.utcnow()
+                # Mark as modified to ensure ORM includes in INSERT
+                orm_attributes.flag_modified(obj, 'criteria_signature')
+                orm_attributes.flag_modified(obj, 'criteria_last_changed_at')
+            except Exception as e:
+                logger.warning(f"Failed to compute criteria signature on insert: {e}")
+    
+    for obj in session.dirty:
+        if isinstance(obj, ScreeningType):
+            try:
+                new_signature = obj.compute_criteria_signature()
+                if obj.criteria_signature is None or new_signature != obj.criteria_signature:
+                    obj.criteria_signature = new_signature
+                    obj.criteria_last_changed_at = datetime.utcnow()
+                    # Mark as modified to ensure ORM includes in UPDATE
+                    orm_attributes.flag_modified(obj, 'criteria_signature')
+                    orm_attributes.flag_modified(obj, 'criteria_last_changed_at')
+            except Exception as e:
+                logger.warning(f"Failed to update criteria signature: {e}")
+
+
 # Association table for FHIR documents and screenings  
 screening_fhir_documents = db.Table('screening_fhir_documents',
     db.Column('screening_id', db.Integer, db.ForeignKey('screening.id'), primary_key=True),
@@ -1784,6 +1906,10 @@ class Document(db.Model):
     # HIPAA compliance: Original file disposal tracking
     file_disposed = db.Column(db.Boolean, default=False)  # True after secure deletion
     file_disposed_at = db.Column(db.DateTime)  # When original file was securely deleted
+    
+    # Selective refresh optimization - skip OCR/matching when content unchanged
+    content_hash = db.Column(db.String(64), nullable=True)  # SHA-256 of document binary content
+    last_processed_at = db.Column(db.DateTime, nullable=True)  # When OCR/matching last ran
 
     # Relationships
     organization = db.relationship('Organization', backref='documents')
@@ -1885,6 +2011,39 @@ class Document(db.Model):
     def set_content(self, text):
         """Set content with mandatory PHI filtering - legacy method, uses property setter"""
         self.content = text
+    
+    def compute_content_hash(self, content_bytes: bytes) -> str:
+        """Compute SHA-256 hash of document binary content for change detection.
+        
+        Used by selective refresh to skip OCR/matching when content unchanged.
+        
+        Args:
+            content_bytes: Raw binary content of document
+            
+        Returns:
+            str: SHA-256 hash of content
+        """
+        import hashlib
+        return hashlib.sha256(content_bytes).hexdigest()
+    
+    def update_content_hash(self, content_bytes: bytes) -> bool:
+        """Update content_hash if content changed.
+        
+        Args:
+            content_bytes: Raw binary content of document
+            
+        Returns:
+            bool: True if content changed, False if unchanged
+        """
+        new_hash = self.compute_content_hash(content_bytes)
+        if new_hash != self.content_hash:
+            self.content_hash = new_hash
+            return True
+        return False
+    
+    def mark_processed(self):
+        """Mark document as processed and update timestamp."""
+        self.last_processed_at = datetime.utcnow()
 
     def __repr__(self):
         return f'<Document {self.filename}>'
@@ -1931,6 +2090,9 @@ class FHIRDocument(db.Model):
     
     # HealthPrep-generated document flag - skip OCR processing for self-generated documents
     is_healthprep_generated = db.Column(db.Boolean, default=False)  # True if document was generated by HealthPrep
+    
+    # Selective refresh optimization
+    last_processed_at = db.Column(db.DateTime, nullable=True)  # When OCR/matching last ran
     
     # System fields
     last_accessed = db.Column(db.DateTime)  # Last time document was accessed from Epic

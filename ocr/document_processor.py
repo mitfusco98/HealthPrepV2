@@ -82,12 +82,14 @@ class DocumentProcessor:
             # Determine file extension from content type or filename
             file_extension = self._get_file_extension_from_content_type(content_type) or self._get_file_extension(document_title)
             
-            # Create temporary file for processing
-            with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
-                temp_file.write(document_content)
-                temp_file_path = temp_file.name
+            # Use verified secure deletion for PHI temp files (HIPAA compliance)
+            from utils.secure_delete import secure_temp_file, secure_delete_file
             
-            try:
+            with secure_temp_file(suffix=file_extension) as temp_file_path:
+                # Write content to secure temp file
+                with open(temp_file_path, 'wb') as f:
+                    f.write(document_content)
+                
                 # Extract text using OCR
                 extracted_text, confidence = self._extract_text_from_file(temp_file_path)
                 
@@ -103,11 +105,7 @@ class DocumentProcessor:
                 else:
                     self.logger.warning(f"No text extracted from document: {document_title}")
                     return None
-                    
-            finally:
-                # Clean up temporary file
-                if os.path.exists(temp_file_path):
-                    os.unlink(temp_file_path)
+            # secure_temp_file context manager handles verified secure deletion on exit
                     
         except Exception as e:
             self.logger.error(f"Error processing document {document_title}: {str(e)}")

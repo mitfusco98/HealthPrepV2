@@ -59,6 +59,12 @@ def create_app():
         logger.error(f"Secrets validation failed: {e}")
         raise
     
+    # HIPAA: Cleanup any temp files from previous crash
+    from utils.secure_delete import cleanup_registered_temp_files
+    cleaned = cleanup_registered_temp_files()
+    if cleaned > 0:
+        logger.info(f"HIPAA: Cleaned up {cleaned} orphaned temp files from crash recovery")
+    
     # Configuration - SECRET_KEY validated above
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
     
