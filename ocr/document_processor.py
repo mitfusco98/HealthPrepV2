@@ -14,9 +14,10 @@ import pdf2image
 import pytesseract
 
 from models import db, FHIRDocument
-from ocr.processor import OCRProcessor
+from ocr.processor import OCRProcessor, get_ocr_timeout_seconds
 from ocr.phi_filter import PHIFilter
 from core.fuzzy_detection import FuzzyDetectionEngine
+from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 
 try:
     from docx import Document as DocxDocument
@@ -61,7 +62,7 @@ class DocumentProcessor:
             'recommendation', 'follow-up', 'next screening'
         ]
     
-    def process_document(self, document_content: bytes, document_title: str, content_type: Optional[str] = None) -> Optional[str]:
+    def process_document(self, document_content: bytes, document_title: str, content_type: Optional[str] = None, phi_settings_snapshot=None) -> Optional[str]:
         """
         Process document content and extract text with screening analysis
         
@@ -69,6 +70,8 @@ class DocumentProcessor:
             document_content: Binary document content
             document_title: Document title or filename
             content_type: MIME type (e.g., 'application/pdf', 'image/jpeg')
+            phi_settings_snapshot: Optional pre-loaded PHI filter settings for thread-safe
+                                  batch processing. If None, settings are queried from DB.
             
         Returns:
             Extracted and processed text or None if processing failed
@@ -89,8 +92,8 @@ class DocumentProcessor:
                 extracted_text, confidence = self._extract_text_from_file(temp_file_path)
                 
                 if extracted_text:
-                    # Apply PHI filtering
-                    filtered_text = self.phi_filter.filter_phi(extracted_text)
+                    # Apply PHI filtering (uses snapshot if provided for thread safety)
+                    filtered_text = self.phi_filter.filter_phi(extracted_text, preloaded_settings=phi_settings_snapshot)
                     
                     # Enhance text for screening detection
                     enhanced_text = self._enhance_text_for_screening(filtered_text, document_title)
@@ -254,7 +257,12 @@ class DocumentProcessor:
             return None, 0.0
     
     def _extract_from_pdf(self, pdf_path: str) -> Tuple[Optional[str], float]:
-        """Extract text from PDF using OCR"""
+        """Extract text from PDF using OCR with per-page timeout handling
+        
+        If a page times out, continues processing remaining pages instead of
+        failing the entire document. This matches the graceful degradation
+        behavior expected for healthcare document processing.
+        """
         try:
             with tempfile.TemporaryDirectory() as temp_dir:
                 # Convert PDF to images
@@ -262,18 +270,27 @@ class DocumentProcessor:
                 
                 all_text = []
                 confidences = []
+                timed_out_pages = []
                 
                 for i, image in enumerate(images):
                     # Save image temporarily
                     image_path = os.path.join(temp_dir, f"page_{i}.png")
                     image.save(image_path, 'PNG')
                     
-                    # Extract text from image
+                    # Extract text from image (has its own timeout)
                     text, confidence = self._extract_from_image(image_path)
                     
-                    if text:
+                    if confidence == -1.0:
+                        # Timeout sentinel - page OCR timed out
+                        timed_out_pages.append(i + 1)
+                        self.logger.warning(f"Page {i+1} of {pdf_path} timed out during OCR")
+                    elif text:
                         all_text.append(text)
                         confidences.append(confidence)
+                    # Low-confidence results (confidence >= 0 but no text) are just skipped silently
+                
+                if timed_out_pages:
+                    self.logger.warning(f"PDF {pdf_path}: {len(timed_out_pages)} pages had no text: {timed_out_pages}")
                 
                 # Combine all text and calculate average confidence
                 combined_text = '\n'.join(all_text) if all_text else None
@@ -286,39 +303,62 @@ class DocumentProcessor:
             return None, 0.0
     
     def _extract_from_image(self, image_path: str) -> Tuple[Optional[str], float]:
-        """Extract text from image using Tesseract OCR"""
-        try:
-            # Load and preprocess image
-            image = Image.open(image_path)
-            
-            # Convert to RGB if necessary
-            if image.mode != 'RGB':
-                image = image.convert('RGB')
-            
-            # Tesseract configuration optimized for medical documents
-            config = '--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,()[]{}:;/\\-+=%$@#!?"\' \n\t'
-            
-            # Extract text with confidence data
-            ocr_data = pytesseract.image_to_data(image, config=config, output_type=pytesseract.Output.DICT)
-            
-            # Filter out low-confidence words and combine text
-            extracted_text = []
-            confidences = []
-            
-            for i in range(len(ocr_data['text'])):
-                confidence = int(ocr_data['conf'][i])
-                text = ocr_data['text'][i].strip()
+        """Extract text from image using Tesseract OCR with timeout protection
+        
+        Uses the same OCR_TIMEOUT_SECONDS circuit breaker as manual document processing
+        to ensure consistent SLA behavior for both Document and FHIRDocument types.
+        """
+        timeout_seconds = get_ocr_timeout_seconds()
+        
+        def _run_tesseract(img_path: str) -> Tuple[Optional[str], float]:
+            """Inner function for threaded execution with timeout"""
+            try:
+                image = Image.open(img_path)
                 
-                if confidence > 30 and text:  # Filter low-confidence text
-                    extracted_text.append(text)
-                    confidences.append(confidence)
-            
-            if extracted_text:
-                combined_text = ' '.join(extracted_text)
-                avg_confidence = sum(confidences) / len(confidences) / 100.0  # Convert to 0-1 scale
-                return combined_text, avg_confidence
-            else:
+                if image.mode != 'RGB':
+                    image = image.convert('RGB')
+                
+                config = '--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,()[]{}:;/\\-+=%$@#!?"\' \n\t'
+                
+                ocr_data = pytesseract.image_to_data(image, config=config, output_type=pytesseract.Output.DICT)
+                
+                extracted_text = []
+                confidences = []
+                
+                for i in range(len(ocr_data['text'])):
+                    confidence = int(ocr_data['conf'][i])
+                    text = ocr_data['text'][i].strip()
+                    
+                    if confidence > 30 and text:
+                        extracted_text.append(text)
+                        confidences.append(confidence)
+                
+                if extracted_text:
+                    combined_text = ' '.join(extracted_text)
+                    avg_confidence = sum(confidences) / len(confidences) / 100.0
+                    return combined_text, avg_confidence
+                else:
+                    return None, 0.0
+                    
+            except Exception as e:
+                self.logger.error(f"Tesseract error for {img_path}: {str(e)}")
                 return None, 0.0
+        
+        try:
+            # Use ThreadPoolExecutor with timeout for circuit breaker
+            executor = ThreadPoolExecutor(max_workers=1)
+            try:
+                future = executor.submit(_run_tesseract, image_path)
+                done, pending = wait([future], timeout=timeout_seconds)
+                
+                if done:
+                    return future.result()
+                else:
+                    # Return sentinel value (-1.0) to distinguish timeout from low-confidence OCR
+                    self.logger.warning(f"OCR timeout after {timeout_seconds}s for image: {image_path}")
+                    return None, -1.0  # Timeout sentinel
+            finally:
+                executor.shutdown(wait=False, cancel_futures=True)
                 
         except Exception as e:
             self.logger.error(f"Error processing image {image_path}: {str(e)}")
@@ -647,3 +687,159 @@ class DocumentProcessor:
         except Exception as e:
             self.logger.error(f"Error getting processing statistics: {str(e)}")
             return {}
+    
+    def process_fhir_documents_batch(self, fhir_document_ids: List[int], max_workers: int = None, 
+                                      progress_callback=None) -> Dict[str, Any]:
+        """
+        Process multiple FHIR documents in parallel using ThreadPoolExecutor.
+        
+        MATCHES the batch processing pattern from ocr/processor.py for consistency
+        between manual Document and FHIRDocument processing.
+        
+        Uses thread-local sessions for safe database access across threads, matching
+        the pattern used in ocr/processor.py.
+        
+        TIMEOUT HANDLING: Uses the same OCR_TIMEOUT_SECONDS circuit breaker as manual
+        document processing to ensure consistent SLA behavior.
+        
+        Args:
+            fhir_document_ids: List of FHIRDocument IDs to process
+            max_workers: Maximum number of parallel workers (None = auto-detect)
+            progress_callback: Optional callback function(processed, total, current_doc_id)
+        
+        Returns:
+            Dict with results summary including 'timed_out' list if any documents stalled
+        """
+        from ocr.processor import get_ocr_max_workers
+        from app import app, db as app_db
+        from sqlalchemy.orm import scoped_session, sessionmaker
+        import time
+        
+        if max_workers is None:
+            max_workers = get_ocr_max_workers()
+        
+        timeout_seconds = get_ocr_timeout_seconds()
+        
+        results = {
+            'total': len(fhir_document_ids),
+            'successful': [],
+            'failed': [],
+            'timed_out': [],
+            'start_time': time.time()
+        }
+        
+        if not fhir_document_ids:
+            return results
+        
+        self.logger.info(f"Starting parallel FHIR document processing of {len(fhir_document_ids)} documents with {max_workers} workers")
+        
+        # Pre-load PHI filter settings snapshot for thread-safe batch processing
+        phi_settings_snapshot = self.phi_filter.get_settings_snapshot()
+        
+        def process_single_fhir_document_with_session(fhir_doc_id: int) -> Tuple[int, bool, Optional[str]]:
+            """Process a single FHIR document with thread-local session for safety"""
+            with app.app_context():
+                thread_session = scoped_session(sessionmaker(bind=app_db.engine))
+                try:
+                    fhir_doc = thread_session.query(FHIRDocument).get(fhir_doc_id)
+                    if not fhir_doc:
+                        return (fhir_doc_id, False, "Document not found")
+                    
+                    # Skip already processed documents
+                    if fhir_doc.is_processed:
+                        return (fhir_doc_id, True, None)
+                    
+                    # Get document content if available
+                    if fhir_doc.content_data:
+                        content = fhir_doc.content_data
+                        title = fhir_doc.title or f"document_{fhir_doc_id}"
+                        content_type = fhir_doc.content_type
+                        
+                        # Process the document (OCR, PHI filtering with pre-loaded settings)
+                        extracted_text = self.process_document(content, title, content_type, phi_settings_snapshot=phi_settings_snapshot)
+                        
+                        if extracted_text:
+                            # Use mark_processed() helper to properly set all status/audit fields
+                            fhir_doc.mark_processed(status='completed', ocr_text=extracted_text)
+                            thread_session.commit()
+                            return (fhir_doc_id, True, None)
+                        else:
+                            fhir_doc.mark_processed(status='failed', error="No text extracted")
+                            thread_session.commit()
+                            return (fhir_doc_id, False, "No text extracted")
+                    else:
+                        return (fhir_doc_id, False, "No content data available")
+                        
+                except Exception as e:
+                    thread_session.rollback()
+                    return (fhir_doc_id, False, str(e))
+                finally:
+                    thread_session.remove()
+        
+        processed_count = 0
+        timed_out_docs = []
+        
+        executor = ThreadPoolExecutor(max_workers=max_workers)
+        try:
+            future_to_doc = {executor.submit(process_single_fhir_document_with_session, doc_id): doc_id 
+                           for doc_id in fhir_document_ids}
+            pending = set(future_to_doc.keys())
+            
+            while pending:
+                done, pending = wait(pending, timeout=timeout_seconds, return_when=FIRST_COMPLETED)
+                
+                for future in done:
+                    doc_id = future_to_doc[future]
+                    processed_count += 1
+                    
+                    try:
+                        result_doc_id, success, error = future.result()
+                        
+                        if success:
+                            results['successful'].append(result_doc_id)
+                        else:
+                            results['failed'].append({
+                                'document_id': result_doc_id,
+                                'error': error or 'Processing failed'
+                            })
+                            
+                    except Exception as e:
+                        results['failed'].append({
+                            'document_id': doc_id,
+                            'error': str(e)
+                        })
+                    
+                    if progress_callback:
+                        try:
+                            progress_callback(processed_count, len(fhir_document_ids), doc_id)
+                        except Exception:
+                            pass
+                
+                # Timeout: mark remaining as stalled
+                if not done and pending:
+                    for future in pending:
+                        doc_id = future_to_doc[future]
+                        timed_out_docs.append(doc_id)
+                        results['failed'].append({
+                            'document_id': doc_id,
+                            'error': f'OCR timeout after {timeout_seconds}s (circuit breaker)'
+                        })
+                        self.logger.warning(f"FHIR Document {doc_id} exceeded timeout of {timeout_seconds}s")
+                    break
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
+        
+        if timed_out_docs:
+            results['timed_out'] = timed_out_docs
+            self.logger.warning(f"FHIR document processing: {len(timed_out_docs)} documents timed out")
+        
+        results['end_time'] = time.time()
+        results['duration_seconds'] = results['end_time'] - results['start_time']
+        results['docs_per_second'] = len(fhir_document_ids) / results['duration_seconds'] if results['duration_seconds'] > 0 else 0
+        
+        self.logger.info(
+            f"Parallel FHIR OCR complete: {len(results['successful'])}/{len(fhir_document_ids)} successful, "
+            f"{results['docs_per_second']:.2f} docs/sec"
+        )
+        
+        return results

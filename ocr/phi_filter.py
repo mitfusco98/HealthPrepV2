@@ -15,6 +15,7 @@ class PHIFilter:
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self._cached_settings = None  # Thread-safe cached settings
         
         # Patterns for already-redacted content (idempotency protection)
         self.redacted_patterns = [
@@ -82,16 +83,24 @@ class PHIFilter:
             r'\bglucose\b', r'\bcholesterol\b', r'\btriglycerides\b'
         ]
     
-    def filter_phi(self, text):
+    def filter_phi(self, text, preloaded_settings=None):
         """Apply PHI filtering to text - always enabled for HIPAA compliance
         
         IDEMPOTENCY: Detects already-redacted patterns and protects them from
         double-redaction. Safe to call multiple times on the same text.
+        
+        THREAD SAFETY: Pass preloaded_settings dict when calling from worker threads
+        to avoid cross-thread session issues during batch processing.
+        
+        Args:
+            text: Text to filter
+            preloaded_settings: Optional dict with setting flags (filter_ssn, filter_phone, etc.)
+                              If None, queries database for fresh settings.
         """
         if not text:
             return text
         
-        settings = self._get_filter_settings()
+        settings = preloaded_settings if preloaded_settings else self._get_filter_settings()
         
         filtered_text = text
         
@@ -117,7 +126,12 @@ class PHIFilter:
         return filtered_text
     
     def _get_filter_settings(self):
-        """Get current PHI filter settings"""
+        """Get current PHI filter settings
+        
+        Always queries the database for fresh settings to ensure admin
+        configuration changes take effect immediately. Database queries
+        are lightweight (single row) and essential for correct behavior.
+        """
         settings = PHIFilterSettings.query.first()
         if not settings:
             # Create default settings
@@ -125,6 +139,30 @@ class PHIFilter:
             db.session.add(settings)
             db.session.commit()
         return settings
+    
+    def get_settings_snapshot(self):
+        """Get a thread-safe snapshot of PHI filter settings
+        
+        Returns a simple object with the same attributes as PHIFilterSettings
+        but safe for use across threads. Call this before batch processing
+        and pass the result to filter_phi() as preloaded_settings.
+        
+        Returns:
+            Object with filter_* boolean attributes
+        """
+        settings = self._get_filter_settings()
+        
+        class SettingsSnapshot:
+            def __init__(self, src):
+                self.filter_ssn = getattr(src, 'filter_ssn', True)
+                self.filter_phone = getattr(src, 'filter_phone', True)
+                self.filter_mrn = getattr(src, 'filter_mrn', True)
+                self.filter_insurance = getattr(src, 'filter_insurance', True)
+                self.filter_addresses = getattr(src, 'filter_addresses', True)
+                self.filter_names = getattr(src, 'filter_names', True)
+                self.filter_dates = getattr(src, 'filter_dates', False)
+        
+        return SettingsSnapshot(settings)
     
     def _identify_protected_spans(self, text):
         """Identify spans that should be protected from filtering
