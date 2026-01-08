@@ -302,17 +302,18 @@ class SecurityAlertService:
         Returns:
             List of alert dictionaries
         """
-        from sqlalchemy import or_, text
-        from sqlalchemy.dialects.postgresql import JSONB
+        from sqlalchemy import or_, text, func
+        
+        # Use coalesce to handle null data and missing key - if not explicitly 'true', show as unacknowledged
+        acknowledged_expr = func.coalesce(
+            AdminLog.data.op('->>')(text("'acknowledged'")),
+            ''
+        )
         
         alerts = db.session.query(AdminLog).filter(
             AdminLog.org_id == org_id,
             AdminLog.event_type.in_(SecurityAlertService.ALERT_EVENT_TYPES),
-            or_(
-                AdminLog.data.is_(None),
-                ~AdminLog.data.has_key('acknowledged'),
-                AdminLog.data.op('->>')(text("'acknowledged'")) != 'true'
-            )
+            acknowledged_expr != 'true'
         ).order_by(AdminLog.timestamp.desc()).limit(limit).all()
         
         return [{
