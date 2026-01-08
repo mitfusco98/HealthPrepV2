@@ -1,0 +1,29 @@
+INFO:werkzeug: * Debugger PIN: 484-228-776
+INFO:werkzeug:10.81.0.116 - - [08/Jan/2026 00:41:20] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:10.81.5.77 - - [08/Jan/2026 00:41:20] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.0.116 - - [08/Jan/2026 00:41:20] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.6.192 - - [08/Jan/2026 00:41:20] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.5.77 - - [08/Jan/2026 00:41:20] "GET /static/css/medical_styles.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.0.116 - - [08/Jan/2026 00:41:20] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.0.116 - - [08/Jan/2026 00:41:25] "GET /patients HTTP/1.1" 302 -
+INFO:services.appointment_prioritization:Initialized AppointmentBasedPrioritization for organization 31
+INFO:services.appointment_prioritization:Getting priority patients with appointments between 2026-01-08 and 2026-01-22
+INFO:services.appointment_prioritization:Found 0 priority patients (0 from appointments, 0 from recently processed non-dormant screenings)
+INFO:routes.screening_routes:Refreshed priority patients cache: 0 patients
+ERROR:routes.screening_routes:Screening list error: (psycopg2.errors.UndefinedColumn) column fhir_documents.last_processed_at does not exist
+LINE 1: ...erated AS fhir_documents_is_healthprep_generated, fhir_docum...
+                                                             ^
+
+[SQL: SELECT screening_1.id AS screening_1_id, fhir_documents.id AS fhir_documents_id, fhir_documents.patient_id AS fhir_documents_patient_id, fhir_documents.org_id AS fhir_documents_org_id, fhir_documents.epic_document_id AS fhir_documents_epic_document_id, fhir_documents.fhir_document_reference AS fhir_documents_fhir_document_reference, fhir_documents.document_type_code AS fhir_documents_document_type_code, fhir_documents.document_type_display AS fhir_documents_document_type_display, fhir_documents.title AS fhir_documents_title, fhir_documents.search_title AS fhir_documents_search_title, fhir_documents.description AS fhir_documents_description, fhir_documents.creation_date AS fhir_documents_creation_date, fhir_documents.document_date AS fhir_documents_document_date, fhir_documents.author_name AS fhir_documents_author_name, fhir_documents.content_url AS fhir_documents_content_url, fhir_documents.content_type AS fhir_documents_content_type, fhir_documents.content_size AS fhir_documents_content_size, fhir_documents.content_hash AS fhir_documents_content_hash, fhir_documents.is_processed AS fhir_documents_is_processed, fhir_documents.processing_status AS fhir_documents_processing_status, fhir_documents.processing_error AS fhir_documents_processing_error, fhir_documents.ocr_text AS fhir_documents_ocr_text, fhir_documents.relevance_score AS fhir_documents_relevance_score, fhir_documents.is_healthprep_generated AS fhir_documents_is_healthprep_generated, fhir_documents.last_processed_at AS fhir_documents_last_processed_at, fhir_documents.last_accessed AS fhir_documents_last_accessed, fhir_documents.created_at AS fhir_documents_created_at, fhir_documents.updated_at AS fhir_documents_updated_at 
+FROM screening AS screening_1 JOIN screening_fhir_documents AS screening_fhir_documents_1 ON screening_1.id = screening_fhir_documents_1.screening_id JOIN fhir_documents ON fhir_documents.id = screening_fhir_documents_1.fhir_document_id 
+WHERE screening_1.id IN (%(primary_keys_1)s, %(primary_keys_2)s, %(primary_keys_3)s, %(primary_keys_4)s, %(primary_keys_5)s, %(primary_keys_6)s, %(primary_keys_7)s, %(primary_keys_8)s, %(primary_keys_9)s, %(primary_keys_10)s, %(primary_keys_11)s, %(primary_keys_12)s, %(primary_keys_13)s, %(primary_keys_14)s, %(primary_keys_15)s, %(primary_keys_16)s, %(primary_keys_17)s, %(primary_keys_18)s, %(primary_keys_19)s, %(primary_keys_20)s, %(primary_keys_21)s, %(primary_keys_22)s, %(primary_keys_23)s, %(primary_keys_24)s, %(primary_keys_25)s, %(primary_keys_26)s, %(primary_keys_27)s, %(primary_keys_28)s, %(primary_keys_29)s, %(primary_keys_30)s, %(primary_keys_31)s, %(primary_keys_32)s, %(primary_keys_33)s, %(primary_keys_34)s, %(primary_keys_35)s)]
+[parameters: {'primary_keys_1': 277, 'primary_keys_2': 276, 'primary_keys_3': 255, 'primary_keys_4': 254, 'primary_keys_5': 253, 'primary_keys_6': 256, 'primary_keys_7': 252, 'primary_keys_8': 250, 'primary_keys_9': 251, 'primary_keys_10': 249, 'primary_keys_11': 244, 'primary_keys_12': 243, 'primary_keys_13': 247, 'primary_keys_14': 259, 'primary_keys_15': 258, 'primary_keys_16': 263, 'primary_keys_17': 261, 'primary_keys_18': 262, 'primary_keys_19': 260, 'primary_keys_20': 264, 'primary_keys_21': 268, 'primary_keys_22': 270, 'primary_keys_23': 266, 'primary_keys_24': 267, 'primary_keys_25': 265, 'primary_keys_26': 269, 'primary_keys_27': 271, 'primary_keys_28': 257, 'primary_keys_29': 246, 'primary_keys_30': 248, 'primary_keys_31': 245, 'primary_keys_32': 275, 'primary_keys_33': 273, 'primary_keys_34': 274, 'primary_keys_35': 272}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+INFO:werkzeug:10.81.0.116 - - [08/Jan/2026 00:41:26] "GET /screening/list HTTP/1.1" 200 -
+INFO:werkzeug:10.81.0.116 - - [08/Jan/2026 00:41:26] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.5.77 - - [08/Jan/2026 00:41:26] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.5.77 - - [08/Jan/2026 00:41:26] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.6.192 - - [08/Jan/2026 00:41:26] "GET /static/css/medical_styles.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.0.116 - - [08/Jan/2026 00:41:26] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.11.246 - - [08/Jan/2026 00:41:26] "GET /static/js/screening_performance.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.0.116 - - [08/Jan/2026 00:41:26] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
