@@ -27,10 +27,14 @@
                         <label for="event_type" class="form-label">Event Type</label>
                         <select name="event_type" id="event_type" class="form-select">
                             <option value="">All Events</option>
-                            {% for event_type in event_types %}
-                            <option value="{{ event_type }}" {% if filters.event_type == event_type %}selected{% endif %}>
-                                {{ event_type.replace('_', ' ').title() }}
-                            </option>
+                            {% for category, event_types in event_type_categories.items() %}
+                            <optgroup label="{{ category }}">
+                                {% for event_type in event_types %}
+                                <option value="{{ event_type }}" {% if filters.event_type == event_type %}selected{% endif %}>
+                                    {{ event_type.replace('_', ' ').title() }}
+                                </option>
+                                {% endfor %}
+                            </optgroup>
                             {% endfor %}
                         </select>
                     </div>
@@ -98,10 +102,16 @@
                                     </td>
                                     <td>
                                         <span class="badge 
-                                            {% if log.event_type in ['create_user', 'create_organization', 'create_screening_type'] %}bg-success
-                                            {% elif log.event_type in ['delete_user', 'delete_organization', 'delete_screening_type'] %}bg-danger
-                                            {% elif log.event_type in ['edit_user', 'edit_organization', 'edit_screening_type'] %}bg-warning
-                                            {% elif log.event_type in ['login', 'logout'] %}bg-info
+                                            {% if log.event_type.startswith('incident_') or log.event_type.startswith('breach_') %}bg-danger
+                                            {% elif log.event_type.startswith('security_alert_') or log.event_type in ['brute_force_detected', 'account_lockout'] %}bg-danger
+                                            {% elif log.event_type.startswith('phi_') %}bg-warning text-dark
+                                            {% elif log.event_type in ['create_user', 'create_organization', 'create_screening_type', 'add_screening_type', 'create_manual_organization'] %}bg-success
+                                            {% elif log.event_type in ['delete_user', 'delete_organization', 'delete_screening_type', 'organization_rejected_deleted'] %}bg-danger
+                                            {% elif log.event_type in ['edit_user', 'edit_organization', 'edit_screening_type', 'toggle_user_status', 'toggle_screening_type_status'] %}bg-warning text-dark
+                                            {% elif log.event_type in ['user_login', 'login', 'logout'] %}bg-info
+                                            {% elif log.event_type.startswith('screening_refresh_') %}bg-primary
+                                            {% elif log.event_type in ['organization_approved', 'organization_rejected'] %}bg-info
+                                            {% elif log.event_type.startswith('preset_') or log.event_type.startswith('apply_preset_') or log.event_type.startswith('create_preset_') %}bg-secondary
                                             {% else %}bg-secondary
                                             {% endif %}">
                                             {{ log.event_type.replace('_', ' ').title() }}

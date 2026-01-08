@@ -1042,13 +1042,46 @@ def system_logs():
 
         # Get filter options
         organizations = Organization.query.order_by(Organization.name).all()
-        event_types = db.session.query(AdminLog.event_type).distinct().all()
-        event_types = [event.event_type for event in event_types if event.event_type]
+        raw_event_types = db.session.query(AdminLog.event_type).distinct().all()
+        raw_event_types = [event.event_type for event in raw_event_types if event.event_type]
+        
+        # Categorize event types for grouped dropdown
+        event_type_categories = {
+            'Security & Incidents': [],
+            'PHI & Compliance': [],
+            'User Management': [],
+            'Organization Management': [],
+            'Screening Types': [],
+            'Screening Refresh': [],
+            'Presets': [],
+            'Other': []
+        }
+        
+        for et in sorted(raw_event_types):
+            if et.startswith('incident_') or et.startswith('breach_') or et.startswith('security_alert_') or et in ['brute_force_detected', 'account_lockout']:
+                event_type_categories['Security & Incidents'].append(et)
+            elif et.startswith('phi_'):
+                event_type_categories['PHI & Compliance'].append(et)
+            elif any(x in et for x in ['user', 'login', 'logout', 'security_question']):
+                event_type_categories['User Management'].append(et)
+            elif 'preset' in et:
+                event_type_categories['Presets'].append(et)
+            elif 'organization' in et or 'org' in et:
+                event_type_categories['Organization Management'].append(et)
+            elif 'screening_type' in et or 'screening_settings' in et:
+                event_type_categories['Screening Types'].append(et)
+            elif 'screening_refresh' in et:
+                event_type_categories['Screening Refresh'].append(et)
+            else:
+                event_type_categories['Other'].append(et)
+        
+        # Remove empty categories
+        event_type_categories = {k: v for k, v in event_type_categories.items() if v}
 
         return render_template('root_admin/system_logs.html',
                              logs=logs_pagination,
                              organizations=organizations,
-                             event_types=event_types,
+                             event_type_categories=event_type_categories,
                              filters={'org_id': org_id, 'event_type': event_type, 'date_from': date_from, 'date_to': date_to})
 
     except Exception as e:
