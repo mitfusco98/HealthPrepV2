@@ -1075,8 +1075,9 @@ def system_logs():
             else:
                 event_type_categories['Other'].append(et)
         
-        # Remove empty categories
-        event_type_categories = {k: v for k, v in event_type_categories.items() if v}
+        # Keep important categories visible even when empty; remove only "Other" if empty
+        always_show_categories = ['Security & Incidents', 'PHI & Compliance']
+        event_type_categories = {k: v for k, v in event_type_categories.items() if v or k in always_show_categories}
 
         return render_template('root_admin/system_logs.html',
                              logs=logs_pagination,
