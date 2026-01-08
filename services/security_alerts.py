@@ -302,10 +302,17 @@ class SecurityAlertService:
         Returns:
             List of alert dictionaries
         """
+        from sqlalchemy import or_, text
+        from sqlalchemy.dialects.postgresql import JSONB
+        
         alerts = db.session.query(AdminLog).filter(
             AdminLog.org_id == org_id,
             AdminLog.event_type.in_(SecurityAlertService.ALERT_EVENT_TYPES),
-            AdminLog.data['acknowledged'].astext != 'true'
+            or_(
+                AdminLog.data.is_(None),
+                ~AdminLog.data.has_key('acknowledged'),
+                AdminLog.data.op('->>')(text("'acknowledged'")) != 'true'
+            )
         ).order_by(AdminLog.timestamp.desc()).limit(limit).all()
         
         return [{
