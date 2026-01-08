@@ -78,15 +78,19 @@ class ComprehensiveEMRSync:
     def _should_skip_patient_sync(self, patient: Patient, sync_options: Dict[str, Any]) -> bool:
         """
         Pre-flight check to determine if patient sync can be skipped.
+        Uses deterministic change detection based on:
+        - criteria_last_changed_at on ScreeningType (SHA-256 based signature changes)
+        - documents_last_evaluated_at on Patient
+        
         Skips if:
-        - No new documents since last sync
-        - Screening eligibility criteria unchanged
+        - Patient has been evaluated since the last criteria change
+        - No new documents since last evaluation
         - force_refresh not enabled
         
         Returns:
             True if sync can be safely skipped, False otherwise
         """
-        from models import Document, FHIRDocument, ScreeningType
+        from models import Document, FHIRDocument, ScreeningType, Screening
         
         # Never skip if force refresh is requested
         if sync_options.get('force_refresh', False):
@@ -98,54 +102,61 @@ class ComprehensiveEMRSync:
             logger.debug(f"Patient {patient.epic_patient_id} never synced before, cannot skip")
             return False
         
-        # If patient has no screenings OR no documents, they've never been fully processed - don't skip
-        # This ensures the first complete sync always runs even if demographics were synced
-        from models import Screening, Document as ManualDoc, FHIRDocument as FHIRDoc
-        screening_count = Screening.query.filter_by(patient_id=patient.id).count()
-        manual_docs = ManualDoc.query.filter_by(patient_id=patient.id).count()
-        fhir_docs = FHIRDoc.query.filter_by(patient_id=patient.id).count()
-        total_docs = manual_docs + fhir_docs
+        # If patient has never had documents evaluated, don't skip
+        if not patient.documents_last_evaluated_at:
+            logger.debug(f"Patient {patient.epic_patient_id} never had documents evaluated, cannot skip")
+            return False
         
+        # If patient has no screenings, they've never been fully processed - don't skip
+        screening_count = Screening.query.filter_by(patient_id=patient.id).count()
         if screening_count == 0:
             logger.debug(f"Patient {patient.epic_patient_id} has no screenings, cannot skip first full sync")
             return False
         
-        if total_docs == 0:
-            logger.debug(f"Patient {patient.epic_patient_id} has no documents, cannot skip - documents never synced")
-            return False
-        
         try:
-            # Count current documents
-            manual_doc_count = Document.query.filter_by(patient_id=patient.id).count()
-            fhir_doc_count = FHIRDocument.query.filter_by(patient_id=patient.id).count()
-            total_docs = manual_doc_count + fhir_doc_count
-            
-            # Get screening types that apply to this patient
+            # Get all active screening types for this organization
             active_screening_types = ScreeningType.query.filter_by(
                 org_id=patient.org_id,
                 is_active=True
             ).all()
             
-            # Check if any screening type has been modified since last sync
-            criteria_changed = any(
-                st.updated_at and st.updated_at > patient.last_fhir_sync 
-                for st in active_screening_types
-            )
+            # Find the most recent criteria change across all screening types
+            # This uses the deterministic criteria_last_changed_at field that's updated
+            # only when criteria_signature (SHA-256 of keywords/eligibility/frequency) changes
+            latest_criteria_change = None
+            for st in active_screening_types:
+                if st.criteria_last_changed_at:
+                    if latest_criteria_change is None or st.criteria_last_changed_at > latest_criteria_change:
+                        latest_criteria_change = st.criteria_last_changed_at
             
-            if criteria_changed:
-                logger.info(f"Screening criteria changed for {patient.epic_patient_id} since last sync, cannot skip")
+            # Check if patient needs re-evaluation based on criteria changes
+            # This uses the deterministic method on Patient model
+            if latest_criteria_change and patient.needs_document_evaluation(latest_criteria_change):
+                logger.info(f"Screening criteria changed since last evaluation for {patient.epic_patient_id} "
+                          f"(last eval: {patient.documents_last_evaluated_at}, criteria changed: {latest_criteria_change}), cannot skip")
                 return False
             
-            # Store current state for comparison (using patient's fhir_version_id as document count tracker)
-            # This is a lightweight approach - in production you'd use dedicated fields
-            last_doc_count = int(patient.fhir_version_id or '0') if patient.fhir_version_id and patient.fhir_version_id.isdigit() else 0
+            # Check for new documents since last evaluation
+            # This counts documents added after the patient's documents were last evaluated
+            new_manual_docs = Document.query.filter(
+                Document.patient_id == patient.id,
+                Document.created_at > patient.documents_last_evaluated_at
+            ).count()
             
-            if total_docs != last_doc_count:
-                logger.info(f"Document count changed for {patient.epic_patient_id}: {last_doc_count} -> {total_docs}, cannot skip")
+            new_fhir_docs = FHIRDocument.query.filter(
+                FHIRDocument.patient_id == patient.id,
+                FHIRDocument.created_at > patient.documents_last_evaluated_at
+            ).count()
+            
+            total_new_docs = new_manual_docs + new_fhir_docs
+            
+            if total_new_docs > 0:
+                logger.info(f"Found {total_new_docs} new documents for {patient.epic_patient_id} since last evaluation, cannot skip")
                 return False
             
             # All checks passed - safe to skip
-            logger.info(f"No changes detected for {patient.epic_patient_id} since last sync, skipping reprocessing")
+            logger.info(f"No changes detected for {patient.epic_patient_id} since last evaluation "
+                      f"(evaluated: {patient.documents_last_evaluated_at}), skipping reprocessing")
             return True
             
         except Exception as e:
@@ -734,6 +745,12 @@ class ComprehensiveEMRSync:
                     # Update screening status
                     self._update_screening_status(patient, screening_type, completion_status)
                     screenings_updated += 1
+            
+            # Mark that documents have been evaluated for this patient
+            # This enables deterministic selective refresh - skip patients whose
+            # documents_last_evaluated_at is after all criteria_last_changed_at timestamps
+            patient.mark_documents_evaluated()
+            db.session.commit()
             
             logger.info(f"Updated {screenings_updated} screening statuses")
             return screenings_updated
