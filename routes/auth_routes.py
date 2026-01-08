@@ -328,7 +328,8 @@ def verify_login_security():
     is_allowed, wait_time = RateLimiter.check_rate_limit('2fa_verification', user.username)
     if not is_allowed:
         session.clear()
-        flash(f'Too many failed attempts. Please wait {wait_time // 60} minutes before trying again.', 'error')
+        wait_minutes = (wait_time or 60) // 60
+        flash(f'Too many failed attempts. Please wait {wait_minutes} minutes before trying again.', 'error')
         log_security_event('security_verification_rate_limited', {
             'username': user.username
         }, user_id=user.id, org_id=user.org_id or 0)
@@ -424,6 +425,23 @@ def verify_login_security():
             }, user_id=user.id, org_id=user.org_id or 0)
             
             if remaining <= 0:
+                # Create formal incident for max security question failures
+                from services.security_alerts import IncidentLogger
+                IncidentLogger.log_incident_detected(
+                    org_id=user.org_id or 0,
+                    severity='P3',
+                    category='account_compromise',
+                    description=f'Security question verification failed {SECURITY_QUESTION_MAX_ATTEMPTS} times for user {user.username}',
+                    details={
+                        'username': user.username,
+                        'user_id': user.id,
+                        'role': user.role,
+                        'max_attempts_reached': True
+                    },
+                    user_id=user.id,
+                    ip_address=request.remote_addr
+                )
+                
                 session.clear()
                 user.record_login_attempt(success=False)
                 db.session.commit()

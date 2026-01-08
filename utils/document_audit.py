@@ -306,6 +306,23 @@ class DocumentAuditLogger:
             error_message=error_message
         )
         
+        # Create formal P2 incident for PHI filter failure (HIPAA compliance critical)
+        from services.security_alerts import IncidentLogger
+        IncidentLogger.log_incident_detected(
+            org_id=org_id,
+            severity='P2',
+            category='phi_exposure',
+            description=f'PHI filter failed for document {document_id}: potential unredacted PHI',
+            details={
+                'document_id': document_id,
+                'document_type': document_type,
+                'error_message': error_message,
+                'patient_id': patient_id
+            },
+            user_id=user_id or ctx['user_id'],
+            ip_address=ip_address or ctx['ip_address']
+        )
+        
         logger.error(f"Audit: PHI filter failed for {document_id}: {error_message}")
     
     @staticmethod

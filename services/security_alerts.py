@@ -172,6 +172,21 @@ class SecurityAlertService:
             'recipients': admin_emails
         })
         
+        # Create formal incident for brute force attack
+        IncidentLogger.log_incident_detected(
+            org_id=org_id,
+            severity='P3',
+            category='authentication_attack',
+            description=f'Brute force attack detected from IP {ip_address}',
+            details={
+                'ip_address': ip_address,
+                'attempt_count': attempt_count,
+                'usernames_targeted': usernames_targeted,
+                'org_name': org_name
+            },
+            ip_address=ip_address
+        )
+        
         return success
     
     @staticmethod
