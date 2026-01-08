@@ -217,13 +217,48 @@ class ScreeningEngine:
         Args:
             patient_id: Patient ID
             is_dormant: True to mark as dormant (stale), False to mark as active
+            
+        Note: When marking dormant, respects "active for the day" semantic - 
+        screenings refreshed today will NOT be marked dormant until tomorrow.
+        Also, when marking dormant we don't update last_processed to preserve 
+        the timestamp that enables the "active for the day" check.
         """
-        from datetime import datetime
+        from datetime import datetime, timezone
+        now_utc = datetime.now(timezone.utc)
         screenings = Screening.query.filter_by(patient_id=patient_id).all()
+        
+        marked_count = 0
+        skipped_count = 0
+        
         for screening in screenings:
-            screening.is_dormant = is_dormant
-            screening.last_processed = datetime.utcnow()
-        self.logger.debug(f"Marked {len(screenings)} screenings for patient {patient_id} as {'dormant' if is_dormant else 'active'}")
+            if is_dormant:
+                # When marking dormant, respect "active for the day" semantic
+                # Don't mark dormant if screening was refreshed today
+                today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+                
+                # Handle both naive and aware datetimes from database
+                screening_processed = screening.last_processed
+                if screening_processed:
+                    if screening_processed.tzinfo is None:
+                        # Make naive datetime aware for comparison
+                        screening_processed = screening_processed.replace(tzinfo=timezone.utc)
+                    if screening_processed >= today_start:
+                        skipped_count += 1
+                        continue  # Skip - was refreshed today, stays active
+                
+                # Mark dormant but DON'T update last_processed (preserve the active-for-day timestamp)
+                screening.is_dormant = True
+                marked_count += 1
+            else:
+                # Mark active and update last_processed
+                screening.is_dormant = False
+                screening.last_processed = now_utc.replace(tzinfo=None)  # Store as naive for consistency
+                marked_count += 1
+        
+        if is_dormant and skipped_count > 0:
+            self.logger.debug(f"Marked {marked_count} screenings dormant for patient {patient_id}, skipped {skipped_count} (refreshed today)")
+        else:
+            self.logger.debug(f"Marked {marked_count} screenings for patient {patient_id} as {'dormant' if is_dormant else 'active'}")
     
     def _should_refresh_screening(self, screening: Screening, screening_type: ScreeningType) -> bool:
         """Determine if a screening needs to be refreshed based on criteria changes

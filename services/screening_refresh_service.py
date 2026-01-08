@@ -81,11 +81,18 @@ class ScreeningRefreshService:
             # Detect what needs refreshing
             changes_detected = self._detect_refresh_needs(refresh_options)
             
+            # Track manually refreshed patient IDs to exempt from dormancy marking
+            # This allows manually refreshed patients to remain active for the day
+            manually_refreshed_patient_ids: Set[int] = set()
+            if refresh_options.get('patient_filter', {}).get('patient_ids'):
+                manually_refreshed_patient_ids = set(refresh_options['patient_filter']['patient_ids'])
+                logger.info(f"Manual refresh requested for {len(manually_refreshed_patient_ids)} patient(s) - will exempt from dormancy marking")
+            
             # Early termination if no changes needed
             if not changes_detected['needs_refresh']:
                 logger.info("No changes detected - applying dormancy check only")
                 # Still apply dormancy logic even if no document/criteria changes
-                dormancy_result = self._apply_appointment_prioritization_dormancy()
+                dormancy_result = self._apply_appointment_prioritization_dormancy(manually_refreshed_patient_ids)
                 self._log_refresh_event('screening_refresh_completed_early', {
                     'reason': 'no_changes_detected',
                     'organization_id': self.organization_id,
@@ -115,7 +122,7 @@ class ScreeningRefreshService:
             if not affected_patients:
                 logger.info("No affected patients found - applying dormancy check only")
                 # Still apply dormancy logic even if no affected patients
-                dormancy_result = self._apply_appointment_prioritization_dormancy()
+                dormancy_result = self._apply_appointment_prioritization_dormancy(manually_refreshed_patient_ids)
                 self._log_refresh_event('screening_refresh_completed_early', {
                     'reason': 'no_affected_patients',
                     'organization_id': self.organization_id,
@@ -138,6 +145,24 @@ class ScreeningRefreshService:
                         'error': f"Commit failed: {str(commit_error)}",
                         'stats': self.refresh_stats
                     }
+            
+            # For manual patient refresh, explicitly clear dormancy for ALL screenings
+            # of the targeted patients BEFORE eligibility checks. This guarantees
+            # the "active for the day" semantic even for ineligible screening types.
+            if manually_refreshed_patient_ids:
+                now_utc = datetime.utcnow()
+                reactivated_count = Screening.query.filter(
+                    Screening.org_id == self.organization_id,
+                    Screening.patient_id.in_(manually_refreshed_patient_ids),
+                    Screening.is_dormant == True
+                ).update({
+                    'is_dormant': False, 
+                    'last_processed': now_utc
+                }, synchronize_session=False)
+                
+                if reactivated_count > 0:
+                    logger.info(f"Manual refresh: reactivated {reactivated_count} dormant screenings for {len(manually_refreshed_patient_ids)} patient(s)")
+                    self.refresh_stats['dormant_screenings_reactivated'] = reactivated_count
             
             # Pre-fetch screening types once for all patients (avoid per-patient query)
             screening_types = ScreeningType.query.filter_by(
@@ -165,7 +190,7 @@ class ScreeningRefreshService:
             if self.refresh_stats['screenings_updated'] == 0:
                 logger.info("No screening updates needed - applying dormancy check")
                 # Still apply dormancy logic even if no screening updates
-                dormancy_result = self._apply_appointment_prioritization_dormancy()
+                dormancy_result = self._apply_appointment_prioritization_dormancy(manually_refreshed_patient_ids)
                 self._log_refresh_event('screening_refresh_completed_early', {
                     'reason': 'no_updates_needed',
                     'patients_processed': len(affected_patients),
@@ -191,7 +216,7 @@ class ScreeningRefreshService:
                     }
             
             # Apply appointment prioritization dormancy after processing
-            dormancy_result = self._apply_appointment_prioritization_dormancy()
+            dormancy_result = self._apply_appointment_prioritization_dormancy(manually_refreshed_patient_ids)
             self.refresh_stats['dormancy_result'] = dormancy_result
             self.refresh_stats['end_time'] = datetime.utcnow()
             
@@ -301,6 +326,13 @@ class ScreeningRefreshService:
                 changes['needs_refresh'] = True
                 logger.info("Force refresh requested")
             
+            # Manual patient refresh always needs to run to update is_dormant and last_processed
+            # This ensures manually refreshed patients become active for the day
+            if refresh_options.get('patient_filter', {}).get('patient_ids'):
+                changes['needs_refresh'] = True
+                changes['manual_patient_refresh'] = True
+                logger.info(f"Manual patient refresh requested for {len(refresh_options['patient_filter']['patient_ids'])} patient(s)")
+            
         except Exception as e:
             logger.error(f"Error detecting refresh needs: {str(e)}")
             # Default to refresh on error to be safe
@@ -347,12 +379,20 @@ class ScreeningRefreshService:
             
             affected_patient_ids.update([pid[0] for pid in all_patient_ids])
         
-        # Apply patient filters if specified
+        # Handle patient filter - behavior depends on whether this is a manual refresh
         if refresh_options.get('patient_filter'):
             patient_filter = refresh_options['patient_filter']
             if patient_filter.get('patient_ids'):
-                # Intersect with specified patient IDs
-                affected_patient_ids = affected_patient_ids.intersection(set(patient_filter['patient_ids']))
+                specified_patient_ids = set(patient_filter['patient_ids'])
+                
+                if changes_detected.get('manual_patient_refresh'):
+                    # For manual patient refresh, INCLUDE the specified patients
+                    # (they may have no other detected changes but still need reactivation)
+                    affected_patient_ids.update(specified_patient_ids)
+                    logger.info(f"Manual refresh: including {len(specified_patient_ids)} specified patient(s)")
+                elif affected_patient_ids:
+                    # For filtered refresh, intersect with specified patient IDs
+                    affected_patient_ids = affected_patient_ids.intersection(specified_patient_ids)
         
         # Get actual patient objects with eager loading to prevent N+1 queries
         if not affected_patient_ids:
@@ -401,8 +441,15 @@ class ScreeningRefreshService:
                         screening_type.id in changes_detected['screening_types_modified']
                     )
                     
-                    # Check if screening type is affected by changes OR force refresh
-                    screening_affected = screening_type_modified or refresh_options.get('force_refresh', False)
+                    # Manual patient refresh processes ALL screenings to update is_dormant and last_processed
+                    is_manual_patient_refresh = changes_detected.get('manual_patient_refresh', False)
+                    
+                    # Check if screening type is affected by changes OR force refresh OR manual patient refresh
+                    screening_affected = (
+                        screening_type_modified or 
+                        refresh_options.get('force_refresh', False) or
+                        is_manual_patient_refresh
+                    )
                     
                     if not screening_affected:
                         # Check if any of the patient's documents were modified (local or FHIR)
@@ -721,6 +768,7 @@ class ScreeningRefreshService:
                     screening.last_completed = document_date
                     screening.updated_at = now_utc
                     screening.last_processed = now_utc  # Clear stale indicator
+                    screening.is_dormant = False  # Reactivate for day's processing
                     
                     logger.debug(f"Screening {screening.id}: {old_status} -> {new_status}, completed: {document_date}")
                     return True
@@ -730,6 +778,7 @@ class ScreeningRefreshService:
                 if matches_changed:
                     screening.updated_at = now_utc
                     screening.last_processed = now_utc  # Clear stale indicator
+                    screening.is_dormant = False  # Reactivate for day's processing
                     logger.debug(f"Screening {screening.id}: matches updated (status unchanged: {screening.status})")
                     return True
             
@@ -743,6 +792,7 @@ class ScreeningRefreshService:
                     screening.last_completed = None
                     screening.updated_at = now_utc
                     screening.last_processed = now_utc  # Clear stale indicator
+                    screening.is_dormant = False  # Reactivate for day's processing
                     
                     logger.debug(f"Screening {screening.id}: {old_status} -> due (no matches)")
                     return True
@@ -751,12 +801,14 @@ class ScreeningRefreshService:
                 if matches_changed:
                     screening.updated_at = now_utc
                     screening.last_processed = now_utc  # Clear stale indicator
+                    screening.is_dormant = False  # Reactivate for day's processing
                     logger.debug(f"Screening {screening.id}: matches removed (status remains due)")
                     return True
             
             # Even if nothing changed, update last_processed to indicate screening was evaluated
-            # This clears the stale indicator in the UI
+            # This clears the stale indicator and reactivates the screening for today's processing
             screening.last_processed = datetime.utcnow()
+            screening.is_dormant = False
             return False
             
         except Exception as e:
@@ -832,6 +884,7 @@ class ScreeningRefreshService:
                     screening.last_completed = imm_date
                     screening.updated_at = now_utc
                     screening.last_processed = now_utc  # Clear stale indicator
+                    screening.is_dormant = False  # Reactivate for day's processing
                     
                     logger.info(f"Immunization screening {screening.id} ({screening_type.name}): {old_status} -> {new_status}, completed: {imm_date}, matched {len(matching_immunizations)} immunization(s)")
                     return True
@@ -840,6 +893,7 @@ class ScreeningRefreshService:
                 if matches_changed:
                     screening.updated_at = now_utc
                     screening.last_processed = now_utc  # Clear stale indicator
+                    screening.is_dormant = False  # Reactivate for day's processing
                     logger.debug(f"Immunization screening {screening.id}: matches updated (status unchanged: {screening.status})")
                     return True
             else:
@@ -857,6 +911,7 @@ class ScreeningRefreshService:
                     screening.last_completed = None
                     screening.updated_at = now_utc
                     screening.last_processed = now_utc  # Clear stale indicator
+                    screening.is_dormant = False  # Reactivate for day's processing
                     
                     logger.debug(f"Immunization screening {screening.id}: {old_status} -> due (no matching immunizations)")
                     return True
@@ -865,12 +920,14 @@ class ScreeningRefreshService:
                 if matches_changed:
                     screening.updated_at = now_utc
                     screening.last_processed = now_utc  # Clear stale indicator
+                    screening.is_dormant = False  # Reactivate for day's processing
                     logger.debug(f"Immunization screening {screening.id}: immunization links cleared (status remains due)")
                     return True
             
             # Even if nothing changed, update last_processed to indicate screening was evaluated
-            # This clears the stale indicator in the UI
+            # This clears the stale indicator and reactivates the screening for today's processing
             screening.last_processed = datetime.utcnow()
+            screening.is_dormant = False
             return False
             
         except Exception as e:
@@ -983,13 +1040,18 @@ class ScreeningRefreshService:
         except Exception as e:
             logger.error(f"Error logging refresh event: {str(e)}")
     
-    def _apply_appointment_prioritization_dormancy(self) -> Dict[str, Any]:
+    def _apply_appointment_prioritization_dormancy(self, manually_refreshed_patient_ids: Optional[Set[int]] = None) -> Dict[str, Any]:
         """
         Apply appointment prioritization dormancy rules to screenings.
         
         This method checks the organization's appointment prioritization settings
         and marks screenings as dormant/active based on whether patients have
         upcoming appointments.
+        
+        Args:
+            manually_refreshed_patient_ids: Optional set of patient IDs that were manually
+                refreshed in this cycle. These patients will be exempted from dormancy
+                marking so they remain active for the rest of the day.
         
         Returns:
             Dict with dormancy application results
@@ -1000,8 +1062,12 @@ class ScreeningRefreshService:
             'non_scheduled_marked_dormant': 0,
             'stale_patients_reactivated': 0,
             'setting_enabled': False,
-            'process_non_scheduled': False
+            'process_non_scheduled': False,
+            'manually_refreshed_exempted': 0
         }
+        
+        if manually_refreshed_patient_ids is None:
+            manually_refreshed_patient_ids = set()
         
         try:
             # Get organization settings
@@ -1064,19 +1130,38 @@ class ScreeningRefreshService:
                 # Do NOT mark any non-scheduled patients as dormant when setting is enabled
                 result['non_scheduled_marked_dormant'] = 0
             else:
-                # Mark ALL non-scheduled patients as dormant when disabled
-                logger.info(f"Marking {len(non_scheduled_ids)} non-scheduled patients as dormant (process_non_scheduled_patients is disabled)")
+                # Mark non-scheduled patients as dormant when disabled,
+                # EXCEPT for:
+                # 1. Manually refreshed patients in this cycle (via manually_refreshed_patient_ids)
+                # 2. Patients whose screenings were refreshed today (via last_processed check)
+                patients_to_mark_dormant = set(non_scheduled_ids) - manually_refreshed_patient_ids
                 
-                if non_scheduled_ids:
+                if manually_refreshed_patient_ids:
+                    exempted_count = len(set(non_scheduled_ids) & manually_refreshed_patient_ids)
+                    result['manually_refreshed_exempted'] = exempted_count
+                    if exempted_count > 0:
+                        logger.info(f"Exempting {exempted_count} manually refreshed patients from dormancy marking")
+                
+                logger.info(f"Marking {len(patients_to_mark_dormant)} non-scheduled patients as dormant (process_non_scheduled_patients is disabled)")
+                
+                if patients_to_mark_dormant:
+                    # Only mark as dormant if last_processed is older than today
+                    # This respects the "active for the day" semantic after manual refresh
+                    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+                    
                     dormant_count = Screening.query.filter(
                         Screening.org_id == self.organization_id,
-                        Screening.patient_id.in_(non_scheduled_ids),
-                        Screening.is_dormant == False
+                        Screening.patient_id.in_(patients_to_mark_dormant),
+                        Screening.is_dormant == False,
+                        or_(
+                            Screening.last_processed.is_(None),
+                            Screening.last_processed < today_start
+                        )
                     ).update({'is_dormant': True}, synchronize_session=False)
                     
                     result['non_scheduled_marked_dormant'] = dormant_count
                     if dormant_count > 0:
-                        logger.info(f"Marked {dormant_count} screenings as dormant for non-scheduled patients")
+                        logger.info(f"Marked {dormant_count} screenings as dormant for non-scheduled patients (excluding today's refreshes)")
             
             result['applied'] = True
             logger.info(f"Appointment prioritization dormancy applied: {result}")
