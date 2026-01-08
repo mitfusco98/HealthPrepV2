@@ -744,6 +744,11 @@ def view_organization(org_id):
 def edit_organization(org_id):
     """Edit organization details"""
     try:
+        # Prevent editing of System Organization (org_id=0)
+        if org_id == 0:
+            flash('System Organization cannot be modified', 'error')
+            return redirect(url_for('root_admin.organizations'))
+        
         org = Organization.query.get_or_404(org_id)
 
         if request.method == 'POST':

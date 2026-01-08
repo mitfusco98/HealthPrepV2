@@ -3950,3 +3950,44 @@ class DismissedDocumentMatch(db.Model):
 
 
 # Note: ExportRequest model removed - global preset management handled directly by root admin
+
+
+# =============================================================================
+# SYSTEM ORGANIZATION PROTECTION
+# SQLAlchemy event listeners to prevent modification/deletion of org_id=0
+# This provides defense-in-depth at the ORM level, complementing route guards
+# =============================================================================
+
+from sqlalchemy import event
+
+class SystemOrganizationProtectionError(Exception):
+    """Raised when attempting to modify or delete the System Organization (org_id=0)"""
+    pass
+
+@event.listens_for(Organization, 'before_delete')
+def prevent_system_org_deletion(mapper, connection, target):
+    """Prevent deletion of System Organization (org_id=0) at ORM level"""
+    if target.id == 0:
+        raise SystemOrganizationProtectionError(
+            "Cannot delete System Organization (org_id=0). This organization is protected and essential for system operation."
+        )
+
+@event.listens_for(Organization, 'before_update')
+def prevent_system_org_critical_update(mapper, connection, target):
+    """Prevent critical modifications to System Organization (org_id=0) at ORM level"""
+    if target.id == 0:
+        # Get the object state to check what's being modified
+        from sqlalchemy.orm import object_session
+        from sqlalchemy import inspect
+        
+        state = inspect(target)
+        
+        # Check if critical fields are being modified
+        critical_fields = ['name', 'id']
+        
+        for field in critical_fields:
+            history = state.attrs[field].history
+            if history.has_changes():
+                raise SystemOrganizationProtectionError(
+                    f"Cannot modify '{field}' on System Organization (org_id=0). This field is protected."
+                )
