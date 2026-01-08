@@ -1480,20 +1480,25 @@ class ComprehensiveEMRSync:
                     else:
                         logger.info(f"Skipping {len([p for p in imported_patients if p.id not in priority_patient_ids])} non-scheduled patients (process_non_scheduled_patients is disabled)")
                 else:
-                    # No priority patients found - fallback to standard sync
-                    logger.info("No patients eligible for Appointment-Based Screening Prioritization, continuing general EMR sync")
-                    
-                    for patient in imported_patients:
-                        try:
-                            sync_result = self.sync_patient_comprehensive(patient.epic_patient_id, sync_options)
-                            if sync_result.get('success'):
-                                synced_patients += 1
-                                total_updated_screenings += sync_result.get('screenings_updated', 0)
-                            else:
-                                self.sync_stats['errors'].append(f"Sync failed for {patient.name}: {sync_result.get('error', 'Unknown error')}")
-                        except Exception as e:
-                            logger.error(f"Error syncing patient {patient.epic_patient_id}: {str(e)}")
-                            self.sync_stats['errors'].append(f"Sync failed for {patient.name}: {str(e)}")
+                    # No priority patients found - respect process_non_scheduled_patients setting
+                    # When appointment prioritization is enabled but no priority patients exist,
+                    # we should only process non-scheduled patients if that setting is enabled
+                    if organization.process_non_scheduled_patients:
+                        logger.info("No priority patients found, but process_non_scheduled_patients is enabled - processing all patients")
+                        
+                        for patient in imported_patients:
+                            try:
+                                sync_result = self.sync_patient_comprehensive(patient.epic_patient_id, sync_options)
+                                if sync_result.get('success'):
+                                    synced_patients += 1
+                                    total_updated_screenings += sync_result.get('screenings_updated', 0)
+                                else:
+                                    self.sync_stats['errors'].append(f"Sync failed for {patient.name}: {sync_result.get('error', 'Unknown error')}")
+                            except Exception as e:
+                                logger.error(f"Error syncing patient {patient.epic_patient_id}: {str(e)}")
+                                self.sync_stats['errors'].append(f"Sync failed for {patient.name}: {str(e)}")
+                    else:
+                        logger.info(f"No priority patients found and process_non_scheduled_patients is disabled - skipping {len(imported_patients)} patients")
             else:
                 # Appointment prioritization disabled - process all patients
                 logger.info("Appointment-Based Screening Prioritization is DISABLED - processing all patients")
