@@ -145,7 +145,6 @@ def login():
             
             # Log the login event to audit log
             # Root admin events go to system org (0), never to tenant orgs
-            from models import log_admin_event
             if user.is_root_admin:
                 log_org_id = 0  # System org for root admin events
             else:

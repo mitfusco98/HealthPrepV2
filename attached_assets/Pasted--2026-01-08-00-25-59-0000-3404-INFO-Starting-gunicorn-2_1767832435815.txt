@@ -1,0 +1,66 @@
+[2026-01-08 00:25:59 +0000] [3404] [INFO] Starting gunicorn 23.0.0
+[2026-01-08 00:25:59 +0000] [3404] [INFO] Listening at: http://0.0.0.0:5000 (3404)
+[2026-01-08 00:25:59 +0000] [3404] [INFO] Using worker: sync
+[2026-01-08 00:25:59 +0000] [3416] [INFO] Booting worker with pid: 3416
+INFO:utils.secrets_validator:Secrets validation passed for development environment
+Using PostgreSQL database: ep-raspy-heart-aep9yhc2.c-2.us-east-2.aws.neon.tech
+INFO:utils.security_headers:Security headers middleware enabled
+INFO:utils.security_headers:Security middleware configured (force_https=False)
+INFO:app:Database tables created successfully
+INFO:app:System Organization (org_id=0) verified
+INFO:app:Root admin 'rootadmin' configuration verified (org_id=0)
+INFO:utils.seed_global_presets:Global presets verified - no changes needed
+INFO:app:Startup document processing disabled for faster boot times (set STARTUP_PROCESS_DOCS=true to enable)
+127.0.0.1 - - [08/Jan/2026:00:26:02 +0000] "GET / HTTP/1.1" 302 265 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.0.0 Safari/537.36"
+127.0.0.1 - - [08/Jan/2026:00:26:02 +0000] "GET /auth/login?next=http://127.0.0.1:5000/ HTTP/1.1" 200 10975 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.0.0 Safari/537.36"
+127.0.0.1 - - [08/Jan/2026:00:26:06 +0000] "GET /static/css/custom.css HTTP/1.1" 200 0 "http://127.0.0.1:5000/auth/login?next=http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.0.0 Safari/537.36"
+127.0.0.1 - - [08/Jan/2026:00:26:06 +0000] "GET /static/css/medical_styles.css HTTP/1.1" 200 0 "http://127.0.0.1:5000/auth/login?next=http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.0.0 Safari/537.36"
+127.0.0.1 - - [08/Jan/2026:00:26:06 +0000] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 200 0 "http://127.0.0.1:5000/auth/login?next=http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.0.0 Safari/537.36"
+127.0.0.1 - - [08/Jan/2026:00:26:06 +0000] "GET /static/css/loading-states.css HTTP/1.1" 200 0 "http://127.0.0.1:5000/auth/login?next=http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.0.0 Safari/537.36"
+127.0.0.1 - - [08/Jan/2026:00:26:06 +0000] "GET /static/js/medical_terminology.js HTTP/1.1" 200 0 "http://127.0.0.1:5000/auth/login?next=http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.0.0 Safari/537.36"
+127.0.0.1 - - [08/Jan/2026:00:26:06 +0000] "GET /favicon.ico HTTP/1.1" 404 9557 "http://127.0.0.1:5000/auth/login?next=http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.0.0 Safari/537.36"
+[2026-01-08 00:29:26 +0000] [3404] [INFO] Handling signal: winch
+10.81.6.192 - - [08/Jan/2026:00:29:26 +0000] "GET / HTTP/1.1" 302 379 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+[2026-01-08 00:29:26 +0000] [3404] [INFO] Handling signal: winch
+10.81.0.116 - - [08/Jan/2026:00:29:26 +0000] "GET /auth/login?next=https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/ HTTP/1.1" 200 10975 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+[2026-01-08 00:29:26 +0000] [3404] [INFO] Handling signal: winch
+[2026-01-08 00:29:26 +0000] [3404] [INFO] Handling signal: winch
+10.81.6.192 - - [08/Jan/2026:00:29:26 +0000] "GET /static/css/custom.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/auth/login?next=https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.0.116 - - [08/Jan/2026:00:29:26 +0000] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/auth/login?next=https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.5.77 - - [08/Jan/2026:00:29:26 +0000] "GET /static/css/loading-states.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/auth/login?next=https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+[2026-01-08 00:29:26 +0000] [3404] [INFO] Handling signal: winch
+10.81.2.39 - - [08/Jan/2026:00:29:26 +0000] "GET /static/css/medical_styles.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/auth/login?next=https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+[2026-01-08 00:29:26 +0000] [3404] [INFO] Handling signal: winch
+10.81.0.116 - - [08/Jan/2026:00:29:26 +0000] "GET /static/js/medical_terminology.js HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/auth/login?next=https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+[2026-01-08 00:29:26 +0000] [3404] [INFO] Handling signal: winch
+[2026-01-08 00:29:26 +0000] [3404] [INFO] Handling signal: winch
+ERROR:app:Exception on /auth/login [POST]
+Traceback (most recent call last):
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask_cors/extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/routes/auth_routes.py", line 202, in login
+    log_admin_event(
+    ^^^^^^^^^^^^^^^
+UnboundLocalError: cannot access local variable 'log_admin_event' where it is not associated with a value
+10.81.0.116 - - [08/Jan/2026:00:33:32 +0000] "POST /auth/login?next=https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/ HTTP/1.1" 500 12338 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/auth/login?next=https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+INFO:flask_wtf.csrf:The CSRF token is missing.
+10.81.0.116 - - [08/Jan/2026:00:33:32 +0000] "POST /admin/log-error HTTP/1.1" 400 8174 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/auth/login?next=https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.0.116 - - [08/Jan/2026:00:33:42 +0000] "GET /auth/login?next=https%3A%2F%2F55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev%2F&retry=1 HTTP/1.1" 200 10593 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/auth/login?next=https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.0.116 - - [08/Jan/2026:00:33:42 +0000] "GET /static/css/custom.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/auth/login?next=https%3A%2F%2F55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev%2F&retry=1" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.2.39 - - [08/Jan/2026:00:33:42 +0000] "GET /static/css/medical_styles.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/auth/login?next=https%3A%2F%2F55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev%2F&retry=1" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.0.116 - - [08/Jan/2026:00:33:42 +0000] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/auth/login?next=https%3A%2F%2F55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev%2F&retry=1" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.6.192 - - [08/Jan/2026:00:33:42 +0000] "GET /static/js/medical_terminology.js HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/auth/login?next=https%3A%2F%2F55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev%2F&retry=1" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.5.77 - - [08/Jan/2026:00:33:42 +0000] "GET /static/css/loading-states.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/auth/login?next=https%3A%2F%2F55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev%2F&retry=1" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
