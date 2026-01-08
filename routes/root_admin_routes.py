@@ -1049,6 +1049,7 @@ def system_logs():
         event_type_categories = {
             'Security & Incidents': [],
             'PHI & Compliance': [],
+            'EMR Sync': [],
             'User Management': [],
             'Organization Management': [],
             'Screening Types': [],
@@ -1062,6 +1063,8 @@ def system_logs():
                 event_type_categories['Security & Incidents'].append(et)
             elif et.startswith('phi_'):
                 event_type_categories['PHI & Compliance'].append(et)
+            elif et.startswith('fhir_') or et.startswith('emr_') or et.startswith('epic_') or ('sync' in et and ('fhir' in et or 'emr' in et or 'patient' in et or 'batch' in et)):
+                event_type_categories['EMR Sync'].append(et)
             elif any(x in et for x in ['user', 'login', 'logout', 'security_question']):
                 event_type_categories['User Management'].append(et)
             elif 'preset' in et:
@@ -1076,7 +1079,7 @@ def system_logs():
                 event_type_categories['Other'].append(et)
         
         # Keep important categories visible even when empty; remove only "Other" if empty
-        always_show_categories = ['Security & Incidents', 'PHI & Compliance']
+        always_show_categories = ['Security & Incidents', 'PHI & Compliance', 'EMR Sync']
         event_type_categories = {k: v for k, v in event_type_categories.items() if v or k in always_show_categories}
 
         return render_template('root_admin/system_logs.html',
