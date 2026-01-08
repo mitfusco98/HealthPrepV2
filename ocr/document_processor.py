@@ -17,6 +17,7 @@ from models import db, FHIRDocument
 from ocr.processor import OCRProcessor, get_ocr_timeout_seconds
 from ocr.phi_filter import PHIFilter
 from core.fuzzy_detection import FuzzyDetectionEngine
+from utils.document_audit import DocumentAuditLogger
 from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 
 try:
@@ -62,7 +63,9 @@ class DocumentProcessor:
             'recommendation', 'follow-up', 'next screening'
         ]
     
-    def process_document(self, document_content: bytes, document_title: str, content_type: Optional[str] = None, phi_settings_snapshot=None) -> Optional[str]:
+    def process_document(self, document_content: bytes, document_title: str, content_type: Optional[str] = None, 
+                         phi_settings_snapshot=None, fhir_doc_id: Optional[int] = None, 
+                         org_id: Optional[int] = None, patient_id: Optional[int] = None) -> Optional[str]:
         """
         Process document content and extract text with screening analysis
         
@@ -72,12 +75,23 @@ class DocumentProcessor:
             content_type: MIME type (e.g., 'application/pdf', 'image/jpeg')
             phi_settings_snapshot: Optional pre-loaded PHI filter settings for thread-safe
                                   batch processing. If None, settings are queried from DB.
+            fhir_doc_id: Optional FHIR document ID for audit logging
+            org_id: Optional organization ID for audit logging
+            patient_id: Optional patient ID for audit logging
             
         Returns:
             Extracted and processed text or None if processing failed
         """
         try:
             self.logger.info(f"Processing document: {document_title}")
+            
+            if fhir_doc_id is not None and org_id is not None:
+                DocumentAuditLogger.log_processing_started(
+                    document_id=fhir_doc_id,
+                    document_type='fhir_document',
+                    org_id=org_id,
+                    patient_id=patient_id
+                )
             
             # Determine file extension from content type or filename
             file_extension = self._get_file_extension_from_content_type(content_type) or self._get_file_extension(document_title)
@@ -94,21 +108,61 @@ class DocumentProcessor:
                 extracted_text, confidence = self._extract_text_from_file(temp_file_path)
                 
                 if extracted_text:
-                    # Apply PHI filtering (uses snapshot if provided for thread safety)
-                    filtered_text = self.phi_filter.filter_phi(extracted_text, preloaded_settings=phi_settings_snapshot)
+                    original_length = len(extracted_text)
+                    
+                    # Apply PHI filtering with counts for audit trail
+                    filtered_text, phi_counts = self.phi_filter.filter_phi_with_counts(extracted_text, preloaded_settings=phi_settings_snapshot)
+                    
+                    if phi_counts and fhir_doc_id is not None and org_id is not None:
+                        DocumentAuditLogger.log_phi_redacted(
+                            document_id=fhir_doc_id,
+                            document_type='fhir_document',
+                            org_id=org_id,
+                            phi_types_found=phi_counts,
+                            original_length=original_length,
+                            filtered_length=len(filtered_text),
+                            patient_id=patient_id
+                        )
                     
                     # Enhance text for screening detection
                     enhanced_text = self._enhance_text_for_screening(filtered_text, document_title)
+                    
+                    if fhir_doc_id is not None and org_id is not None:
+                        DocumentAuditLogger.log_processing_completed(
+                            document_id=fhir_doc_id,
+                            document_type='fhir_document',
+                            org_id=org_id,
+                            confidence=confidence,
+                            text_length=len(enhanced_text),
+                            processing_method='document_processor',
+                            patient_id=patient_id
+                        )
                     
                     self.logger.info(f"Successfully processed document with {confidence:.2f} confidence")
                     return enhanced_text
                 else:
                     self.logger.warning(f"No text extracted from document: {document_title}")
+                    if fhir_doc_id is not None and org_id is not None:
+                        DocumentAuditLogger.log_processing_failed(
+                            document_id=fhir_doc_id,
+                            document_type='fhir_document',
+                            org_id=org_id,
+                            error_message='No text extracted from document',
+                            patient_id=patient_id
+                        )
                     return None
             # secure_temp_file context manager handles verified secure deletion on exit
                     
         except Exception as e:
             self.logger.error(f"Error processing document {document_title}: {str(e)}")
+            if fhir_doc_id is not None and org_id is not None:
+                DocumentAuditLogger.log_processing_failed(
+                    document_id=fhir_doc_id,
+                    document_type='fhir_document',
+                    org_id=org_id,
+                    error_message=str(e),
+                    patient_id=patient_id
+                )
             return None
     
     def analyze_document_for_screenings(self, document_text: str, document_title: str) -> Dict[str, Any]:
@@ -753,8 +807,14 @@ class DocumentProcessor:
                         title = fhir_doc.title or f"document_{fhir_doc_id}"
                         content_type = fhir_doc.content_type
                         
-                        # Process the document (OCR, PHI filtering with pre-loaded settings)
-                        extracted_text = self.process_document(content, title, content_type, phi_settings_snapshot=phi_settings_snapshot)
+                        # Process the document (OCR, PHI filtering with pre-loaded settings and audit logging)
+                        extracted_text = self.process_document(
+                            content, title, content_type, 
+                            phi_settings_snapshot=phi_settings_snapshot,
+                            fhir_doc_id=fhir_doc_id,
+                            org_id=fhir_doc.org_id,
+                            patient_id=fhir_doc.patient_id
+                        )
                         
                         if extracted_text:
                             # Use mark_processed() helper to properly set all status/audit fields
