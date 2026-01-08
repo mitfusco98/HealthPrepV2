@@ -55,10 +55,13 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 
 | Requirement | HealthPrep Implementation | Evidence Location | Status |
 |-------------|---------------------------|-------------------|--------|
+| Incident Response Plan | Formal IRP with HIPAA procedures | `/docs/INCIDENT_RESPONSE_PLAN.md` | Implemented |
+| Incident lifecycle logging | IncidentLogger class | `services/security_alerts.py` | Implemented |
 | Account lockout alerts | Email to org admins | `services/security_alerts.py` | Implemented |
 | Brute force detection | 10 attempts/5 min threshold | `services/security_alerts.py` | Implemented |
 | PHI filter failure alerts | Email notifications | `services/security_alerts.py` | Implemented |
 | Incident logging | AdminLog with alert events | `models.py` | Implemented |
+| Breach notification tracking | 60-day HIPAA deadline logging | `services/security_alerts.py` | Implemented |
 
 ### 10.0 Business Continuity
 
@@ -93,7 +96,7 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 
 - [ ] Information Security Policy
 - [ ] Access Control Policy
-- [ ] Incident Response Plan
+- [x] Incident Response Plan (`/docs/INCIDENT_RESPONSE_PLAN.md`)
 - [ ] Business Continuity Plan
 - [ ] Workforce Training Records
 - [ ] Vendor Risk Assessment (Epic, AWS)
@@ -121,7 +124,8 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 |-----|----------|------------------|-------------|
 | Production CSP hardening | Medium | Remove unsafe-inline | Pre-launch |
 | TOTP 2FA implementation | Low | Planned feature | Future |
-| Formal incident response testing | Medium | Tabletop exercise | Pre-launch |
+| ~~Formal incident response plan~~ | ~~High~~ | ~~Create IRP document~~ | ~~Complete~~ |
+| Formal incident response testing | Medium | Tabletop exercise per IRP | Pre-launch |
 
 ## Assessor Contact Points
 

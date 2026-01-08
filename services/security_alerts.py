@@ -376,3 +376,356 @@ class SecurityAlertService:
             },
             resource_type='security_alert'
         )
+
+
+class IncidentLogger:
+    """
+    Incident Response logging for HIPAA/HITRUST compliance.
+    
+    Logs incident lifecycle events to AdminLog for visibility in:
+    - /admin/logs (organization admins)
+    - /root-admin/system/logs (root admins)
+    
+    See docs/INCIDENT_RESPONSE_PLAN.md for full incident response procedures.
+    """
+    
+    SEVERITY_LEVELS = ['P1', 'P2', 'P3', 'P4']
+    
+    INCIDENT_CATEGORIES = [
+        'authentication_attack',
+        'account_compromise', 
+        'phi_exposure',
+        'unauthorized_access',
+        'system_compromise',
+        'data_exfiltration',
+        'ransomware',
+        'insider_threat',
+        'third_party_breach'
+    ]
+    
+    @staticmethod
+    def log_incident_detected(
+        org_id: int,
+        severity: str,
+        category: str,
+        description: str,
+        details: Optional[Dict] = None,
+        user_id: Optional[int] = None,
+        ip_address: Optional[str] = None
+    ) -> Optional[int]:
+        """
+        Log detection of a new security incident.
+        
+        Args:
+            org_id: Organization affected
+            severity: P1 (Critical), P2 (High), P3 (Medium), P4 (Low)
+            category: Incident category from INCIDENT_CATEGORIES
+            description: Human-readable incident description
+            details: Additional structured data
+            user_id: User who detected/reported (if applicable)
+            ip_address: Source IP (if applicable)
+            
+        Returns:
+            AdminLog ID for incident tracking
+        """
+        from models import log_admin_event
+        
+        incident_data = {
+            'severity': severity,
+            'category': category,
+            'description': description,
+            'detected_at': datetime.utcnow().isoformat(),
+            'status': 'detected',
+            **(details or {})
+        }
+        
+        log_entry = log_admin_event(
+            event_type='incident_detected',
+            user_id=user_id,
+            org_id=org_id,
+            ip=ip_address,
+            data=incident_data,
+            resource_type='security_incident',
+            action_details=f"[{severity}] {category}: {description}"
+        )
+        
+        logger.warning(f"INCIDENT DETECTED: [{severity}] {category} in org {org_id}: {description}")
+        
+        return log_entry.id if log_entry else None
+    
+    @staticmethod
+    def log_incident_escalated(
+        org_id: int,
+        incident_id: int,
+        new_severity: str,
+        reason: str,
+        escalated_to: Optional[str] = None,
+        user_id: Optional[int] = None
+    ) -> None:
+        """
+        Log escalation of an incident to higher severity.
+        
+        Args:
+            org_id: Organization affected
+            incident_id: Original incident AdminLog ID
+            new_severity: New severity level (P1-P4)
+            reason: Reason for escalation
+            escalated_to: Role/person escalated to
+            user_id: User performing escalation
+        """
+        from models import log_admin_event
+        
+        log_admin_event(
+            event_type='incident_escalated',
+            user_id=user_id,
+            org_id=org_id,
+            ip=None,
+            data={
+                'incident_id': incident_id,
+                'new_severity': new_severity,
+                'reason': reason,
+                'escalated_to': escalated_to,
+                'escalated_at': datetime.utcnow().isoformat()
+            },
+            resource_type='security_incident',
+            resource_id=incident_id,
+            action_details=f"Incident escalated to {new_severity}: {reason}"
+        )
+        
+        logger.warning(f"INCIDENT ESCALATED: {incident_id} to {new_severity} - {reason}")
+    
+    @staticmethod
+    def log_incident_contained(
+        org_id: int,
+        incident_id: int,
+        actions_taken: List[str],
+        user_id: Optional[int] = None
+    ) -> None:
+        """
+        Log containment of an incident.
+        
+        Args:
+            org_id: Organization affected
+            incident_id: Incident AdminLog ID
+            actions_taken: List of containment actions performed
+            user_id: User performing containment
+        """
+        from models import log_admin_event
+        
+        log_admin_event(
+            event_type='incident_contained',
+            user_id=user_id,
+            org_id=org_id,
+            ip=None,
+            data={
+                'incident_id': incident_id,
+                'actions_taken': actions_taken,
+                'contained_at': datetime.utcnow().isoformat()
+            },
+            resource_type='security_incident',
+            resource_id=incident_id,
+            action_details=f"Incident contained: {', '.join(actions_taken)}"
+        )
+        
+        logger.info(f"INCIDENT CONTAINED: {incident_id} - Actions: {actions_taken}")
+    
+    @staticmethod
+    def log_incident_resolved(
+        org_id: int,
+        incident_id: int,
+        resolution_summary: str,
+        root_cause: Optional[str] = None,
+        user_id: Optional[int] = None
+    ) -> None:
+        """
+        Log resolution of an incident.
+        
+        Args:
+            org_id: Organization affected
+            incident_id: Incident AdminLog ID
+            resolution_summary: Summary of resolution
+            root_cause: Root cause if determined
+            user_id: User performing resolution
+        """
+        from models import log_admin_event
+        
+        log_admin_event(
+            event_type='incident_resolved',
+            user_id=user_id,
+            org_id=org_id,
+            ip=None,
+            data={
+                'incident_id': incident_id,
+                'resolution_summary': resolution_summary,
+                'root_cause': root_cause,
+                'resolved_at': datetime.utcnow().isoformat()
+            },
+            resource_type='security_incident',
+            resource_id=incident_id,
+            action_details=f"Incident resolved: {resolution_summary}"
+        )
+        
+        logger.info(f"INCIDENT RESOLVED: {incident_id} - {resolution_summary}")
+    
+    @staticmethod
+    def log_incident_closed(
+        org_id: int,
+        incident_id: int,
+        lessons_learned: Optional[List[str]] = None,
+        action_items: Optional[List[Dict]] = None,
+        user_id: Optional[int] = None
+    ) -> None:
+        """
+        Log closure of an incident after post-incident activities.
+        
+        Args:
+            org_id: Organization affected
+            incident_id: Incident AdminLog ID
+            lessons_learned: List of lessons from incident
+            action_items: List of follow-up action items
+            user_id: User closing incident
+        """
+        from models import log_admin_event
+        
+        log_admin_event(
+            event_type='incident_closed',
+            user_id=user_id,
+            org_id=org_id,
+            ip=None,
+            data={
+                'incident_id': incident_id,
+                'lessons_learned': lessons_learned or [],
+                'action_items': action_items or [],
+                'closed_at': datetime.utcnow().isoformat()
+            },
+            resource_type='security_incident',
+            resource_id=incident_id,
+            action_details=f"Incident closed with {len(lessons_learned or [])} lessons learned"
+        )
+        
+        logger.info(f"INCIDENT CLOSED: {incident_id}")
+    
+    @staticmethod
+    def log_breach_investigation_started(
+        org_id: int,
+        incident_id: int,
+        phi_types_potentially_involved: List[str],
+        estimated_individuals_affected: Optional[int] = None,
+        user_id: Optional[int] = None
+    ) -> None:
+        """
+        Log start of formal HIPAA breach investigation.
+        
+        Args:
+            org_id: Organization affected
+            incident_id: Related incident AdminLog ID
+            phi_types_potentially_involved: Types of PHI (names, DOB, SSN, etc.)
+            estimated_individuals_affected: Initial estimate of affected count
+            user_id: User initiating investigation
+        """
+        from models import log_admin_event
+        
+        log_admin_event(
+            event_type='breach_investigation_started',
+            user_id=user_id,
+            org_id=org_id,
+            ip=None,
+            data={
+                'incident_id': incident_id,
+                'phi_types': phi_types_potentially_involved,
+                'estimated_affected': estimated_individuals_affected,
+                'investigation_started_at': datetime.utcnow().isoformat()
+            },
+            resource_type='breach_investigation',
+            resource_id=incident_id,
+            action_details=f"Breach investigation started - PHI types: {', '.join(phi_types_potentially_involved)}"
+        )
+        
+        logger.warning(f"BREACH INVESTIGATION STARTED: Incident {incident_id}, PHI: {phi_types_potentially_involved}")
+    
+    @staticmethod
+    def log_breach_confirmed(
+        org_id: int,
+        incident_id: int,
+        phi_types_confirmed: List[str],
+        individuals_affected: int,
+        breach_discovery_date: datetime,
+        user_id: Optional[int] = None
+    ) -> None:
+        """
+        Log confirmation of a HIPAA breach.
+        
+        HIPAA 60-day notification clock starts from discovery_date.
+        
+        Args:
+            org_id: Organization affected
+            incident_id: Related incident AdminLog ID
+            phi_types_confirmed: Confirmed types of PHI exposed
+            individuals_affected: Count of affected individuals
+            breach_discovery_date: Date breach was discovered (starts 60-day clock)
+            user_id: User confirming breach
+        """
+        from models import log_admin_event
+        
+        notification_deadline = breach_discovery_date + timedelta(days=60)
+        
+        log_admin_event(
+            event_type='breach_confirmed',
+            user_id=user_id,
+            org_id=org_id,
+            ip=None,
+            data={
+                'incident_id': incident_id,
+                'phi_types_confirmed': phi_types_confirmed,
+                'individuals_affected': individuals_affected,
+                'discovery_date': breach_discovery_date.isoformat(),
+                'notification_deadline': notification_deadline.isoformat(),
+                'confirmed_at': datetime.utcnow().isoformat()
+            },
+            resource_type='breach_investigation',
+            resource_id=incident_id,
+            action_details=f"BREACH CONFIRMED: {individuals_affected} individuals, deadline {notification_deadline.strftime('%Y-%m-%d')}"
+        )
+        
+        logger.critical(f"BREACH CONFIRMED: Incident {incident_id}, {individuals_affected} affected, deadline {notification_deadline}")
+    
+    @staticmethod
+    def log_breach_notification(
+        org_id: int,
+        notification_type: str,
+        recipient_count: int,
+        phi_types: List[str],
+        incident_id: Optional[int] = None,
+        user_id: Optional[int] = None
+    ) -> None:
+        """
+        Log dispatch of HIPAA breach notification.
+        
+        Args:
+            org_id: Organization sending notification
+            notification_type: 'individual', 'media', or 'hhs'
+            recipient_count: Number of recipients
+            phi_types: Types of PHI involved
+            incident_id: Related incident AdminLog ID
+            user_id: User sending notification
+        """
+        from models import log_admin_event
+        
+        log_admin_event(
+            event_type='breach_notification_sent',
+            user_id=user_id,
+            org_id=org_id,
+            ip=None,
+            data={
+                'incident_id': incident_id,
+                'notification_type': notification_type,
+                'recipient_count': recipient_count,
+                'phi_types': phi_types,
+                'sent_at': datetime.utcnow().isoformat()
+            },
+            resource_type='breach_notification',
+            resource_id=incident_id,
+            action_details=f"Breach notification ({notification_type}) sent to {recipient_count} recipients"
+        )
+        
+        logger.info(f"BREACH NOTIFICATION SENT: {notification_type} to {recipient_count} recipients")
