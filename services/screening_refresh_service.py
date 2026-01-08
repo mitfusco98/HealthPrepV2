@@ -430,11 +430,15 @@ class ScreeningRefreshService:
                         
                         screening_created = False
                         if not screening:
+                            now_utc = datetime.utcnow()
                             screening = Screening(
                                 patient_id=patient.id,
                                 screening_type_id=screening_type.id,
                                 org_id=self.organization_id,
-                                status='due'
+                                status='due',
+                                last_processed=now_utc,  # Set initial processed timestamp
+                                created_at=now_utc,
+                                updated_at=now_utc
                             )
                             db.session.add(screening)
                             db.session.flush()
@@ -709,11 +713,14 @@ class ScreeningRefreshService:
                 date_changed = (screening.last_completed is None or 
                               document_date > screening.last_completed)
                 
+                now_utc = datetime.utcnow()
+                
                 if status_changed or date_changed:
                     old_status = screening.status
                     screening.status = new_status
                     screening.last_completed = document_date
-                    screening.updated_at = datetime.utcnow()
+                    screening.updated_at = now_utc
+                    screening.last_processed = now_utc  # Clear stale indicator
                     
                     logger.debug(f"Screening {screening.id}: {old_status} -> {new_status}, completed: {document_date}")
                     return True
@@ -721,27 +728,35 @@ class ScreeningRefreshService:
                 # Even if status unchanged, report update if matches were modified
                 # This ensures force_refresh reports work done when re-evaluating matches
                 if matches_changed:
-                    screening.updated_at = datetime.utcnow()
+                    screening.updated_at = now_utc
+                    screening.last_processed = now_utc  # Clear stale indicator
                     logger.debug(f"Screening {screening.id}: matches updated (status unchanged: {screening.status})")
                     return True
             
             else:
                 # No matching documents found - should be 'due'
+                now_utc = datetime.utcnow()
+                
                 if screening.status != 'due':
                     old_status = screening.status
                     screening.status = 'due'
                     screening.last_completed = None
-                    screening.updated_at = datetime.utcnow()
+                    screening.updated_at = now_utc
+                    screening.last_processed = now_utc  # Clear stale indicator
                     
                     logger.debug(f"Screening {screening.id}: {old_status} -> due (no matches)")
                     return True
                 
                 # Report update if matches were removed (now showing as 'due')
                 if matches_changed:
-                    screening.updated_at = datetime.utcnow()
+                    screening.updated_at = now_utc
+                    screening.last_processed = now_utc  # Clear stale indicator
                     logger.debug(f"Screening {screening.id}: matches removed (status remains due)")
                     return True
             
+            # Even if nothing changed, update last_processed to indicate screening was evaluated
+            # This clears the stale indicator in the UI
+            screening.last_processed = datetime.utcnow()
             return False
             
         except Exception as e:
@@ -809,18 +824,22 @@ class ScreeningRefreshService:
                 date_changed = (screening.last_completed is None or 
                               (imm_date and imm_date > screening.last_completed))
                 
+                now_utc = datetime.utcnow()
+                
                 if status_changed or date_changed:
                     old_status = screening.status
                     screening.status = new_status
                     screening.last_completed = imm_date
-                    screening.updated_at = datetime.utcnow()
+                    screening.updated_at = now_utc
+                    screening.last_processed = now_utc  # Clear stale indicator
                     
                     logger.info(f"Immunization screening {screening.id} ({screening_type.name}): {old_status} -> {new_status}, completed: {imm_date}, matched {len(matching_immunizations)} immunization(s)")
                     return True
                 
                 # Even if status unchanged, report update if matches were modified
                 if matches_changed:
-                    screening.updated_at = datetime.utcnow()
+                    screening.updated_at = now_utc
+                    screening.last_processed = now_utc  # Clear stale indicator
                     logger.debug(f"Immunization screening {screening.id}: matches updated (status unchanged: {screening.status})")
                     return True
             else:
@@ -830,21 +849,28 @@ class ScreeningRefreshService:
                     screening.immunizations.clear()
                     matches_changed = True
                 
+                now_utc = datetime.utcnow()
+                
                 if screening.status != 'due':
                     old_status = screening.status
                     screening.status = 'due'
                     screening.last_completed = None
-                    screening.updated_at = datetime.utcnow()
+                    screening.updated_at = now_utc
+                    screening.last_processed = now_utc  # Clear stale indicator
                     
                     logger.debug(f"Immunization screening {screening.id}: {old_status} -> due (no matching immunizations)")
                     return True
                 
                 # Report update if matches were removed
                 if matches_changed:
-                    screening.updated_at = datetime.utcnow()
+                    screening.updated_at = now_utc
+                    screening.last_processed = now_utc  # Clear stale indicator
                     logger.debug(f"Immunization screening {screening.id}: immunization links cleared (status remains due)")
                     return True
             
+            # Even if nothing changed, update last_processed to indicate screening was evaluated
+            # This clears the stale indicator in the UI
+            screening.last_processed = datetime.utcnow()
             return False
             
         except Exception as e:
