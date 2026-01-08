@@ -2811,6 +2811,7 @@ def log_admin_event(event_type, user_id, org_id, ip, data=None, patient_id=None,
     log.data = data or {}
     db.session.add(log)
     db.session.commit()
+    return log
 
 class ScreeningSettings(db.Model):
     """Settings for screening data cutoffs and configuration"""
