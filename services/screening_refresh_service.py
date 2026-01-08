@@ -594,6 +594,11 @@ class ScreeningRefreshService:
         Update screening status based on existing documents/immunizations with current criteria
         NO Epic calls - processes existing local documents, FHIR documents, AND immunizations
         Automatically excludes dismissed matches via DocumentMatcher
+        
+        Returns True if:
+        - Status changed
+        - Completion date changed
+        - Document matches were added or removed (even if status unchanged)
         """
         try:
             screening_type = screening.screening_type
@@ -601,6 +606,9 @@ class ScreeningRefreshService:
             # Check if this is an immunization-based screening type
             if screening_type.is_immunization_based:
                 return self._update_immunization_based_screening(screening)
+            
+            # Track if any matches changed (for force_refresh to report work done)
+            matches_changed = False
             
             # Standard document-based screening matching
             # Find matching LOCAL documents (already excludes dismissed matches)
@@ -623,6 +631,7 @@ class ScreeningRefreshService:
                 for stale_match in stale_matches:
                     logger.debug(f"Removing stale ScreeningDocumentMatch: Screening {screening.id} -> Doc {stale_match.document_id}")
                     db.session.delete(stale_match)
+                matches_changed = True
             
             # Create or update current matches
             for match in matches:
@@ -642,11 +651,13 @@ class ScreeningRefreshService:
                     )
                     db.session.add(new_match)
                     logger.debug(f"Created ScreeningDocumentMatch: Screening {screening.id} -> Doc {match['document'].id}")
+                    matches_changed = True
                 else:
                     # Update existing match if confidence changed
                     if existing_match.match_confidence != match.get('confidence', 1.0):
                         existing_match.match_confidence = match.get('confidence', 1.0)
                         existing_match.matched_keywords = json.dumps(match.get('matched_keywords', []))
+                        matches_changed = True
             
             # ALSO find matching FHIR documents (from Epic) and filter dismissed
             fhir_matches = self._find_fhir_document_matches_filtered(screening)
@@ -659,12 +670,14 @@ class ScreeningRefreshService:
             for stale_doc in stale_fhir_docs:
                 logger.debug(f"Removing stale FHIR document link: Screening {screening.id} -> FHIRDoc {stale_doc.id}")
                 screening.fhir_documents.remove(stale_doc)
+                matches_changed = True
             
             # Link current FHIR documents to screening for UI display (many-to-many relationship)
             for fhir_match in fhir_matches:
                 fhir_doc = fhir_match['document']
                 if fhir_doc not in screening.fhir_documents:
                     screening.fhir_documents.append(fhir_doc)
+                    matches_changed = True
             
             # Combine both match lists (both already filtered)
             all_matches = matches + fhir_matches
@@ -704,6 +717,13 @@ class ScreeningRefreshService:
                     
                     logger.debug(f"Screening {screening.id}: {old_status} -> {new_status}, completed: {document_date}")
                     return True
+                
+                # Even if status unchanged, report update if matches were modified
+                # This ensures force_refresh reports work done when re-evaluating matches
+                if matches_changed:
+                    screening.updated_at = datetime.utcnow()
+                    logger.debug(f"Screening {screening.id}: matches updated (status unchanged: {screening.status})")
+                    return True
             
             else:
                 # No matching documents found - should be 'due'
@@ -714,6 +734,12 @@ class ScreeningRefreshService:
                     screening.updated_at = datetime.utcnow()
                     
                     logger.debug(f"Screening {screening.id}: {old_status} -> due (no matches)")
+                    return True
+                
+                # Report update if matches were removed (now showing as 'due')
+                if matches_changed:
+                    screening.updated_at = datetime.utcnow()
+                    logger.debug(f"Screening {screening.id}: matches removed (status remains due)")
                     return True
             
             return False
@@ -726,9 +752,12 @@ class ScreeningRefreshService:
         """
         Update immunization-based screening status using FHIRImmunization records
         Links matching immunizations to the screening for UI display
+        
+        Returns True if status changed OR immunization matches were added/removed
         """
         try:
             screening_type = screening.screening_type
+            matches_changed = False
             
             # Query FHIRImmunization records for the patient
             patient_immunizations = FHIRImmunization.query.filter_by(
@@ -751,12 +780,14 @@ class ScreeningRefreshService:
             for stale_imm in stale_immunizations:
                 logger.debug(f"Removing stale immunization link: Screening {screening.id} -> Imm {stale_imm.id}")
                 screening.immunizations.remove(stale_imm)
+                matches_changed = True
             
             # Link current immunizations to screening for UI display
             for imm in matching_immunizations:
                 if imm not in screening.immunizations:
                     screening.immunizations.append(imm)
                     logger.debug(f"Linked immunization {imm.id} ({imm.vaccine_name}) to screening {screening.id}")
+                    matches_changed = True
             
             if matching_immunizations:
                 # Get the most recent matching immunization
@@ -786,11 +817,18 @@ class ScreeningRefreshService:
                     
                     logger.info(f"Immunization screening {screening.id} ({screening_type.name}): {old_status} -> {new_status}, completed: {imm_date}, matched {len(matching_immunizations)} immunization(s)")
                     return True
+                
+                # Even if status unchanged, report update if matches were modified
+                if matches_changed:
+                    screening.updated_at = datetime.utcnow()
+                    logger.debug(f"Immunization screening {screening.id}: matches updated (status unchanged: {screening.status})")
+                    return True
             else:
                 # No matching immunizations found - should be 'due'
                 # Also clear any stale immunization links
                 if screening.immunizations:
                     screening.immunizations.clear()
+                    matches_changed = True
                 
                 if screening.status != 'due':
                     old_status = screening.status
@@ -799,6 +837,12 @@ class ScreeningRefreshService:
                     screening.updated_at = datetime.utcnow()
                     
                     logger.debug(f"Immunization screening {screening.id}: {old_status} -> due (no matching immunizations)")
+                    return True
+                
+                # Report update if matches were removed
+                if matches_changed:
+                    screening.updated_at = datetime.utcnow()
+                    logger.debug(f"Immunization screening {screening.id}: immunization links cleared (status remains due)")
                     return True
             
             return False
