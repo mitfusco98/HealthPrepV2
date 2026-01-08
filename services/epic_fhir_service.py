@@ -45,6 +45,10 @@ class EpicFHIRService:
         self.provider = None
         self.practitioner_id = None
         
+        # Circuit breaker for token refresh: prevent infinite retry loops
+        self._auth_retry_count = 0
+        self._max_auth_retries = 2  # Maximum number of token reload attempts
+        
         # Determine organization ID and context
         if background_context:
             # Background context: organization_id is required (or derived from provider)
@@ -188,14 +192,24 @@ class EpicFHIRService:
             logger.info(f"Access token expired for {context_label}, attempting refresh")
             if not self.fhir_client.refresh_access_token():
                 logger.error(f"Failed to refresh access token for {context_label}")
+                
+                # Circuit breaker: prevent infinite retry loops
+                self._auth_retry_count += 1
+                if self._auth_retry_count > self._max_auth_retries:
+                    logger.error(f"Max auth retries ({self._max_auth_retries}) exceeded for {context_label}, aborting to prevent infinite loop")
+                    logger.error("Token refresh repeatedly failed - credentials may be revoked or expired. Re-authentication required.")
+                    # Mark credentials as needing re-authentication
+                    self._mark_credentials_invalid(context_label)
+                    return False
+                
                 # If refresh fails, try to reload from database (in case tokens were updated elsewhere)
                 if self.provider_id:
-                    logger.info("Attempting to reload tokens from provider after refresh failure")
+                    logger.info(f"Attempting to reload tokens from provider after refresh failure (retry {self._auth_retry_count}/{self._max_auth_retries})")
                     if self._load_tokens_from_provider():
                         logger.info("Reloaded tokens from provider, retrying authentication")
                         return self.ensure_authenticated()  # Recursive retry with fresh tokens
                 elif self.is_background and self.organization_id:
-                    logger.info("Attempting to reload tokens from database after refresh failure")
+                    logger.info(f"Attempting to reload tokens from database after refresh failure (retry {self._auth_retry_count}/{self._max_auth_retries})")
                     if self._load_tokens_from_database():
                         logger.info("Reloaded tokens from database, retrying authentication")
                         return self.ensure_authenticated()  # Recursive retry with fresh tokens
@@ -225,6 +239,8 @@ class EpicFHIRService:
                     if self.organization_id:
                         self._update_database_tokens()
         
+        # Reset retry counter on successful authentication
+        self._auth_retry_count = 0
         logger.info(f"Authentication verified for {context_label}")
         return True
     
@@ -359,6 +375,37 @@ class EpicFHIRService:
                 logger.error(f"No Epic credentials record found for organization {self.organization_id}")
         except Exception as e:
             logger.error(f"Error updating database tokens: {str(e)}")
+            db.session.rollback()
+    
+    def _mark_credentials_invalid(self, context_label: str):
+        """
+        Mark Epic credentials as needing re-authentication after repeated refresh failures.
+        
+        This prevents infinite retry loops when tokens are irrecoverably expired or revoked.
+        Users will need to re-authenticate with Epic to restore connectivity.
+        """
+        try:
+            if self.provider_id and self.provider:
+                # Provider-specific: clear tokens to force re-auth
+                self.provider.access_token = None
+                self.provider.refresh_token = None
+                self.provider.token_expires_at = None
+                self.provider.is_epic_connected = False
+                db.session.commit()
+                logger.warning(f"Marked provider {self.provider_id} Epic credentials as invalid - re-authentication required")
+            elif self.organization_id:
+                from models import EpicCredentials
+                epic_creds = EpicCredentials.query.filter_by(org_id=self.organization_id).first()
+                if epic_creds:
+                    # Clear tokens to force re-authentication (use existing fields)
+                    epic_creds.access_token = None
+                    epic_creds.refresh_token = None
+                    epic_creds.token_expires_at = None
+                    epic_creds.updated_at = datetime.now()
+                    db.session.commit()
+                    logger.warning(f"Cleared org {self.organization_id} Epic credentials - re-authentication required")
+        except Exception as e:
+            logger.error(f"Error marking credentials invalid for {context_label}: {str(e)}")
             db.session.rollback()
     
     def sync_patient_from_epic(self, epic_patient_id: str) -> Optional[Patient]:
