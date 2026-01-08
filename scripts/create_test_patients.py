@@ -149,22 +149,26 @@ def create_test_patients(org_id=None, num_patients=5):
         from core.engine import ScreeningEngine
         engine = ScreeningEngine()
         
+        # NOTE: Test data is created in a "healthy" state (is_dormant=False, current last_processed)
+        # so it behaves identically to real patient data. This ensures deterministic logic
+        # regardless of data source (test vs FHIR).
         for patient in created_patients:
             updated = engine.refresh_patient_screenings(patient.id, force_refresh=True)
             
+            now_utc = datetime.utcnow()
             for screening in Screening.query.filter_by(patient_id=patient.id).all():
-                screening.is_dormant = True
-                screening.last_processed = datetime.now() - timedelta(days=30)
+                screening.is_dormant = False
+                screening.last_processed = now_utc
             
-            logger.info(f"Created {updated} screenings for {patient.name} (marked as dormant)")
+            logger.info(f"Created {updated} screenings for {patient.name}")
         
         db.session.commit()
         
         logger.info(f"\n=== SUMMARY ===")
         logger.info(f"Created/updated {len(created_patients)} test patients")
         logger.info(f"All patients have PAST appointments (outside prioritization window)")
-        logger.info(f"All screenings marked as DORMANT (stale)")
-        logger.info(f"View in /screening/list - should show refresh icons")
+        logger.info(f"All screenings created in healthy state (not artificially stale)")
+        logger.info(f"View in /screening/list")
 
 
 def cleanup_test_patients(org_id=None):

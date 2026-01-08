@@ -373,6 +373,9 @@ def seed_organization_data(org_id, provider_id=None, clear_existing=False):
     db.session.commit()
     
     # Run screening engine to create screenings for patients
+    # NOTE: Sample data is created in a "healthy" state (is_dormant=False, current last_processed)
+    # so it behaves identically to real patient data. This ensures deterministic logic
+    # regardless of data source (sample vs FHIR).
     try:
         from core.engine import ScreeningEngine
         engine = ScreeningEngine()
@@ -380,13 +383,15 @@ def seed_organization_data(org_id, provider_id=None, clear_existing=False):
         for patient in created_patients:
             updated = engine.refresh_patient_screenings(patient.id, force_refresh=True)
             
-            # Mark screenings as dormant/stale
+            # Set screenings to a healthy, active state (not stale/dormant)
+            # This mirrors how real patients would appear after initial sync
+            now_utc = datetime.utcnow()
             screenings = Screening.query.filter_by(patient_id=patient.id).all()
             for screening in screenings:
-                screening.is_dormant = True
-                screening.last_processed = datetime.now() - timedelta(days=30)
+                screening.is_dormant = False
+                screening.last_processed = now_utc
             
-            logger.info(f"Created {updated} screenings for {patient.name} (marked as stale)")
+            logger.info(f"Created {updated} screenings for {patient.name}")
         
         db.session.commit()
     except Exception as e:
@@ -451,17 +456,82 @@ def seed_on_org_creation(org_id, provider_id=None):
             return seed_organization_data(org_id, provider_id)
 
 
+def fix_sample_data_stale_indicators(org_id=None):
+    """
+    Fix stale indicators for existing sample data patients.
+    
+    This function updates any sample patients that have artificially stale
+    `last_processed` timestamps or `is_dormant=True` flags, setting them
+    to a healthy state so they behave identically to real patient data.
+    
+    Use this to fix existing sample data created by older versions of the seed script.
+    
+    Args:
+        org_id: Optional organization ID. If None, fixes all organizations.
+    
+    Returns:
+        dict with counts of fixed items
+    """
+    from app import db
+    from models import Patient, Screening
+    
+    logger.info("Fixing stale indicators for sample data patients...")
+    
+    results = {
+        'patients_fixed': 0,
+        'screenings_fixed': 0
+    }
+    
+    # Build query for sample patients
+    query = Patient.query.filter(Patient.mrn.like('SAMPLE%'))
+    if org_id:
+        query = query.filter(Patient.org_id == org_id)
+    
+    sample_patients = query.all()
+    
+    now_utc = datetime.utcnow()
+    
+    for patient in sample_patients:
+        # Fix all screenings for this patient
+        fixed_count = Screening.query.filter(
+            Screening.patient_id == patient.id,
+            db.or_(
+                Screening.is_dormant == True,
+                Screening.last_processed < now_utc - timedelta(hours=1)  # Stale threshold
+            )
+        ).update({
+            'is_dormant': False,
+            'last_processed': now_utc
+        }, synchronize_session=False)
+        
+        if fixed_count > 0:
+            results['patients_fixed'] += 1
+            results['screenings_fixed'] += fixed_count
+            logger.info(f"Fixed {fixed_count} screenings for patient {patient.name}")
+    
+    db.session.commit()
+    
+    logger.info(f"Fixed stale indicators: {results['patients_fixed']} patients, {results['screenings_fixed']} screenings")
+    return results
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Seed organization with sample data')
     parser.add_argument('--org-id', type=int, help='Organization ID to seed')
     parser.add_argument('--clear', action='store_true', help='Clear existing sample data first')
+    parser.add_argument('--fix-stale', action='store_true', 
+                        help='Fix stale indicators for existing sample data (no new data created)')
     
     args = parser.parse_args()
     
-    from app import app
+    from app import create_app
+    app = create_app()
     
     with app.app_context():
-        if args.org_id:
+        if args.fix_stale:
+            # Fix stale indicators only, don't create new data
+            fix_sample_data_stale_indicators(args.org_id)
+        elif args.org_id:
             seed_organization_data(args.org_id, clear_existing=args.clear)
         else:
             # If no org-id specified, seed all organizations
