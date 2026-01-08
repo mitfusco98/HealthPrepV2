@@ -195,6 +195,23 @@ class ComprehensiveEMRSync:
             # Skip reprocessing if no new documents and eligibility unchanged
             if self._should_skip_patient_sync(patient, sync_options):
                 logger.info(f"Skipped reprocessing for {patient.epic_patient_id} - no changes detected")
+                
+                # IMPORTANT: Even when skipping, update screening.last_processed timestamps
+                # This clears the "stale" indicator in the UI since data was verified as current
+                # Use UTC to match the timestamp convention in screening_routes.py
+                from models import Screening
+                screenings_verified = Screening.query.filter_by(patient_id=patient.id).all()
+                now_utc = datetime.utcnow()
+                for screening in screenings_verified:
+                    screening.last_processed = now_utc
+                
+                # Also update patient sync timestamp
+                patient.last_fhir_sync = now_utc
+                
+                # Single commit for all updates
+                db.session.commit()
+                logger.debug(f"Updated last_processed for {len(screenings_verified)} screenings (data verified current)")
+                
                 return {
                     'success': True,
                     'patient_id': patient.id,
@@ -206,7 +223,8 @@ class ComprehensiveEMRSync:
                     'documents_processed': 0,
                     'encounters_synced': 0,
                     'appointments_synced': 0,
-                    'screenings_updated': 0
+                    'screenings_updated': 0,
+                    'screenings_verified': len(screenings_verified)
                 }
             
             # Get the last encounter date for data cutoff calculations
@@ -1286,12 +1304,15 @@ class ComprehensiveEMRSync:
             else:
                 status = 'due'
             
+            now_utc = datetime.utcnow()
+            
             if existing_screening:
                 # Update existing screening
                 existing_screening.status = status
                 existing_screening.last_completed = completion_status['last_completed_date']
                 existing_screening.next_due = next_due if completion_status['completed'] and completion_status['last_completed_date'] else None
-                existing_screening.updated_at = datetime.now()
+                existing_screening.updated_at = now_utc
+                existing_screening.last_processed = now_utc  # Clear stale indicator
                 screening = existing_screening
             else:
                 # Create new screening record
@@ -1302,8 +1323,9 @@ class ComprehensiveEMRSync:
                     status=status,
                     last_completed=completion_status['last_completed_date'],
                     next_due=next_due if completion_status['completed'] and completion_status['last_completed_date'] else None,
-                    created_at=datetime.now(),
-                    updated_at=datetime.now()
+                    created_at=now_utc,
+                    updated_at=now_utc,
+                    last_processed=now_utc  # Set initial processed timestamp
                 )
                 db.session.add(new_screening)
                 screening = new_screening
