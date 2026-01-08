@@ -157,6 +157,105 @@
         </div>
     </div>
 
+    {% if unacknowledged_alerts %}
+    <div class="alert alert-danger mb-4">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+            <div>
+                <h5 class="mb-1">Security Alerts Requiring Attention</h5>
+                <p class="mb-0">{{ unacknowledged_alerts | length }} unacknowledged security event(s) detected. Review below.</p>
+            </div>
+        </div>
+        <hr>
+        <ul class="mb-0">
+            {% for alert in unacknowledged_alerts %}
+            <li>
+                <strong>{{ alert.event_type | replace('_', ' ') | title }}</strong>
+                - {{ alert.timestamp.strftime('%Y-%m-%d %H:%M') }}
+                {% if alert.ip_address %}<span class="text-muted">(IP: {{ alert.ip_address }})</span>{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-clipboard-list me-2"></i>Document Processing Audit Trail
+            </h5>
+            <span class="badge bg-secondary">Last 50 events</span>
+        </div>
+        <div class="card-body">
+            {% if processing_audit_logs %}
+            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                <table class="table table-sm table-dark table-striped">
+                    <thead style="position: sticky; top: 0; background-color: #343a40;">
+                        <tr>
+                            <th>Time</th>
+                            <th>Event</th>
+                            <th>Document</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in processing_audit_logs %}
+                        <tr>
+                            <td>
+                                <small>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                            </td>
+                            <td>
+                                {% if 'processed' in log.event_type and 'failed' not in log.event_type %}
+                                <span class="badge bg-success">{{ log.event_type | replace('_', ' ') | title }}</span>
+                                {% elif 'failed' in log.event_type or 'timeout' in log.event_type %}
+                                <span class="badge bg-danger">{{ log.event_type | replace('_', ' ') | title }}</span>
+                                {% elif 'phi_redacted' in log.event_type %}
+                                <span class="badge bg-warning text-dark">{{ log.event_type | replace('_', ' ') | title }}</span>
+                                {% elif 'started' in log.event_type %}
+                                <span class="badge bg-info">{{ log.event_type | replace('_', ' ') | title }}</span>
+                                {% elif 'deleted' in log.event_type %}
+                                <span class="badge bg-secondary">{{ log.event_type | replace('_', ' ') | title }}</span>
+                                {% else %}
+                                <span class="badge bg-primary">{{ log.event_type | replace('_', ' ') | title }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.resource_type %}{{ log.resource_type }}{% endif %}
+                                {% if log.resource_id %}#{{ log.resource_id }}{% endif %}
+                            </td>
+                            <td>
+                                <small class="text-muted">
+                                    {% if log.data %}
+                                        {% if log.data.confidence is defined %}
+                                        Confidence: {{ (log.data.confidence * 100) | round(1) }}%
+                                        {% endif %}
+                                        {% if log.data.phi_types_found is defined %}
+                                        PHI: {{ log.data.phi_types_found.keys() | list | join(', ') }}
+                                        {% endif %}
+                                        {% if log.data.error_message is defined %}
+                                        Error: {{ log.data.error_message[:50] }}...
+                                        {% endif %}
+                                        {% if log.data.processing_method is defined %}
+                                        Method: {{ log.data.processing_method }}
+                                        {% endif %}
+                                    {% endif %}
+                                    {{ log.action_details or '' }}
+                                </small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted mb-0">
+                <i class="fas fa-info-circle me-2"></i>No document processing events recorded yet. 
+                Events will appear here when documents are processed, PHI is filtered, or files are securely deleted.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+
     <!-- Patient Document Table -->
     <div class="card">
         <div class="card-header">

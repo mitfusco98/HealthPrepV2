@@ -8,15 +8,21 @@ Performance optimizations:
 - Per-page hybrid processing: Only OCR pages that lack embedded text
 - Configurable parallel workers via OCR_MAX_WORKERS environment variable
 - Batch processing with isolated database sessions for thread safety
+
+Audit logging:
+- All document processing events are logged to AdminLog via DocumentAuditLogger
+- PHI detection and redaction counts are tracked for HIPAA compliance
 """
 import os
 import subprocess
 import tempfile
+import hashlib
 from PIL import Image
 import pdf2image
 from app import db
 from models import Document
 from .phi_filter import PHIFilter
+from utils.document_audit import DocumentAuditLogger
 import logging
 from datetime import datetime
 import email
@@ -126,6 +132,9 @@ class OCRProcessor:
         securely deleted (overwritten with random data before unlinking) to ensure
         PHI cannot be recovered from disk.
         
+        AUDIT LOGGING: All processing events are logged to AdminLog via DocumentAuditLogger
+        for HIPAA compliance and HITRUST CSF requirements.
+        
         Args:
             document_id: ID of document to process
             skip_screening_update: If True, skip the synchronous screening update.
@@ -143,40 +152,64 @@ class OCRProcessor:
 
         original_file_path = document.file_path
         
+        DocumentAuditLogger.log_processing_started(
+            document_id=document_id,
+            document_type='document',
+            org_id=document.org_id,
+            patient_id=document.patient_id
+        )
+        
         with TrackJob(f"ocr_{document_id}", 'ocr') as tracker:
             try:
-                # Get file size for metrics
                 file_size = 0
                 if document.file_path and os.path.exists(document.file_path):
                     file_size = os.path.getsize(document.file_path)
                 
-                # Extract text using OCR
                 ocr_text, confidence = self._extract_text(document.file_path)
                 
-                # Estimate page count from file size (PDF ~100KB/page average for medical docs)
                 estimated_pages = max(1, file_size // 100000) if file_size > 0 else 1
                 tracker.update(pages=estimated_pages, bytes_processed=file_size)
 
                 if ocr_text:
-                    # Apply PHI filtering if enabled
-                    filtered_text = self.phi_filter.filter_phi(ocr_text)
+                    original_length = len(ocr_text)
+                    
+                    filtered_text, phi_counts = self.phi_filter.filter_phi_with_counts(ocr_text)
+                    
+                    if phi_counts:
+                        DocumentAuditLogger.log_phi_redacted(
+                            document_id=document_id,
+                            document_type='document',
+                            org_id=document.org_id,
+                            phi_types_found=phi_counts,
+                            original_length=original_length,
+                            filtered_length=len(filtered_text),
+                            patient_id=document.patient_id
+                        )
 
-                    # Update document record
                     document.ocr_text = filtered_text
-                    document.content = filtered_text  # Also update content field for backward compatibility
+                    document.content = filtered_text
                     document.ocr_confidence = confidence
                     document.phi_filtered = True
                     document.processed_at = datetime.utcnow()
 
                     db.session.commit()
 
+                    extraction_method = 'pymupdf' if PYMUPDF_AVAILABLE else 'tesseract'
+                    DocumentAuditLogger.log_processing_completed(
+                        document_id=document_id,
+                        document_type='document',
+                        org_id=document.org_id,
+                        confidence=confidence,
+                        text_length=len(filtered_text),
+                        processing_method=extraction_method,
+                        patient_id=document.patient_id
+                    )
+
                     self.logger.info(f"Successfully processed document {document_id} with confidence {confidence:.2f}")
                     
-                    # HIPAA: Securely delete original file after successful extraction
                     if secure_delete_original and original_file_path:
                         self._secure_delete_original(document, original_file_path)
 
-                    # Trigger screening engine update (unless skipped for batch processing)
                     if not skip_screening_update:
                         from core.engine import ScreeningEngine
                         engine = ScreeningEngine()
@@ -185,11 +218,25 @@ class OCRProcessor:
                     return True
                 else:
                     tracker.mark_failed("No text extracted")
+                    DocumentAuditLogger.log_processing_failed(
+                        document_id=document_id,
+                        document_type='document',
+                        org_id=document.org_id,
+                        error_message='No text extracted from document',
+                        patient_id=document.patient_id
+                    )
                     self.logger.warning(f"No text extracted from document {document_id}")
                     return False
 
             except Exception as e:
                 tracker.mark_failed(str(e))
+                DocumentAuditLogger.log_processing_failed(
+                    document_id=document_id,
+                    document_type='document',
+                    org_id=document.org_id,
+                    error_message=str(e),
+                    patient_id=document.patient_id
+                )
                 self.logger.error(f"Error processing document {document_id}: {str(e)}")
                 return False
     
@@ -203,18 +250,25 @@ class OCRProcessor:
             from utils.secure_delete import secure_delete_file, audit_log_deletion
             
             if secure_delete_file(file_path):
-                # Update document record to reflect disposal
                 document.file_path = None
                 document.file_disposed = True
                 document.file_disposed_at = datetime.utcnow()
                 db.session.commit()
                 
-                # Log for HIPAA audit trail
                 audit_log_deletion(
                     file_path=file_path,
                     file_type='uploaded_document',
                     patient_id=document.patient_id,
                     org_id=document.org_id
+                )
+                
+                file_path_hash = hashlib.sha256(file_path.encode()).hexdigest()[:16]
+                DocumentAuditLogger.log_file_secure_deleted(
+                    document_id=document.id,
+                    document_type='document',
+                    org_id=document.org_id,
+                    file_path_hash=file_path_hash,
+                    patient_id=document.patient_id
                 )
                 
                 self.logger.info(f"HIPAA: Securely deleted original file for document {document.id}")

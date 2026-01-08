@@ -275,6 +275,51 @@ class PHIFilter:
                         text = text[:match.start()] + '[DATE REDACTED]' + text[match.end():]
         return text
     
+    def filter_phi_with_counts(self, text, preloaded_settings=None):
+        """
+        Apply PHI filtering and return both filtered text and counts of redactions
+        
+        Used for audit logging to track what PHI types were found and redacted.
+        
+        Args:
+            text: Text to filter
+            preloaded_settings: Optional settings snapshot for thread safety
+            
+        Returns:
+            Tuple of (filtered_text, phi_counts_dict)
+            where phi_counts_dict maps PHI type to count, e.g. {'ssn': 2, 'phone': 1}
+        """
+        if not text:
+            return text, {}
+        
+        settings = preloaded_settings if preloaded_settings else self._get_filter_settings()
+        
+        filtered_text = text
+        phi_counts = {}
+        
+        protected_spans = self._identify_protected_spans(text)
+        
+        filter_methods = {
+            'ssn': (settings.filter_ssn, self._filter_ssn, '[SSN REDACTED]'),
+            'phone': (settings.filter_phone, self._filter_phone, '[PHONE REDACTED]'),
+            'mrn': (settings.filter_mrn, self._filter_mrn, '[MRN REDACTED]'),
+            'insurance': (settings.filter_insurance, self._filter_insurance, '[INSURANCE REDACTED]'),
+            'addresses': (settings.filter_addresses, self._filter_addresses, '[ADDRESS REDACTED]'),
+            'names': (settings.filter_names, self._filter_names, '[NAME REDACTED]'),
+            'dates': (settings.filter_dates, self._filter_dates, '[DATE REDACTED]')
+        }
+        
+        for filter_type, (enabled, filter_func, marker) in filter_methods.items():
+            if enabled:
+                before_count = filtered_text.count(marker)
+                filtered_text = filter_func(filtered_text, protected_spans)
+                after_count = filtered_text.count(marker)
+                new_redactions = after_count - before_count
+                if new_redactions > 0:
+                    phi_counts[filter_type] = new_redactions
+        
+        return filtered_text, phi_counts
+    
     # Class-level medical keywords whitelist for title filtering
     MEDICAL_KEYWORDS = {
         # Document types and sections

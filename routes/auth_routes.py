@@ -1,6 +1,6 @@
 """
 Authentication routes for user login and session management
-Enhanced with rate limiting and security hardening
+Enhanced with rate limiting, security hardening, and breach alerting
 """
 
 import logging
@@ -11,6 +11,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
 from models import log_admin_event
 from utils.security import RateLimiter, log_security_event
+from services.security_alerts import SecurityAlertService
 
 logger = logging.getLogger(__name__)
 auth_bp = Blueprint('auth', __name__)
@@ -108,6 +109,10 @@ def login():
             # Check if account is locked
             if user.is_account_locked():
                 flash('Account is temporarily locked due to multiple failed login attempts. Please try again later.', 'error')
+                log_security_event('login_attempt_on_locked_account', {
+                    'username': user.username,
+                    'ip': request.remote_addr
+                }, user_id=user.id, org_id=user.org_id or 0)
                 return render_template('auth/login.html', form=form)
 
             # Check if user is active
@@ -175,10 +180,43 @@ def login():
             else:
                 return redirect(url_for('index'))
         else:
+            # SECURITY: Get client IP for all security tracking
+            client_ip = request.remote_addr or 'unknown'
+            
             # Record failed login attempt if user exists
             if user:
                 user.record_login_attempt(success=False)
                 db.session.commit()
+                
+                # SECURITY: Send lockout alert if account just got locked
+                if user.is_account_locked() and user.failed_login_attempts == 5:
+                    SecurityAlertService.send_account_lockout_alert(
+                        user=user,
+                        ip_address=client_ip,
+                        failed_attempts=user.failed_login_attempts
+                    )
+                    logger.warning(f"Account lockout alert sent for user {user.username}")
+            
+            # SECURITY: Log failed login attempt for brute force tracking (even for nonexistent users)
+            target_org_id = user.org_id if user else 0
+            log_admin_event(
+                event_type='login_failed',
+                user_id=user.id if user else None,
+                org_id=target_org_id,
+                ip=client_ip,
+                data={
+                    'username': form.username.data,
+                    'user_exists': user is not None
+                }
+            )
+            
+            # SECURITY: Check for brute force pattern from this IP (runs for ALL failed attempts)
+            # This catches credential stuffing with random usernames
+            SecurityAlertService.check_and_alert_brute_force(
+                ip_address=client_ip,
+                org_id=target_org_id
+            )
+            
             # SECURITY: Record failed attempt for IP-based rate limiting
             RateLimiter.record_attempt('login', success=False)
             flash('Invalid username or password.', 'error')

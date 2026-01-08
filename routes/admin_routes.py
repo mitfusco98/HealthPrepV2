@@ -762,9 +762,17 @@ def logs():
         
         # Get filtered logs - ORGANIZATION SCOPED
         # Exclude system logs (org_id=0) and only show current org's logs
+        # Exclude document processing events (shown in /admin/documents instead)
+        DOCUMENT_PROCESSING_EVENTS = [
+            'document_processing_started', 'document_processed', 'document_processing_failed',
+            'ocr_completed', 'ocr_failed', 'ocr_timeout',
+            'phi_redacted', 'phi_filter_applied', 'phi_filter_failed',
+            'file_secure_deleted', 'file_deletion_failed'
+        ]
         query = AdminLog.query.filter(
             AdminLog.org_id == current_user.org_id,
-            AdminLog.org_id > 0  # Exclude system org logs
+            AdminLog.org_id > 0,  # Exclude system org logs
+            ~AdminLog.event_type.in_(DOCUMENT_PROCESSING_EVENTS)  # Exclude doc processing events
         )
         if event_type:
             query = query.filter(AdminLog.event_type == event_type)
@@ -2596,13 +2604,29 @@ def admin_documents():
                 'conditions': condition_names
             })
         
+        DOCUMENT_PROCESSING_EVENTS = [
+            'document_processing_started', 'document_processed', 'document_processing_failed',
+            'ocr_completed', 'ocr_failed', 'ocr_timeout',
+            'phi_redacted', 'phi_filter_applied', 'phi_filter_failed',
+            'file_secure_deleted', 'file_deletion_failed'
+        ]
+        processing_audit_logs = AdminLog.query.filter(
+            AdminLog.org_id == current_user.org_id,
+            AdminLog.event_type.in_(DOCUMENT_PROCESSING_EVENTS)
+        ).order_by(AdminLog.timestamp.desc()).limit(50).all()
+        
+        from services.security_alerts import SecurityAlertService
+        unacknowledged_alerts = SecurityAlertService.get_unacknowledged_alerts(current_user.org_id, limit=5)
+        
         return render_template('admin/documents.html', 
                              patient_data=patient_data,
                              total_patients=total_patients,
                              current_date=date.today(),
                              page=page,
                              total_pages=total_pages,
-                             per_page=per_page)
+                             per_page=per_page,
+                             processing_audit_logs=processing_audit_logs,
+                             unacknowledged_alerts=unacknowledged_alerts)
         
     except Exception as e:
         logger.error(f"Error in admin documents: {str(e)}")
