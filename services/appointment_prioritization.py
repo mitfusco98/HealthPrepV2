@@ -68,7 +68,11 @@ class AppointmentBasedPrioritization:
             
             # Also include patients with non-dormant screenings processed within the window
             # This ensures reprocessed patients return to dormant after window_days pass
-            window_start = datetime.combine(today, datetime.min.time()) - timedelta(days=window_days)
+            # Use timezone-aware local midnight for proper day-boundary calculation
+            from utils.date_helpers import get_local_midnight_utc
+            org_timezone = self.organization.timezone if self.organization else 'UTC'
+            local_midnight_utc = get_local_midnight_utc(org_timezone)
+            window_start = local_midnight_utc - timedelta(days=window_days)
             non_dormant_patient_ids = db.session.query(Screening.patient_id).filter(
                 and_(
                     Screening.org_id == self.organization_id,

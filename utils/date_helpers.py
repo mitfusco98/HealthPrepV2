@@ -404,3 +404,205 @@ class DateCalculator:
 
 # Create global instance
 date_calculator = DateCalculator()
+
+
+# ============================================================================
+# TIMEZONE-AWARE DORMANCY HELPERS
+# For calculating local midnight rollover for screening dormancy/staleness
+# ============================================================================
+
+from zoneinfo import ZoneInfo
+from datetime import time as dt_time, timezone as dt_timezone
+
+# Common US healthcare timezone mappings from Epic location data
+# Epic may return state abbreviations or city names that we map to IANA timezones
+LOCATION_TO_TIMEZONE = {
+    # US States/Regions
+    'eastern': 'America/New_York',
+    'central': 'America/Chicago',
+    'mountain': 'America/Denver',
+    'pacific': 'America/Los_Angeles',
+    'alaska': 'America/Anchorage',
+    'hawaii': 'Pacific/Honolulu',
+    # Common state abbreviations
+    'ny': 'America/New_York',
+    'ca': 'America/Los_Angeles',
+    'tx': 'America/Chicago',
+    'fl': 'America/New_York',
+    'il': 'America/Chicago',
+    'pa': 'America/New_York',
+    'oh': 'America/New_York',
+    'ga': 'America/New_York',
+    'nc': 'America/New_York',
+    'mi': 'America/New_York',
+    'nj': 'America/New_York',
+    'va': 'America/New_York',
+    'wa': 'America/Los_Angeles',
+    'az': 'America/Phoenix',
+    'ma': 'America/New_York',
+    'tn': 'America/Chicago',
+    'in': 'America/Indiana/Indianapolis',
+    'mo': 'America/Chicago',
+    'md': 'America/New_York',
+    'wi': 'America/Chicago',
+    'co': 'America/Denver',
+    'mn': 'America/Chicago',
+    'sc': 'America/New_York',
+    'al': 'America/Chicago',
+    'la': 'America/Chicago',
+    'ky': 'America/New_York',
+    'or': 'America/Los_Angeles',
+    'ok': 'America/Chicago',
+    'ct': 'America/New_York',
+    'ut': 'America/Denver',
+    'ia': 'America/Chicago',
+    'nv': 'America/Los_Angeles',
+    'ar': 'America/Chicago',
+    'ms': 'America/Chicago',
+    'ks': 'America/Chicago',
+    'nm': 'America/Denver',
+    'ne': 'America/Chicago',
+    'id': 'America/Boise',
+    'wv': 'America/New_York',
+    'hi': 'Pacific/Honolulu',
+    'nh': 'America/New_York',
+    'me': 'America/New_York',
+    'mt': 'America/Denver',
+    'ri': 'America/New_York',
+    'de': 'America/New_York',
+    'sd': 'America/Chicago',
+    'nd': 'America/Chicago',
+    'ak': 'America/Anchorage',
+    'dc': 'America/New_York',
+    'vt': 'America/New_York',
+    'wy': 'America/Denver',
+}
+
+
+def get_timezone_from_location(location_hint: str) -> str:
+    """
+    Convert a location hint (state, city, region) to an IANA timezone.
+    
+    Args:
+        location_hint: Location string from Epic (e.g., 'NY', 'Eastern', 'California')
+    
+    Returns:
+        IANA timezone string (e.g., 'America/New_York'), defaults to 'UTC' if unknown
+    """
+    if not location_hint:
+        return 'UTC'
+    
+    normalized = location_hint.lower().strip()
+    
+    # Direct lookup
+    if normalized in LOCATION_TO_TIMEZONE:
+        return LOCATION_TO_TIMEZONE[normalized]
+    
+    # Check if it's already a valid IANA timezone
+    try:
+        ZoneInfo(location_hint)
+        return location_hint
+    except (KeyError, ValueError):
+        pass
+    
+    # Try partial matching for common patterns
+    for key, tz in LOCATION_TO_TIMEZONE.items():
+        if key in normalized or normalized in key:
+            return tz
+    
+    logger.warning(f"Could not determine timezone from location hint: {location_hint}, defaulting to UTC")
+    return 'UTC'
+
+
+def get_org_zoneinfo(org_timezone: str) -> ZoneInfo:
+    """
+    Get a ZoneInfo object for an organization's timezone.
+    
+    Args:
+        org_timezone: IANA timezone string (e.g., 'America/New_York')
+    
+    Returns:
+        ZoneInfo object, falls back to UTC if invalid timezone
+    """
+    if not org_timezone:
+        return ZoneInfo('UTC')
+    
+    try:
+        return ZoneInfo(org_timezone)
+    except (KeyError, ValueError) as e:
+        logger.warning(f"Invalid timezone '{org_timezone}', falling back to UTC: {e}")
+        return ZoneInfo('UTC')
+
+
+def get_local_midnight_utc(org_timezone: str = 'UTC') -> datetime:
+    """
+    Get the current day's local midnight as a UTC datetime.
+    
+    This is the key function for dormancy rollover - it calculates when
+    "today" started in the organization's local timezone, then converts
+    that to UTC for comparison with stored UTC timestamps.
+    
+    Args:
+        org_timezone: IANA timezone string (e.g., 'America/New_York')
+    
+    Returns:
+        UTC datetime representing midnight in the org's local timezone
+    
+    Example:
+        For org in 'America/New_York' (EST, UTC-5):
+        - Local midnight Jan 10 = 2026-01-10 00:00:00 EST
+        - Converted to UTC = 2026-01-10 05:00:00 UTC
+        
+        So a screening with last_processed = 2026-01-09 23:00:00 UTC
+        would be < today_start_utc (05:00 UTC) and show as dormant.
+    """
+    zone = get_org_zoneinfo(org_timezone)
+    
+    # Get current time in the org's timezone
+    now_local = datetime.now(zone)
+    
+    # Get midnight (start of today) in the org's timezone
+    midnight_local = datetime.combine(now_local.date(), dt_time.min, tzinfo=zone)
+    
+    # Convert to UTC for database comparison
+    midnight_utc = midnight_local.astimezone(dt_timezone.utc).replace(tzinfo=None)
+    
+    return midnight_utc
+
+
+def get_org_local_now(org_timezone: str = 'UTC') -> datetime:
+    """
+    Get the current time in the organization's local timezone (timezone-aware).
+    
+    Args:
+        org_timezone: IANA timezone string (e.g., 'America/New_York')
+    
+    Returns:
+        Timezone-aware datetime in the org's local timezone
+    """
+    zone = get_org_zoneinfo(org_timezone)
+    return datetime.now(zone)
+
+
+def format_timezone_display(org_timezone: str) -> str:
+    """
+    Get a human-readable timezone display string.
+    
+    Args:
+        org_timezone: IANA timezone string (e.g., 'America/New_York')
+    
+    Returns:
+        Human-readable string (e.g., 'Eastern Time')
+    """
+    timezone_display_names = {
+        'America/New_York': 'Eastern Time',
+        'America/Chicago': 'Central Time',
+        'America/Denver': 'Mountain Time',
+        'America/Los_Angeles': 'Pacific Time',
+        'America/Anchorage': 'Alaska Time',
+        'Pacific/Honolulu': 'Hawaii Time',
+        'America/Phoenix': 'Arizona Time',
+        'UTC': 'UTC',
+    }
+    
+    return timezone_display_names.get(org_timezone, org_timezone)

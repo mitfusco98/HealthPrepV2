@@ -1145,9 +1145,12 @@ class ScreeningRefreshService:
                 logger.info(f"Marking {len(patients_to_mark_dormant)} non-scheduled patients as dormant (process_non_scheduled_patients is disabled)")
                 
                 if patients_to_mark_dormant:
-                    # Only mark as dormant if last_processed is older than today
+                    # Only mark as dormant if last_processed is older than today (local midnight)
                     # This respects the "active for the day" semantic after manual refresh
-                    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+                    # Uses organization's timezone for proper day-boundary rollover
+                    from utils.date_helpers import get_local_midnight_utc
+                    org_timezone = organization.timezone if organization else 'UTC'
+                    today_start = get_local_midnight_utc(org_timezone)
                     
                     dormant_count = Screening.query.filter(
                         Screening.org_id == self.organization_id,

@@ -974,6 +974,36 @@ def epic_callback():
             org.last_epic_sync = datetime.now()
             org.last_epic_error = None
             org.connection_retry_count = 0
+            
+            # Extract timezone from Epic organization address if available
+            # Epic may include state in token metadata or we can derive from sandbox patient data
+            try:
+                from utils.date_helpers import get_timezone_from_location
+                
+                # Try to extract timezone from Epic token data or organization address
+                # Epic sandbox typically uses MA (Massachusetts) - America/New_York
+                # For production, we'll try to derive from the organization's address
+                location_hint = None
+                
+                # Check if organization has an address with state info
+                if org.address:
+                    # Try to extract state abbreviation from address (last 2-letter word before ZIP or at end)
+                    import re
+                    state_match = re.search(r'\b([A-Z]{2})\b(?:\s*\d{5})?', org.address)
+                    if state_match:
+                        location_hint = state_match.group(1)
+                
+                # For Epic sandbox, default to Eastern Time
+                if not location_hint and org.epic_environment == 'sandbox':
+                    location_hint = 'eastern'
+                
+                if location_hint:
+                    detected_timezone = get_timezone_from_location(location_hint)
+                    if detected_timezone and detected_timezone != 'UTC':
+                        org.timezone = detected_timezone
+                        logger.info(f"Auto-detected timezone '{detected_timezone}' for organization {org.id} from location hint '{location_hint}'")
+            except Exception as tz_error:
+                logger.warning(f"Failed to auto-detect timezone for org {org.id}: {tz_error}")
 
             db.session.commit()
 

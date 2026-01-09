@@ -78,6 +78,9 @@ class Organization(db.Model):
     prioritization_window_days = db.Column(db.Integer, default=14)  # Number of days to look ahead for appointments
     process_non_scheduled_patients = db.Column(db.Boolean, default=False)  # Process patients without appointments after priority patients
     last_appointment_sync = db.Column(db.DateTime)  # Last time appointments were synced from Epic
+    
+    # Timezone Configuration (auto-detected from Epic OAuth, persists until next OAuth)
+    timezone = db.Column(db.String(50), default='UTC')  # IANA timezone (e.g., 'America/New_York'), auto-set from Epic OAuth
 
     # Organization Details for Onboarding
     site = db.Column(db.String(200))  # Specific site/location name

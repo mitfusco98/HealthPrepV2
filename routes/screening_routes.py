@@ -143,12 +143,20 @@ def screening_list():
                     logger.error(f"Error getting priority patients: {str(e)}")
                     priority_patient_ids = set()
         
-        window_cutoff = datetime.utcnow() - timedelta(days=window_days)
+        # Calculate dormancy cutoff based on organization's timezone
+        # When non-priority processing is disabled, use local midnight for cleaner day-boundary rollover
+        # This ensures screenings show as dormant/stale after local midnight without requiring EMR sync
+        from utils.date_helpers import get_local_midnight_utc
         
-        # Throttle dormancy batch updates using Provider.last_dormancy_check column
-        # This persists across sessions and ensures once-per-hour limit per provider
-        # Skip dormancy marking entirely when process_non_scheduled_patients is enabled
         process_non_scheduled = current_user.organization and current_user.organization.process_non_scheduled_patients
+        org_timezone = current_user.organization.timezone if current_user.organization else 'UTC'
+        
+        if appointment_prioritization_enabled and not process_non_scheduled:
+            # Use local midnight for dormancy cutoff - screenings processed before today are dormant
+            window_cutoff = get_local_midnight_utc(org_timezone)
+        else:
+            # Use rolling window for general case
+            window_cutoff = datetime.utcnow() - timedelta(days=window_days)
         
         if appointment_prioritization_enabled and active_provider and not process_non_scheduled:
             dormancy_ttl_seconds = 3600  # 1 hour
