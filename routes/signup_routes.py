@@ -146,9 +146,9 @@ def create_signup_organization(
             user_id=admin_user.id,
             provider_id=default_provider.id,
             org_id=org.id,
-            is_primary=True,
+            assignment_type='admin',
             can_view_patients=True,
-            can_edit_patients=True,
+            can_edit_screenings=True,
             can_generate_prep_sheets=True,
             can_sync_epic=True
         )
