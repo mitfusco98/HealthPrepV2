@@ -134,7 +134,7 @@ def reject_organization(org_id):
         from models import (AdminLog, ScreeningPreset, Patient, Screening, PrepSheetSettings,
                            ScreeningType, Document, FHIRDocument, AsyncJob, FHIRApiCall,
                            Appointment, DismissedDocumentMatch, EpicCredentials,
-                           ScreeningVariant, ScreeningProtocol)
+                           ScreeningVariant, ScreeningProtocol, PatientCondition)
         
         org = Organization.query.get_or_404(org_id)
         org_name = org.name
@@ -211,6 +211,12 @@ def reject_organization(org_id):
         ScreeningType.query.filter_by(org_id=org_id).delete()
         FHIRDocument.query.filter_by(org_id=org_id).delete()
         Document.query.filter_by(org_id=org_id).delete()
+        
+        # Delete patient-scoped data before patients (PatientCondition has patient_id FK, not org_id)
+        patient_ids = [p.id for p in Patient.query.filter_by(org_id=org_id).all()]
+        if patient_ids:
+            PatientCondition.query.filter(PatientCondition.patient_id.in_(patient_ids)).delete(synchronize_session=False)
+        
         Patient.query.filter_by(org_id=org_id).delete()
         EpicCredentials.query.filter_by(org_id=org_id).delete()
         
