@@ -134,7 +134,8 @@ def reject_organization(org_id):
         from models import (AdminLog, ScreeningPreset, Patient, Screening, PrepSheetSettings,
                            ScreeningType, Document, FHIRDocument, AsyncJob, FHIRApiCall,
                            Appointment, DismissedDocumentMatch, EpicCredentials,
-                           ScreeningVariant, ScreeningProtocol, PatientCondition, FHIRImmunization)
+                           ScreeningVariant, ScreeningProtocol, PatientCondition, FHIRImmunization,
+                           UserProviderAssignment, Provider)
         
         org = Organization.query.get_or_404(org_id)
         org_name = org.name
@@ -220,6 +221,12 @@ def reject_organization(org_id):
         
         Patient.query.filter_by(org_id=org_id).delete()
         EpicCredentials.query.filter_by(org_id=org_id).delete()
+        
+        # Delete user-provider assignments before users (has FK to users.id)
+        UserProviderAssignment.query.filter_by(org_id=org_id).delete()
+        
+        # Delete providers before users (may have FK relationships)
+        Provider.query.filter_by(org_id=org_id).delete()
         
         # Delete all users in this organization
         for user in org_users:
