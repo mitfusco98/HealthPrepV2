@@ -158,10 +158,18 @@ def screening_list():
 @main_bp.route('/patient/<int:patient_id>/reprocess', methods=['POST'])
 @login_required
 def reprocess_patient(patient_id):
-    """Manual patient reprocessing - performs full EMR sync like batch sync but for individual patient"""
+    """Manual patient reprocessing - OAuth-gated individual EMR sync
+    
+    Performs a comprehensive EMR sync for a single patient using current active
+    screening criteria from /screening/types. This is functionally identical to
+    batch EMR sync but for one patient.
+    
+    Prerequisites:
+    - Organization must have valid Epic OAuth connection
+    - Patient must have an Epic patient ID
+    """
     try:
         from datetime import datetime
-        from core.engine import ScreeningEngine
         from services.comprehensive_emr_sync import ComprehensiveEMRSync
         
         patient = Patient.query.get_or_404(patient_id)
@@ -170,43 +178,61 @@ def reprocess_patient(patient_id):
             flash('You do not have access to this patient.', 'error')
             return redirect(url_for('main.patients'))
         
-        sync_results = {'documents_processed': 0, 'screenings_updated': 0}
+        # OAuth gate: Check the PATIENT's organization for Epic connection
+        # This allows root/admin users to reprocess patients from connected organizations
+        patient_org = patient.organization
+        if not patient_org or not patient_org.is_epic_connected:
+            flash('Epic connection required. The patient\'s organization must be connected to Epic before reprocessing.', 'error')
+            referer = request.referrer
+            if referer and 'screening/list' in referer:
+                return redirect(url_for('screening.screening_list'))
+            return redirect(url_for('main.patient_detail', patient_id=patient_id))
         
-        # If patient has Epic ID, do full EMR sync (new documents, conditions, observations, etc.)
-        if patient.epic_patient_id:
-            try:
-                emr_sync = ComprehensiveEMRSync(current_user.org_id)
-                sync_result = emr_sync.sync_patient_comprehensive(patient.epic_patient_id, sync_options={'force_refresh': True})
-                if sync_result.get('success'):
-                    sync_results['documents_processed'] = sync_result.get('documents_processed', 0)
-                    sync_results['screenings_updated'] = sync_result.get('screenings_updated', 0)
-                    logger.info(f"EMR sync for patient {patient.name}: {sync_results}")
-            except Exception as sync_error:
-                logger.warning(f"EMR sync failed for patient {patient.name}, continuing with local refresh: {str(sync_error)}")
+        # Require patient to have Epic ID for EMR sync
+        if not patient.epic_patient_id:
+            flash(f'Cannot reprocess {patient.name}: No Epic patient ID. This patient was not synced from Epic.', 'error')
+            referer = request.referrer
+            if referer and 'screening/list' in referer:
+                return redirect(url_for('screening.screening_list'))
+            return redirect(url_for('main.patient_detail', patient_id=patient_id))
         
-        # Run screening criteria against all documents (existing + newly synced)
-        engine = ScreeningEngine()
-        updated_count = engine.refresh_patient_screenings(patient.id, force_refresh=True)
+        # Perform comprehensive EMR sync for this single patient
+        # This fetches latest data from Epic and recalculates eligibility using current active screening types
+        # Use the patient's org_id to ensure correct organization context
+        emr_sync = ComprehensiveEMRSync(patient.org_id)
+        sync_result = emr_sync.sync_patient_comprehensive(
+            patient.epic_patient_id, 
+            sync_options={'force_refresh': True}
+        )
+        
+        if not sync_result.get('success'):
+            error_msg = sync_result.get('error', 'Unknown error during EMR sync')
+            logger.error(f"EMR sync failed for patient {patient.name}: {error_msg}")
+            flash(f'Error syncing {patient.name} from Epic: {error_msg}', 'error')
+            referer = request.referrer
+            if referer and 'screening/list' in referer:
+                return redirect(url_for('screening.screening_list'))
+            return redirect(url_for('main.patient_detail', patient_id=patient_id))
         
         # Update timestamps and mark as active for all screenings
-        # This ensures manual reprocess always updates status tracking even when no document changes
-        # The is_dormant flag is the source of truth for prioritization
+        # This ensures manual reprocess always updates status tracking
         # Screenings will become dormant again based on future prioritization checks
         now = datetime.utcnow()
         for screening in patient.screenings:
             screening.last_processed = now
-            screening.updated_at = now  # Always update to reflect manual review
+            screening.updated_at = now
             screening.is_dormant = False  # Mark as active after manual reprocess
         
         db.session.commit()
         
         # Build success message with sync details
-        if sync_results['documents_processed'] > 0:
-            flash(f'Successfully reprocessed {patient.name}. Synced {sync_results["documents_processed"]} new document(s) from Epic. Updated {updated_count} screening(s). Send to Epic is now available.', 'success')
-        else:
-            flash(f'Successfully reprocessed {patient.name}. Updated {updated_count} screening(s). Send to Epic is now available.', 'success')
+        docs_processed = sync_result.get('documents_processed', 0)
+        screenings_updated = sync_result.get('screenings_updated', 0)
         
-        # Redirect back to the referer or screening list
+        flash(f'Successfully synced {patient.name} from Epic. Processed {docs_processed} document(s), updated {screenings_updated} screening(s). Send to Epic is now available.', 'success')
+        logger.info(f"Manual EMR sync completed for patient {patient.name}: {docs_processed} docs, {screenings_updated} screenings")
+        
+        # Redirect back to the referer or patient detail
         referer = request.referrer
         if referer and 'screening/list' in referer:
             return redirect(url_for('screening.screening_list'))

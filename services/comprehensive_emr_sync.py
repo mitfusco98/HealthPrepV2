@@ -747,8 +747,8 @@ class ComprehensiveEMRSync:
         logger.info(f"Processing screening eligibility for patient {patient.epic_patient_id}")
         
         try:
-            # Get all screening types for the organization
-            screening_types = ScreeningType.query.filter_by(org_id=self.organization_id).all()
+            # Get all ACTIVE screening types for the organization
+            screening_types = ScreeningType.query.filter_by(org_id=self.organization_id, is_active=True).all()
             
             screenings_updated = 0
             
