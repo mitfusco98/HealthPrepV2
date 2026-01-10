@@ -168,7 +168,7 @@ class PrepSheetGenerator:
                 'screening': screening,
                 'screening_name': screening.screening_type.name,
                 'status': screening.status,
-                'last_completed': screening.last_completed_date,
+                'last_completed': screening.last_completed,
                 'frequency': screening.screening_type.frequency_display,
                 'matched_documents': matching_docs,
                 'status_badge_class': self._get_status_badge_class(screening.status)
@@ -302,7 +302,7 @@ class PrepSheetGenerator:
         relevant_docs = self.filters.get_relevant_documents(
             screening.patient_id, 
             screening.screening_type.name,
-            screening.last_completed_date
+            screening.last_completed
         )
         
         # Return document objects directly for template compatibility

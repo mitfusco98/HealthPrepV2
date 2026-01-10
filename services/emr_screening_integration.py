@@ -310,7 +310,7 @@ class EMRScreeningIntegration:
                     'next_due_date': self._calculate_next_due_date(screening),
                     'frequency': f"Every {screening_type.frequency_value} {screening_type.frequency_unit}" if screening_type.frequency_value else None,
                     'notes': screening.notes,
-                    'last_completed': screening.last_completed_date.isoformat() if screening.last_completed_date else None
+                    'last_completed': screening.last_completed.isoformat() if screening.last_completed else None
                 }
                 
                 # Add specific recommendations based on status
@@ -464,15 +464,15 @@ class EMRScreeningIntegration:
         try:
             # Document provides evidence of screening completion
             screening.status = 'complete'
-            screening.last_completed_date = document.document_date or datetime.now().date()
+            screening.last_completed = document.document_date or datetime.now().date()
             screening.last_updated = datetime.now()
             screening.confidence_score = confidence
             screening.notes = f"Completed based on document: {document.title} (confidence: {confidence:.2f})"
             
             # Calculate next due date based on frequency
             if screening.screening_type.frequency_value:
-                screening.next_due_date = self._calculate_next_due_date_from_completion(
-                    screening.last_completed_date,
+                screening.next_due = self._calculate_next_due_date_from_completion(
+                    screening.last_completed,
                     screening.screening_type.frequency_value,
                     screening.screening_type.frequency_unit
                 )
@@ -540,11 +540,11 @@ class EMRScreeningIntegration:
     def _calculate_next_due_date(self, screening: Screening) -> Optional[str]:
         """Calculate when screening is next due"""
         try:
-            if not screening.last_completed_date or not screening.screening_type.frequency_value:
+            if not screening.last_completed or not screening.screening_type.frequency_value:
                 return None
             
             next_due = self._calculate_next_due_date_from_completion(
-                screening.last_completed_date,
+                screening.last_completed,
                 screening.screening_type.frequency_value,
                 screening.screening_type.frequency_unit
             )

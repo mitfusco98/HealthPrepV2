@@ -83,7 +83,7 @@ class PrepSheetFilters:
         filtered_docs = self.filter_documents_by_frequency(
             patient_docs, 
             screening.screening_type,
-            screening.last_completed_date
+            screening.last_completed
         )
         
         return filtered_docs

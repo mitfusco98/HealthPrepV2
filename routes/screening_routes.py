@@ -839,9 +839,9 @@ def api_screening_status(patient_id):
                 'id': screening.id,
                 'name': screening.screening_type.name,
                 'status': screening.status,
-                'last_completed': screening.last_completed_date.isoformat() if screening.last_completed_date else None,
-                'next_due': screening.next_due_date.isoformat() if screening.next_due_date else None,
-                'matched_documents': len(screening.matched_documents)
+                'last_completed': screening.last_completed.isoformat() if screening.last_completed else None,
+                'next_due': screening.next_due.isoformat() if screening.next_due else None,
+                'matched_documents': len(screening.matched_documents) if screening.matched_documents else 0
             })
 
         return jsonify({

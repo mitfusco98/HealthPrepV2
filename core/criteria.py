@@ -378,9 +378,9 @@ class EligibilityCriteria:
         cutoff_date = date.today() - timedelta(days=days_overdue)
         
         for screening in screenings:
-            if screening.status == 'due' and screening.last_completed_date:
+            if screening.status == 'due' and screening.last_completed:
                 next_due = self._calculate_next_due_date(
-                    screening.last_completed_date,
+                    screening.last_completed,
                     screening.screening_type.frequency_value,
                     screening.screening_type.frequency_unit
                 )

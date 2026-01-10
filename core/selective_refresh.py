@@ -216,7 +216,7 @@ class SelectiveRefreshManager:
             screening.updated_at = datetime.utcnow()
             
             # Basic status determination based on dates
-            if hasattr(screening, 'last_completed_date') and screening.last_completed_date:
+            if hasattr(screening, 'last_completed') and screening.last_completed:
                 from datetime import date
                 from dateutil.relativedelta import relativedelta
                 
@@ -226,12 +226,12 @@ class SelectiveRefreshManager:
                     frequency_unit = getattr(screening.screening_type, 'frequency_unit', 'months')
                     
                     if frequency_unit == 'years':
-                        next_due = screening.last_completed_date + relativedelta(years=frequency_months)
+                        next_due = screening.last_completed + relativedelta(years=frequency_months)
                     else:
-                        next_due = screening.last_completed_date + relativedelta(months=frequency_months)
+                        next_due = screening.last_completed + relativedelta(months=frequency_months)
                     
-                    if hasattr(screening, 'next_due_date'):
-                        screening.next_due_date = next_due
+                    if hasattr(screening, 'next_due'):
+                        screening.next_due = next_due
                     
                     # Update status based on due date
                     today = date.today()
