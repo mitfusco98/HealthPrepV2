@@ -754,13 +754,14 @@ function updateHyperspaceIndicator() {
                 ✅ Epic Hyperspace authorization approved and active<br>
                 <small class="text-muted">
                     Scopes: ${data.scopes && data.scopes.length > 0 ? data.scopes.join(', ') : 'None'}<br>
-                    ${data.expires_at ? 'Expires: ' + new Date(data.expires_at).toLocaleString() : ''}
+                    ${data.expires_at_local ? 'Expires: ' + data.expires_at_local : ''}
                 </small>
             `;
         } else if (data.connected && data.expired) {
             hyperspaceBadge.className = 'badge bg-warning';
             hyperspaceBadge.textContent = 'Expired';
-            hyperspaceMessage.innerHTML = '⚠️ Epic Hyperspace authorization has expired. Please re-authorize.';
+            hyperspaceMessage.innerHTML = `⚠️ Epic Hyperspace authorization has expired. Please re-authorize.
+                ${data.expires_at_local ? '<br><small class="text-muted">Expired at: ' + data.expires_at_local + '</small>' : ''}`;
         } else {
             hyperspaceBadge.className = 'badge bg-secondary';
             hyperspaceBadge.textContent = 'Not Authorized';
@@ -820,7 +821,7 @@ function checkOAuthStatus() {
                 <strong>OAuth Status: Connected${expiredText}</strong><br>
                 <small>
                     <strong>Scopes:</strong> ${scopes}<br>
-                    ${data.expires_at ? '<strong>Expires:</strong> ' + new Date(data.expires_at).toLocaleString() : ''}
+                    ${data.expires_at_local ? '<strong>Expires:</strong> ' + data.expires_at_local : ''}
                     ${data.patient_id ? '<br><strong>Patient ID:</strong> ' + data.patient_id : ''}
                 </small>
             `;

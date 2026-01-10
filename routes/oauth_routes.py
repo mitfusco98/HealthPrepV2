@@ -1172,12 +1172,16 @@ def check_epic_credentials():
 def epic_status():
     """
     Check Epic OAuth2 connection status
-    Returns JSON with connection details
+    Returns JSON with connection details including timezone-aware expiration
     """
     try:
+        from zoneinfo import ZoneInfo
+        
         status = {
             'connected': False,
-            'expires_at': None,
+            'expires_at': None,  # Canonical UTC ISO string (backward compatible)
+            'expires_at_local': None,  # Human-readable local time for display
+            'timezone': None,  # Organization's IANA timezone
             'scopes': [],
             'patient_id': None
         }
@@ -1191,15 +1195,71 @@ def epic_status():
             logger.error(f"SECURITY VIOLATION: User {current_user.username} (org {current_user.org_id}) organization mismatch in status check")
             return jsonify({'error': 'Organization security error'}), 403
         
+        # Get organization timezone (default to UTC if not set)
+        org_timezone = getattr(org, 'timezone', None) or 'UTC'
+        status['timezone'] = org_timezone
+        
+        def convert_to_local_time(utc_dt, tz_name):
+            """Convert UTC datetime to organization's local timezone
+            
+            Always returns a formatted string with timezone indicator.
+            Falls back to UTC display if conversion fails.
+            """
+            if not utc_dt:
+                return None
+            try:
+                # Handle both naive and aware datetimes
+                if utc_dt.tzinfo is None:
+                    # Naive datetime - assume UTC
+                    utc_aware = utc_dt.replace(tzinfo=ZoneInfo('UTC'))
+                else:
+                    # Already timezone-aware - normalize to UTC first
+                    utc_aware = utc_dt.astimezone(ZoneInfo('UTC'))
+                
+                # Convert to organization's timezone
+                local_dt = utc_aware.astimezone(ZoneInfo(tz_name))
+                return local_dt.strftime('%Y-%m-%d %I:%M:%S %p %Z')
+            except Exception as e:
+                logger.warning(f"Timezone conversion error for {tz_name}: {e}")
+                # Fallback: normalize to UTC and display with explicit label
+                try:
+                    if utc_dt.tzinfo:
+                        utc_normalized = utc_dt.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
+                    else:
+                        utc_normalized = utc_dt
+                    return utc_normalized.strftime('%Y-%m-%d %I:%M:%S %p') + ' UTC'
+                except:
+                    return str(utc_dt) + ' UTC'
+        
         # SECURITY CHECK: Only query credentials for user's specific organization
         epic_creds = EpicCredentials.query.filter_by(org_id=current_user.org_id).first() if org else None
 
+        def normalize_to_utc_iso(dt):
+            """Normalize datetime to canonical UTC ISO string with Z suffix"""
+            if dt is None:
+                return None
+            try:
+                if dt.tzinfo is None:
+                    # Naive datetime - assume UTC
+                    return dt.isoformat() + 'Z'
+                else:
+                    # Aware datetime - convert to UTC first
+                    utc_dt = dt.astimezone(ZoneInfo('UTC'))
+                    return utc_dt.strftime('%Y-%m-%dT%H:%M:%S') + 'Z'
+            except Exception as e:
+                logger.warning(f"UTC normalization error: {e}")
+                return dt.isoformat() + 'Z'
+        
         if epic_creds and epic_creds.access_token:
             status['connected'] = True
-            status['expires_at'] = epic_creds.token_expires_at.isoformat() if epic_creds.token_expires_at else None
+            if epic_creds.token_expires_at:
+                # expires_at: canonical UTC ISO string (backward compatible)
+                status['expires_at'] = normalize_to_utc_iso(epic_creds.token_expires_at)
+                # expires_at_local: human-readable local time for display
+                status['expires_at_local'] = convert_to_local_time(epic_creds.token_expires_at, org_timezone)
             status['scopes'] = epic_creds.token_scope.split() if epic_creds.token_scope else []
             status['expired'] = epic_creds.is_expired if hasattr(epic_creds, 'is_expired') else (
-                epic_creds.token_expires_at and datetime.now() >= epic_creds.token_expires_at
+                epic_creds.token_expires_at and datetime.utcnow() >= epic_creds.token_expires_at
             )
         else:
             # SECURITY: Always check session token organization before using
@@ -1218,15 +1278,24 @@ def epic_status():
                 access_token = session.get('epic_access_token')
                 if access_token:
                     status['connected'] = True
-                    status['expires_at'] = session.get('epic_token_expires')
                     status['scopes'] = session.get('epic_token_scopes', [])
                     status['patient_id'] = session.get('epic_patient_id')
 
-                    # Check if token is expired
-                    expires_str = status['expires_at']
+                    # Check if token is expired (session stores UTC time as ISO string)
+                    expires_str = session.get('epic_token_expires')
                     if expires_str:
-                        expires_at = datetime.fromisoformat(expires_str)
-                        status['expired'] = datetime.now() >= expires_at
+                        # Parse the ISO string, handling both Z suffix and +00:00 offset
+                        expires_at = datetime.fromisoformat(expires_str.replace('Z', '+00:00') if expires_str.endswith('Z') else expires_str)
+                        # Convert to naive UTC for comparison
+                        if expires_at.tzinfo:
+                            expires_at_utc = expires_at.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
+                        else:
+                            expires_at_utc = expires_at
+                        status['expired'] = datetime.utcnow() >= expires_at_utc
+                        # expires_at: canonical UTC ISO string (backward compatible)
+                        status['expires_at'] = normalize_to_utc_iso(expires_at_utc)
+                        # expires_at_local: human-readable local time for display
+                        status['expires_at_local'] = convert_to_local_time(expires_at_utc, org_timezone)
                     else:
                         status['expired'] = True
                 else:
