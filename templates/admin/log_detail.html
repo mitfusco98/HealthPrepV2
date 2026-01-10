@@ -109,6 +109,109 @@
     </div>
 </div>
 
+<!-- Document Processing Sub-Actions Card (for document_processing_complete events) -->
+{% if log.event_type == 'document_processing_complete' and log.data %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-tasks me-2"></i>
+            Processing Sub-Actions
+        </h5>
+    </div>
+    <div class="card-body">
+        {% set status = log.data.get('status', 'unknown') %}
+        <div class="mb-3">
+            <span class="badge {% if status == 'success' %}bg-success{% else %}bg-danger{% endif %} fs-6">
+                <i class="fas {% if status == 'success' %}fa-check-circle{% else %}fa-times-circle{% endif %} me-1"></i>
+                {{ status|upper }}
+            </span>
+            {% if log.data.get('epic_document_id') %}
+            <span class="badge bg-secondary ms-2">Epic ID: {{ log.data.get('epic_document_id') }}</span>
+            {% endif %}
+        </div>
+        
+        {% set sub_actions = log.data.get('sub_actions', {}) %}
+        <div class="row">
+            <div class="col-md-6">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent">
+                        <span><i class="fas fa-download me-2"></i>Content Downloaded</span>
+                        {% if sub_actions.get('content_downloaded') %}
+                        <i class="fas fa-check-circle text-success"></i>
+                        {% else %}
+                        <i class="fas fa-times-circle text-danger"></i>
+                        {% endif %}
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent">
+                        <span><i class="fas fa-file-alt me-2"></i>Text Extracted</span>
+                        {% if sub_actions.get('text_extracted') %}
+                        <i class="fas fa-check-circle text-success"></i>
+                        {% else %}
+                        <i class="fas fa-times-circle text-danger"></i>
+                        {% endif %}
+                    </li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent">
+                        <span><i class="fas fa-shield-alt me-2"></i>PHI Filtered</span>
+                        {% if sub_actions.get('phi_filtered') %}
+                        <i class="fas fa-check-circle text-success"></i>
+                        {% else %}
+                        <i class="fas fa-times-circle text-danger"></i>
+                        {% endif %}
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent">
+                        <span><i class="fas fa-trash-alt me-2"></i>Temp Files Disposed</span>
+                        {% if sub_actions.get('temp_disposed') %}
+                        <i class="fas fa-check-circle text-success"></i>
+                        {% else %}
+                        <i class="fas fa-times-circle text-danger"></i>
+                        {% endif %}
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        {% if sub_actions.get('text_length') %}
+        <div class="mt-3">
+            <small class="text-muted">
+                <i class="fas fa-text-width me-1"></i>
+                Text Length: {{ sub_actions.get('text_length') }} characters
+            </small>
+        </div>
+        {% endif %}
+        
+        {% if log.data.get('processing_duration_seconds') %}
+        <div class="mt-2">
+            <small class="text-muted">
+                <i class="fas fa-clock me-1"></i>
+                Processing Duration: {{ log.data.get('processing_duration_seconds') }}s
+            </small>
+        </div>
+        {% endif %}
+        
+        {% if log.data.get('error') %}
+        <div class="alert alert-danger mt-3 mb-0">
+            <i class="fas fa-exclamation-triangle me-1"></i>
+            <strong>Error:</strong> {{ log.data.get('error') }}
+        </div>
+        {% endif %}
+        
+        <!-- Link to related PHI filtering events -->
+        {% if log.data.get('epic_document_id') %}
+        <div class="mt-3 pt-3 border-top">
+            <a href="{{ url_for('admin.logs', event_type='phi_filtered') }}" class="btn btn-sm btn-outline-info">
+                <i class="fas fa-link me-1"></i>
+                View Related PHI Filtering Events
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
 <!-- Changes Card -->
 {% if details.changes %}
 <div class="card mb-4">

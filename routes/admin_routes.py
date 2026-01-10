@@ -762,17 +762,10 @@ def logs():
         
         # Get filtered logs - ORGANIZATION SCOPED
         # Exclude system logs (org_id=0) and only show current org's logs
-        # Exclude document processing events (shown in /admin/documents instead)
-        DOCUMENT_PROCESSING_EVENTS = [
-            'document_processing_started', 'document_processed', 'document_processing_failed',
-            'ocr_completed', 'ocr_failed', 'ocr_timeout',
-            'phi_redacted', 'phi_filter_applied', 'phi_filter_failed',
-            'file_secure_deleted', 'file_deletion_failed'
-        ]
+        # Include document_processing_complete events (consolidated audit trail)
         query = AdminLog.query.filter(
             AdminLog.org_id == current_user.org_id,
-            AdminLog.org_id > 0,  # Exclude system org logs
-            ~AdminLog.event_type.in_(DOCUMENT_PROCESSING_EVENTS)  # Exclude doc processing events
+            AdminLog.org_id > 0  # Exclude system org logs
         )
         if event_type:
             query = query.filter(AdminLog.event_type == event_type)
@@ -2604,11 +2597,12 @@ def admin_documents():
                 'conditions': condition_names
             })
         
+        # Document processing audit events:
+        # - document_processing_complete: Consolidated event with sub-actions (new format)
+        # - phi_filtered: PHI filtering events from model setters
         DOCUMENT_PROCESSING_EVENTS = [
-            'document_processing_started', 'document_processed', 'document_processing_failed',
-            'ocr_completed', 'ocr_failed', 'ocr_timeout',
-            'phi_redacted', 'phi_filter_applied', 'phi_filter_failed',
-            'file_secure_deleted', 'file_deletion_failed'
+            'document_processing_complete',  # Consolidated event with success/fail status
+            'phi_filtered'  # PHI filtering events
         ]
         processing_audit_logs = AdminLog.query.filter(
             AdminLog.org_id == current_user.org_id,

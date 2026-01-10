@@ -184,7 +184,12 @@
             <h5 class="mb-0">
                 <i class="fas fa-clipboard-list me-2"></i>Document Processing Audit Trail
             </h5>
-            <span class="badge bg-secondary">Last 50 events</span>
+            <div>
+                <span class="badge bg-secondary me-2">Last 50 events</span>
+                <a href="{{ url_for('admin.logs', event_type='document_processing_complete') }}" class="btn btn-sm btn-outline-light">
+                    <i class="fas fa-external-link-alt me-1"></i>View Full Logs
+                </a>
+            </div>
         </div>
         <div class="card-body">
             {% if processing_audit_logs %}
@@ -194,8 +199,10 @@
                         <tr>
                             <th>Time</th>
                             <th>Event</th>
-                            <th>Document</th>
+                            <th>Status</th>
+                            <th>Epic Document ID</th>
                             <th>Details</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -205,42 +212,61 @@
                                 <small>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</small>
                             </td>
                             <td>
-                                {% if 'processed' in log.event_type and 'failed' not in log.event_type %}
-                                <span class="badge bg-success">{{ log.event_type | replace('_', ' ') | title }}</span>
-                                {% elif 'failed' in log.event_type or 'timeout' in log.event_type %}
-                                <span class="badge bg-danger">{{ log.event_type | replace('_', ' ') | title }}</span>
-                                {% elif 'phi_redacted' in log.event_type %}
-                                <span class="badge bg-warning text-dark">{{ log.event_type | replace('_', ' ') | title }}</span>
-                                {% elif 'started' in log.event_type %}
-                                <span class="badge bg-info">{{ log.event_type | replace('_', ' ') | title }}</span>
-                                {% elif 'deleted' in log.event_type %}
-                                <span class="badge bg-secondary">{{ log.event_type | replace('_', ' ') | title }}</span>
+                                {% if log.event_type == 'document_processing_complete' %}
+                                <span class="badge bg-primary">Document Processed</span>
+                                {% elif log.event_type == 'phi_filtered' %}
+                                <span class="badge bg-warning text-dark">PHI Filtered</span>
                                 {% else %}
-                                <span class="badge bg-primary">{{ log.event_type | replace('_', ' ') | title }}</span>
+                                <span class="badge bg-secondary">{{ log.event_type | replace('_', ' ') | title }}</span>
                                 {% endif %}
                             </td>
                             <td>
-                                {% if log.resource_type %}{{ log.resource_type }}{% endif %}
-                                {% if log.resource_id %}#{{ log.resource_id }}{% endif %}
+                                {% if log.data %}
+                                    {% if log.event_type == 'document_processing_complete' %}
+                                        {% if log.data.get('status') == 'success' %}
+                                        <span class="badge bg-success"><i class="fas fa-check me-1"></i>Success</span>
+                                        {% else %}
+                                        <span class="badge bg-danger"><i class="fas fa-times me-1"></i>Failed</span>
+                                        {% endif %}
+                                    {% elif log.event_type == 'phi_filtered' %}
+                                        <span class="badge bg-success"><i class="fas fa-shield-alt me-1"></i>Applied</span>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.data and log.data.get('epic_document_id') %}
+                                <code class="text-info">{{ log.data.get('epic_document_id')[:20] }}...</code>
+                                {% elif log.data and log.data.get('fhir_document_id') %}
+                                <code class="text-info">FHIR#{{ log.data.get('fhir_document_id') }}</code>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
                             </td>
                             <td>
                                 <small class="text-muted">
                                     {% if log.data %}
-                                        {% if log.data.confidence is defined %}
-                                        Confidence: {{ (log.data.confidence * 100) | round(1) }}%
+                                        {% if log.event_type == 'document_processing_complete' %}
+                                            {% set sub = log.data.get('sub_actions', {}) %}
+                                            {% if sub.get('content_downloaded') %}<i class="fas fa-check-circle text-success me-1" title="Content Downloaded"></i>{% endif %}
+                                            {% if sub.get('text_extracted') %}<i class="fas fa-file-alt text-success me-1" title="Text Extracted"></i>{% endif %}
+                                            {% if sub.get('phi_filtered') %}<i class="fas fa-shield-alt text-success me-1" title="PHI Filtered"></i>{% endif %}
+                                            {% if sub.get('temp_disposed') %}<i class="fas fa-trash-alt text-success me-1" title="Temp Disposed"></i>{% endif %}
+                                            {% if log.data.get('processing_duration_seconds') %}
+                                            ({{ log.data.get('processing_duration_seconds') }}s)
+                                            {% endif %}
+                                        {% elif log.event_type == 'phi_filtered' %}
+                                            {{ log.data.get('text_length', 0) }} chars filtered
                                         {% endif %}
-                                        {% if log.data.phi_types_found is defined %}
-                                        PHI: {{ log.data.phi_types_found.keys() | list | join(', ') }}
-                                        {% endif %}
-                                        {% if log.data.error_message is defined %}
-                                        Error: {{ log.data.error_message[:50] }}...
-                                        {% endif %}
-                                        {% if log.data.processing_method is defined %}
-                                        Method: {{ log.data.processing_method }}
+                                        {% if log.data.get('error') %}
+                                        <span class="text-danger">{{ log.data.get('error')[:30] }}...</span>
                                         {% endif %}
                                     {% endif %}
-                                    {{ log.action_details or '' }}
                                 </small>
+                            </td>
+                            <td>
+                                <a href="{{ url_for('admin.view_log_details', log_id=log.id) }}" class="btn btn-xs btn-outline-info" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </a>
                             </td>
                         </tr>
                         {% endfor %}
@@ -250,7 +276,7 @@
             {% else %}
             <p class="text-muted mb-0">
                 <i class="fas fa-info-circle me-2"></i>No document processing events recorded yet. 
-                Events will appear here when documents are processed, PHI is filtered, or files are securely deleted.
+                Events will appear here when documents are synced from Epic and processed.
             </p>
             {% endif %}
         </div>

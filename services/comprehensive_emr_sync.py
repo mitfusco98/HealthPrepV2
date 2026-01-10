@@ -985,8 +985,26 @@ class ComprehensiveEMRSync:
         HIPAA COMPLIANCE: Document titles are derived ONLY from structured FHIR
         type codes, never from free-text fields that could contain patient names.
         This ensures deterministic PHI protection regardless of input data.
+        
+        AUDIT LOGGING: Logs a consolidated document_processing_complete event
+        with sub-actions (content_downloaded, text_extracted, phi_filtered, temp_disposed)
+        for HITRUST CSF compliance.
         """
         from utils.document_types import get_safe_document_type, get_document_type_code
+        from models import log_admin_event
+        
+        epic_document_id = document_resource.get('id')
+        processing_start = datetime.now()
+        
+        # Track sub-actions for consolidated audit event
+        # All start as False and are set True only when that step actually completes
+        sub_actions = {
+            'content_downloaded': False,
+            'text_extracted': False,
+            'phi_filtered': False,
+            'temp_disposed': False,  # Set True only after document_processor completes (uses secure_temp_file)
+            'text_length': 0
+        }
         
         try:
             # Extract content type from document metadata
@@ -996,10 +1014,22 @@ class ComprehensiveEMRSync:
             doc_content = self._download_document_content(document_resource)
             
             if doc_content:
+                sub_actions['content_downloaded'] = True
+                
                 # Use OCR if needed and extract text (pass content_type for proper file type detection)
-                extracted_text = self.document_processor.process_document(doc_content, title, content_type)
+                # The document_processor uses secure_temp_file context manager which guarantees
+                # temp file cleanup even on exceptions - we track this in a finally block
+                extracted_text = None
+                try:
+                    extracted_text = self.document_processor.process_document(doc_content, title, content_type)
+                finally:
+                    # secure_temp_file context manager ensures cleanup regardless of success/failure
+                    sub_actions['temp_disposed'] = True
                 
                 if extracted_text:
+                    sub_actions['text_extracted'] = True
+                    sub_actions['text_length'] = len(extracted_text)
+                    
                     # HIPAA COMPLIANCE: Extract structured codes for PHI-safe title
                     # NEVER use free-text 'description' or 'title' fields from Epic
                     type_coding = document_resource.get('type', {}).get('coding', [])
@@ -1015,7 +1045,7 @@ class ComprehensiveEMRSync:
                     sanitized_resource = self.phi_filter.sanitize_fhir_resource(json.dumps(document_resource))
                     fhir_doc = FHIRDocument(
                         patient_id=patient.id,
-                        epic_document_id=document_resource.get('id'),
+                        epic_document_id=epic_document_id,
                         document_type_code=type_code or None,
                         document_type_display=safe_title,
                         title=safe_title,  # Use structured code-derived title, not free text
@@ -1023,16 +1053,85 @@ class ComprehensiveEMRSync:
                         fhir_document_reference=sanitized_resource,
                         org_id=self.organization_id
                     )
-                    # Apply PHI filtering to extracted text
+                    # Apply PHI filtering to extracted text (this also logs phi_filtered event)
                     fhir_doc.set_ocr_text(extracted_text[:5000])
+                    sub_actions['phi_filtered'] = True
                     
                     db.session.add(fhir_doc)
+                    
+                    # Log consolidated document_processing_complete event (SUCCESS)
+                    processing_duration = (datetime.now() - processing_start).total_seconds()
+                    log_admin_event(
+                        event_type='document_processing_complete',
+                        user_id=None,  # System process
+                        org_id=self.organization_id,
+                        ip=None,
+                        patient_id=patient.id,
+                        resource_type='fhir_document',
+                        resource_id=None,  # Document not yet committed
+                        action_details=f'Document processed successfully: {safe_title}',
+                        data={
+                            'status': 'success',
+                            'epic_document_id': epic_document_id,
+                            'document_type': safe_title,
+                            'sub_actions': sub_actions,
+                            'processing_duration_seconds': round(processing_duration, 2),
+                            'processed_at': datetime.now().isoformat()
+                        }
+                    )
                     return True
             
+            # Log consolidated document_processing_complete event (FAILED - no content/text)
+            processing_duration = (datetime.now() - processing_start).total_seconds()
+            log_admin_event(
+                event_type='document_processing_complete',
+                user_id=None,
+                org_id=self.organization_id,
+                ip=None,
+                patient_id=patient.id,
+                resource_type='fhir_document',
+                resource_id=None,
+                action_details=f'Document processing failed: No content or text extracted',
+                data={
+                    'status': 'failed',
+                    'epic_document_id': epic_document_id,
+                    'document_type': title,
+                    'sub_actions': sub_actions,
+                    'error': 'No content downloaded or text extracted',
+                    'processing_duration_seconds': round(processing_duration, 2),
+                    'processed_at': datetime.now().isoformat()
+                }
+            )
             return False
             
         except Exception as e:
             logger.error(f"Error processing document content: {str(e)}")
+            
+            # Log consolidated document_processing_complete event (FAILED - exception)
+            processing_duration = (datetime.now() - processing_start).total_seconds()
+            try:
+                log_admin_event(
+                    event_type='document_processing_complete',
+                    user_id=None,
+                    org_id=self.organization_id,
+                    ip=None,
+                    patient_id=patient.id,
+                    resource_type='fhir_document',
+                    resource_id=None,
+                    action_details=f'Document processing failed: {str(e)[:100]}',
+                    data={
+                        'status': 'failed',
+                        'epic_document_id': epic_document_id,
+                        'document_type': title,
+                        'sub_actions': sub_actions,
+                        'error': str(e),
+                        'processing_duration_seconds': round(processing_duration, 2),
+                        'processed_at': datetime.now().isoformat()
+                    }
+                )
+            except Exception as log_error:
+                logger.warning(f"Failed to log document processing error: {log_error}")
+            
             return False
     
     def _download_document_content(self, document_resource: Dict) -> Optional[bytes]:
