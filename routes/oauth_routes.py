@@ -890,6 +890,8 @@ def epic_callback():
 
         # Calculate token expiry
         token_expires_at = datetime.now() + timedelta(seconds=token_data.get('expires_in', 3600))
+        # Calculate session expiry (refresh token window - 4 hours from issuance)
+        session_expires_at = datetime.now() + timedelta(hours=4)
         
         if oauth_type == 'provider' and provider_id:
             # Provider-specific OAuth: store tokens on Provider model
@@ -913,6 +915,7 @@ def epic_callback():
             provider.access_token = token_data.get('access_token')
             provider.refresh_token = token_data.get('refresh_token')
             provider.token_expires_at = token_expires_at
+            provider.session_expires_at = session_expires_at
             provider.token_scope = ' '.join(token_data.get('scope', '').split())
             provider.is_epic_connected = True
             provider.epic_connection_date = datetime.now()
@@ -965,6 +968,7 @@ def epic_callback():
             epic_creds.access_token = token_data.get('access_token')
             epic_creds.refresh_token = token_data.get('refresh_token')
             epic_creds.token_expires_at = token_expires_at
+            epic_creds.session_expires_at = session_expires_at
             epic_creds.token_scope = ' '.join(token_data.get('scope', '').split())
             epic_creds.updated_at = datetime.now()
 
@@ -1012,6 +1016,7 @@ def epic_callback():
             session['epic_access_token'] = token_data.get('access_token')
             session['epic_refresh_token'] = token_data.get('refresh_token')
             session['epic_token_expires'] = token_expires_at.isoformat()
+            session['epic_session_expires'] = session_expires_at.isoformat()
             session['epic_token_scopes'] = token_data.get('scope', '').split()
             session['epic_patient_id'] = token_data.get('patient')
             session['epic_org_id'] = org.id  # Track which organization these tokens belong to
@@ -1252,15 +1257,24 @@ def epic_status():
         
         if epic_creds and epic_creds.access_token:
             status['connected'] = True
-            if epic_creds.token_expires_at:
+            # Use session_expires_at (refresh token ~4 hours) for display - this is when re-auth is needed
+            # Fall back to token_expires_at if session_expires_at not yet populated
+            display_expires = epic_creds.session_expires_at or epic_creds.token_expires_at
+            if display_expires:
                 # expires_at: canonical UTC ISO string (backward compatible)
-                status['expires_at'] = normalize_to_utc_iso(epic_creds.token_expires_at)
+                status['expires_at'] = normalize_to_utc_iso(display_expires)
                 # expires_at_local: human-readable local time for display
-                status['expires_at_local'] = convert_to_local_time(epic_creds.token_expires_at, org_timezone)
+                status['expires_at_local'] = convert_to_local_time(display_expires, org_timezone)
             status['scopes'] = epic_creds.token_scope.split() if epic_creds.token_scope else []
-            status['expired'] = epic_creds.is_expired if hasattr(epic_creds, 'is_expired') else (
-                epic_creds.token_expires_at and datetime.utcnow() >= epic_creds.token_expires_at
-            )
+            # Check if session is expired (refresh token window)
+            session_expired = epic_creds.session_expires_at and datetime.utcnow() >= epic_creds.session_expires_at
+            # Fall back to access token expiry check if session_expires_at not available
+            if epic_creds.session_expires_at:
+                status['expired'] = session_expired
+            else:
+                status['expired'] = epic_creds.is_expired if hasattr(epic_creds, 'is_expired') else (
+                    epic_creds.token_expires_at and datetime.utcnow() >= epic_creds.token_expires_at
+                )
         else:
             # SECURITY: Always check session token organization before using
             session_org_id = session.get('epic_org_id')
@@ -1281,8 +1295,10 @@ def epic_status():
                     status['scopes'] = session.get('epic_token_scopes', [])
                     status['patient_id'] = session.get('epic_patient_id')
 
-                    # Check if token is expired (session stores UTC time as ISO string)
-                    expires_str = session.get('epic_token_expires')
+                    # Check session expiry (refresh token ~4 hours) - this is when re-auth is needed
+                    # Fall back to token_expires if session_expires not available
+                    session_expires_str = session.get('epic_session_expires')
+                    expires_str = session_expires_str or session.get('epic_token_expires')
                     if expires_str:
                         # Parse the ISO string, handling both Z suffix and +00:00 offset
                         expires_at = datetime.fromisoformat(expires_str.replace('Z', '+00:00') if expires_str.endswith('Z') else expires_str)

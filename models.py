@@ -466,7 +466,8 @@ class EpicCredentials(db.Model):
     # Token storage (encrypted at rest)
     _access_token = db.Column('access_token', db.Text)  # Encrypted access token
     _refresh_token = db.Column('refresh_token', db.Text)  # Encrypted refresh token
-    token_expires_at = db.Column(db.DateTime)
+    token_expires_at = db.Column(db.DateTime)  # Access token expiration (~1 hour)
+    session_expires_at = db.Column(db.DateTime)  # Refresh token expiration (~4 hours) - when re-auth needed
     token_scope = db.Column(db.Text)  # FHIR scopes granted
 
     # Epic user context (if user-specific tokens)
@@ -575,7 +576,8 @@ class Provider(db.Model):
     # OAuth tokens stored per-provider (encrypted)
     _access_token = db.Column('access_token', db.Text)  # Encrypted access token
     _refresh_token = db.Column('refresh_token', db.Text)  # Encrypted refresh token
-    token_expires_at = db.Column(db.DateTime)  # Token expiration time
+    token_expires_at = db.Column(db.DateTime)  # Access token expiration (~1 hour)
+    session_expires_at = db.Column(db.DateTime)  # Refresh token expiration (~4 hours) - when re-auth needed
     token_scope = db.Column(db.Text)  # Granted OAuth scopes
     
     # Epic connection status
