@@ -834,9 +834,15 @@ def view_log_details(log_id):
 def export_logs():
     """Export admin logs as CSV with PHI redaction for compliance"""
     try:
-        import defusedcsv as csv
+        import csv
         from io import StringIO
         import hashlib
+        
+        def sanitize_csv_cell(value):
+            """Prevent CSV formula injection by prefixing dangerous characters"""
+            if value and isinstance(value, str) and value[0] in ('=', '+', '-', '@', '\t', '\r'):
+                return "'" + value
+            return value
         
         # Get export parameters
         days = request.args.get('days', 30, type=int)
@@ -919,21 +925,24 @@ def export_logs():
             row_data = [
                 log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
                 log.event_type or '',
-                log.user_id or '',
+                str(log.user_id) if log.user_id else '',
                 log.user.username if log.user else 'System',
                 log.ip_address or '',
-                patient_id_display,
+                str(patient_id_display),
                 log.resource_type or '',
-                log.resource_id or '',
+                str(log.resource_id) if log.resource_id else '',
                 log.action_details or '',
                 data_display
             ]
             
-            # Add row hash for integrity verification
-            row_hash = compute_row_hash(row_data)
-            row_data.append(row_hash)
+            # Sanitize all cells to prevent formula injection BEFORE computing hash
+            sanitized_row = [sanitize_csv_cell(str(cell)) for cell in row_data]
             
-            writer.writerow(row_data)
+            # Add row hash for integrity verification (computed on sanitized data)
+            row_hash = compute_row_hash(sanitized_row)
+            sanitized_row.append(row_hash)
+            
+            writer.writerow(sanitized_row)
         
         # Prepare response
         output = si.getvalue()

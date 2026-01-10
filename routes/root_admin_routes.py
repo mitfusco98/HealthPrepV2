@@ -1104,9 +1104,15 @@ def system_logs():
 def export_logs():
     """Export audit logs to CSV for HIPAA compliance"""
     try:
-        import defusedcsv as csv
+        import csv
         from io import StringIO
         from datetime import datetime
+        
+        def sanitize_csv_cell(value):
+            """Prevent CSV formula injection by prefixing dangerous characters"""
+            if value and isinstance(value, str) and value[0] in ('=', '+', '-', '@', '\t', '\r'):
+                return "'" + value
+            return value
         
         # Get filter parameters (same as system_logs view)
         org_id = request.args.get('org_id', type=int)
@@ -1159,20 +1165,22 @@ def export_logs():
         
         # Write data rows
         for log in logs:
-            writer.writerow([
+            row_data = [
                 log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
                 log.event_type or '',
-                log.user_id or '',
+                str(log.user_id) if log.user_id else '',
                 log.user.username if log.user else '',
-                log.org_id or '',
+                str(log.org_id) if log.org_id else '',
                 log.organization.name if log.organization else '',
                 log.ip_address or '',
-                log.patient_id or '',
+                str(log.patient_id) if log.patient_id else '',
                 log.resource_type or '',
-                log.resource_id or '',
+                str(log.resource_id) if log.resource_id else '',
                 log.action_details or '',
                 str(log.data) if log.data else ''
-            ])
+            ]
+            # Sanitize all cells to prevent formula injection
+            writer.writerow([sanitize_csv_cell(str(cell)) for cell in row_data])
         
         # Log the export action
         log_admin_event(
