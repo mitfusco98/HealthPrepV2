@@ -13,7 +13,7 @@ from io import BytesIO
 from weasyprint import HTML, CSS
 from flask import render_template_string
 from emr.fhir_client import FHIRClient
-from models import Patient, Organization, Screening, log_admin_event
+from models import Patient, Organization, Screening, EpicCredentials, log_admin_event
 
 logger = logging.getLogger(__name__)
 
@@ -40,12 +40,59 @@ class EpicWriteBackService:
         if not self.organization.epic_client_id:
             raise ValueError("Epic credentials not configured for organization")
         
+        # Create organization config dict for FHIRClient
+        organization_config = {
+            'epic_client_id': self.organization.epic_client_id,
+            'epic_client_secret': self.organization.epic_client_secret,
+            'epic_fhir_url': self.organization.epic_fhir_url
+        }
+        
         self.fhir_client = FHIRClient(
-            organization=self.organization,
-            client_id=self.organization.epic_client_id,
-            client_secret=self.organization.epic_client_secret,
-            base_url=self.organization.epic_fhir_url
+            organization_config=organization_config,
+            organization=self.organization
         )
+        
+        # Load stored tokens from EpicCredentials
+        epic_creds = EpicCredentials.query.filter_by(org_id=self.organization.id).first()
+        if not epic_creds or not epic_creds.access_token:
+            raise ValueError("No Epic access tokens found - please authenticate with Epic first")
+        
+        # Require refresh token for writeback operations (needed for retry path)
+        if not epic_creds.refresh_token:
+            raise ValueError(
+                "No Epic refresh token available. Epic credentials may be incomplete. "
+                "Please re-authenticate with Epic to enable prep sheet write-back."
+            )
+        
+        # Check token expiration - if token_expires_at is NULL, treat as expired
+        if epic_creds.token_expires_at:
+            remaining = (epic_creds.token_expires_at - datetime.utcnow()).total_seconds()
+            token_expired = remaining <= 0
+        else:
+            # Unknown expiration - treat as expired and force refresh
+            self.logger.warning("Epic token expiration time unknown, treating as expired")
+            remaining = 0
+            token_expired = True
+        
+        # Set initial tokens on the client
+        self.fhir_client.set_tokens(
+            access_token=epic_creds.access_token,
+            refresh_token=epic_creds.refresh_token,
+            expires_in=max(int(remaining), 1),  # At least 1 second
+            scopes=epic_creds.token_scope.split() if epic_creds.token_scope else []
+        )
+        
+        # If token is expired, proactively refresh before any API calls
+        if token_expired:
+            self.logger.info("Access token expired, proactively refreshing before write operation")
+            if not self.fhir_client.refresh_access_token():
+                raise ConnectionError(
+                    "Epic access token has expired and refresh failed. "
+                    "Please re-authenticate with Epic to continue."
+                )
+            self.logger.info("Successfully refreshed Epic access token")
+        else:
+            self.logger.info(f"Loaded Epic tokens from database for organization {self.organization.id} (valid for {int(remaining)}s)")
         
         # Verify connection and refresh token if needed
         if not self._verify_epic_connection():
