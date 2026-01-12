@@ -159,28 +159,6 @@ class AdminLogger:
         return export_data
 
     @staticmethod
-    def cleanup_old_logs(days_to_keep=90):
-        """Clean up old logs to manage database size"""
-        from datetime import timedelta
-
-        cutoff_date = datetime.utcnow() - timedelta(days=days_to_keep)
-
-        deleted_count = AdminLog.query.filter(
-            AdminLog.timestamp < cutoff_date
-        ).delete()
-
-        db.session.commit()
-
-        # Log the cleanup event
-        AdminLogger.log(
-            user_id=None,
-            event_type='log_cleanup',
-            details=f"Cleaned up {deleted_count} log entries older than {days_to_keep} days"
-        )
-
-        return deleted_count
-
-    @staticmethod
     def get_security_events(days=30):
         """Get security-related events"""
         from datetime import timedelta
