@@ -1076,7 +1076,12 @@ class FHIRClient:
             return None
     
     def create_document_reference(self, document_reference_data):
-        """Create a new DocumentReference in Epic (write prep sheet back)"""
+        """Create a new DocumentReference in Epic (write prep sheet back)
+        
+        Returns:
+            dict: On success, the created DocumentReference resource
+            dict: On failure, {'error': str, 'details': dict, 'is_sandbox_limitation': bool}
+        """
         try:
             url = f"{self.base_url}DocumentReference"
             
@@ -1090,14 +1095,113 @@ class FHIRClient:
             self.logger.info(f"Successfully created DocumentReference: {result.get('id')}")
             return result
             
+        except requests.exceptions.HTTPError as e:
+            error_details = self._parse_epic_error_response(e.response)
+            
+            is_sandbox = 'fhir.epic.com' in self.base_url or 'sandbox' in self.base_url.lower()
+            is_write_not_supported = self._is_sandbox_write_limitation(error_details)
+            
+            if is_sandbox and is_write_not_supported:
+                self.logger.warning(
+                    f"Epic sandbox may not support DocumentReference writes. "
+                    f"Error: {error_details.get('message', 'Unknown')}. "
+                    f"This is a known limitation of Epic's public sandbox environment."
+                )
+            else:
+                self.logger.error(
+                    f"Error creating DocumentReference: {e}. "
+                    f"OperationOutcome: {error_details}"
+                )
+            
+            return {
+                'error': error_details.get('message', str(e)),
+                'details': error_details,
+                'is_sandbox_limitation': is_sandbox and is_write_not_supported,
+                'status_code': e.response.status_code if e.response else None
+            }
+            
         except Exception as e:
             self.logger.error(f"Error creating DocumentReference: {str(e)}")
-            if hasattr(e, 'response') and e.response:
-                self.logger.error(f"Response content: {e.response.text}")
-            return None
+            return {
+                'error': str(e),
+                'details': {},
+                'is_sandbox_limitation': False
+            }
+    
+    def _parse_epic_error_response(self, response):
+        """Parse Epic FHIR OperationOutcome from error response
+        
+        Epic returns OperationOutcome resources with detailed error information
+        including issue severity, code, and diagnostics.
+        """
+        error_info = {
+            'status_code': response.status_code if response else None,
+            'message': 'Unknown error',
+            'issues': [],
+            'raw_response': None
+        }
+        
+        if not response:
+            return error_info
+            
+        try:
+            response_text = response.text
+            error_info['raw_response'] = response_text[:2000]
+            
+            data = response.json()
+            
+            if data.get('resourceType') == 'OperationOutcome':
+                issues = data.get('issue', [])
+                error_info['issues'] = issues
+                
+                if issues:
+                    first_issue = issues[0]
+                    diagnostics = first_issue.get('diagnostics', '')
+                    details_text = first_issue.get('details', {}).get('text', '')
+                    error_info['message'] = diagnostics or details_text or 'OperationOutcome error'
+                    error_info['severity'] = first_issue.get('severity', 'error')
+                    error_info['code'] = first_issue.get('code', 'unknown')
+            else:
+                error_info['message'] = data.get('error', data.get('message', str(data)))
+                
+        except (ValueError, KeyError) as parse_error:
+            error_info['message'] = f"HTTP {response.status_code}: {response.text[:500]}"
+            self.logger.debug(f"Could not parse error response as JSON: {parse_error}")
+            
+        return error_info
+    
+    def _is_sandbox_write_limitation(self, error_details):
+        """Detect if error indicates Epic sandbox write limitations
+        
+        Epic's public sandbox (fhir.epic.com) often restricts or disables
+        write operations like DocumentReference.create().
+        """
+        message = error_details.get('message', '').lower()
+        raw = (error_details.get('raw_response') or '').lower()
+        
+        sandbox_indicators = [
+            'not supported',
+            'read-only',
+            'readonly',
+            'write not allowed',
+            'operation not permitted',
+            'method not allowed',
+            'not implemented',
+            'sandbox does not support',
+            'test environment',
+            'unauthorized',
+            'insufficient scope'
+        ]
+        
+        return any(indicator in message or indicator in raw for indicator in sandbox_indicators)
     
     def update_document_reference(self, document_id, document_reference_data):
-        """Update an existing DocumentReference in Epic"""
+        """Update an existing DocumentReference in Epic
+        
+        Returns:
+            dict: On success, the updated DocumentReference resource
+            dict: On failure, {'error': str, 'details': dict, 'is_sandbox_limitation': bool}
+        """
         try:
             url = f"{self.base_url}DocumentReference/{document_id}"
             
@@ -1111,6 +1215,28 @@ class FHIRClient:
             self.logger.info(f"Successfully updated DocumentReference: {document_id}")
             return result
             
+        except requests.exceptions.HTTPError as e:
+            error_details = self._parse_epic_error_response(e.response)
+            
+            is_sandbox = 'fhir.epic.com' in self.base_url or 'sandbox' in self.base_url.lower()
+            is_write_not_supported = self._is_sandbox_write_limitation(error_details)
+            
+            self.logger.error(
+                f"Error updating DocumentReference {document_id}: {e}. "
+                f"OperationOutcome: {error_details}"
+            )
+            
+            return {
+                'error': error_details.get('message', str(e)),
+                'details': error_details,
+                'is_sandbox_limitation': is_sandbox and is_write_not_supported,
+                'status_code': e.response.status_code if e.response else None
+            }
+            
         except Exception as e:
             self.logger.error(f"Error updating DocumentReference {document_id}: {str(e)}")
-            return None
+            return {
+                'error': str(e),
+                'details': {},
+                'is_sandbox_limitation': False
+            }

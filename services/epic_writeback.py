@@ -213,6 +213,27 @@ class EpicWriteBackService:
             # PRODUCTION MODE: Write to Epic with retry on 401
             result = self._write_document_with_retry(document_reference)
             
+            # Check for error response (new format from enhanced FHIR client)
+            if result and result.get('error'):
+                error_msg = result.get('error', 'Unknown error')
+                is_sandbox = result.get('is_sandbox_limitation', False)
+                
+                if is_sandbox:
+                    self.logger.warning(f"Epic sandbox limitation detected: {error_msg}")
+                    return {
+                        'success': False, 
+                        'error': f'Epic sandbox does not support document writes. This feature requires a production Epic environment. Details: {error_msg}',
+                        'is_sandbox_limitation': True,
+                        'details': result.get('details', {})
+                    }
+                else:
+                    self.logger.error(f"Epic DocumentReference creation failed: {error_msg}")
+                    return {
+                        'success': False, 
+                        'error': error_msg,
+                        'details': result.get('details', {})
+                    }
+            
             if result and result.get('id'):
                 epic_doc_id = result.get('id')
                 
@@ -238,7 +259,7 @@ class EpicWriteBackService:
                     'timestamp': timestamp
                 }
             else:
-                return {'success': False, 'error': 'Epic DocumentReference creation failed'}
+                return {'success': False, 'error': 'Epic DocumentReference creation failed - no document ID returned'}
                 
         except ConnectionError as e:
             self.logger.error(f"Epic connection error: {str(e)}")
@@ -260,34 +281,35 @@ class EpicWriteBackService:
             document_reference: FHIR DocumentReference structure
             
         Returns:
-            dict: Epic API response or None
+            dict: Epic API response with 'id' on success, or 'error' on failure
         """
-        try:
-            # First attempt
-            result = self.fhir_client.create_document_reference(document_reference)
-            return result
+        # First attempt
+        result = self.fhir_client.create_document_reference(document_reference)
+        
+        # Check if we got a 401 error (expired token) - new error response format
+        if result and result.get('error') and result.get('status_code') == 401:
+            self.logger.warning("Received 401 error, attempting token refresh and retry...")
             
-        except Exception as e:
-            # Check if it's a 401 error (expired token)
-            if hasattr(e, 'response') and hasattr(e.response, 'status_code') and e.response.status_code == 401:
-                self.logger.warning("Received 401 error, attempting token refresh and retry...")
+            # Refresh token
+            if self.fhir_client.refresh_access_token():
+                # Retry the write operation
+                result = self.fhir_client.create_document_reference(document_reference)
                 
-                # Refresh token
-                if self.fhir_client.refresh_access_token():
-                    # Retry the write operation
-                    try:
-                        result = self.fhir_client.create_document_reference(document_reference)
-                        self.logger.info("Successfully wrote DocumentReference after token refresh")
-                        return result
-                    except Exception as retry_error:
-                        self.logger.error(f"Retry failed after token refresh: {str(retry_error)}")
-                        raise
-                else:
-                    self.logger.error("Token refresh failed, cannot retry DocumentReference write")
-                    raise
+                if result and result.get('id'):
+                    self.logger.info("Successfully wrote DocumentReference after token refresh")
+                elif result and result.get('error'):
+                    self.logger.error(f"Retry failed after token refresh: {result.get('error')}")
+                
+                return result
             else:
-                # Not a 401 error, re-raise
-                raise
+                self.logger.error("Token refresh failed, cannot retry DocumentReference write")
+                return {
+                    'error': 'Token refresh failed - please re-authenticate with Epic',
+                    'details': {},
+                    'is_sandbox_limitation': False
+                }
+        
+        return result
     
     def _html_to_pdf(self, html_content, patient, timestamp, prep_data=None):
         """
@@ -306,9 +328,23 @@ class EpicWriteBackService:
             # Add comprehensive header to HTML
             timestamped_html = self._add_timestamp_to_html(html_content, patient, timestamp, prep_data)
             
-            # Convert to PDF using WeasyPrint
+            # Get base URL for resolving relative CSS paths
+            # WeasyPrint needs this to resolve /static/css/... references
+            from flask import current_app, request
+            try:
+                # Try to get base URL from current request context
+                if request:
+                    base_url = request.host_url.rstrip('/')
+                else:
+                    base_url = None
+            except RuntimeError:
+                # Outside request context - use application root path for file:// URLs
+                base_url = f"file://{current_app.root_path}/" if current_app else None
+            
+            # Convert to PDF using WeasyPrint with base_url for CSS resolution
             pdf_file = BytesIO()
-            HTML(string=timestamped_html).write_pdf(pdf_file)
+            html_doc = HTML(string=timestamped_html, base_url=base_url)
+            html_doc.write_pdf(pdf_file)
             pdf_content = pdf_file.getvalue()
             
             self.logger.info(f"Generated PDF ({len(pdf_content)} bytes) for patient {patient.mrn}")
