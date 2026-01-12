@@ -328,22 +328,68 @@ class EpicWriteBackService:
             # Add comprehensive header to HTML
             timestamped_html = self._add_timestamp_to_html(html_content, patient, timestamp, prep_data)
             
-            # Get base URL for resolving relative CSS paths
-            # WeasyPrint needs this to resolve /static/css/... references
-            from flask import current_app, request
-            try:
-                # Try to get base URL from current request context
-                if request:
-                    base_url = request.host_url.rstrip('/')
-                else:
-                    base_url = None
-            except RuntimeError:
-                # Outside request context - use application root path for file:// URLs
-                base_url = f"file://{current_app.root_path}/" if current_app else None
+            # IMPORTANT: Use custom URL fetcher to avoid HTTP deadlock
+            # Using request.host_url causes WeasyPrint to make HTTP requests back to the same server,
+            # which blocks because the server is waiting for this response to complete.
+            # The custom fetcher intercepts /static/... URLs and reads files directly from disk.
+            from flask import current_app, has_app_context
+            from weasyprint import default_url_fetcher
+            import os
+            from urllib.parse import urlparse
+            from pathlib import Path
             
-            # Convert to PDF using WeasyPrint with base_url for CSS resolution
+            # Determine static folder - handle both app context and background task scenarios
+            if has_app_context() and current_app:
+                static_folder = current_app.static_folder or os.path.join(current_app.root_path, 'static')
+                root_path = current_app.root_path
+            else:
+                # Fallback: use current working directory (for background/batch tasks)
+                static_folder = os.path.join(os.getcwd(), 'static')
+                root_path = os.getcwd()
+            
+            base_url = Path(root_path).as_uri() + '/'
+            
+            def custom_url_fetcher(url):
+                """Custom URL fetcher that maps /static/... to local files.
+                
+                This prevents WeasyPrint from making HTTP requests to the server,
+                which would cause a deadlock since the server is waiting for PDF generation.
+                Handles URLs from HTML attributes and CSS url() references.
+                """
+                parsed = urlparse(url)
+                
+                # Handle /static/... paths (absolute or with hostname)
+                if parsed.path.startswith('/static/'):
+                    # Strip query strings and fragments, get path relative to static folder
+                    relative_path = parsed.path[8:]  # Remove '/static/'
+                    local_path = os.path.join(static_folder, relative_path)
+                    
+                    if os.path.isfile(local_path):
+                        # Return properly quoted file:// URL for WeasyPrint
+                        file_uri = Path(local_path).as_uri()
+                        return default_url_fetcher(file_uri)
+                    else:
+                        self.logger.warning(f"Static file not found: {local_path}")
+                
+                # For file:// URLs and other cases, use default fetcher
+                # Skip HTTP/HTTPS URLs to avoid deadlock
+                if parsed.scheme in ('http', 'https'):
+                    # Check if it's a request to our own server's static files
+                    if '/static/' in parsed.path:
+                        relative_path = parsed.path.split('/static/', 1)[1]
+                        local_path = os.path.join(static_folder, relative_path)
+                        if os.path.isfile(local_path):
+                            file_uri = Path(local_path).as_uri()
+                            return default_url_fetcher(file_uri)
+                    # For external URLs, let them fail silently (timeout already handled by not fetching)
+                    self.logger.debug(f"Skipping external URL to avoid deadlock: {url}")
+                    return {'string': b'', 'mime_type': 'text/css'}
+                
+                return default_url_fetcher(url)
+            
+            # Convert to PDF using WeasyPrint with custom URL fetcher
             pdf_file = BytesIO()
-            html_doc = HTML(string=timestamped_html, base_url=base_url)
+            html_doc = HTML(string=timestamped_html, base_url=base_url, url_fetcher=custom_url_fetcher)
             html_doc.write_pdf(pdf_file)
             pdf_content = pdf_file.getvalue()
             
