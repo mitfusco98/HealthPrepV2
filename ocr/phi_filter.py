@@ -18,6 +18,7 @@ class PHIFilter:
         self._cached_settings = None  # Thread-safe cached settings
         
         # Patterns for already-redacted content (idempotency protection)
+        # All redaction markers must be listed here to prevent double-redaction
         self.redacted_patterns = [
             r'\[SSN REDACTED\]',
             r'\[PHONE REDACTED\]',
@@ -27,7 +28,14 @@ class PHIFilter:
             r'\[ADDRESS REDACTED\]',
             r'\[NAME REDACTED\]',
             r'\[DATE REDACTED\]',
-            r'\[PHI REDACTED\]',  # JSON PHI values
+            r'\[PHI REDACTED\]',  # JSON PHI values and context-aware patterns
+            r'\[ACCOUNT REDACTED\]',
+            r'\[FINANCIAL REDACTED\]',
+            r'\[LICENSE REDACTED\]',  # Medical license numbers
+            r'\[ID REDACTED\]',  # Government IDs (driver's license, passport, state ID)
+            r'\[NPI REDACTED\]',  # National Provider Identifier
+            r'\[DEA REDACTED\]',  # DEA registration numbers
+            r'\[URL REDACTED\]',  # PHI-bearing URLs
             r'\[[A-Z\s]+ REDACTED\]'  # Catch-all for any redaction marker
         ]
         
@@ -59,6 +67,47 @@ class PHIFilter:
                 r'\bGroup[\s#:]*\d+',
                 r'\bSubscriber[\s:]*\d+'
             ],
+            'financial': [
+                # Bank account numbers with context
+                r'(?i)(?:Account\s*(?:#|No\.?|Number)?|Acct\.?)\s*[:=]?\s*\d{4,17}',
+                r'(?i)(?:Routing\s*(?:#|No\.?|Number)?)\s*[:=]?\s*\d{9}',
+                # Credit card patterns (13-19 digits, with optional separators)
+                r'\b(?:4\d{3}|5[1-5]\d{2}|6011|65\d{2}|3[47]\d{2})[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{1,7}\b',
+                # Check numbers with context
+                r'(?i)(?:Check\s*(?:#|No\.?|Number)?)\s*[:=]?\s*\d{3,8}',
+            ],
+            'government_ids': [
+                # Driver's license (various state formats)
+                r'(?i)(?:Driver\'?s?\s*License|DL|DMV)[\s#:]*[A-Z0-9]{5,15}',
+                # Passport numbers
+                r'(?i)(?:Passport)[\s#:]*[A-Z0-9]{6,12}',
+                # State ID
+                r'(?i)(?:State\s*ID|State\s*Identification)[\s#:]*[A-Z0-9]{5,15}',
+            ],
+            'provider_ids': [
+                # NPI (National Provider Identifier) - 10 digits
+                r'(?i)(?:NPI)[\s#:]*\d{10}\b',
+                r'\b\d{10}\b(?=.*(?:NPI|provider|physician))',
+                # DEA numbers (2 letters + 7 characters)
+                r'(?i)(?:DEA)[\s#:]*[A-Z]{2}\d{7}\b',
+                # Medical license numbers
+                r'(?i)(?:Medical\s*License|License\s*(?:#|No\.?|Number)?)[\s:]*[A-Z0-9]{5,15}',
+            ],
+            'phi_urls': [
+                # Patient portal URLs with identifiers
+                r'https?://[^\s]*(?:patient|portal|record|chart)[^\s]*[?&](?:id|mrn|patient|record)=[^\s&]+',
+                # Generic URLs with PHI parameters
+                r'https?://[^\s]*[?&](?:ssn|dob|birthdate|name|patient_id|record_id)=[^\s&]+',
+            ],
+            'context_aware': [
+                # Numbers following explicit identifier keywords (no generic ID/Number to avoid false positives)
+                # All patterns require at least one digit to avoid redacting descriptive text
+                r'(?i)(?:Account\s*#|Acct\s*#|Ref(?:erence)?\s*#|Case\s*#|Claim\s*#|Invoice\s*#|Bill\s*#)\s*[A-Z]*\d[A-Z0-9-]{3,19}',
+                # Beneficiary and client IDs (explicit prefixes only, require digit)
+                r'(?i)(?:Beneficiary\s*ID|Client\s*ID|Customer\s*ID|Member\s*#)[\s:]*[A-Z]*\d[A-Z0-9]{3,14}',
+                # Facility and location codes (explicit prefixes only, require digit)
+                r'(?i)(?:Facility\s*(?:ID|Code)|Location\s*(?:ID|Code)|Site\s*(?:ID|Code))[\s:]*[A-Z]*\d[A-Z0-9]{2,9}',
+            ],
             'addresses': [
                 r'\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd)',
                 r'\b\d{5}(?:-\d{4})?\b'  # ZIP codes
@@ -83,6 +132,10 @@ class PHIFilter:
             r'"(?:Phone|Telephone|Cell|Mobile|Fax)[^"]*"\s*:\s*"([^"]+)"',
             r'"(?:DOB|Date\s*of\s*Birth|Birth\s*Date|Birthdate)[^"]*"\s*:\s*"([^"]+)"',
             r'"(?:SSN|Social\s*Security)[^"]*"\s*:\s*"([^"]+)"',
+            r'"(?:Account|Account\s*Number|Acct|Bank\s*Account|Routing)[^"]*"\s*:\s*"([^"]+)"',
+            r'"(?:Driver\s*License|DL|Passport|State\s*ID)[^"]*"\s*:\s*"([^"]+)"',
+            r'"(?:NPI|DEA|Medical\s*License|Provider\s*ID)[^"]*"\s*:\s*"([^"]+)"',
+            r'"(?:Credit\s*Card|Card\s*Number|CC)[^"]*"\s*:\s*"([^"]+)"',
         ]
         
         # Medical terms to preserve (don't filter these)
@@ -193,12 +246,18 @@ class PHIFilter:
         filtered_text = self._filter_json_phi(filtered_text, protected_spans)
         
         # Apply each filter type based on settings
+        # Note: Financial, government IDs, provider IDs, and PHI URLs are always enabled for HIPAA compliance
         filter_methods = {
             'ssn': (settings.filter_ssn, self._filter_ssn),
             'phone': (settings.filter_phone, self._filter_phone),
             'email': (getattr(settings, 'filter_email', True), self._filter_email),
             'mrn': (settings.filter_mrn, self._filter_mrn),
             'insurance': (settings.filter_insurance, self._filter_insurance),
+            'financial': (True, self._filter_financial),  # Always enabled - HIPAA critical
+            'government_ids': (True, self._filter_government_ids),  # Always enabled - HIPAA critical
+            'provider_ids': (True, self._filter_provider_ids),  # Always enabled - HIPAA critical
+            'phi_urls': (True, self._filter_phi_urls),  # Always enabled - HIPAA critical
+            'context_aware': (True, self._filter_context_aware),  # Always enabled - catches Account #, Case #, etc.
             'addresses': (settings.filter_addresses, self._filter_addresses),
             'names': (settings.filter_names, self._filter_names),
             'dates': (settings.filter_dates, self._filter_dates)
@@ -354,6 +413,66 @@ class PHIFilter:
             for match in reversed(matches):
                 if not self._is_protected(match.start(), match.end(), protected_spans):
                     text = text[:match.start()] + '[INSURANCE REDACTED]' + text[match.end():]
+        return text
+    
+    def _filter_financial(self, text, protected_spans):
+        """Filter financial information (account numbers, routing numbers, credit cards)"""
+        for pattern in self.phi_patterns['financial']:
+            matches = list(re.finditer(pattern, text, re.IGNORECASE))
+            for match in reversed(matches):
+                if not self._is_protected(match.start(), match.end(), protected_spans):
+                    text = text[:match.start()] + '[FINANCIAL REDACTED]' + text[match.end():]
+        return text
+    
+    def _filter_government_ids(self, text, protected_spans):
+        """Filter government IDs (driver's license, passport, state ID)"""
+        for pattern in self.phi_patterns['government_ids']:
+            matches = list(re.finditer(pattern, text, re.IGNORECASE))
+            for match in reversed(matches):
+                if not self._is_protected(match.start(), match.end(), protected_spans):
+                    text = text[:match.start()] + '[ID REDACTED]' + text[match.end():]
+        return text
+    
+    def _filter_provider_ids(self, text, protected_spans):
+        """Filter healthcare provider identifiers (NPI, DEA, medical license)
+        
+        Uses identifier-specific redaction markers based on match content.
+        """
+        for pattern in self.phi_patterns['provider_ids']:
+            matches = list(re.finditer(pattern, text, re.IGNORECASE))
+            for match in reversed(matches):
+                if not self._is_protected(match.start(), match.end(), protected_spans):
+                    # Determine marker based on match content
+                    matched_text = match.group().upper()
+                    if 'DEA' in matched_text:
+                        marker = '[DEA REDACTED]'
+                    elif 'LICENSE' in matched_text:
+                        marker = '[LICENSE REDACTED]'
+                    else:
+                        marker = '[NPI REDACTED]'
+                    text = text[:match.start()] + marker + text[match.end():]
+        return text
+    
+    def _filter_phi_urls(self, text, protected_spans):
+        """Filter URLs containing PHI parameters (patient portal links, etc.)"""
+        for pattern in self.phi_patterns['phi_urls']:
+            matches = list(re.finditer(pattern, text, re.IGNORECASE))
+            for match in reversed(matches):
+                if not self._is_protected(match.start(), match.end(), protected_spans):
+                    text = text[:match.start()] + '[URL REDACTED]' + text[match.end():]
+        return text
+    
+    def _filter_context_aware(self, text, protected_spans):
+        """Filter context-aware PHI (Account #, Case #, Reference #, etc.)
+        
+        This catches patterns where a keyword indicates the following value is PHI,
+        even if the value itself doesn't match a specific PHI pattern format.
+        """
+        for pattern in self.phi_patterns['context_aware']:
+            matches = list(re.finditer(pattern, text, re.IGNORECASE))
+            for match in reversed(matches):
+                if not self._is_protected(match.start(), match.end(), protected_spans):
+                    text = text[:match.start()] + '[PHI REDACTED]' + text[match.end():]
         return text
     
     def _filter_addresses(self, text, protected_spans):
