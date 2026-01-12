@@ -21,11 +21,13 @@ class PHIFilter:
         self.redacted_patterns = [
             r'\[SSN REDACTED\]',
             r'\[PHONE REDACTED\]',
+            r'\[EMAIL REDACTED\]',
             r'\[MRN REDACTED\]',
             r'\[INSURANCE REDACTED\]',
             r'\[ADDRESS REDACTED\]',
             r'\[NAME REDACTED\]',
             r'\[DATE REDACTED\]',
+            r'\[PHI REDACTED\]',  # JSON PHI values
             r'\[[A-Z\s]+ REDACTED\]'  # Catch-all for any redaction marker
         ]
         
@@ -42,6 +44,9 @@ class PHIFilter:
                 r'\d{3}-\d{3}-\d{4}',  # XXX-XXX-XXXX
                 r'\d{3}\.\d{3}\.\d{4}',  # XXX.XXX.XXXX
                 r'\b\d{10}\b'  # XXXXXXXXXX (bare 10 digits with word boundaries)
+            ],
+            'email': [
+                r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b',  # Standard email format
             ],
             'mrn': [
                 r'\bMRN[\s:]*\d+',  # MRN: XXXXXXX
@@ -70,17 +75,93 @@ class PHIFilter:
             ]
         }
         
+        # JSON key patterns that indicate PHI values - used for JSON-aware filtering
+        self.json_phi_keys = [
+            r'"(?:Name|Patient\s*Name|Full\s*Name|First\s*Name|Last\s*Name|Middle\s*Name)[^"]*"\s*:\s*"([^"]+)"',
+            r'"(?:Email|E-mail|Email\s*Address)[^"]*"\s*:\s*"([^"]+)"',
+            r'"(?:Address|Street|City|State|Zip|Postal)[^"]*"\s*:\s*"([^"]+)"',
+            r'"(?:Phone|Telephone|Cell|Mobile|Fax)[^"]*"\s*:\s*"([^"]+)"',
+            r'"(?:DOB|Date\s*of\s*Birth|Birth\s*Date|Birthdate)[^"]*"\s*:\s*"([^"]+)"',
+            r'"(?:SSN|Social\s*Security)[^"]*"\s*:\s*"([^"]+)"',
+        ]
+        
         # Medical terms to preserve (don't filter these)
         self.medical_terms = [
+            # Lab values and measurements
             r'\b\d+/\d+\b',  # Blood pressure readings
             r'\b\d+\.\d+\s*mg/dL\b',  # Lab values
             r'\b\d+\s*mmHg\b',  # Blood pressure units
             r'\bA1C\s*:\s*\d+\.\d+%?\b',  # A1C values
+            r'\bHbA1c\b',  # Hemoglobin A1C
             r'\b\d+\s*BPM\b',  # Heart rate
             r'\b\d+\.\d+\s*°F\b',  # Temperature
+            # Procedures
             r'\bmammogram\b', r'\bcolonoscopy\b', r'\bechocardiogram\b',
             r'\bCT\s+scan\b', r'\bMRI\b', r'\bultrasound\b',
-            r'\bglucose\b', r'\bcholesterol\b', r'\btriglycerides\b'
+            r'\bendoscopy\b', r'\bbiopsy\b', r'\bx-ray\b', r'\bxray\b',
+            # Lab tests
+            r'\bglucose\b', r'\bcholesterol\b', r'\btriglycerides\b',
+            r'\bcreatinine\b', r'\bhemoglobin\b', r'\bplatelet\b',
+            # Common medications (prevent false positive name detection)
+            # Note: re.IGNORECASE is already applied in _identify_protected_spans
+            r'\baspirin\b', r'\blisinopril\b', r'\bmetformin\b',
+            r'\batorvastatin\b', r'\bsimvastatin\b', r'\bamlodipine\b',
+            r'\bmetoprolol\b', r'\bomeprazole\b', r'\blosartan\b',
+            r'\bgabapentin\b', r'\bhydrochlorothiazide\b', r'\bsertraline\b',
+            r'\btramadol\b', r'\bfurosemide\b', r'\bpantoprazole\b',
+            r'\bprednisone\b', r'\blevothyroxine\b', r'\bamoxicillin\b',
+            r'\bazithromycin\b', r'\bciprofloxacin\b', r'\bibuprofen\b',
+            r'\bacetaminophen\b', r'\bwarfarin\b', r'\bclopidogrel\b',
+            r'\binsulin\b', r'\balbuterol\b', r'\bfluticasone\b',
+            r'\bmontelukast\b', r'\bescitalopram\b', r'\bduloxetine\b',
+            r'\bvenlafaxine\b', r'\btrazodone\b', r'\balprazolam\b',
+            r'\blorazepam\b', r'\bclonazepam\b', r'\bzolpidem\b',
+            r'\bmeloxicam\b', r'\bcyclobenzaprine\b', r'\bnaproxen\b',
+            r'\bhydrocodone\b', r'\boxycodone\b', r'\bmorphine\b',
+            r'\bfentanyl\b', r'\bcarvedilol\b', r'\bdiltiazem\b',
+            r'\bverapamil\b', r'\brosuvastatin\b', r'\bpravastatin\b',
+            r'\bglipizide\b', r'\bsitagliptin\b', r'\bpioglitazone\b',
+            r'\bjanuvia\b', r'\bjardiance\b', r'\bfarxiga\b',
+            r'\btrulicity\b', r'\bozempic\b', r'\bvictoza\b',
+            r'\beliquis\b', r'\bxarelto\b', r'\bpradaxa\b',
+            r'\blipitor\b', r'\bcrestor\b', r'\bzocor\b',
+            r'\bnorvasc\b', r'\bprinivil\b', r'\bzestril\b',
+            r'\blasix\b', r'\bsynthroid\b', r'\bnexium\b',
+            r'\bprilosec\b', r'\bprotonix\b', r'\bpepcid\b',
+            r'\bzantac\b', r'\bxanax\b', r'\bativan\b',
+            r'\bklonopin\b', r'\bambien\b', r'\blunesta\b',
+            r'\bcymbalta\b', r'\blexapro\b', r'\bprozac\b',
+            r'\bzoloft\b', r'\bpaxil\b', r'\beffexor\b',
+            r'\bwellbutrin\b', r'\bneurontin\b', r'\blyrica\b',
+            r'\bcoumadin\b', r'\bplavix\b', r'\bheparin\b',
+            r'\blovenox\b', r'\benoxaparin\b',
+            # Common diagnoses and conditions
+            r'\bhypertension\b', r'\bdiabetes\b', r'\bhyperlipidemia\b',
+            r'\bhypercholesterolemia\b', r'\bhypothyroidism\b',
+            r'\bhyperthyroidism\b', r'\basthma\b', r'\bcopd\b',
+            r'\bpneumonia\b', r'\bbronchitis\b', r'\bsinusitis\b',
+            r'\barthritis\b', r'\bosteoarthritis\b', r'\brheumatoid\b',
+            r'\bosteoporosis\b', r'\bfibromyalgia\b', r'\bmigraine\b',
+            r'\bepilepsy\b', r'\bseizure\b', r'\bstroke\b',
+            r'\bmyocardial\s+infarction\b', r'\bheart\s+failure\b',
+            r'\batrial\s+fibrillation\b', r'\barrhythmia\b',
+            r'\bangina\b', r'\bcoronary\b', r'\banemia\b',
+            r'\bkidney\s+disease\b', r'\brenal\b', r'\bhepatic\b',
+            r'\bcirrhosis\b', r'\bhepatitis\b', r'\bpancreatitis\b',
+            r'\bgastritis\b', r'\bcolitis\b', r'\bdiverticulitis\b',
+            r'\bappendicitis\b', r'\bcholecystitis\b', r'\bcellulitis\b',
+            r'\bdermatitis\b', r'\beczema\b', r'\bpsoriasis\b',
+            r'\bcancer\b', r'\bcarcinoma\b', r'\bmelanoma\b',
+            r'\blymphoma\b', r'\bleukemia\b', r'\btumor\b',
+            r'\bbenign\b', r'\bmalignant\b', r'\bmetastatic\b',
+            r'\bdepression\b', r'\banxiety\b', r'\bbipolar\b',
+            r'\bschizophrenia\b', r'\bdementia\b', r'\balzheimer\b',
+            r'\bparkinson\b', r'\bneuropathy\b', r'\bsclerosis\b',
+            r'\bessential\b', r'\bchronic\b', r'\bacute\b',
+            r'\buncontrolled\b', r'\bcontrolled\b', r'\bstable\b',
+            # Medical terms often misidentified as names
+            r'\btype\s*[12]\b', r'\bstage\s*[1234IViv]+\b',
+            r'\bgrade\s*[1234IViv]+\b', r'\bclass\s*[1234IViv]+\b',
         ]
     
     def filter_phi(self, text, preloaded_settings=None):
@@ -108,10 +189,14 @@ class PHIFilter:
         # AND already-redacted content (idempotency protection)
         protected_spans = self._identify_protected_spans(text)
         
+        # Apply JSON PHI filtering first (always enabled for structured data)
+        filtered_text = self._filter_json_phi(filtered_text, protected_spans)
+        
         # Apply each filter type based on settings
         filter_methods = {
             'ssn': (settings.filter_ssn, self._filter_ssn),
             'phone': (settings.filter_phone, self._filter_phone),
+            'email': (getattr(settings, 'filter_email', True), self._filter_email),
             'mrn': (settings.filter_mrn, self._filter_mrn),
             'insurance': (settings.filter_insurance, self._filter_insurance),
             'addresses': (settings.filter_addresses, self._filter_addresses),
@@ -156,6 +241,7 @@ class PHIFilter:
             def __init__(self, src):
                 self.filter_ssn = getattr(src, 'filter_ssn', True)
                 self.filter_phone = getattr(src, 'filter_phone', True)
+                self.filter_email = getattr(src, 'filter_email', True)
                 self.filter_mrn = getattr(src, 'filter_mrn', True)
                 self.filter_insurance = getattr(src, 'filter_insurance', True)
                 self.filter_addresses = getattr(src, 'filter_addresses', True)
@@ -225,6 +311,31 @@ class PHIFilter:
             for match in reversed(matches):
                 if not self._is_protected(match.start(), match.end(), protected_spans):
                     text = text[:match.start()] + '[PHONE REDACTED]' + text[match.end():]
+        return text
+    
+    def _filter_email(self, text, protected_spans):
+        """Filter email addresses"""
+        for pattern in self.phi_patterns['email']:
+            matches = list(re.finditer(pattern, text))
+            for match in reversed(matches):
+                if not self._is_protected(match.start(), match.end(), protected_spans):
+                    text = text[:match.start()] + '[EMAIL REDACTED]' + text[match.end():]
+        return text
+    
+    def _filter_json_phi(self, text, protected_spans):
+        """Filter PHI values in JSON key-value pairs
+        
+        Detects JSON patterns like "Name":"John Smith" and redacts the value
+        while preserving the key structure.
+        """
+        for pattern in self.json_phi_keys:
+            matches = list(re.finditer(pattern, text, re.IGNORECASE))
+            for match in reversed(matches):
+                if not self._is_protected(match.start(), match.end(), protected_spans):
+                    full_match = match.group(0)
+                    value = match.group(1)
+                    redacted = full_match.replace(f'"{value}"', '"[PHI REDACTED]"')
+                    text = text[:match.start()] + redacted + text[match.end():]
         return text
     
     def _filter_mrn(self, text, protected_spans):
@@ -299,9 +410,18 @@ class PHIFilter:
         
         protected_spans = self._identify_protected_spans(text)
         
+        # Apply JSON PHI filtering first (always enabled for structured data)
+        json_marker = '[PHI REDACTED]'
+        before_json = filtered_text.count(json_marker)
+        filtered_text = self._filter_json_phi(filtered_text, protected_spans)
+        after_json = filtered_text.count(json_marker)
+        if after_json - before_json > 0:
+            phi_counts['json_phi'] = after_json - before_json
+        
         filter_methods = {
             'ssn': (settings.filter_ssn, self._filter_ssn, '[SSN REDACTED]'),
             'phone': (settings.filter_phone, self._filter_phone, '[PHONE REDACTED]'),
+            'email': (getattr(settings, 'filter_email', True), self._filter_email, '[EMAIL REDACTED]'),
             'mrn': (settings.filter_mrn, self._filter_mrn, '[MRN REDACTED]'),
             'insurance': (settings.filter_insurance, self._filter_insurance, '[INSURANCE REDACTED]'),
             'addresses': (settings.filter_addresses, self._filter_addresses, '[ADDRESS REDACTED]'),
