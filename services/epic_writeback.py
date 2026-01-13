@@ -766,7 +766,16 @@ PREP SHEET CONTENT
         success_count = 0
         failed_count = 0
         
+        # Pre-load patient names for better error reporting
+        from models import Patient
+        patient_map = {}
+        for pid in patient_ids:
+            patient = Patient.query.get(pid)
+            if patient:
+                patient_map[pid] = {'name': patient.name, 'mrn': patient.mrn}
+        
         for patient_id in patient_ids:
+            patient_info = patient_map.get(patient_id, {'name': 'Unknown', 'mrn': 'Unknown'})
             try:
                 # Generate prep sheet HTML
                 prep_result = prep_sheet_generator.generate_prep_sheet(patient_id)
@@ -774,6 +783,8 @@ PREP SHEET CONTENT
                 if not prep_result.get('success'):
                     results.append({
                         'patient_id': patient_id,
+                        'patient_name': patient_info['name'],
+                        'patient_mrn': patient_info['mrn'],
                         'success': False,
                         'error': prep_result.get('error', 'Prep sheet generation failed')
                     })
@@ -801,13 +812,17 @@ PREP SHEET CONTENT
                 
                 results.append({
                     'patient_id': patient_id,
+                    'patient_name': patient_info['name'],
+                    'patient_mrn': patient_info['mrn'],
                     **write_result
                 })
                 
             except Exception as e:
-                self.logger.error(f"Error processing patient {patient_id}: {str(e)}")
+                self.logger.error(f"Error processing patient {patient_id} ({patient_info['name']}): {str(e)}")
                 results.append({
                     'patient_id': patient_id,
+                    'patient_name': patient_info['name'],
+                    'patient_mrn': patient_info['mrn'],
                     'success': False,
                     'error': str(e)
                 })

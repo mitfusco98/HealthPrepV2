@@ -66,25 +66,26 @@ class AppointmentBasedPrioritization:
             # Extract unique patient IDs from appointments
             priority_patient_ids = set([apt.patient_id for apt in upcoming_appointments])
             
-            # Also include patients with non-dormant screenings processed within the window
-            # This ensures reprocessed patients return to dormant after window_days pass
+            # Also include patients with non-dormant screenings processed TODAY ONLY
+            # This ensures manually reprocessed patients appear as priority same-day,
+            # but age out the next day if they don't have an appointment
             # Use timezone-aware local midnight for proper day-boundary calculation
             from utils.date_helpers import get_local_midnight_utc
             org_timezone = self.organization.timezone if self.organization else 'UTC'
             local_midnight_utc = get_local_midnight_utc(org_timezone)
-            window_start = local_midnight_utc - timedelta(days=window_days)
+            today_start = local_midnight_utc  # Today only - since local midnight
             non_dormant_patient_ids = db.session.query(Screening.patient_id).filter(
                 and_(
                     Screening.org_id == self.organization_id,
                     Screening.is_dormant == False,
-                    Screening.last_processed >= window_start
+                    Screening.last_processed >= today_start
                 )
             ).distinct().all()
             non_dormant_patient_ids = set([p[0] for p in non_dormant_patient_ids])
             
             priority_patient_ids = priority_patient_ids.union(non_dormant_patient_ids)
             
-            logger.info(f"Found {len(priority_patient_ids)} priority patients ({len(set([apt.patient_id for apt in upcoming_appointments]))} from appointments, {len(non_dormant_patient_ids)} from recently processed non-dormant screenings)")
+            logger.info(f"Found {len(priority_patient_ids)} priority patients ({len(set([apt.patient_id for apt in upcoming_appointments]))} from appointments, {len(non_dormant_patient_ids)} from today's manually processed screenings)")
             
             return list(priority_patient_ids)
             
@@ -140,6 +141,40 @@ class AppointmentBasedPrioritization:
             
         except Exception as e:
             logger.error(f"Error getting priority patients with appointments: {str(e)}")
+            return []
+    
+    def get_appointment_only_patient_ids(self) -> List[int]:
+        """
+        Get list of patient IDs with appointments only (excluding non-dormant screenings).
+        Used for dormancy marking to avoid circular reference.
+        
+        Returns:
+            List of patient IDs with upcoming appointments
+        """
+        try:
+            if not self.organization.appointment_based_prioritization:
+                return []
+            
+            window_days = self.organization.prioritization_window_days or 14
+            today = date.today()
+            cutoff_date = today + timedelta(days=window_days)
+            
+            upcoming_appointments = Appointment.query.filter(
+                and_(
+                    Appointment.org_id == self.organization_id,
+                    Appointment.appointment_date >= datetime.combine(today, datetime.min.time()),
+                    Appointment.appointment_date <= datetime.combine(cutoff_date, datetime.max.time()),
+                    Appointment.status.in_(['scheduled', 'booked', 'pending', 'arrived'])
+                )
+            ).all()
+            
+            appointment_patient_ids = list(set([apt.patient_id for apt in upcoming_appointments]))
+            logger.info(f"Found {len(appointment_patient_ids)} patients with appointments only")
+            
+            return appointment_patient_ids
+            
+        except Exception as e:
+            logger.error(f"Error getting appointment-only patients: {str(e)}")
             return []
     
     def get_non_scheduled_patients(self, exclude_patient_ids: List[int] = None) -> List[int]:

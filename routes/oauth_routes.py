@@ -1188,7 +1188,13 @@ def epic_status():
             'expires_at_local': None,  # Human-readable local time for display
             'timezone': None,  # Organization's IANA timezone
             'scopes': [],
-            'patient_id': None
+            'patient_id': None,
+            'last_updated': None,  # When token was last updated (UTC ISO)
+            'last_updated_local': None,  # Human-readable local time
+            'created_at': None,  # When token was first created (initial auth)
+            'created_at_local': None,  # Human-readable local time
+            'was_auto_refreshed': False,  # True if updated_at > created_at (auto-refresh occurred)
+            'needs_reauthorization': False  # True if token is expired and re-auth via Hyperspace is needed
         }
 
         # SECURITY: Only check tokens for current user's organization
@@ -1275,6 +1281,23 @@ def epic_status():
                 status['expired'] = epic_creds.is_expired if hasattr(epic_creds, 'is_expired') else (
                     epic_creds.token_expires_at and datetime.utcnow() >= epic_creds.token_expires_at
                 )
+            
+            # Add token refresh tracking information
+            if epic_creds.created_at:
+                status['created_at'] = normalize_to_utc_iso(epic_creds.created_at)
+                status['created_at_local'] = convert_to_local_time(epic_creds.created_at, org_timezone)
+            if epic_creds.updated_at:
+                status['last_updated'] = normalize_to_utc_iso(epic_creds.updated_at)
+                status['last_updated_local'] = convert_to_local_time(epic_creds.updated_at, org_timezone)
+            
+            # Detect auto-refresh: updated_at significantly after created_at indicates token was refreshed
+            # (more than 5 minutes difference to account for minor timing variations)
+            if epic_creds.created_at and epic_creds.updated_at:
+                time_diff = (epic_creds.updated_at - epic_creds.created_at).total_seconds()
+                status['was_auto_refreshed'] = time_diff > 300  # More than 5 minutes = auto-refreshed
+            
+            # Indicate if re-authorization via Hyperspace is needed
+            status['needs_reauthorization'] = status['expired']
         else:
             # SECURITY: Always check session token organization before using
             session_org_id = session.get('epic_org_id')

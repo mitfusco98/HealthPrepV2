@@ -534,6 +534,62 @@ def bulk_generate_to_epic():
                 'error': 'No patients found in appointment window'
             }), 400
         
+        # Filter out SAMPLE/test patients that don't have real Epic patient IDs
+        # Batch query to avoid N+1 database hits
+        from models import Patient
+        patients = Patient.query.filter(Patient.id.in_(patient_ids)).all()
+        patient_lookup = {p.id: p for p in patients}
+        
+        filtered_patient_ids = []
+        skipped_patients = []
+        for pid in patient_ids:
+            patient = patient_lookup.get(pid)
+            if not patient:
+                skipped_patients.append({
+                    'patient_id': pid,
+                    'name': 'Unknown',
+                    'mrn': 'Unknown',
+                    'reason': 'Patient not found'
+                })
+                continue
+            
+            # Skip patients with SAMPLE MRN (only if MRN explicitly starts with SAMPLE)
+            is_sample = patient.mrn and patient.mrn.upper().startswith('SAMPLE')
+            # Skip patients missing Epic patient ID (required for Epic write-back)
+            has_epic_id = patient.epic_patient_id and len(patient.epic_patient_id) > 0
+            
+            if is_sample:
+                skipped_patients.append({
+                    'patient_id': pid,
+                    'name': patient.name or 'Unknown',
+                    'mrn': patient.mrn or 'None',
+                    'reason': 'Sample/test patient'
+                })
+            elif not has_epic_id:
+                skipped_patients.append({
+                    'patient_id': pid,
+                    'name': patient.name or 'Unknown',
+                    'mrn': patient.mrn or 'None',
+                    'reason': 'No Epic patient ID'
+                })
+            else:
+                filtered_patient_ids.append(pid)
+        
+        if not filtered_patient_ids:
+            # Return success with 0 processed, not an error - allows UI to show skipped details
+            return jsonify({
+                'success': True,
+                'message': f'No eligible patients to process. {len(skipped_patients)} patients skipped (sample/test or missing Epic ID).',
+                'success_count': 0,
+                'failed_count': 0,
+                'total': 0,
+                'skipped_count': len(skipped_patients),
+                'results': [],
+                'skipped': skipped_patients
+            })
+        
+        patient_ids = filtered_patient_ids
+        
         # Bulk write to Epic
         epic_service = EpicWriteBackService(current_user.org_id)
         generator = PrepSheetGenerator()
@@ -550,7 +606,9 @@ def bulk_generate_to_epic():
             'success_count': result['success_count'],
             'failed_count': result['failed_count'],
             'total': result['total'],
-            'results': result['results']
+            'skipped_count': len(skipped_patients),
+            'results': result['results'],
+            'skipped': skipped_patients
         })
         
     except Exception as e:

@@ -746,18 +746,25 @@ function updateHyperspaceIndicator() {
         } else if (data.connected && !data.expired) {
             hyperspaceBadge.className = 'badge bg-success';
             hyperspaceBadge.textContent = 'Authorized';
+            let refreshInfo = '';
+            if (data.was_auto_refreshed) {
+                refreshInfo = `<br><span class="text-info"><i class="fas fa-sync-alt me-1"></i>Token auto-refreshed: ${data.last_updated_local || 'Unknown'}</span>`;
+            }
             hyperspaceMessage.innerHTML = `
                 ✅ Epic Hyperspace authorization approved and active<br>
                 <small class="text-muted">
                     Scopes: ${data.scopes && data.scopes.length > 0 ? data.scopes.join(', ') : 'None'}<br>
-                    ${data.expires_at_local ? 'Expires: ' + data.expires_at_local : ''}
+                    ${data.expires_at_local ? 'Token expires: ' + data.expires_at_local : ''}
+                    ${data.created_at_local ? '<br>First authorized: ' + data.created_at_local : ''}
+                    ${refreshInfo}
                 </small>
             `;
         } else if (data.connected && data.expired) {
             hyperspaceBadge.className = 'badge bg-warning';
-            hyperspaceBadge.textContent = 'Expired';
-            hyperspaceMessage.innerHTML = `⚠️ Epic Hyperspace authorization has expired. Please re-authorize.
-                ${data.expires_at_local ? '<br><small class="text-muted">Expired at: ' + data.expires_at_local + '</small>' : ''}`;
+            hyperspaceBadge.textContent = 'Re-auth Required';
+            hyperspaceMessage.innerHTML = `⚠️ Epic Hyperspace authorization has expired. Please re-authorize via Hyperspace.
+                ${data.expires_at_local ? '<br><small class="text-muted">Expired at: ' + data.expires_at_local + '</small>' : ''}
+                ${data.was_auto_refreshed ? '<br><small class="text-info">Last auto-refresh: ' + (data.last_updated_local || 'Unknown') + '</small>' : ''}`;
         } else {
             hyperspaceBadge.className = 'badge bg-secondary';
             hyperspaceBadge.textContent = 'Not Authorized';
@@ -810,14 +817,20 @@ function checkOAuthStatus() {
             message.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>Error: ' + data.error;
         } else if (data.connected) {
             result.className = 'connection-status success';
-            const expiredText = data.expired ? ' <span class="text-warning">(Token Expired)</span>' : '';
+            const expiredText = data.expired ? ' <span class="text-warning">(Re-auth Required via Hyperspace)</span>' : '';
             const scopes = data.scopes && data.scopes.length > 0 ? data.scopes.join(', ') : 'None';
+            let refreshInfo = '';
+            if (data.was_auto_refreshed) {
+                refreshInfo = `<br><span class="text-info"><i class="fas fa-sync-alt me-1"></i><strong>Last auto-refresh:</strong> ${data.last_updated_local || 'Unknown'}</span>`;
+            }
             message.innerHTML = `
                 <i class="fas fa-check-circle me-1"></i>
                 <strong>OAuth Status: Connected${expiredText}</strong><br>
                 <small>
                     <strong>Scopes:</strong> ${scopes}<br>
-                    ${data.expires_at_local ? '<strong>Expires:</strong> ' + data.expires_at_local : ''}
+                    ${data.expires_at_local ? '<strong>Token expires:</strong> ' + data.expires_at_local : ''}
+                    ${data.created_at_local ? '<br><strong>First authorized:</strong> ' + data.created_at_local : ''}
+                    ${refreshInfo}
                     ${data.patient_id ? '<br><strong>Patient ID:</strong> ' + data.patient_id : ''}
                 </small>
             `;

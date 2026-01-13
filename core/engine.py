@@ -110,11 +110,15 @@ class ScreeningEngine:
                             for patient_id in all_non_scheduled:
                                 self._mark_patient_screenings_dormancy(patient_id, is_dormant=False)
                         else:
-                            # Mark non-scheduled patients as dormant (stale data)
+                            # Mark patients without appointments AND not processed today as dormant (stale data)
+                            # Exclude both appointment patients AND same-day non-dormant patients
+                            # This ensures manually reprocessed patients stay active for the same day
+                            # but age out the next day if they don't have an appointment
+                            # priority_patient_ids already includes both: appointments + today's non-dormant
                             non_scheduled_ids = prioritization_service.get_non_scheduled_patients(
                                 exclude_patient_ids=priority_patient_ids
                             )
-                            self.logger.info(f"Marking {len(non_scheduled_ids)} non-scheduled patients as dormant (process_non_scheduled_patients is disabled)")
+                            self.logger.info(f"Marking {len(non_scheduled_ids)} patients (no appointments, not processed today) as dormant (process_non_scheduled_patients is disabled)")
                             for patient_id in non_scheduled_ids:
                                 self._mark_patient_screenings_dormancy(patient_id, is_dormant=True)
                     else:
