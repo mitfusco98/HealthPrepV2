@@ -1010,8 +1010,8 @@ class ComprehensiveEMRSync:
             # Extract content type from document metadata
             content_type = self._extract_content_type(document_resource)
             
-            # Download document content
-            doc_content = self._download_document_content(document_resource)
+            # Download document content (returns tuple: content, error_info)
+            doc_content, download_error = self._download_document_content(document_resource)
             
             if doc_content:
                 sub_actions['content_downloaded'] = True
@@ -1083,6 +1083,19 @@ class ComprehensiveEMRSync:
             
             # Log consolidated document_processing_complete event (FAILED - no content/text)
             processing_duration = (datetime.now() - processing_start).total_seconds()
+            
+            # Build error details from download_error if available
+            if download_error:
+                error_type = download_error.get('error_type', 'unknown')
+                error_message = download_error.get('message', 'No content downloaded or text extracted')
+                status_code = download_error.get('status_code')
+                action_details = f'Document processing failed: {error_message}'
+            else:
+                error_type = 'no_text_extracted'
+                error_message = 'No text extracted from document content'
+                status_code = None
+                action_details = 'Document processing failed: No content or text extracted'
+            
             log_admin_event(
                 event_type='document_processing_complete',
                 user_id=None,
@@ -1091,13 +1104,15 @@ class ComprehensiveEMRSync:
                 patient_id=patient.id,
                 resource_type='fhir_document',
                 resource_id=None,
-                action_details=f'Document processing failed: No content or text extracted',
+                action_details=action_details,
                 data={
                     'status': 'failed',
                     'epic_document_id': epic_document_id,
                     'document_type': title,
                     'sub_actions': sub_actions,
-                    'error': 'No content downloaded or text extracted',
+                    'error': error_message,
+                    'error_type': error_type,
+                    'http_status_code': status_code,
                     'processing_duration_seconds': round(processing_duration, 2),
                     'processed_at': datetime.now().isoformat()
                 }
@@ -1134,8 +1149,14 @@ class ComprehensiveEMRSync:
             
             return False
     
-    def _download_document_content(self, document_resource: Dict) -> Optional[bytes]:
-        """Download document content from Epic FHIR API"""
+    def _download_document_content(self, document_resource: Dict) -> tuple:
+        """Download document content from Epic FHIR API
+        
+        Returns:
+            tuple: (content: bytes or None, error_info: dict or None)
+            - On success: (content_bytes, None)
+            - On failure: (None, {'error_type': str, 'status_code': int or None, 'message': str})
+        """
         try:
             # Get document content URL or attachment
             content = document_resource.get('content', [])
@@ -1146,18 +1167,27 @@ class ComprehensiveEMRSync:
                 # Check for direct data
                 if 'data' in attachment:
                     import base64
-                    return base64.b64decode(attachment['data'])
+                    return base64.b64decode(attachment['data']), None
                 
                 # Check for URL
                 elif 'url' in attachment:
-                    # Download from URL using FHIR client
+                    # Download from URL using FHIR client (returns tuple)
                     return self.epic_service.fhir_client.download_binary(attachment['url'])
             
-            return None
+            # No content or URL found in document
+            return None, {
+                'error_type': 'no_content_url',
+                'status_code': None,
+                'message': 'Document has no downloadable content or URL'
+            }
             
         except Exception as e:
             logger.error(f"Error downloading document content: {str(e)}")
-            return None
+            return None, {
+                'error_type': 'download_exception',
+                'status_code': None,
+                'message': str(e)
+            }
     
     def _extract_encounter_date(self, encounter_resource: Dict) -> Optional[datetime]:
         """Extract encounter date"""

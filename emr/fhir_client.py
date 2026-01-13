@@ -765,6 +765,11 @@ class FHIRClient:
         """
         Download binary content from Epic FHIR Binary resource
         Epic returns Binary resources as JSON with base64-encoded data field
+        
+        Returns:
+            tuple: (content: bytes or None, error_info: dict or None)
+            - On success: (content_bytes, None)
+            - On failure: (None, {'error_type': str, 'status_code': int, 'message': str})
         """
         try:
             # Handle relative URLs by prepending base URL if needed
@@ -785,7 +790,48 @@ class FHIRClient:
             headers['Accept'] = 'application/fhir+json'
             
             response = requests.get(url, headers=headers)
-            response.raise_for_status()
+            
+            # Categorize HTTP errors
+            if response.status_code in (401, 403):
+                error_info = {
+                    'error_type': 'token_expired',
+                    'status_code': response.status_code,
+                    'message': 'Access token expired or unauthorized'
+                }
+                self.logger.warning(f"Token expired/unauthorized downloading binary from {binary_url}: HTTP {response.status_code}")
+                return None, error_info
+            elif response.status_code == 404:
+                error_info = {
+                    'error_type': 'not_found',
+                    'status_code': 404,
+                    'message': 'Document not found in Epic'
+                }
+                self.logger.warning(f"Document not found at {binary_url}: HTTP 404")
+                return None, error_info
+            elif response.status_code == 429:
+                error_info = {
+                    'error_type': 'rate_limited',
+                    'status_code': 429,
+                    'message': 'Epic rate limit exceeded'
+                }
+                self.logger.warning(f"Rate limited downloading binary from {binary_url}")
+                return None, error_info
+            elif response.status_code >= 500:
+                error_info = {
+                    'error_type': 'epic_server_error',
+                    'status_code': response.status_code,
+                    'message': f'Epic server error: HTTP {response.status_code}'
+                }
+                self.logger.error(f"Epic server error downloading binary from {binary_url}: HTTP {response.status_code}")
+                return None, error_info
+            elif response.status_code >= 400:
+                error_info = {
+                    'error_type': 'request_error',
+                    'status_code': response.status_code,
+                    'message': f'Request error: HTTP {response.status_code}'
+                }
+                self.logger.warning(f"Request error downloading binary from {binary_url}: HTTP {response.status_code}")
+                return None, error_info
             
             # Epic returns Binary as JSON: {"resourceType":"Binary","data":"base64...","contentType":"..."}
             try:
@@ -795,19 +841,40 @@ class FHIRClient:
                     import base64
                     decoded_content = base64.b64decode(binary_resource['data'])
                     self.logger.debug(f"Successfully decoded Binary resource, content type: {binary_resource.get('contentType')}")
-                    return decoded_content
+                    return decoded_content, None
                 else:
                     # Fallback: return raw content if not a proper Binary resource
                     self.logger.warning(f"Binary response is not in expected format: {binary_resource.get('resourceType')}")
-                    return response.content
+                    return response.content, None
             except ValueError:
                 # Not JSON, return raw bytes
                 self.logger.debug("Binary response is not JSON, returning raw content")
-                return response.content
+                return response.content, None
             
+        except requests.exceptions.Timeout:
+            error_info = {
+                'error_type': 'timeout',
+                'status_code': None,
+                'message': 'Request timed out connecting to Epic'
+            }
+            self.logger.error(f"Timeout downloading binary from {binary_url}")
+            return None, error_info
+        except requests.exceptions.ConnectionError:
+            error_info = {
+                'error_type': 'network_error',
+                'status_code': None,
+                'message': 'Network error connecting to Epic'
+            }
+            self.logger.error(f"Network error downloading binary from {binary_url}")
+            return None, error_info
         except Exception as e:
+            error_info = {
+                'error_type': 'unknown',
+                'status_code': None,
+                'message': str(e)
+            }
             self.logger.error(f"Error downloading binary from {binary_url}: {str(e)}")
-            return None
+            return None, error_info
     
     def get_diagnostic_reports(self, patient_id, category=None, date_from=None):
         """Get diagnostic reports for a patient"""

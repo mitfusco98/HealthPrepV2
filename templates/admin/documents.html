@@ -226,7 +226,41 @@
                                         {% if log.data.get('status') == 'success' %}
                                         <span class="badge bg-success"><i class="fas fa-check me-1"></i>Success</span>
                                         {% else %}
+                                        {% set error_type = log.data.get('error_type', 'unknown') %}
                                         <span class="badge bg-danger"><i class="fas fa-times me-1"></i>Failed</span>
+                                        {% if error_type == 'token_expired' %}
+                                        <span class="badge bg-warning text-dark ms-1" title="Epic access token expired - re-authentication needed">
+                                            <i class="fas fa-key"></i> Token Expired
+                                        </span>
+                                        {% elif error_type == 'not_found' %}
+                                        <span class="badge bg-secondary ms-1" title="Document not found in Epic">
+                                            <i class="fas fa-file-excel"></i> Not Found
+                                        </span>
+                                        {% elif error_type == 'rate_limited' %}
+                                        <span class="badge bg-info ms-1" title="Epic rate limit - will retry">
+                                            <i class="fas fa-hourglass-half"></i> Rate Limited
+                                        </span>
+                                        {% elif error_type == 'network_error' %}
+                                        <span class="badge bg-secondary ms-1" title="Network error connecting to Epic">
+                                            <i class="fas fa-wifi"></i> Network
+                                        </span>
+                                        {% elif error_type == 'timeout' %}
+                                        <span class="badge bg-secondary ms-1" title="Request timed out">
+                                            <i class="fas fa-clock"></i> Timeout
+                                        </span>
+                                        {% elif error_type == 'no_content_url' %}
+                                        <span class="badge bg-secondary ms-1" title="No downloadable content">
+                                            <i class="fas fa-file"></i> No Content
+                                        </span>
+                                        {% elif error_type == 'epic_server_error' %}
+                                        <span class="badge bg-secondary ms-1" title="Epic server error">
+                                            <i class="fas fa-server"></i> Server Error
+                                        </span>
+                                        {% elif error_type in ['request_error', 'download_exception', 'unknown'] %}
+                                        <span class="badge bg-secondary ms-1" title="Processing error">
+                                            <i class="fas fa-exclamation-circle"></i> Error
+                                        </span>
+                                        {% endif %}
                                         {% endif %}
                                     {% elif log.event_type == 'phi_filtered' %}
                                         <span class="badge bg-success"><i class="fas fa-shield-alt me-1"></i>Applied</span>

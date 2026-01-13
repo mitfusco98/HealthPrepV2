@@ -195,7 +195,33 @@
         {% if log.data.get('error') %}
         <div class="alert alert-danger mt-3 mb-0">
             <i class="fas fa-exclamation-triangle me-1"></i>
+            {% set error_type = log.data.get('error_type', 'unknown') %}
+            {% if error_type == 'token_expired' %}
+            <strong>Access Token Expired:</strong> The Epic connection token has expired. Please re-authenticate with Epic to continue syncing documents.
+            <span class="badge bg-warning text-dark ms-2">HTTP {{ log.data.get('http_status_code', 'N/A') }}</span>
+            {% elif error_type == 'not_found' %}
+            <strong>Document Not Found:</strong> This document was not accessible in Epic (may have been removed or is restricted).
+            {% elif error_type == 'rate_limited' %}
+            <strong>Rate Limited:</strong> Epic rate limit exceeded. The system will retry automatically.
+            {% elif error_type == 'epic_server_error' %}
+            <strong>Epic Server Error:</strong> Epic's server returned an error. This is usually temporary.
+            <span class="badge bg-secondary ms-2">HTTP {{ log.data.get('http_status_code', 'N/A') }}</span>
+            {% elif error_type == 'network_error' %}
+            <strong>Network Error:</strong> Could not connect to Epic. Please check network connectivity.
+            {% elif error_type == 'timeout' %}
+            <strong>Timeout:</strong> The request to Epic timed out. The system will retry automatically.
+            {% elif error_type == 'no_content_url' %}
+            <strong>No Content Available:</strong> This document reference has no downloadable content in Epic.
+            {% elif error_type == 'no_text_extracted' %}
+            <strong>Text Extraction Failed:</strong> Document was downloaded but no text could be extracted (may be an unsupported format).
+            {% elif error_type == 'request_error' %}
+            <strong>Request Error:</strong> The request to Epic failed with an unexpected error.
+            <span class="badge bg-secondary ms-2">HTTP {{ log.data.get('http_status_code', 'N/A') }}</span>
+            {% elif error_type == 'download_exception' %}
+            <strong>Download Error:</strong> An unexpected error occurred while downloading the document.
+            {% else %}
             <strong>Error:</strong> {{ log.data.get('error') }}
+            {% endif %}
         </div>
         {% endif %}
         

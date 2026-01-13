@@ -106,9 +106,38 @@
                                 </div>
                             </td>
                             <td>
-                                <span class="badge bg-primary">
-                                    {{ log.event_type.replace('_', ' ').title() if log.event_type else 'Unknown' }}
-                                </span>
+                                {% if log.event_type == 'document_processing_complete' and log.data %}
+                                    {% set status = log.data.get('status', 'unknown') %}
+                                    {% set error_type = log.data.get('error_type', '') %}
+                                    <span class="badge {% if status == 'success' %}bg-success{% else %}bg-danger{% endif %}">
+                                        {{ log.event_type.replace('_', ' ').title() }}
+                                    </span>
+                                    {% if status == 'failed' and error_type == 'token_expired' %}
+                                    <span class="badge bg-warning text-dark ms-1" title="Access token expired">
+                                        <i class="fas fa-key"></i>
+                                    </span>
+                                    {% elif status == 'failed' and error_type == 'not_found' %}
+                                    <span class="badge bg-secondary ms-1" title="Document not found">
+                                        <i class="fas fa-file-excel"></i>
+                                    </span>
+                                    {% elif status == 'failed' and error_type == 'rate_limited' %}
+                                    <span class="badge bg-info ms-1" title="Rate limited">
+                                        <i class="fas fa-hourglass-half"></i>
+                                    </span>
+                                    {% elif status == 'failed' and error_type == 'epic_server_error' %}
+                                    <span class="badge bg-secondary ms-1" title="Epic server error">
+                                        <i class="fas fa-server"></i>
+                                    </span>
+                                    {% elif status == 'failed' and error_type in ['network_error', 'timeout'] %}
+                                    <span class="badge bg-secondary ms-1" title="Connection issue">
+                                        <i class="fas fa-wifi"></i>
+                                    </span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-primary">
+                                        {{ log.event_type.replace('_', ' ').title() if log.event_type else 'Unknown' }}
+                                    </span>
+                                {% endif %}
                             </td>
                             <td>
                                 {% if log.user %}
