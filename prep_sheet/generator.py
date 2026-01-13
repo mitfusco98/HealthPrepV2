@@ -201,11 +201,39 @@ class PrepSheetGenerator:
         consults_keywords = settings.get_consults_keywords_list()
         hospital_keywords = settings.get_hospital_keywords_list()
         
+        # Get data from each helper (they now include is_fallback)
+        labs_data = self._get_enhanced_lab_data(patient_id, settings.labs_cutoff_months)
+        imaging_data = self._get_enhanced_imaging_data(patient_id, settings.imaging_cutoff_months)
+        consults_data = self._get_enhanced_consult_data(patient_id, settings.consults_cutoff_months, keywords=consults_keywords)
+        hospital_data = self._get_enhanced_hospital_data(patient_id, settings.hospital_cutoff_months, keywords=hospital_keywords)
+        
+        # Build list of categories using fallback (with user-friendly names)
+        category_name_map = {
+            'labs': 'Labs',
+            'imaging': 'Imaging', 
+            'consults': 'Consults',
+            'hospital': 'Hospital Records'
+        }
+        
+        encounter_fallback_categories = []
+        if labs_data.get('is_fallback'):
+            encounter_fallback_categories.append(category_name_map['labs'])
+        if imaging_data.get('is_fallback'):
+            encounter_fallback_categories.append(category_name_map['imaging'])
+        if consults_data.get('is_fallback'):
+            encounter_fallback_categories.append(category_name_map['consults'])
+        if hospital_data.get('is_fallback'):
+            encounter_fallback_categories.append(category_name_map['hospital'])
+        
+        encounter_fallback_used = len(encounter_fallback_categories) > 0
+        
         enhanced_data = {
-            'laboratories': self._get_enhanced_lab_data(patient_id, settings.labs_cutoff_months),
-            'imaging': self._get_enhanced_imaging_data(patient_id, settings.imaging_cutoff_months),
-            'consults': self._get_enhanced_consult_data(patient_id, settings.consults_cutoff_months, keywords=consults_keywords),
-            'hospital_visits': self._get_enhanced_hospital_data(patient_id, settings.hospital_cutoff_months, keywords=hospital_keywords)
+            'laboratories': labs_data,
+            'imaging': imaging_data,
+            'consults': consults_data,
+            'hospital_visits': hospital_data,
+            'encounter_fallback_used': encounter_fallback_used,
+            'encounter_fallback_categories': encounter_fallback_categories
         }
         
         return enhanced_data
@@ -310,67 +338,101 @@ class PrepSheetGenerator:
     
     def _get_enhanced_lab_data(self, patient_id, cutoff_months):
         """Get enhanced lab data with filtering based on prep sheet settings"""
-        cutoff_date = self._calculate_cutoff_date(cutoff_months, patient_id)
+        cutoff_date, is_fallback = self._calculate_cutoff_date(cutoff_months, patient_id, return_fallback_info=True)
         lab_docs = self._get_documents_by_type(patient_id, 'lab', cutoff_date)
         
-        cutoff_description = "To Last Encounter" if cutoff_months == 0 else f"Last {cutoff_months} months"
+        if is_fallback:
+            cutoff_description = "Last 6 months (no prior encounter)"
+        elif cutoff_months == 0:
+            cutoff_description = "To Last Encounter"
+        else:
+            cutoff_description = f"Last {cutoff_months} months"
         
         return {
             'documents': lab_docs,
             'cutoff_period': cutoff_description,
             'document_count': len(lab_docs),
-            'most_recent': lab_docs[0] if lab_docs else None
+            'most_recent': lab_docs[0] if lab_docs else None,
+            'is_fallback': is_fallback
         }
     
     def _get_enhanced_imaging_data(self, patient_id, cutoff_months):
         """Get enhanced imaging data with filtering based on prep sheet settings"""
-        cutoff_date = self._calculate_cutoff_date(cutoff_months, patient_id)
+        cutoff_date, is_fallback = self._calculate_cutoff_date(cutoff_months, patient_id, return_fallback_info=True)
         imaging_docs = self._get_documents_by_type(patient_id, 'imaging', cutoff_date)
         
-        cutoff_description = "To Last Encounter" if cutoff_months == 0 else f"Last {cutoff_months} months"
+        if is_fallback:
+            cutoff_description = "Last 6 months (no prior encounter)"
+        elif cutoff_months == 0:
+            cutoff_description = "To Last Encounter"
+        else:
+            cutoff_description = f"Last {cutoff_months} months"
         
         return {
             'documents': imaging_docs,
             'cutoff_period': cutoff_description,
             'document_count': len(imaging_docs),
-            'most_recent': imaging_docs[0] if imaging_docs else None
+            'most_recent': imaging_docs[0] if imaging_docs else None,
+            'is_fallback': is_fallback
         }
     
     def _get_enhanced_consult_data(self, patient_id, cutoff_months, keywords=None):
         """Get enhanced consult data with filtering based on prep sheet settings"""
-        cutoff_date = self._calculate_cutoff_date(cutoff_months, patient_id)
+        cutoff_date, is_fallback = self._calculate_cutoff_date(cutoff_months, patient_id, return_fallback_info=True)
         consult_docs = self._get_documents_by_type(patient_id, 'consult', cutoff_date, keywords=keywords)
         
-        cutoff_description = "To Last Encounter" if cutoff_months == 0 else f"Last {cutoff_months} months"
+        if is_fallback:
+            cutoff_description = "Last 6 months (no prior encounter)"
+        elif cutoff_months == 0:
+            cutoff_description = "To Last Encounter"
+        else:
+            cutoff_description = f"Last {cutoff_months} months"
         
         return {
             'documents': consult_docs,
             'cutoff_period': cutoff_description,
             'document_count': len(consult_docs),
-            'most_recent': consult_docs[0] if consult_docs else None
+            'most_recent': consult_docs[0] if consult_docs else None,
+            'is_fallback': is_fallback
         }
     
     def _get_enhanced_hospital_data(self, patient_id, cutoff_months, keywords=None):
         """Get enhanced hospital data with filtering based on prep sheet settings"""
-        cutoff_date = self._calculate_cutoff_date(cutoff_months, patient_id)
+        cutoff_date, is_fallback = self._calculate_cutoff_date(cutoff_months, patient_id, return_fallback_info=True)
         hospital_docs = self._get_documents_by_type(patient_id, 'hospital', cutoff_date, keywords=keywords)
         
-        cutoff_description = "To Last Encounter" if cutoff_months == 0 else f"Last {cutoff_months} months"
+        if is_fallback:
+            cutoff_description = "Last 6 months (no prior encounter)"
+        elif cutoff_months == 0:
+            cutoff_description = "To Last Encounter"
+        else:
+            cutoff_description = f"Last {cutoff_months} months"
         
         return {
             'documents': hospital_docs,
             'cutoff_period': cutoff_description,
             'document_count': len(hospital_docs),
-            'most_recent': hospital_docs[0] if hospital_docs else None
+            'most_recent': hospital_docs[0] if hospital_docs else None,
+            'is_fallback': is_fallback
         }
     
-    def _calculate_cutoff_date(self, months, patient_id=None):
+    def _calculate_cutoff_date(self, months, patient_id=None, return_fallback_info=False):
         """
         Calculate cutoff date based on prep sheet settings
         
         If months = 0, use "To Last Encounter" logic (most recent completed visit before today)
         Otherwise, use months from today
+        
+        Args:
+            months: Number of months for cutoff (0 = To Last Encounter)
+            patient_id: Patient ID for encounter lookup
+            return_fallback_info: If True, returns (date, is_fallback) tuple
+        
+        Returns:
+            date or (date, is_fallback) tuple if return_fallback_info=True
         """
+        is_fallback = False
+        
         if months == 0:
             # "To Last Encounter" mode - find most recent completed encounter before today
             if patient_id:
@@ -378,14 +440,18 @@ class PrepSheetGenerator:
                 if patient and patient.last_completed_encounter_at:
                     encounter_date = patient.last_completed_encounter_at
                     self.logger.info(f"Using last_completed_encounter_at ({encounter_date}) for patient {patient_id}")
-                    return encounter_date.date() if hasattr(encounter_date, 'date') else encounter_date
+                    cutoff = encounter_date.date() if hasattr(encounter_date, 'date') else encounter_date
+                    return (cutoff, False) if return_fallback_info else cutoff
             
             # Fallback to 6 months if no encounters found
             self.logger.warning(f"No completed encounters found for patient {patient_id}, using 6-month fallback")
-            return date.today() - relativedelta(months=6)
+            is_fallback = True
+            cutoff = date.today() - relativedelta(months=6)
         else:
             # Standard months-based cutoff
-            return date.today() - relativedelta(months=months)
+            cutoff = date.today() - relativedelta(months=months)
+        
+        return (cutoff, is_fallback) if return_fallback_info else cutoff
     
     def _get_prep_settings(self, org_id=None):
         """Get prep sheet settings for organization"""

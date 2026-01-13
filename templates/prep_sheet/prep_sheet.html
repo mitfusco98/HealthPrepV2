@@ -168,6 +168,20 @@
         </div>
     </div>
 
+    <!-- Encounter Fallback Notice -->
+    {% if prep_sheet.content and prep_sheet.content.enhanced_data and prep_sheet.content.enhanced_data.encounter_fallback_used %}
+    <div class="alert alert-info mb-4" role="alert">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Note:</strong> No prior encounters found for this patient. 
+        {% if prep_sheet.content.enhanced_data.encounter_fallback_categories %}
+        Data for {{ prep_sheet.content.enhanced_data.encounter_fallback_categories|join(', ') }} 
+        is showing the last 6 months instead of "To Last Encounter".
+        {% else %}
+        Some data categories are showing the last 6 months instead of "To Last Encounter".
+        {% endif %}
+    </div>
+    {% endif %}
+
     <!-- Prep Sheet Content -->
     <div class="card">
         <div class="card-body">
