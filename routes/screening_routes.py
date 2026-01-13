@@ -323,8 +323,8 @@ def screening_list():
                 (appointment_prioritization_enabled and s.last_processed and s.last_processed < window_cutoff)
             )
         
-        # Calculate priority patient count on current page
-        priority_count_on_page = sum(1 for s in screenings if s.patient_id in priority_patient_ids) if appointment_prioritization_enabled else 0
+        # Calculate priority patient count on current page (count unique patients, not screenings)
+        priority_count_on_page = len(set(s.patient_id for s in screenings if s.patient_id in priority_patient_ids)) if appointment_prioritization_enabled else 0
 
         # Get filter options - use efficient queries
         patients = Patient.query.filter_by(org_id=current_user.org_id).order_by(Patient.name).all()
