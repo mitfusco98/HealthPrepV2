@@ -55,8 +55,8 @@
                         <button type="button" class="btn btn-outline-success btn-sm" onclick="applyPreset('extended')">
                             <i class="fas fa-clock me-1"></i>Extended (12 months)
                         </button>
-                        <button type="button" class="btn btn-outline-warning btn-sm" onclick="applyPreset('last_appointment')">
-                            <i class="fas fa-user-clock me-1"></i>To Last Appointment
+                        <button type="button" class="btn btn-outline-warning btn-sm" onclick="applyPreset('last_encounter')">
+                            <i class="fas fa-user-clock me-1"></i>To Last Encounter
                         </button>
                     </div>
                 </div>
@@ -180,7 +180,7 @@ function applyPreset(presetName) {
         'conservative': {labs: 3, imaging: 3, consults: 3, hospital: 3},
         'standard': {labs: 6, imaging: 6, consults: 6, hospital: 6},
         'extended': {labs: 12, imaging: 12, consults: 12, hospital: 12},
-        'last_appointment': {labs: 0, imaging: 0, consults: 0, hospital: 0}
+        'last_encounter': {labs: 0, imaging: 0, consults: 0, hospital: 0}
     };
     
     if (presets[presetName]) {
@@ -215,7 +215,7 @@ function updateDescription(fieldName) {
     const description = document.getElementById(fieldName + '-description');
     
     if (value == 0) {
-        description.textContent = 'To Last Appointment';
+        description.textContent = 'To Last Encounter';
         description.parentElement.classList.add('text-warning');
         description.parentElement.classList.remove('text-muted');
     } else if (value == 1) {

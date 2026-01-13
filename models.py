@@ -1059,6 +1059,10 @@ class Patient(db.Model):
     
     # Selective refresh optimization - tracks when patient's documents were last evaluated
     documents_last_evaluated_at = db.Column(db.DateTime, nullable=True)  # When documents were last processed for screenings
+    
+    # Last completed encounter date (for "To Last Encounter" prep sheet cutoffs)
+    # Excludes same-day encounters to ensure prep sheets show documents since previous visit
+    last_completed_encounter_at = db.Column(db.DateTime, nullable=True)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -2846,10 +2850,10 @@ class PrepSheetSettings(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False, index=True)
-    labs_cutoff_months = db.Column(db.Integer, default=12)  # 0 = To Last Appointment
-    imaging_cutoff_months = db.Column(db.Integer, default=12)  # 0 = To Last Appointment
-    consults_cutoff_months = db.Column(db.Integer, default=12)  # 0 = To Last Appointment
-    hospital_cutoff_months = db.Column(db.Integer, default=12)  # 0 = To Last Appointment
+    labs_cutoff_months = db.Column(db.Integer, default=12)  # 0 = To Last Encounter
+    imaging_cutoff_months = db.Column(db.Integer, default=12)  # 0 = To Last Encounter
+    consults_cutoff_months = db.Column(db.Integer, default=12)  # 0 = To Last Encounter
+    hospital_cutoff_months = db.Column(db.Integer, default=12)  # 0 = To Last Encounter
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Built-in keyword filters for document categorization (comma-separated)
@@ -2876,7 +2880,7 @@ class PrepSheetSettings(db.Model):
         """Get human-readable description of cutoff setting"""
         cutoff_value = getattr(self, f'{data_type}_cutoff_months', 0)
         if cutoff_value == 0:
-            return "To Last Appointment"
+            return "To Last Encounter"
         elif cutoff_value == 1:
             return "1 month"
         else:
@@ -2911,7 +2915,7 @@ class PrepSheetSettings(db.Model):
             'conservative': {'labs': 3, 'imaging': 3, 'consults': 3, 'hospital': 3},
             'standard': {'labs': 6, 'imaging': 6, 'consults': 6, 'hospital': 6},
             'extended': {'labs': 12, 'imaging': 12, 'consults': 12, 'hospital': 12},
-            'last_appointment': {'labs': 0, 'imaging': 0, 'consults': 0, 'hospital': 0}
+            'last_encounter': {'labs': 0, 'imaging': 0, 'consults': 0, 'hospital': 0}
         }
 
         if preset_name in presets:

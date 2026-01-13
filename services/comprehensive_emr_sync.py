@@ -1185,10 +1185,39 @@ class ComprehensiveEMRSync:
         return None
     
     def _update_patient_visit_history(self, patient: Patient, encounter_date: datetime, encounter_type: str):
-        """Update patient's visit history for screening calculations"""
-        # This would update a separate patient visit history model
-        # For now, we'll log it
-        logger.info(f"Patient {patient.epic_patient_id} visit: {encounter_type} on {encounter_date}")
+        """Update patient's visit history for screening calculations
+        
+        Stores the most recent completed encounter that occurred BEFORE today
+        (in the organization's local timezone) for "To Last Encounter" prep sheet cutoffs.
+        This ensures prep sheets show documents since the previous visit, not just today's.
+        """
+        from utils.date_helpers import get_local_today
+        
+        if not encounter_date:
+            logger.warning(f"No encounter date for patient {patient.epic_patient_id}")
+            return
+        
+        # Get today in org's local timezone
+        org_timezone = self.organization.timezone if hasattr(self.organization, 'timezone') and self.organization.timezone else 'UTC'
+        local_today = get_local_today(org_timezone)
+        
+        # Get encounter date as date (not datetime)
+        encounter_date_only = encounter_date.date() if hasattr(encounter_date, 'date') else encounter_date
+        
+        # Only store encounters BEFORE today (exclude same-day encounters)
+        if encounter_date_only >= local_today:
+            logger.debug(f"Skipping same-day/future encounter for patient {patient.epic_patient_id} on {encounter_date_only}")
+            return
+        
+        # Update if this is more recent than the current stored encounter
+        if patient.last_completed_encounter_at is None:
+            patient.last_completed_encounter_at = encounter_date
+            logger.info(f"Set last_completed_encounter_at for patient {patient.epic_patient_id} to {encounter_date}")
+        else:
+            current_encounter = patient.last_completed_encounter_at
+            if encounter_date > current_encounter:
+                patient.last_completed_encounter_at = encounter_date
+                logger.info(f"Updated last_completed_encounter_at for patient {patient.epic_patient_id} from {current_encounter} to {encounter_date}")
     
     def _extract_appointment_date(self, appointment_resource: Dict) -> Optional[datetime]:
         """Extract appointment date from FHIR Appointment resource"""

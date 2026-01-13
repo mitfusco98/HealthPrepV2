@@ -313,7 +313,7 @@ class PrepSheetGenerator:
         cutoff_date = self._calculate_cutoff_date(cutoff_months, patient_id)
         lab_docs = self._get_documents_by_type(patient_id, 'lab', cutoff_date)
         
-        cutoff_description = "To Last Appointment" if cutoff_months == 0 else f"Last {cutoff_months} months"
+        cutoff_description = "To Last Encounter" if cutoff_months == 0 else f"Last {cutoff_months} months"
         
         return {
             'documents': lab_docs,
@@ -327,7 +327,7 @@ class PrepSheetGenerator:
         cutoff_date = self._calculate_cutoff_date(cutoff_months, patient_id)
         imaging_docs = self._get_documents_by_type(patient_id, 'imaging', cutoff_date)
         
-        cutoff_description = "To Last Appointment" if cutoff_months == 0 else f"Last {cutoff_months} months"
+        cutoff_description = "To Last Encounter" if cutoff_months == 0 else f"Last {cutoff_months} months"
         
         return {
             'documents': imaging_docs,
@@ -341,7 +341,7 @@ class PrepSheetGenerator:
         cutoff_date = self._calculate_cutoff_date(cutoff_months, patient_id)
         consult_docs = self._get_documents_by_type(patient_id, 'consult', cutoff_date, keywords=keywords)
         
-        cutoff_description = "To Last Appointment" if cutoff_months == 0 else f"Last {cutoff_months} months"
+        cutoff_description = "To Last Encounter" if cutoff_months == 0 else f"Last {cutoff_months} months"
         
         return {
             'documents': consult_docs,
@@ -355,7 +355,7 @@ class PrepSheetGenerator:
         cutoff_date = self._calculate_cutoff_date(cutoff_months, patient_id)
         hospital_docs = self._get_documents_by_type(patient_id, 'hospital', cutoff_date, keywords=keywords)
         
-        cutoff_description = "To Last Appointment" if cutoff_months == 0 else f"Last {cutoff_months} months"
+        cutoff_description = "To Last Encounter" if cutoff_months == 0 else f"Last {cutoff_months} months"
         
         return {
             'documents': hospital_docs,
@@ -368,22 +368,20 @@ class PrepSheetGenerator:
         """
         Calculate cutoff date based on prep sheet settings
         
-        If months = 0, use "To Last Appointment" logic
+        If months = 0, use "To Last Encounter" logic (most recent completed visit before today)
         Otherwise, use months from today
         """
         if months == 0:
-            # "To Last Appointment" mode - find most recent completed appointment
+            # "To Last Encounter" mode - find most recent completed encounter before today
             if patient_id:
-                last_appointment = Appointment.query.filter_by(
-                    patient_id=patient_id,
-                    status='completed'
-                ).order_by(Appointment.appointment_date.desc()).first()
-                
-                if last_appointment:
-                    return last_appointment.appointment_date.date() if hasattr(last_appointment.appointment_date, 'date') else last_appointment.appointment_date
+                patient = Patient.query.get(patient_id)
+                if patient and patient.last_completed_encounter_at:
+                    encounter_date = patient.last_completed_encounter_at
+                    self.logger.info(f"Using last_completed_encounter_at ({encounter_date}) for patient {patient_id}")
+                    return encounter_date.date() if hasattr(encounter_date, 'date') else encounter_date
             
-            # Fallback to 6 months if no appointments found
-            self.logger.warning(f"No completed appointments found for patient {patient_id}, using 6-month fallback")
+            # Fallback to 6 months if no encounters found
+            self.logger.warning(f"No completed encounters found for patient {patient_id}, using 6-month fallback")
             return date.today() - relativedelta(months=6)
         else:
             # Standard months-based cutoff

@@ -139,19 +139,19 @@ class PrepSheetSettingsForm(FlaskForm):
     labs_cutoff_months = IntegerField('Laboratory Results',
                                      validators=[DataRequired(), NumberRange(min=0, max=120)],
                                      default=12,
-                                     render_kw={'placeholder': 'Months (0 = To Last Appointment)'})
+                                     render_kw={'placeholder': 'Months (0 = To Last Encounter)'})
     imaging_cutoff_months = IntegerField('Imaging Studies',
                                         validators=[DataRequired(), NumberRange(min=0, max=120)],
                                         default=12,
-                                        render_kw={'placeholder': 'Months (0 = To Last Appointment)'})
+                                        render_kw={'placeholder': 'Months (0 = To Last Encounter)'})
     consults_cutoff_months = IntegerField('Specialist Consults',
                                          validators=[DataRequired(), NumberRange(min=0, max=120)],
                                          default=12,
-                                         render_kw={'placeholder': 'Months (0 = To Last Appointment)'})
+                                         render_kw={'placeholder': 'Months (0 = To Last Encounter)'})
     hospital_cutoff_months = IntegerField('Hospital Records',
                                          validators=[DataRequired(), NumberRange(min=0, max=120)],
                                          default=12,
-                                         render_kw={'placeholder': 'Months (0 = To Last Appointment)'})
+                                         render_kw={'placeholder': 'Months (0 = To Last Encounter)'})
     consults_keywords = TextAreaField('Consult Keywords',
                                      validators=[Optional(), Length(max=500)],
                                      default='consult,consultation,referral,specialist',
