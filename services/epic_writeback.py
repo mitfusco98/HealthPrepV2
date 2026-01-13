@@ -155,18 +155,41 @@ class EpicWriteBackService:
             
             # Generate timestamp for filename and document
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"PrepSheet_{patient.mrn}_{timestamp}.pdf"
             
-            # Convert HTML to PDF with comprehensive header
-            pdf_content = self._html_to_pdf(prep_sheet_html, patient, timestamp, prep_data)
+            # Detect sandbox vs production environment
+            is_sandbox = self.organization.epic_environment == 'sandbox'
             
-            # Base64 encode PDF
-            pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
+            if is_sandbox:
+                # Epic sandbox only accepts text/plain content type
+                # Convert HTML to plain text (stripped of all markup)
+                self.logger.info("Sandbox mode: converting prep sheet to plain text")
+                filename = f"PrepSheet_{patient.mrn}_{timestamp}.txt"
+                
+                # Convert HTML to plain text
+                plain_text = self._html_to_plain_text(prep_sheet_html, patient, timestamp, prep_data)
+                
+                # Base64 encode plain text content
+                content_base64 = base64.b64encode(plain_text.encode('utf-8')).decode('utf-8')
+                content_type = "text/plain"
+                content_size = len(plain_text.encode('utf-8'))
+            else:
+                # Production: send as PDF
+                self.logger.info("Production mode: sending prep sheet as PDF")
+                filename = f"PrepSheet_{patient.mrn}_{timestamp}.pdf"
+                
+                # Convert HTML to PDF with comprehensive header
+                pdf_content = self._html_to_pdf(prep_sheet_html, patient, timestamp, prep_data)
+                
+                # Base64 encode PDF
+                content_base64 = base64.b64encode(pdf_content).decode('utf-8')
+                content_type = "application/pdf"
+                content_size = len(pdf_content)
             
             # Create FHIR DocumentReference resource
             document_reference = self._create_document_reference_structure(
                 patient=patient,
-                pdf_base64=pdf_base64,
+                content_base64=content_base64,
+                content_type=content_type,
                 filename=filename,
                 timestamp=timestamp,
                 encounter_id=encounter_id
@@ -180,18 +203,19 @@ class EpicWriteBackService:
                 self.logger.warning(f"Patient: {patient.full_name} (MRN: {patient.mrn})")
                 self.logger.warning(f"Epic Patient ID: {patient.epic_patient_id}")
                 self.logger.warning(f"Filename: {filename}")
-                self.logger.warning(f"PDF Size: {len(pdf_content)} bytes")
-                self.logger.warning(f"Base64 Size: {len(pdf_base64)} chars")
+                self.logger.warning(f"Content Type: {content_type}")
+                self.logger.warning(f"Content Size: {content_size} bytes")
+                self.logger.warning(f"Base64 Size: {len(content_base64)} chars")
                 self.logger.warning("-" * 80)
                 self.logger.warning("📄 DocumentReference Structure (would be sent to Epic):")
                 self.logger.warning("-" * 80)
                 
-                # Log the complete DocumentReference (excluding base64 PDF content for PHI protection)
+                # Log the complete DocumentReference (excluding base64 content for PHI protection)
                 doc_ref_display = copy.deepcopy(document_reference)
                 if 'content' in doc_ref_display and len(doc_ref_display['content']) > 0:
                     if 'attachment' in doc_ref_display['content'][0]:
-                        # Replace actual PDF data with placeholder to avoid PHI in logs
-                        doc_ref_display['content'][0]['attachment']['data'] = f"<BASE64_PDF_DATA_REDACTED_{len(pdf_base64)}_CHARS>"
+                        # Replace actual data with placeholder to avoid PHI in logs
+                        doc_ref_display['content'][0]['attachment']['data'] = f"<BASE64_DATA_REDACTED_{len(content_base64)}_CHARS>"
                 
                 self.logger.warning(json.dumps(doc_ref_display, indent=2))
                 self.logger.warning("=" * 80)
@@ -577,13 +601,95 @@ class EpicWriteBackService:
             self.logger.error(f"Error fetching encounters for patient {epic_patient_id}: {str(e)}")
             return None
     
-    def _create_document_reference_structure(self, patient, pdf_base64, filename, timestamp, encounter_id=None):
+    def _html_to_plain_text(self, html_content, patient, timestamp, prep_data=None):
+        """
+        Convert HTML prep sheet to plain text for Epic sandbox mode.
+        
+        Epic sandbox only accepts text/plain content type, so we must strip
+        all HTML markup and create a readable plain-text document.
+        
+        Args:
+            html_content: Original HTML content
+            patient: Patient object
+            timestamp: Timestamp string
+            prep_data: Optional prep sheet data dict
+            
+        Returns:
+            str: Plain text representation of the prep sheet
+        """
+        import re
+        from html import unescape
+        
+        timestamp_dt = datetime.strptime(timestamp, '%Y%m%d_%H%M%S')
+        timestamp_formatted = timestamp_dt.strftime('%m/%d/%Y %I:%M %p')
+        
+        provider_name = "Provider not assigned"
+        if prep_data and prep_data.get('provider'):
+            provider_name = prep_data['provider']
+        
+        # Build plain text header
+        header = f"""============================================================
+MEDICAL PREPARATION SHEET
+{self.organization.name}
+============================================================
+
+PATIENT INFORMATION
+-------------------
+Name: {patient.full_name}
+MRN: {patient.mrn}
+DOB: {patient.date_of_birth.strftime('%m/%d/%Y') if patient.date_of_birth else 'N/A'}
+Provider: {provider_name}
+Generated: {timestamp_formatted}
+
+============================================================
+PREP SHEET CONTENT
+============================================================
+
+"""
+        
+        # Strip HTML tags to extract plain text content
+        # Remove script and style elements completely
+        text = re.sub(r'<script[^>]*>.*?</script>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
+        
+        # Replace common block elements with newlines
+        text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'</p>', '\n\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'</div>', '\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'</li>', '\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'</tr>', '\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'</h[1-6]>', '\n\n', text, flags=re.IGNORECASE)
+        
+        # Add bullets for list items
+        text = re.sub(r'<li[^>]*>', '  - ', text, flags=re.IGNORECASE)
+        
+        # Remove all remaining HTML tags
+        text = re.sub(r'<[^>]+>', '', text)
+        
+        # Decode HTML entities
+        text = unescape(text)
+        
+        # Clean up whitespace
+        # Collapse multiple spaces to single space
+        text = re.sub(r'[ \t]+', ' ', text)
+        # Collapse multiple newlines to max 2
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        # Strip leading/trailing whitespace from each line
+        lines = [line.strip() for line in text.split('\n')]
+        text = '\n'.join(lines)
+        # Remove leading/trailing whitespace from document
+        text = text.strip()
+        
+        return header + text
+    
+    def _create_document_reference_structure(self, patient, content_base64, content_type, filename, timestamp, encounter_id=None):
         """
         Create FHIR DocumentReference structure for Epic
         
         Args:
             patient: Patient object
-            pdf_base64: Base64 encoded PDF
+            content_base64: Base64 encoded content (PDF or HTML/text)
+            content_type: MIME type (application/pdf or text/plain)
             filename: Document filename
             timestamp: Timestamp string
             encounter_id: Epic Encounter ID for context (required by Epic)
@@ -625,8 +731,8 @@ class EpicWriteBackService:
             "description": f"Medical preparation sheet generated on {timestamp_dt.strftime('%m/%d/%Y %I:%M %p')}",
             "content": [{
                 "attachment": {
-                    "contentType": "application/pdf",
-                    "data": pdf_base64,
+                    "contentType": content_type,
+                    "data": content_base64,
                     "title": filename,
                     "creation": timestamp_iso
                 }
