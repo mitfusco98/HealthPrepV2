@@ -240,40 +240,28 @@ class PrepSheetGenerator:
     
     def _get_documents_by_type(self, patient_id, doc_type, cutoff_date, keywords=None):
         """
-        Get documents of specific type after cutoff date
+        Get documents of specific type after cutoff date.
+        
+        Now queries both Document and FHIRDocument models using PrepSheetFilters
+        for unified document retrieval with LOINC-based category mapping.
         
         Args:
             patient_id: Patient ID
             doc_type: Document type (lab, imaging, consult, hospital)
             cutoff_date: Date cutoff for document filtering
             keywords: Optional list of keywords to filter documents by content/title
+            
+        Returns:
+            List of document objects (Document or FHIRDocument) matching criteria
         """
-        query = Document.query.filter_by(
-            patient_id=patient_id,
-            document_type=doc_type
-        ).filter(
-            Document.document_date >= cutoff_date
+        documents = self.filters._get_documents_for_category(
+            patient_id, 
+            doc_type, 
+            cutoff_date, 
+            keywords
         )
         
-        documents = query.order_by(Document.document_date.desc()).all()
-        
-        # Apply keyword filtering if keywords are provided
-        if keywords and len(keywords) > 0:
-            filtered_docs = []
-            for doc in documents:
-                # Check document title, description, and OCR text for keywords
-                searchable_text = ' '.join([
-                    (doc.title or '').lower(),
-                    (doc.description or '').lower(),
-                    (doc.ocr_text or '').lower()
-                ])
-                
-                # Document must contain at least one keyword
-                if any(keyword in searchable_text for keyword in keywords):
-                    filtered_docs.append(doc)
-            
-            self.logger.debug(f"Keyword filter for {doc_type}: {len(documents)} -> {len(filtered_docs)} documents (keywords: {keywords})")
-            return filtered_docs
+        self.logger.debug(f"Retrieved {len(documents)} documents for {doc_type} category (cutoff: {cutoff_date})")
         
         return documents
     

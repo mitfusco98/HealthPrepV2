@@ -4,7 +4,8 @@ Frequency and cutoff filtering logic for prep sheets
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
 from app import db
-from models import Document, Screening, ScreeningType
+from models import Document, FHIRDocument, Screening, ScreeningType
+from utils.document_types import get_prep_sheet_category
 import logging
 
 class PrepSheetFilters:
@@ -46,7 +47,7 @@ class PrepSheetFilters:
         return filtered_docs
     
     def apply_data_cutoffs(self, patient_id, cutoff_settings):
-        """Apply data cutoffs to all document types"""
+        """Apply data cutoffs to all document types (both Document and FHIRDocument)"""
         filtered_data = {}
         
         document_types = ['lab', 'imaging', 'consult', 'hospital']
@@ -55,18 +56,84 @@ class PrepSheetFilters:
             cutoff_months = getattr(cutoff_settings, f"{doc_type}_cutoff_months", 12)
             cutoff_date = self._calculate_cutoff_date(cutoff_months)
             
-            filtered_docs = Document.query.filter_by(
-                patient_id=patient_id,
-                document_type=doc_type
-            ).filter(
-                Document.document_date >= cutoff_date
-            ).order_by(Document.document_date.desc()).all()
+            all_docs = self._get_documents_for_category(patient_id, doc_type, cutoff_date)
             
-            filtered_data[f"{doc_type}_documents"] = filtered_docs
+            filtered_data[f"{doc_type}_documents"] = all_docs
             filtered_data[f"{doc_type}_cutoff_date"] = cutoff_date
-            filtered_data[f"{doc_type}_count"] = len(filtered_docs)
+            filtered_data[f"{doc_type}_count"] = len(all_docs)
         
         return filtered_data
+    
+    def _get_documents_for_category(self, patient_id, category, cutoff_date, keywords=None):
+        """
+        Get documents (both Document and FHIRDocument) for a category with date filtering.
+        
+        Args:
+            patient_id: Patient ID
+            category: Document category (lab, imaging, consult, hospital)
+            cutoff_date: Only include documents on or after this date
+            keywords: Optional list of keywords to filter by
+            
+        Returns:
+            List of document-like objects (unified interface for templates)
+        """
+        all_docs = []
+        
+        manual_docs = Document.query.filter_by(
+            patient_id=patient_id,
+            document_type=category
+        ).filter(
+            Document.document_date.isnot(None),
+            Document.document_date >= cutoff_date
+        ).order_by(Document.document_date.desc()).all()
+        all_docs.extend(manual_docs)
+        
+        fhir_docs_query = FHIRDocument.query.filter_by(patient_id=patient_id).filter(
+            FHIRDocument.document_date.isnot(None),
+            FHIRDocument.document_date >= cutoff_date
+        ).order_by(FHIRDocument.document_date.desc()).all()
+        
+        for fhir_doc in fhir_docs_query:
+            doc_category = get_prep_sheet_category(
+                fhir_doc.document_type_code, 
+                fhir_doc.document_type_display
+            )
+            if doc_category == category:
+                all_docs.append(fhir_doc)
+        
+        if keywords and len(keywords) > 0:
+            all_docs = self._apply_keyword_filter(all_docs, keywords)
+        
+        all_docs.sort(key=lambda d: d.document_date if d.document_date else date.min, reverse=True)
+        
+        return all_docs
+    
+    def _apply_keyword_filter(self, documents, keywords):
+        """Apply keyword filtering to a list of documents (Document or FHIRDocument)"""
+        if not keywords:
+            return documents
+        
+        keywords_lower = [k.lower() for k in keywords]
+        filtered_docs = []
+        
+        for doc in documents:
+            if hasattr(doc, 'search_title'):
+                search_text = ' '.join([
+                    (doc.search_title or '').lower(),
+                    (doc.ocr_text or '').lower()
+                ])
+            else:
+                search_text = ' '.join([
+                    (doc.title or '').lower(),
+                    (getattr(doc, 'description', '') or '').lower(),
+                    (getattr(doc, 'filename', '') or '').lower(),
+                    (doc.ocr_text or '').lower()
+                ])
+            
+            if any(kw in search_text for kw in keywords_lower):
+                filtered_docs.append(doc)
+        
+        return filtered_docs
     
     def filter_screening_documents(self, screening_id):
         """Filter documents for a specific screening based on its frequency from last completed date"""
@@ -74,12 +141,8 @@ class PrepSheetFilters:
         if not screening:
             return []
         
-        # Get all documents for the patient
-        patient_docs = Document.query.filter_by(
-            patient_id=screening.patient_id
-        ).all()
+        patient_docs = self._get_all_patient_documents(screening.patient_id)
         
-        # Apply frequency filtering using last completed date per formula
         filtered_docs = self.filter_documents_by_frequency(
             patient_docs, 
             screening.screening_type,
@@ -94,23 +157,32 @@ class PrepSheetFilters:
         if not screening_type:
             return []
         
-        # Get documents that might match this screening
-        all_docs = Document.query.filter_by(patient_id=patient_id).all()
+        all_docs = self._get_all_patient_documents(patient_id)
         
-        # Filter by frequency from last completed date using specified formula
         frequency_filtered = self.filter_documents_by_frequency(
             all_docs, 
             screening_type, 
             last_completed_date
         )
         
-        # Further filter by keyword matching
         keyword_filtered = self._filter_by_keywords(frequency_filtered, screening_type)
         
         return keyword_filtered
     
+    def _get_all_patient_documents(self, patient_id):
+        """Get all documents (Document + FHIRDocument) for a patient"""
+        all_docs = []
+        
+        manual_docs = Document.query.filter_by(patient_id=patient_id).all()
+        all_docs.extend(manual_docs)
+        
+        fhir_docs = FHIRDocument.query.filter_by(patient_id=patient_id).all()
+        all_docs.extend(fhir_docs)
+        
+        return all_docs
+    
     def _filter_by_keywords(self, documents, screening_type):
-        """Filter documents by screening type keywords"""
+        """Filter documents by screening type keywords (supports both Document and FHIRDocument)"""
         if not screening_type.keywords_list:
             return documents
         
@@ -118,13 +190,23 @@ class PrepSheetFilters:
         relevant_docs = []
         
         for doc in documents:
-            # Check filename and OCR text for keywords
-            search_text = f"{doc.filename} {doc.ocr_text or ''}".lower()
+            if hasattr(doc, 'search_title'):
+                search_text = ' '.join([
+                    (doc.search_title or '').lower(),
+                    (doc.ocr_text or '').lower()
+                ])
+            else:
+                search_text = ' '.join([
+                    (doc.title or '').lower(),
+                    (getattr(doc, 'description', '') or '').lower(),
+                    (getattr(doc, 'filename', '') or '').lower(),
+                    (doc.ocr_text or '').lower()
+                ])
             
             for keyword in keywords:
                 if keyword in search_text:
                     relevant_docs.append(doc)
-                    break  # Found a match, add document once
+                    break
         
         return relevant_docs
     
@@ -175,20 +257,22 @@ class PrepSheetFilters:
         return date.today() - relativedelta(months=months)
     
     def get_document_relevancy_score(self, document, screening_type):
-        """Calculate relevancy score for a document to a screening type"""
+        """Calculate relevancy score for a document to a screening type (supports Document and FHIRDocument)"""
         if not document.ocr_text:
             return 0.0
         
         score = 0.0
-        search_text = f"{document.filename} {document.ocr_text}".lower()
         
-        # Keyword matching
+        if hasattr(document, 'search_title'):
+            search_text = f"{document.search_title or ''} {document.ocr_text}".lower()
+        else:
+            search_text = f"{getattr(document, 'filename', '') or ''} {document.ocr_text}".lower()
+        
         keywords = screening_type.keywords_list if screening_type.keywords_list else []
         for keyword in keywords:
             if keyword.lower() in search_text:
                 score += 0.3
         
-        # Document type alignment
         type_scores = {
             ('lab', 'a1c'): 0.4,
             ('lab', 'cholesterol'): 0.4,
@@ -200,10 +284,17 @@ class PrepSheetFilters:
             ('consult', 'oncology'): 0.4
         }
         
-        for (doc_type, screening_term), points in type_scores.items():
-            if (document.document_type == doc_type and 
-                screening_term in screening_type.name.lower()):
-                score += points
+        doc_category = None
+        if hasattr(document, 'document_type_code'):
+            doc_category = get_prep_sheet_category(document.document_type_code, document.document_type_display)
+        elif hasattr(document, 'document_type'):
+            doc_category = document.document_type
+        
+        if doc_category:
+            for (doc_type, screening_term), points in type_scores.items():
+                if (doc_category == doc_type and 
+                    screening_term in screening_type.name.lower()):
+                    score += points
         
         # Recency bonus (more recent = higher score)
         if document.document_date:

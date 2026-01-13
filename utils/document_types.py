@@ -437,3 +437,131 @@ def sanitize_title_to_code_only(raw_title, type_coding = None, category = None) 
     """
     logger.warning("sanitize_title_to_code_only() is deprecated - use get_safe_document_type()")
     return get_safe_document_type(type_coding, category)
+
+
+LOINC_TO_PREP_SHEET_CATEGORY = {
+    'lab': [
+        '11502-2',  # Laboratory Report
+        '26436-6',  # Laboratory Report
+        '26438-2',  # Chemistry Report
+        '26439-0',  # Hematology Report
+        '26440-8',  # Urinalysis Report
+        '26441-6',  # Coagulation Report
+        '26442-4',  # Microbiology Report
+        '26443-2',  # Blood Bank Report
+        '26444-0',  # Cytology Report
+        '26445-7',  # Surgical Pathology Report
+        '27898-6',  # Pathology Report
+        '60567-5',  # Comprehensive Pathology Report
+        '34776-5',  # Pathology Note
+    ],
+    'imaging': [
+        '18748-4',  # Diagnostic Imaging Study
+        '18782-3',  # Radiology Study
+        '47519-4',  # Diagnostic Imaging Report
+        '34785-6',  # Radiology Note
+        '57147-1',  # Radiology Referral Note
+        '70004-7',  # Diagnostic Study Note
+        '87273-1',  # Fetal Imaging Report
+        '83909-3',  # EKG/ECG Report
+        '59282-4',  # Stress Test Report
+        '58477-1',  # Pulmonary Function Study
+    ],
+    'consult': [
+        '11488-4',  # Consultation Note
+        '18841-7',  # Hospital Consultations
+        '28569-2',  # Physician Consulting Progress Note
+        '51845-6',  # Outpatient Consultation Note
+        '57133-1',  # Referral Note
+        '57134-9',  # Dentistry Referral Note
+        '57135-6',  # Dermatology Referral Note
+        '57136-4',  # Gastroenterology Referral Note
+        '57137-2',  # General Medicine Referral Note
+        '57138-0',  # Neurology Referral Note
+        '57139-8',  # Ophthalmology Referral Note
+        '57140-6',  # Orthopedics Referral Note
+        '57141-4',  # Otolaryngology Referral Note
+        '57142-2',  # Plastic Surgery Referral Note
+        '57143-0',  # Podiatry Referral Note
+        '57144-8',  # Psychiatry Referral Note
+        '57145-5',  # Pulmonology Referral Note
+        '57146-3',  # Radiation Oncology Referral Note
+        '57148-9',  # Rheumatology Referral Note
+        '57149-7',  # Social Work Referral Note
+        '57150-5',  # Surgery Referral Note
+        '57151-3',  # Urology Referral Note
+        '57152-1',  # Cardiology Referral Note
+        '57153-9',  # Hematology/Oncology Referral Note
+        '57154-7',  # Infectious Disease Referral Note
+        '57155-4',  # Internal Medicine Referral Note
+        '57156-2',  # Nephrology Referral Note
+        '57157-0',  # Pediatrics Referral Note
+        '34099-2',  # Cardiology Consult Note
+        '34752-6',  # Cardiology Note
+        '34758-3',  # Endocrinology Note
+        '34759-1',  # Gastroenterology Note
+        '34763-3',  # Hematology/Oncology Note
+        '34764-1',  # Infectious Disease Note
+        '34765-8',  # Nephrology Note
+        '34766-6',  # Neurology Note
+        '34771-6',  # Oncology Note
+        '34783-1',  # Pulmonology Note
+        '34788-0',  # Rheumatology Note
+    ],
+    'hospital': [
+        '18842-5',  # Discharge Summary
+        '28579-1',  # Discharge Summary
+        '34105-7',  # Hospital Discharge Summary
+        '34106-5',  # Physician Hospital Discharge Summary
+        '34112-3',  # Hospital Admission Note
+        '68624-6',  # Hospitalization Summary
+        '11506-3',  # Progress Note
+        '28568-4',  # Physician Attending Progress Note
+        '34746-8',  # Nurse Progress Note
+        '34100-8',  # Intensive Care Unit Note
+        '29751-5',  # Critical Care Records
+        '47039-3',  # Admission Note
+        '34136-2',  # Physician Attending Admission Note
+        '28582-5',  # Transfer Summary
+        '68613-9',  # Transition of Care Note
+        '34745-0',  # Nurse Discharge Summary
+        '34111-5',  # Emergency Department Note
+        '51846-4',  # Emergency Department Note
+        '59258-4',  # Emergency Department Report
+        '60280-5',  # Emergency Medicine Transfer Note
+    ],
+}
+
+LOINC_CODE_TO_CATEGORY = {}
+for category, codes in LOINC_TO_PREP_SHEET_CATEGORY.items():
+    for code in codes:
+        LOINC_CODE_TO_CATEGORY[code] = category
+
+
+def get_prep_sheet_category(document_type_code: str = None, document_type_display: str = None) -> str:
+    """
+    Map a FHIR document type code to a prep sheet category (lab, imaging, consult, hospital).
+    
+    Args:
+        document_type_code: LOINC code from FHIRDocument.document_type_code
+        document_type_display: Display name from FHIRDocument.document_type_display
+        
+    Returns:
+        Category string ('lab', 'imaging', 'consult', 'hospital') or None if no match
+    """
+    if document_type_code and document_type_code in LOINC_CODE_TO_CATEGORY:
+        return LOINC_CODE_TO_CATEGORY[document_type_code]
+    
+    if document_type_display:
+        display_lower = document_type_display.lower()
+        
+        if any(term in display_lower for term in ['laboratory', 'lab report', 'pathology', 'blood test', 'urinalysis', 'microbiology']):
+            return 'lab'
+        if any(term in display_lower for term in ['imaging', 'radiology', 'x-ray', 'ct scan', 'mri', 'ultrasound', 'diagnostic imaging', 'ekg', 'ecg', 'echo']):
+            return 'imaging'
+        if any(term in display_lower for term in ['consult', 'referral', 'specialist']):
+            return 'consult'
+        if any(term in display_lower for term in ['hospital', 'admission', 'discharge', 'inpatient', 'emergency department', 'progress note', 'icu', 'critical care']):
+            return 'hospital'
+    
+    return None
