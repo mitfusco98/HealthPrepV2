@@ -1181,7 +1181,9 @@ class FHIRClient:
             'raw_response': None
         }
         
-        if not response:
+        # Note: Use 'is None' check because requests.Response evaluates to False
+        # for status codes >= 400, but the object still exists and has data
+        if response is None:
             self.logger.warning("No response object available for error parsing")
             return error_info
         
