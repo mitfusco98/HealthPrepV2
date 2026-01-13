@@ -143,6 +143,16 @@ class EpicWriteBackService:
             # Initialize FHIR client
             self._initialize_fhir_client()
             
+            # Fetch patient's encounters from Epic (required for DocumentReference write-back)
+            encounter_id = self._get_patient_encounter_id(patient.epic_patient_id)
+            if not encounter_id:
+                return {
+                    'success': False,
+                    'error': f'No encounters found for patient {patient.full_name} (MRN: {patient.mrn}). Epic requires an encounter reference to write documents. Please ensure the patient has a visit/encounter in Epic.'
+                }
+            
+            self.logger.info(f"Using encounter {encounter_id} for DocumentReference context")
+            
             # Generate timestamp for filename and document
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"PrepSheet_{patient.mrn}_{timestamp}.pdf"
@@ -158,7 +168,8 @@ class EpicWriteBackService:
                 patient=patient,
                 pdf_base64=pdf_base64,
                 filename=filename,
-                timestamp=timestamp
+                timestamp=timestamp,
+                encounter_id=encounter_id
             )
             
             # DRY-RUN MODE: Log payload without sending to Epic
@@ -511,7 +522,62 @@ class EpicWriteBackService:
         
         return html_content
     
-    def _create_document_reference_structure(self, patient, pdf_base64, filename, timestamp):
+    def _get_patient_encounter_id(self, epic_patient_id):
+        """
+        Fetch the most recent encounter for a patient from Epic.
+        
+        Epic requires an encounter reference when creating DocumentReference resources.
+        This method queries Epic FHIR API to find the patient's most recent encounter.
+        
+        Args:
+            epic_patient_id: The patient's Epic FHIR ID
+            
+        Returns:
+            str: Encounter ID if found, None otherwise
+        """
+        try:
+            encounters_bundle = self.fhir_client.get_encounters(epic_patient_id)
+            
+            if not encounters_bundle or not encounters_bundle.get('entry'):
+                self.logger.warning(f"No encounters found for patient {epic_patient_id}")
+                return None
+            
+            # Find the most recent encounter (already sorted by -date from API)
+            # Prefer in-progress encounters, then finished ones
+            entries = encounters_bundle.get('entry', [])
+            
+            in_progress = None
+            finished = None
+            
+            for entry in entries:
+                resource = entry.get('resource', {})
+                encounter_id = resource.get('id')
+                status = resource.get('status', '')
+                
+                if status == 'in-progress' and not in_progress:
+                    in_progress = encounter_id
+                elif status == 'finished' and not finished:
+                    finished = encounter_id
+                
+                # If we found an in-progress encounter, use it
+                if in_progress:
+                    break
+            
+            # Prefer in-progress, fall back to finished, then any encounter
+            selected = in_progress or finished
+            if not selected and entries:
+                selected = entries[0].get('resource', {}).get('id')
+            
+            if selected:
+                self.logger.info(f"Found encounter {selected} for patient {epic_patient_id}")
+            
+            return selected
+            
+        except Exception as e:
+            self.logger.error(f"Error fetching encounters for patient {epic_patient_id}: {str(e)}")
+            return None
+    
+    def _create_document_reference_structure(self, patient, pdf_base64, filename, timestamp, encounter_id=None):
         """
         Create FHIR DocumentReference structure for Epic
         
@@ -520,6 +586,7 @@ class EpicWriteBackService:
             pdf_base64: Base64 encoded PDF
             filename: Document filename
             timestamp: Timestamp string
+            encounter_id: Epic Encounter ID for context (required by Epic)
             
         Returns:
             dict: FHIR DocumentReference resource
@@ -565,6 +632,14 @@ class EpicWriteBackService:
                 }
             }]
         }
+        
+        # Add encounter context if provided (required by Epic for DocumentReference writes)
+        if encounter_id:
+            document_reference["context"] = {
+                "encounter": [{
+                    "reference": f"Encounter/{encounter_id}"
+                }]
+            }
         
         return document_reference
     
