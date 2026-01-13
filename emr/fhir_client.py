@@ -1118,35 +1118,46 @@ class FHIRClient:
             self.logger.debug(f"DocumentReference payload summary: {debug_summary}")
             
             response = requests.post(url, headers=headers, json=document_reference_data)
-            response.raise_for_status()
+            
+            # Check status manually to ensure we have access to response object
+            if response.status_code >= 400:
+                # Parse error details directly from the response object
+                error_details = self._parse_epic_error_response(response)
+                
+                is_sandbox = 'fhir.epic.com' in self.base_url or 'sandbox' in self.base_url.lower()
+                is_write_not_supported = self._is_sandbox_write_limitation(error_details)
+                
+                if is_sandbox and is_write_not_supported:
+                    self.logger.warning(
+                        f"Epic sandbox may not support DocumentReference writes. "
+                        f"Error: {error_details.get('message', 'Unknown')}. "
+                        f"This is a known limitation of Epic's public sandbox environment."
+                    )
+                else:
+                    self.logger.error(
+                        f"Error creating DocumentReference: HTTP {response.status_code}. "
+                        f"OperationOutcome: {error_details}"
+                    )
+                
+                return {
+                    'error': error_details.get('message', f'HTTP {response.status_code}'),
+                    'details': error_details,
+                    'is_sandbox_limitation': is_sandbox and is_write_not_supported,
+                    'status_code': response.status_code
+                }
             
             result = response.json()
             self.logger.info(f"Successfully created DocumentReference: {result.get('id')}")
             return result
             
-        except requests.exceptions.HTTPError as e:
-            error_details = self._parse_epic_error_response(e.response)
-            
-            is_sandbox = 'fhir.epic.com' in self.base_url or 'sandbox' in self.base_url.lower()
-            is_write_not_supported = self._is_sandbox_write_limitation(error_details)
-            
-            if is_sandbox and is_write_not_supported:
-                self.logger.warning(
-                    f"Epic sandbox may not support DocumentReference writes. "
-                    f"Error: {error_details.get('message', 'Unknown')}. "
-                    f"This is a known limitation of Epic's public sandbox environment."
-                )
-            else:
-                self.logger.error(
-                    f"Error creating DocumentReference: {e}. "
-                    f"OperationOutcome: {error_details}"
-                )
-            
+        except requests.exceptions.RequestException as e:
+            # Network errors, timeouts, etc.
+            self.logger.error(f"Request error creating DocumentReference: {str(e)}")
             return {
-                'error': error_details.get('message', str(e)),
-                'details': error_details,
-                'is_sandbox_limitation': is_sandbox and is_write_not_supported,
-                'status_code': e.response.status_code if e.response else None
+                'error': str(e),
+                'details': {},
+                'is_sandbox_limitation': False,
+                'status_code': None
             }
             
         except Exception as e:
@@ -1284,29 +1295,40 @@ class FHIRClient:
             headers = self._get_headers()
             headers['Content-Type'] = 'application/fhir+json'
             
+            self.logger.info(f"Updating DocumentReference at {url}")
+            
             response = requests.put(url, headers=headers, json=document_reference_data)
-            response.raise_for_status()
+            
+            # Check status manually to ensure we have access to response object
+            if response.status_code >= 400:
+                error_details = self._parse_epic_error_response(response)
+                
+                is_sandbox = 'fhir.epic.com' in self.base_url or 'sandbox' in self.base_url.lower()
+                is_write_not_supported = self._is_sandbox_write_limitation(error_details)
+                
+                self.logger.error(
+                    f"Error updating DocumentReference {document_id}: HTTP {response.status_code}. "
+                    f"OperationOutcome: {error_details}"
+                )
+                
+                return {
+                    'error': error_details.get('message', f'HTTP {response.status_code}'),
+                    'details': error_details,
+                    'is_sandbox_limitation': is_sandbox and is_write_not_supported,
+                    'status_code': response.status_code
+                }
             
             result = response.json()
             self.logger.info(f"Successfully updated DocumentReference: {document_id}")
             return result
             
-        except requests.exceptions.HTTPError as e:
-            error_details = self._parse_epic_error_response(e.response)
-            
-            is_sandbox = 'fhir.epic.com' in self.base_url or 'sandbox' in self.base_url.lower()
-            is_write_not_supported = self._is_sandbox_write_limitation(error_details)
-            
-            self.logger.error(
-                f"Error updating DocumentReference {document_id}: {e}. "
-                f"OperationOutcome: {error_details}"
-            )
-            
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"Request error updating DocumentReference {document_id}: {str(e)}")
             return {
-                'error': error_details.get('message', str(e)),
-                'details': error_details,
-                'is_sandbox_limitation': is_sandbox and is_write_not_supported,
-                'status_code': e.response.status_code if e.response else None
+                'error': str(e),
+                'details': {},
+                'is_sandbox_limitation': False,
+                'status_code': None
             }
             
         except Exception as e:
