@@ -526,13 +526,13 @@ class EpicWriteBackService:
         """
         timestamp_dt = datetime.strptime(timestamp, '%Y%m%d_%H%M%S')
         
+        # Format date with timezone (Epic requires ISO 8601 with timezone)
+        # Use UTC timezone for consistency
+        timestamp_iso = timestamp_dt.strftime('%Y-%m-%dT%H:%M:%S+00:00')
+        
         document_reference = {
             "resourceType": "DocumentReference",
             "status": "current",
-            "identifier": [{
-                "system": "https://healthprep.io/fhir/identifier",
-                "value": "healthprep-generated"
-            }],
             "type": {
                 "coding": [{
                     "system": "http://loinc.org",
@@ -543,16 +543,15 @@ class EpicWriteBackService:
             },
             "category": [{
                 "coding": [{
-                    "system": "https://healthprep.io/fhir/category",
-                    "code": "healthprep-prep-sheet",
-                    "display": "HealthPrep Generated Prep Sheet"
+                    "system": "http://loinc.org",
+                    "code": "11506-3",
+                    "display": "Progress note"
                 }]
             }],
             "subject": {
-                "reference": f"Patient/{patient.epic_patient_id}",
-                "display": patient.full_name
+                "reference": f"Patient/{patient.epic_patient_id}"
             },
-            "date": timestamp_dt.isoformat(),
+            "date": timestamp_iso,
             "author": [{
                 "display": f"{self.organization.name} - HealthPrep System"
             }],
@@ -562,19 +561,9 @@ class EpicWriteBackService:
                     "contentType": "application/pdf",
                     "data": pdf_base64,
                     "title": filename,
-                    "creation": timestamp_dt.isoformat()
-                },
-                "format": {
-                    "system": "http://ihe.net/fhir/ValueSet/IHE.FormatCode.codesystem",
-                    "code": "urn:ihe:iti:xds:2017:mimeTypeSufficient",
-                    "display": "PDF"
+                    "creation": timestamp_iso
                 }
-            }],
-            "context": {
-                "period": {
-                    "start": timestamp_dt.isoformat()
-                }
-            }
+            }]
         }
         
         return document_reference

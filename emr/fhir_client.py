@@ -1088,6 +1088,35 @@ class FHIRClient:
             headers = self._get_headers()
             headers['Content-Type'] = 'application/fhir+json'
             
+            # Log request details for debugging (without the full PDF data)
+            # Build a separate summary dict to avoid mutating original payload
+            debug_summary = {
+                'resourceType': document_reference_data.get('resourceType'),
+                'status': document_reference_data.get('status'),
+                'type': document_reference_data.get('type'),
+                'category': document_reference_data.get('category'),
+                'subject': document_reference_data.get('subject'),
+                'date': document_reference_data.get('date'),
+                'author': document_reference_data.get('author'),
+                'description': document_reference_data.get('description'),
+            }
+            # Summarize content without including actual base64 data
+            if 'content' in document_reference_data:
+                content_summary = []
+                for content_item in document_reference_data.get('content', []):
+                    attachment = content_item.get('attachment', {})
+                    data_len = len(attachment.get('data', '')) if attachment.get('data') else 0
+                    content_summary.append({
+                        'contentType': attachment.get('contentType'),
+                        'title': attachment.get('title'),
+                        'creation': attachment.get('creation'),
+                        'data': f"<base64: {data_len} chars>"
+                    })
+                debug_summary['content'] = content_summary
+            
+            self.logger.info(f"Creating DocumentReference at {url}")
+            self.logger.debug(f"DocumentReference payload summary: {debug_summary}")
+            
             response = requests.post(url, headers=headers, json=document_reference_data)
             response.raise_for_status()
             
@@ -1135,38 +1164,77 @@ class FHIRClient:
         including issue severity, code, and diagnostics.
         """
         error_info = {
-            'status_code': response.status_code if response else None,
+            'status_code': None,
             'message': 'Unknown error',
             'issues': [],
             'raw_response': None
         }
         
         if not response:
+            self.logger.warning("No response object available for error parsing")
             return error_info
-            
+        
+        # Safely get status code
+        try:
+            error_info['status_code'] = response.status_code
+        except Exception as e:
+            self.logger.debug(f"Could not get status_code: {e}")
+        
+        # Safely capture raw response text first (critical for debugging)
+        response_text = None
         try:
             response_text = response.text
-            error_info['raw_response'] = response_text[:2000]
+            error_info['raw_response'] = response_text[:2000] if response_text else None
+        except Exception as e:
+            self.logger.debug(f"Could not read response text: {e}")
             
-            data = response.json()
-            
-            if data.get('resourceType') == 'OperationOutcome':
-                issues = data.get('issue', [])
-                error_info['issues'] = issues
+        # Try to parse as JSON
+        try:
+            if response_text:
+                data = response.json()
                 
-                if issues:
-                    first_issue = issues[0]
-                    diagnostics = first_issue.get('diagnostics', '')
-                    details_text = first_issue.get('details', {}).get('text', '')
-                    error_info['message'] = diagnostics or details_text or 'OperationOutcome error'
-                    error_info['severity'] = first_issue.get('severity', 'error')
-                    error_info['code'] = first_issue.get('code', 'unknown')
-            else:
-                error_info['message'] = data.get('error', data.get('message', str(data)))
-                
-        except (ValueError, KeyError) as parse_error:
-            error_info['message'] = f"HTTP {response.status_code}: {response.text[:500]}"
-            self.logger.debug(f"Could not parse error response as JSON: {parse_error}")
+                if data.get('resourceType') == 'OperationOutcome':
+                    issues = data.get('issue', [])
+                    error_info['issues'] = issues
+                    
+                    if issues:
+                        # Collect all issue messages for comprehensive error
+                        all_messages = []
+                        for issue in issues:
+                            diagnostics = issue.get('diagnostics', '')
+                            details_text = issue.get('details', {}).get('text', '')
+                            code = issue.get('code', '')
+                            severity = issue.get('severity', 'error')
+                            
+                            msg = diagnostics or details_text or f"{severity}: {code}"
+                            if msg:
+                                all_messages.append(msg)
+                        
+                        first_issue = issues[0]
+                        error_info['message'] = all_messages[0] if all_messages else 'OperationOutcome error'
+                        error_info['all_messages'] = all_messages
+                        error_info['severity'] = first_issue.get('severity', 'error')
+                        error_info['code'] = first_issue.get('code', 'unknown')
+                        
+                        # Log all issues for debugging
+                        self.logger.debug(f"OperationOutcome issues: {issues}")
+                else:
+                    # Non-OperationOutcome JSON response
+                    error_info['message'] = data.get('error', data.get('message', str(data)[:500]))
+        except ValueError as json_error:
+            # Not valid JSON - use raw text
+            if response_text:
+                error_info['message'] = f"HTTP {error_info['status_code']}: {response_text[:500]}"
+            self.logger.debug(f"Could not parse error response as JSON: {json_error}")
+        except Exception as e:
+            self.logger.debug(f"Error parsing response: {e}")
+            if response_text:
+                error_info['message'] = f"HTTP {error_info['status_code']}: {response_text[:500]}"
+        
+        # Log the full parsed error for debugging
+        self.logger.info(f"Parsed Epic error: status={error_info['status_code']}, "
+                        f"message={error_info['message'][:200]}, "
+                        f"issues_count={len(error_info['issues'])}")
             
         return error_info
     
@@ -1178,6 +1246,7 @@ class FHIRClient:
         """
         message = error_details.get('message', '').lower()
         raw = (error_details.get('raw_response') or '').lower()
+        code = error_details.get('code', '').lower()
         
         sandbox_indicators = [
             'not supported',
@@ -1190,8 +1259,15 @@ class FHIRClient:
             'sandbox does not support',
             'test environment',
             'unauthorized',
-            'insufficient scope'
+            'insufficient scope',
+            'not-supported',  # FHIR issue code
+            'business-rule',  # FHIR issue code for validation rules
+            'processing',     # FHIR issue code for processing failures
         ]
+        
+        # Also check the issue code
+        if code in ['not-supported', 'forbidden', 'security']:
+            return True
         
         return any(indicator in message or indicator in raw for indicator in sandbox_indicators)
     
