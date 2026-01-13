@@ -1146,15 +1146,103 @@ class FHIRClient:
                     'status_code': response.status_code
                 }
             
-            result = response.json()
-            self.logger.info(f"Successfully created DocumentReference: {result.get('id')}")
-            return result
+            # Handle successful response (2xx)
+            # Epic may return:
+            # - 201 Created with JSON body containing the resource
+            # - 201 Created with empty body but Location header
+            # - 200 OK with JSON body
+            
+            # Log response details for debugging
+            self.logger.debug(f"Response status: {response.status_code}, Content-Length: {response.headers.get('Content-Length', 'not set')}")
+            
+            # Check for Location header (common for 201 Created)
+            # Location format: https://fhir.epic.com/.../DocumentReference/{id}/_history/{version}
+            # or: https://fhir.epic.com/.../DocumentReference/{id}
+            location = response.headers.get('Location', '')
+            location_doc_id = None
+            if location:
+                self.logger.info(f"DocumentReference created, Location: {location}")
+                # Parse Location URL to extract resource ID
+                # Remove trailing slash if present
+                location_path = location.rstrip('/')
+                path_parts = location_path.split('/')
+                
+                # Find DocumentReference in path and take the next segment as ID
+                for i, part in enumerate(path_parts):
+                    if part == 'DocumentReference' and i + 1 < len(path_parts):
+                        location_doc_id = path_parts[i + 1]
+                        # Stop at _history marker
+                        if location_doc_id == '_history':
+                            location_doc_id = None
+                        break
+                
+                if location_doc_id:
+                    self.logger.info(f"Extracted DocumentReference ID from Location: {location_doc_id}")
+            
+            # Try to parse JSON response body
+            if response.text and response.text.strip():
+                try:
+                    result = response.json()
+                    doc_id = result.get('id') or location_doc_id
+                    self.logger.info(f"Successfully created DocumentReference: {doc_id}")
+                    return result
+                except json.JSONDecodeError as e:
+                    # Epic returned non-JSON content (possibly HTML error page or success message)
+                    self.logger.warning(f"Could not parse response as JSON: {e}")
+                    self.logger.debug(f"Response content (first 500 chars): {response.text[:500]}")
+                    
+                    # If we have a valid ID from Location header, consider it a success
+                    if location_doc_id:
+                        self.logger.info(f"DocumentReference created (from Location header): {location_doc_id}")
+                        return {
+                            'resourceType': 'DocumentReference',
+                            'id': location_doc_id,
+                            'location': location,
+                            'status': 'current'
+                        }
+                    
+                    # Otherwise return error with response details
+                    return {
+                        'error': f'Epic returned non-JSON response: {response.text[:200]}',
+                        'details': {'raw_response': response.text[:1000]},
+                        'is_sandbox_limitation': False,
+                        'status_code': response.status_code
+                    }
+            else:
+                # Empty response body - check for Location header
+                if location_doc_id:
+                    self.logger.info(f"DocumentReference created (from Location header, empty body): {location_doc_id}")
+                    return {
+                        'resourceType': 'DocumentReference',
+                        'id': location_doc_id,
+                        'location': location,
+                        'status': 'current'
+                    }
+                
+                # No body and no location - unexpected but may be success
+                self.logger.warning(f"Empty response body with status {response.status_code} and no Location header")
+                return {
+                    'error': f'Epic returned empty response with status {response.status_code}',
+                    'details': {},
+                    'is_sandbox_limitation': False,
+                    'status_code': response.status_code
+                }
             
         except requests.exceptions.RequestException as e:
             # Network errors, timeouts, etc.
             self.logger.error(f"Request error creating DocumentReference: {str(e)}")
             return {
                 'error': str(e),
+                'details': {},
+                'is_sandbox_limitation': False,
+                'status_code': None
+            }
+            
+        except json.JSONDecodeError as e:
+            # Catch any JSON decode errors that slip through
+            self.logger.error(f"JSON decode error creating DocumentReference: {str(e)}")
+            return {
+                'error': f'Failed to parse Epic response: {str(e)}',
                 'details': {},
                 'is_sandbox_limitation': False,
                 'status_code': None
