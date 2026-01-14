@@ -1,12 +1,16 @@
 """
 Async Processing Routes for HealthPrepV2
-Handles background job management, status monitoring, and batch operations
+Handles background job management and status monitoring.
+
+NOTE: Batch patient sync functionality has been consolidated into
+comprehensive_emr_sync.py which is the authoritative EMR ingestion path.
+The async batch sync routes were removed as they had no UI templates
+and used a legacy sync path.
 """
 
-from flask import Blueprint, request, jsonify, render_template, flash, redirect, url_for
+from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
-import json
 
 from models import db, Patient, Organization, ScreeningType, AsyncJob
 from services.async_processing import get_async_processing_service
@@ -16,104 +20,15 @@ from routes.auth_routes import admin_required
 async_bp = Blueprint('async', __name__, url_prefix='/async')
 
 
-@async_bp.route('/dashboard')
-@login_required
-@admin_required
-def async_dashboard():
-    """Dashboard for managing asynchronous jobs"""
-    try:
-        async_service = get_async_processing_service()
-        
-        # Get active jobs for this organization
-        active_jobs = async_service.get_organization_active_jobs(current_user.org_id)
-        
-        # Get recent completed jobs
-        recent_jobs = AsyncJob.query.filter_by(
-            org_id=current_user.org_id
-        ).order_by(AsyncJob.created_at.desc()).limit(10).all()
-        
-        # Get organization settings
-        organization = Organization.query.get(current_user.org_id)
-        
-        return render_template('async/dashboard.html',
-                             active_jobs=active_jobs,
-                             recent_jobs=recent_jobs,
-                             organization=organization)
-    
-    except Exception as e:
-        flash(f'Error loading async dashboard: {str(e)}', 'error')
-        return redirect(url_for('ui.dashboard'))
-
-
-@async_bp.route('/batch-sync', methods=['GET', 'POST'])
-@login_required
-@admin_required
-def batch_patient_sync():
-    """Initiate batch patient synchronization from Epic"""
-    if request.method == 'GET':
-        return render_template('async/batch_sync.html')
-    
-    try:
-        data = request.get_json() or request.form.to_dict()
-        patient_mrns = data.get('patient_mrns', '').strip().split('\n')
-        patient_mrns = [mrn.strip() for mrn in patient_mrns if mrn.strip()]
-        priority = data.get('priority', 'normal')
-        
-        if not patient_mrns:
-            return jsonify({'error': 'No patient MRNs provided'}), 400
-        
-        # Check organization batch size limits
-        organization = Organization.query.get(current_user.org_id)
-        if not organization.async_processing_enabled:
-            return jsonify({'error': 'Async processing is disabled for this organization'}), 403
-        
-        max_batch = organization.get_max_batch_size()
-        if len(patient_mrns) > max_batch:
-            return jsonify({
-                'error': f'Batch size ({len(patient_mrns)}) exceeds organization limit ({max_batch})'
-            }), 400
-        
-        # Check rate limits
-        from models import FHIRApiCall
-        current_hour_calls = FHIRApiCall.get_hourly_call_count(current_user.org_id)
-        estimated_calls = len(patient_mrns) * 5  # Estimated API calls per patient
-        
-        if not organization.is_within_rate_limit(current_hour_calls + estimated_calls):
-            return jsonify({
-                'error': f'This batch would exceed your hourly rate limit ({organization.fhir_rate_limit_per_hour} calls/hour)'
-            }), 429
-        
-        # Enqueue batch job
-        async_service = get_async_processing_service()
-        job_id = async_service.enqueue_batch_patient_sync(
-            organization_id=current_user.org_id,
-            patient_mrns=patient_mrns,
-            user_id=current_user.id,
-            priority=priority
-        )
-        
-        # Log the batch sync initiation
-        log_fhir_access(
-            organization_id=current_user.org_id,
-            action='batch_sync_initiated',
-            resource_type='Patient',
-            resource_count=len(patient_mrns),
-            additional_data={
-                'job_id': job_id,
-                'priority': priority,
-                'patient_count': len(patient_mrns)
-            }
-        )
-        
-        return jsonify({
-            'success': True,
-            'job_id': job_id,
-            'patient_count': len(patient_mrns),
-            'message': f'Batch sync initiated for {len(patient_mrns)} patients'
-        })
-    
-    except Exception as e:
-        return jsonify({'error': f'Failed to initiate batch sync: {str(e)}'}), 500
+# NOTE: The following routes were removed as they had no UI templates:
+# - /async/dashboard - rendered async/dashboard.html (does not exist)
+# - /async/batch-sync - rendered async/batch_sync.html (does not exist)
+# - /async/jobs - rendered async/job_list.html (does not exist)
+# - /async/job/<job_id> - rendered async/job_detail.html (does not exist)
+# - /async/settings - rendered async/settings.html (does not exist)
+# 
+# The batch patient sync also used a legacy sync path that has been
+# superseded by comprehensive_emr_sync.py.
 
 
 @async_bp.route('/batch-prep-sheets', methods=['POST'])
@@ -270,10 +185,10 @@ def cancel_job(job_id):
         return jsonify({'error': f'Failed to cancel job: {str(e)}'}), 500
 
 
-@async_bp.route('/jobs')
+@async_bp.route('/api/jobs')
 @login_required
-def list_jobs():
-    """List jobs for the organization"""
+def api_list_jobs():
+    """API endpoint to list jobs for the organization (JSON response)"""
     try:
         page = request.args.get('page', 1, type=int)
         per_page = min(request.args.get('per_page', 20, type=int), 100)
@@ -292,34 +207,17 @@ def list_jobs():
             page=page, per_page=per_page, error_out=False
         )
         
-        return render_template('async/job_list.html', jobs=jobs)
+        return jsonify({
+            'success': True,
+            'jobs': [{'job_id': j.job_id, 'status': j.status, 'job_type': j.job_type, 
+                     'created_at': j.created_at.isoformat() if j.created_at else None} for j in jobs.items],
+            'total': jobs.total,
+            'page': page,
+            'per_page': per_page
+        })
     
     except Exception as e:
-        flash(f'Error loading jobs: {str(e)}', 'error')
-        return redirect(url_for('async.async_dashboard'))
-
-
-@async_bp.route('/job/<job_id>')
-@login_required
-def job_detail(job_id):
-    """Show detailed information about a job"""
-    try:
-        job = AsyncJob.query.filter_by(
-            job_id=job_id,
-            org_id=current_user.org_id
-        ).first_or_404()
-        
-        # Get live status from async service
-        async_service = get_async_processing_service()
-        live_status = async_service.get_job_status(job_id)
-        
-        return render_template('async/job_detail.html', 
-                             job=job, 
-                             live_status=live_status)
-    
-    except Exception as e:
-        flash(f'Error loading job details: {str(e)}', 'error')
-        return redirect(url_for('async.async_dashboard'))
+        return jsonify({'error': f'Failed to list jobs: {str(e)}'}), 500
 
 
 @async_bp.route('/rate-limit/status')
@@ -345,44 +243,6 @@ def rate_limit_status():
     
     except Exception as e:
         return jsonify({'error': f'Failed to get rate limit status: {str(e)}'}), 500
-
-
-@async_bp.route('/settings', methods=['GET', 'POST'])
-@login_required
-@admin_required
-def async_settings():
-    """Manage async processing settings for the organization"""
-    organization = Organization.query.get(current_user.org_id)
-    
-    if request.method == 'POST':
-        try:
-            # Update async processing settings
-            organization.async_processing_enabled = request.form.get('async_processing_enabled') == 'on'
-            organization.max_batch_size = min(int(request.form.get('max_batch_size', 100)), 500)
-            organization.fhir_rate_limit_per_hour = int(request.form.get('fhir_rate_limit_per_hour', 1000))
-            organization.phi_logging_level = request.form.get('phi_logging_level', 'minimal')
-            
-            db.session.commit()
-            
-            # Log the settings change
-            log_fhir_access(
-                organization_id=current_user.org_id,
-                action='async_settings_updated',
-                additional_data={
-                    'async_enabled': organization.async_processing_enabled,
-                    'max_batch_size': organization.max_batch_size,
-                    'rate_limit': organization.fhir_rate_limit_per_hour,
-                    'phi_level': organization.phi_logging_level
-                }
-            )
-            
-            flash('Async processing settings updated successfully', 'success')
-            return redirect(url_for('async.async_settings'))
-        
-        except Exception as e:
-            flash(f'Error updating settings: {str(e)}', 'error')
-    
-    return render_template('async/settings.html', organization=organization)
 
 
 # API endpoints for real-time job monitoring

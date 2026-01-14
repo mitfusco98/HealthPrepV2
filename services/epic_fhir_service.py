@@ -844,67 +844,10 @@ class EpicFHIRService:
         
         return synced_docs
     
-    def sync_patient_documents(self, patient: Patient) -> List[FHIRDocument]:
-        """
-        Sync patient documents from Epic DocumentReference resources.
-        
-        SECURITY: Enforces provider scope when initialized with provider_id.
-        """
-        if not self.ensure_authenticated():
-            raise Exception("Epic FHIR authentication required")
-        
-        # SECURITY: Enforce provider scope if in provider context
-        if self.provider_id and patient.provider_id and patient.provider_id != self.provider_id:
-            logger.error(f"SECURITY: Attempted cross-provider document sync. "
-                        f"Service provider: {self.provider_id}, Patient provider: {patient.provider_id}")
-            raise ValueError("Access denied: Patient belongs to a different provider")
-        
-        if not patient.epic_patient_id:
-            logger.warning(f"Patient {patient.id} has no Epic patient ID")
-            return []
-        
-        try:
-            # Fetch documents from Epic
-            document_references = self.fhir_client.get_patient_documents(patient.epic_patient_id)
-            synced_documents = []
-            
-            for doc_ref in document_references:
-                fhir_doc = self._sync_document_reference(patient, doc_ref)
-                if fhir_doc:
-                    synced_documents.append(fhir_doc)
-            
-            db.session.commit()
-            logger.info(f"Synced {len(synced_documents)} documents for patient {patient.id}")
-            return synced_documents
-            
-        except Exception as e:
-            logger.error(f"Error syncing documents for patient {patient.id}: {str(e)}")
-            db.session.rollback()
-            raise
-    
-    def _sync_document_reference(self, patient: Patient, doc_ref: dict) -> Optional[FHIRDocument]:
-        """Sync individual DocumentReference to FHIRDocument"""
-        epic_doc_id = doc_ref.get('id')
-        if not epic_doc_id:
-            return None
-        
-        # Find existing document or create new one
-        fhir_doc = FHIRDocument.query.filter_by(
-            epic_document_id=epic_doc_id,
-            org_id=self.organization_id
-        ).first()
-        
-        if not fhir_doc:
-            fhir_doc = FHIRDocument()
-            fhir_doc.patient_id = patient.id
-            fhir_doc.org_id = self.organization_id
-            fhir_doc.epic_document_id = epic_doc_id
-        
-        # Update from FHIR data
-        fhir_doc.update_from_fhir(doc_ref)
-        
-        db.session.add(fhir_doc)
-        return fhir_doc
+    # NOTE: sync_patient_documents() and _sync_document_reference() were removed.
+    # Document syncing is now handled exclusively by comprehensive_emr_sync.py
+    # which provides atomic upserts with SELECT FOR UPDATE row locking and
+    # on_conflict_do_update() for duplicate key safety.
     
     def write_prep_sheet_to_epic(self, patient: Patient, prep_sheet_content: str, 
                                 screening_types: List[ScreeningType]) -> Optional[str]:

@@ -25,53 +25,9 @@ class AsyncProcessingService:
         self.queue = Queue('fhir_processing', connection=self.redis_conn)
         self.high_priority_queue = Queue('fhir_priority', connection=self.redis_conn)
     
-    def enqueue_batch_patient_sync(self, organization_id: int, patient_mrns: List[str], 
-                                 user_id: int, priority: str = 'normal') -> str:
-        """
-        Enqueue batch patient synchronization from Epic FHIR
-        
-        Args:
-            organization_id: Organization ID
-            patient_mrns: List of patient MRNs to sync
-            user_id: User who initiated the sync
-            priority: 'normal' or 'high'
-            
-        Returns:
-            Job ID for tracking progress
-        """
-        job_data = {
-            'organization_id': organization_id,
-            'patient_mrns': patient_mrns,
-            'user_id': user_id,
-            'initiated_at': datetime.utcnow().isoformat(),
-            'task_type': 'batch_patient_sync'
-        }
-        
-        queue = self.high_priority_queue if priority == 'high' else self.queue
-        job = queue.enqueue(
-            'services.async_processing.batch_sync_patients_from_epic',
-            job_data,
-            job_timeout='30m',  # 30 minutes timeout for batch operations
-            job_id=f"batch_sync_{organization_id}_{datetime.utcnow().timestamp()}"
-        )
-        
-        # Log the async job initiation
-        from models import log_admin_event
-        log_admin_event(
-            event_type='async_batch_sync_initiated',
-            user_id=user_id,
-            org_id=organization_id,
-            ip=None,  # Will be set by caller if available
-            data={
-                'job_id': job.id,
-                'patient_count': len(patient_mrns),
-                'priority': priority
-            },
-            action_details=f"Initiated batch sync for {len(patient_mrns)} patients"
-        )
-        
-        logger.info(f"Enqueued batch patient sync job {job.id} for {len(patient_mrns)} patients")
-        return job.id
+    # NOTE: enqueue_batch_patient_sync was removed - it used a legacy sync path.
+    # All EMR syncing is now handled by comprehensive_emr_sync.py which provides
+    # atomic upserts and proper duplicate key handling.
     
     def enqueue_batch_prep_sheet_generation(self, organization_id: int, 
                                           patient_ids: List[int], screening_types: List[int],
@@ -221,102 +177,9 @@ class AsyncProcessingService:
 
 # Background Job Functions (these run in the worker processes)
 
-def batch_sync_patients_from_epic(job_data: Dict[str, Any]):
-    """
-    Background job: Sync multiple patients from Epic FHIR
-    This runs in a separate worker process
-    """
-    from app import app
-    
-    with app.app_context():
-        organization_id = job_data['organization_id']
-        patient_mrns = job_data['patient_mrns']
-        user_id = job_data['user_id']
-        
-        logger.info(f"Starting batch sync for {len(patient_mrns)} patients in org {organization_id}")
-        
-        # Initialize Epic FHIR service
-        epic_service = EpicFHIRService(organization_id)
-        
-        results = {
-            'successful_syncs': [],
-            'failed_syncs': [],
-            'total_patients': len(patient_mrns),
-            'started_at': datetime.utcnow().isoformat()
-        }
-        
-        # Update job progress
-        job = Job.fetch(job_data.get('job_id', ''), connection=Redis.from_url('redis://localhost:6379/0'))
-        
-        for i, mrn in enumerate(patient_mrns):
-            try:
-                # Update progress
-                progress = {
-                    'current': i + 1,
-                    'total': len(patient_mrns),
-                    'percentage': round((i + 1) / len(patient_mrns) * 100, 1),
-                    'current_mrn': mrn
-                }
-                job.meta['progress'] = progress
-                job.save_meta()
-                
-                # Sync patient from Epic
-                patient = epic_service.sync_patient_from_epic(mrn)
-                
-                if patient:
-                    # Sync patient documents
-                    documents = epic_service.sync_patient_documents(patient)
-                    
-                    results['successful_syncs'].append({
-                        'mrn': mrn,
-                        'patient_id': patient.id,
-                        'documents_synced': len(documents)
-                    })
-                    
-                    # Log successful sync
-                    log_admin_event(
-                        event_type='fhir_patient_sync_success',
-                        user_id=user_id,
-                        org_id=organization_id,
-                        patient_id=patient.id,
-                        ip=None,
-                        data={'mrn': mrn, 'documents_count': len(documents)},
-                        action_details=f"Successfully synced patient {mrn} with {len(documents)} documents"
-                    )
-                else:
-                    results['failed_syncs'].append({'mrn': mrn, 'error': 'Patient not found in Epic'})
-                    
-            except Exception as e:
-                error_msg = str(e)
-                results['failed_syncs'].append({'mrn': mrn, 'error': error_msg})
-                logger.error(f"Failed to sync patient: {error_msg}")
-                
-                # Log failed sync
-                log_admin_event(
-                    event_type='fhir_patient_sync_failed',
-                    user_id=user_id,
-                    org_id=organization_id,
-                    ip=None,
-                    data={'mrn': mrn, 'error': error_msg},
-                    action_details=f"Failed to sync patient {mrn}: {error_msg}"
-                )
-        
-        results['completed_at'] = datetime.utcnow().isoformat()
-        results['success_rate'] = len(results['successful_syncs']) / len(patient_mrns) * 100
-        
-        logger.info(f"Batch sync completed: {len(results['successful_syncs'])}/{len(patient_mrns)} successful")
-        
-        # Log batch completion
-        log_admin_event(
-            event_type='async_batch_sync_completed',
-            user_id=user_id,
-            org_id=organization_id,
-            ip=None,
-            data=results,
-            action_details=f"Batch sync completed: {len(results['successful_syncs'])}/{len(patient_mrns)} successful"
-        )
-        
-        return results
+# NOTE: batch_sync_patients_from_epic was removed - it used the legacy 
+# EpicFHIRService.sync_patient_documents() path which has been superseded by 
+# comprehensive_emr_sync.py for safer atomic document upserts.
 
 
 def batch_generate_prep_sheets(job_data: Dict[str, Any]):
