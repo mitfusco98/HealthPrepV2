@@ -14,6 +14,17 @@ from flask import session, has_request_context
 from flask_login import current_user
 
 from models import db, Patient, PatientCondition, FHIRDocument, Document, Organization, ScreeningType, Appointment, ScreeningDocumentMatch
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy import case
+
+
+class CrossPatientOwnershipError(Exception):
+    """Raised when an Epic document is claimed by another patient."""
+    def __init__(self, epic_document_id: str, existing_patient_id: int):
+        super().__init__(f"FHIRDocument {epic_document_id} already belongs to patient {existing_patient_id}")
+        self.epic_document_id = epic_document_id
+        self.existing_patient_id = existing_patient_id
 from services.epic_fhir_service import EpicFHIRService, get_epic_fhir_service_background
 from emr.fhir_client import FHIRClient
 from core.engine import ScreeningEngine
@@ -434,6 +445,91 @@ class ComprehensiveEMRSync:
             logger.error(f"Error syncing patient observations: {str(e)}")
             return 0
     
+    def _upsert_fhir_document(self, *,
+                              patient: Patient,
+                              epic_document_id: str,
+                              document_date: Optional[datetime],
+                              type_code: Optional[str],
+                              type_display: Optional[str],
+                              title: Optional[str],
+                              resource_json: str,
+                              new_ocr_text: Optional[str]) -> bool:
+        """Upsert a FHIRDocument with proper ownership protection.
+        
+        Must be called within a savepoint (begin_nested) for isolation.
+        Uses true PostgreSQL upsert (INSERT ON CONFLICT) for atomic conflict handling.
+        
+        Returns True on success, raises CrossPatientOwnershipError if ownership conflict.
+        """
+        from sqlalchemy import or_, func, literal
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+        
+        now_utc = datetime.utcnow()
+        
+        # First, check for cross-patient ownership conflict
+        # Use FOR UPDATE to lock any existing row during check
+        existing = FHIRDocument.query.filter_by(
+            epic_document_id=epic_document_id,
+            org_id=self.organization_id
+        ).with_for_update().first()
+        
+        if existing and existing.patient_id is not None and existing.patient_id != patient.id:
+            raise CrossPatientOwnershipError(epic_document_id, existing.patient_id)
+        
+        # Build INSERT values
+        insert_values = {
+            'patient_id': patient.id,
+            'org_id': self.organization_id,
+            'epic_document_id': epic_document_id,
+            'document_type_code': type_code,
+            'document_type_display': type_display,
+            'title': title,
+            'document_date': document_date,
+            'fhir_document_reference': resource_json,
+            'created_at': now_utc,
+            'updated_at': now_utc,
+        }
+        if new_ocr_text:
+            insert_values['ocr_text'] = new_ocr_text
+        
+        stmt = pg_insert(FHIRDocument.__table__).values(**insert_values)
+        
+        # Build UPDATE set for conflict - only update truthy values
+        update_set = {'updated_at': now_utc}
+        if type_code:
+            update_set['document_type_code'] = type_code
+        if type_display:
+            update_set['document_type_display'] = type_display
+        if title:
+            update_set['title'] = title
+        if document_date:
+            update_set['document_date'] = document_date
+        if resource_json:
+            update_set['fhir_document_reference'] = resource_json
+        if new_ocr_text:
+            update_set['ocr_text'] = new_ocr_text
+        # Assign patient_id for legacy NULL records
+        update_set['patient_id'] = patient.id
+        
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['epic_document_id', 'org_id'],
+            set_=update_set,
+            # Only update if same patient OR legacy NULL patient
+            where=or_(
+                FHIRDocument.__table__.c.patient_id == patient.id,
+                FHIRDocument.__table__.c.patient_id.is_(None)
+            ),
+        )
+        
+        result = db.session.execute(stmt)
+        db.session.flush()
+        
+        # rowcount == 0 means WHERE clause blocked the update (cross-patient conflict)
+        if result.rowcount == 0:
+            raise CrossPatientOwnershipError(epic_document_id, existing.patient_id if existing else 0)
+        
+        return True
+
     def _sync_patient_imaging(self, patient: Patient, last_encounter_date: Optional[datetime],
                              sync_options: Dict[str, Any]) -> int:
         """Step 3a: Retrieve Imaging Studies using FHIR DiagnosticReport resource"""
@@ -455,59 +551,66 @@ class ComprehensiveEMRSync:
                 return 0
             
             imaging_synced = 0
+            now_utc = datetime.utcnow()
             
-            # Process each DiagnosticReport entry
+            # Process each DiagnosticReport entry with per-record error isolation using savepoints
             for fhir_report in imaging_data.get('entry', []):
                 report_resource = fhir_report.get('resource', {})
                 
                 report_id = report_resource.get('id')
-                report_status = report_resource.get('status')
+                if not report_id:
+                    continue
+                    
                 report_date = self._extract_diagnostic_report_date(report_resource)
                 report_title = self._extract_diagnostic_report_title(report_resource)
                 report_conclusion = self._extract_diagnostic_report_conclusion(report_resource)
                 
-                if report_id:
-                    # Check if we already have this imaging report
-                    existing_doc = FHIRDocument.query.filter_by(
-                        epic_document_id=report_id,
-                        patient_id=patient.id
-                    ).first()
-                    
-                    if not existing_doc:
-                        # HIPAA COMPLIANCE: Extract structured codes for PHI-safe title
-                        # Never use free-text title from Epic - use LOINC codes only
-                        from utils.document_types import get_safe_document_type, get_document_type_code
-                        
-                        code = report_resource.get('code', {})
-                        type_coding = code.get('coding', [])
-                        category = report_resource.get('category', [])
-                        
-                        # Get PHI-safe title from structured codes
-                        safe_title = get_safe_document_type(type_coding, category, fallback_code='imaging')
-                        type_code = get_document_type_code(type_coding, category)
-                        
-                        # Sanitize FHIR resource JSON to remove PHI
-                        sanitized_resource = self.phi_filter.sanitize_fhir_resource(json.dumps(report_resource))
-                        fhir_doc = FHIRDocument(
-                            patient_id=patient.id,
+                # HIPAA COMPLIANCE: Extract structured codes for PHI-safe title
+                from utils.document_types import get_safe_document_type, get_document_type_code
+                
+                code = report_resource.get('code', {})
+                type_coding = code.get('coding', [])
+                category = report_resource.get('category', [])
+                
+                safe_title = get_safe_document_type(type_coding, category, fallback_code='imaging')
+                type_code = get_document_type_code(type_coding, category)
+                sanitized_resource = self.phi_filter.sanitize_fhir_resource(json.dumps(report_resource))
+                
+                # Process OCR text if available
+                ocr_text = report_conclusion[:5000] if report_conclusion else None
+                
+                try:
+                    # Per-record savepoint isolates failures from affecting other records
+                    with db.session.begin_nested():
+                        self._upsert_fhir_document(
+                            patient=patient,
                             epic_document_id=report_id,
-                            document_type_code=type_code or None,
-                            document_type_display=safe_title,
-                            title=safe_title,  # Use structured code-derived title
                             document_date=report_date,
-                            fhir_document_reference=sanitized_resource,
-                            org_id=self.organization_id
+                            type_code=type_code,
+                            type_display=safe_title,
+                            title=safe_title,
+                            resource_json=sanitized_resource,
+                            new_ocr_text=ocr_text,
                         )
-                        # Apply PHI filtering to any text content
-                        if report_conclusion:
-                            fhir_doc.set_ocr_text(report_conclusion[:5000])
+                    # Savepoint commits automatically on successful exit
+                    imaging_synced += 1
+                    logger.debug(f"Upserted imaging DiagnosticReport: {report_title}")
                         
-                        db.session.add(fhir_doc)
-                        imaging_synced += 1
-                        
-                        logger.debug(f"Added imaging DiagnosticReport: {report_title}")
+                except CrossPatientOwnershipError as e:
+                    # Document belongs to different patient - logged and skipped
+                    logger.warning(str(e))
+                    continue
+                except (IntegrityError, SQLAlchemyError) as e:
+                    # Database error - savepoint already rolled back
+                    logger.warning(f"Database error processing imaging report {report_id}: {str(e)}")
+                    continue
+                except Exception as e:
+                    # Unexpected error - savepoint already rolled back
+                    logger.warning(f"Failed to process imaging report {report_id}: {str(e)}")
+                    continue
             
-            db.session.commit()
+            # Note: Do NOT commit here - let the caller (sync_patient) commit
+            # This ensures imaging failures don't affect other sync stages
             logger.info(f"Processed {imaging_synced} imaging studies (DiagnosticReports)")
             return imaging_synced
             
@@ -584,21 +687,25 @@ class ComprehensiveEMRSync:
                 
                 # Check if document is potentially relevant to screenings
                 if self._is_potentially_screening_document(doc_title, doc_type):
-                    # Check if we already have this document
+                    # Check if we already have this document (use org_id to match unique constraint)
                     existing_doc = FHIRDocument.query.filter_by(
                         epic_document_id=doc_id,
-                        patient_id=patient.id
+                        org_id=self.organization_id
                     ).first()
                     
                     if not existing_doc:
                         logger.debug(f"Processing new document: ID={doc_id}, Title='{doc_title}', Type='{doc_type}'")
-                        # Download and process document content
+                        # Download and process document content (uses savepoints internally)
                         content_processed = self._process_document_content(
                             patient, document_resource, doc_title, doc_date, doc_type
                         )
                         
                         if content_processed:
                             documents_processed += 1
+                    elif existing_doc.patient_id != patient.id:
+                        # Document belongs to different patient - skip (cross-patient ownership)
+                        logger.debug(f"Skipping document {doc_id}: belongs to different patient")
+                        documents_skipped += 1
                     else:
                         logger.debug(f"Skipping duplicate document: ID={doc_id}, Title='{doc_title}'")
                         documents_skipped += 1
@@ -1043,21 +1150,34 @@ class ComprehensiveEMRSync:
                     
                     # Sanitize FHIR resource JSON to remove PHI
                     sanitized_resource = self.phi_filter.sanitize_fhir_resource(json.dumps(document_resource))
-                    fhir_doc = FHIRDocument(
-                        patient_id=patient.id,
-                        epic_document_id=epic_document_id,
-                        document_type_code=type_code or None,
-                        document_type_display=safe_title,
-                        title=safe_title,  # Use structured code-derived title, not free text
-                        document_date=doc_date,
-                        fhir_document_reference=sanitized_resource,
-                        org_id=self.organization_id
-                    )
-                    # Apply PHI filtering to extracted text (this also logs phi_filtered event)
-                    fhir_doc.set_ocr_text(extracted_text[:5000])
-                    sub_actions['phi_filtered'] = True
                     
-                    db.session.add(fhir_doc)
+                    # Truncate OCR text to 5000 chars for storage
+                    ocr_text = extracted_text[:5000] if extracted_text else None
+                    
+                    try:
+                        # Per-record savepoint isolates failures from affecting other sync stages
+                        with db.session.begin_nested():
+                            self._upsert_fhir_document(
+                                patient=patient,
+                                epic_document_id=epic_document_id,
+                                document_date=doc_date,
+                                type_code=type_code,
+                                type_display=safe_title,
+                                title=safe_title,
+                                resource_json=sanitized_resource,
+                                new_ocr_text=ocr_text,
+                            )
+                        # Savepoint commits automatically on successful exit
+                        sub_actions['phi_filtered'] = True
+                    except CrossPatientOwnershipError as conflict:
+                        logger.warning(str(conflict))
+                        return False
+                    except (IntegrityError, SQLAlchemyError) as err:
+                        logger.warning(f"Database error persisting FHIR document {epic_document_id}: {err}")
+                        return False
+                    except Exception as err:
+                        logger.warning(f"Unexpected error persisting FHIR document {epic_document_id}: {err}")
+                        return False
                     
                     # Log consolidated document_processing_complete event (SUCCESS)
                     processing_duration = (datetime.now() - processing_start).total_seconds()
@@ -1121,6 +1241,10 @@ class ComprehensiveEMRSync:
             
         except Exception as e:
             logger.error(f"Error processing document content: {str(e)}")
+            
+            # Note: Do NOT call db.session.rollback() here - this would roll back
+            # the entire patient sync transaction. The per-record savepoints
+            # (begin_nested) handle isolation. Just log the error and return False.
             
             # Log consolidated document_processing_complete event (FAILED - exception)
             processing_duration = (datetime.now() - processing_start).total_seconds()
