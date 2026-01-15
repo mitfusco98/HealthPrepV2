@@ -28,14 +28,14 @@ class SecretsValidator:
         'DATABASE_URL',
     ]
     
-    # Optional secrets with warnings if missing
+    # Optional secrets with warnings if missing (development only)
     OPTIONAL_SECRETS = [
-        'ENCRYPTION_KEY',  # Required for Epic credential encryption
+        # ENCRYPTION_KEY is optional in development but required in production
     ]
     
-    # Production-only required secrets
+    # Production-only required secrets (hard failure if missing in production)
     PRODUCTION_SECRETS = [
-        'ENCRYPTION_KEY',  # MUST have encryption in production
+        'ENCRYPTION_KEY',  # CRITICAL: MUST have encryption in production for HIPAA compliance
     ]
     
     @staticmethod

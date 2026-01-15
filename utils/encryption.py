@@ -33,15 +33,32 @@ class EncryptionService:
         self._initialize_cipher()
     
     def _initialize_cipher(self):
-        """Initialize Fernet cipher from environment variable"""
+        """Initialize Fernet cipher from environment variable
+        
+        SECURITY: In production (FLASK_ENV=production), encryption is MANDATORY.
+        The secrets_validator enforces this at startup. In development, encryption
+        can be disabled with a warning.
+        """
         encryption_key = os.environ.get('ENCRYPTION_KEY')
+        is_production = os.environ.get('FLASK_ENV') == 'production'
         
         if not encryption_key:
-            logger.warning(
-                "ENCRYPTION_KEY not set - encryption disabled. "
-                "Generate a key with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
-            )
-            return
+            if is_production:
+                # This should never happen - secrets_validator should catch it first
+                # But as defense-in-depth, raise an error
+                error_msg = (
+                    "CRITICAL: ENCRYPTION_KEY not set in production environment. "
+                    "This is a HIPAA violation. Generate a key with: "
+                    "python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+                )
+                logger.error(error_msg)
+                raise EncryptionError(error_msg)
+            else:
+                logger.warning(
+                    "ENCRYPTION_KEY not set - encryption disabled (development only). "
+                    "Generate a key with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+                )
+                return
         
         try:
             # Encryption key should be a base64-encoded 32-byte key

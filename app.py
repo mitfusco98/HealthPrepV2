@@ -121,14 +121,17 @@ def create_app():
     
     # Configure CORS for API endpoints
     # Allow marketing website to call /api/signup endpoint
+    # SECURITY: Restrict origins in production - never use "*" in production
+    cors_origins = _get_cors_origins(is_production)
     CORS(app, resources={
         r"/api/*": {
-            "origins": "*",  # Allow all origins for development; configure specific domains in production
+            "origins": cors_origins,
             "methods": ["GET", "POST", "OPTIONS"],
             "allow_headers": ["Content-Type", "Accept"],
             "supports_credentials": False
         }
     })
+    logger.info(f"CORS configured with origins: {cors_origins}")
 
     @login_manager.user_loader
     def load_user(user_id):
@@ -579,6 +582,48 @@ def _create_screening_unique_indexes(db):
         # Non-fatal - indexes may not be created on SQLite or if table doesn't exist yet
         logger.debug(f"Partial unique indexes not created (may not be PostgreSQL): {e}")
         db.session.rollback()
+
+def _get_cors_origins(is_production: bool) -> list:
+    """
+    Get allowed CORS origins based on environment.
+    
+    SECURITY: In production, only allow explicitly configured origins.
+    Never use "*" (allow all) in production - this is a security vulnerability.
+    
+    Configure allowed origins via CORS_ALLOWED_ORIGINS environment variable.
+    Multiple origins can be comma-separated: "https://example.com,https://app.example.com"
+    
+    Args:
+        is_production: Whether running in production environment
+    
+    Returns:
+        List of allowed origin strings, or ["*"] for development only
+    """
+    if is_production:
+        # CRITICAL: In production, require explicit origin configuration
+        allowed_origins_str = os.environ.get('CORS_ALLOWED_ORIGINS', '')
+        
+        if allowed_origins_str:
+            # Parse comma-separated origins and strip whitespace
+            origins = [origin.strip() for origin in allowed_origins_str.split(',') if origin.strip()]
+            if origins:
+                logger.info(f"CORS: Production mode with {len(origins)} allowed origin(s)")
+                return origins
+        
+        # If no origins configured in production, log warning and return empty list
+        # This effectively blocks all cross-origin requests - safer than allowing all
+        logger.warning(
+            "CORS: No CORS_ALLOWED_ORIGINS configured in production. "
+            "Cross-origin requests will be blocked. "
+            "Set CORS_ALLOWED_ORIGINS=https://your-marketing-site.com to allow specific origins."
+        )
+        return []
+    else:
+        # Development: Allow all origins for ease of testing
+        # This is acceptable in development but NEVER in production
+        logger.info("CORS: Development mode - allowing all origins (NOT for production use)")
+        return ["*"]
+
 
 def _add_missing_columns(db):
     """
