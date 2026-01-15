@@ -78,10 +78,22 @@ def create_app():
     app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session lifetime
     app.config['SESSION_REFRESH_EACH_REQUEST'] = True  # Refresh session on each request
 
-    # Database configuration with fallback
+    # Database configuration with production enforcement
     database_url = os.environ.get('DATABASE_URL', 'sqlite:///instance/healthprep.db')
 
-    # If using PostgreSQL, try to connect, but fallback to SQLite if it fails
+    # SECURITY: In production, ONLY PostgreSQL is allowed (not SQLite)
+    # SQLite is single-user and not suitable for multi-instance production deployments
+    if is_production:
+        if not (database_url.startswith('postgresql://') or database_url.startswith('postgres://')):
+            error_msg = (
+                "CRITICAL: SQLite is not allowed in production. "
+                "Set DATABASE_URL to a PostgreSQL connection string. "
+                "Example: postgresql://user:pass@host:5432/dbname"
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+    
+    # If using PostgreSQL, try to connect, but fallback to SQLite only in development
     if database_url.startswith('postgresql://') or database_url.startswith('postgres://'):
         try:
             # Test if we can resolve the hostname
@@ -91,10 +103,15 @@ def create_app():
             if parsed.hostname:
                 socket.gethostbyname(parsed.hostname)
             app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-            print(f"Using PostgreSQL database: {parsed.hostname}")
+            logger.info(f"Using PostgreSQL database: {parsed.hostname}")
         except Exception as e:
-            print(f"PostgreSQL connection failed ({e}), falling back to SQLite")
-            app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/healthprep.db'
+            if is_production:
+                # In production, don't fall back - fail explicitly
+                logger.error(f"PostgreSQL connection failed in production: {e}")
+                raise ValueError(f"PostgreSQL connection failed in production: {e}")
+            else:
+                logger.warning(f"PostgreSQL connection failed ({e}), falling back to SQLite (development only)")
+                app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/healthprep.db'
     else:
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 

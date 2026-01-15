@@ -132,7 +132,7 @@ class SecretsValidator:
         return True
     
     @staticmethod
-    def get_validation_report() -> Dict[str, any]:
+    def get_validation_report() -> Dict[str, dict]:
         """
         Get a report of all secrets and their status
         

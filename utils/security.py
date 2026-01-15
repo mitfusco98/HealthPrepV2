@@ -6,6 +6,7 @@ Provides rate limiting, security token management, and hardening functions
 import secrets
 import hashlib
 import logging
+import os
 import time
 from datetime import datetime, timedelta
 from functools import wraps
@@ -17,6 +18,63 @@ logger = logging.getLogger(__name__)
 # In-memory rate limiting storage (for single-instance deployment)
 # For production multi-instance deployment, use Redis
 _rate_limit_storage: Dict[str, Dict] = {}
+
+# Redis connection for distributed rate limiting (production)
+_redis_client = None
+
+
+def _get_redis_client():
+    """
+    Get Redis client for distributed rate limiting in production.
+    
+    SECURITY: In production with multiple instances, in-memory rate limiting
+    doesn't work - attackers can hit different instances to bypass limits.
+    Redis provides centralized rate limit tracking across all instances.
+    
+    Configure via REDIS_URL environment variable.
+    Falls back to in-memory storage if Redis is not available.
+    """
+    global _redis_client
+    
+    if _redis_client is not None:
+        return _redis_client
+    
+    redis_url = os.environ.get('REDIS_URL')
+    is_production = os.environ.get('FLASK_ENV') == 'production'
+    
+    if redis_url:
+        try:
+            import redis
+            _redis_client = redis.from_url(redis_url, decode_responses=True)
+            # Test connection
+            _redis_client.ping()
+            logger.info("Redis connected for distributed rate limiting")
+            return _redis_client
+        except ImportError:
+            if is_production:
+                logger.warning(
+                    "SECURITY: Redis package not installed but REDIS_URL is set. "
+                    "Install redis package for distributed rate limiting in production."
+                )
+            _redis_client = False  # Mark as unavailable
+        except Exception as e:
+            logger.error(f"Failed to connect to Redis: {e}")
+            if is_production:
+                logger.warning(
+                    "SECURITY: Redis connection failed in production. "
+                    "Rate limiting will use in-memory storage (NOT distributed across instances)."
+                )
+            _redis_client = False  # Mark as unavailable
+    else:
+        if is_production:
+            logger.warning(
+                "SECURITY: REDIS_URL not configured in production. "
+                "Rate limiting will use in-memory storage (NOT distributed across instances). "
+                "Set REDIS_URL for proper distributed rate limiting."
+            )
+        _redis_client = False  # Mark as unavailable
+    
+    return None
 
 
 class RateLimiter:
@@ -62,6 +120,9 @@ class RateLimiter:
         """
         Check if the request should be rate limited.
         
+        Uses Redis for distributed rate limiting in production (if available),
+        falls back to in-memory storage for single-instance deployments.
+        
         Args:
             endpoint_type: Type of endpoint (password_reset, login, etc.)
             identifier: Optional additional identifier (email, username)
@@ -69,6 +130,50 @@ class RateLimiter:
         Returns:
             Tuple of (is_allowed, seconds_until_allowed)
         """
+        redis_client = _get_redis_client()
+        
+        if redis_client:
+            return cls._check_rate_limit_redis(endpoint_type, identifier, redis_client)
+        else:
+            return cls._check_rate_limit_memory(endpoint_type, identifier)
+    
+    @classmethod
+    def _check_rate_limit_redis(cls, endpoint_type: str, identifier: Optional[str], redis_client) -> Tuple[bool, Optional[int]]:
+        """Check rate limit using Redis (distributed)"""
+        current_time = int(time.time())
+        key = f"ratelimit:{cls._get_client_key(endpoint_type, identifier)}"
+        lockout_key = f"{key}:lockout"
+        limits = cls.LIMITS.get(endpoint_type, cls.LIMITS['api_general'])
+        
+        try:
+            # Check if currently locked out
+            lockout_ttl = redis_client.ttl(lockout_key)
+            if lockout_ttl and lockout_ttl > 0:
+                logger.warning(f"Rate limit lockout active for {key}, {lockout_ttl}s remaining")
+                return False, lockout_ttl
+            
+            # Count attempts in the current window using a sorted set
+            window_start = current_time - limits['window_seconds']
+            
+            # Remove old entries and count current ones
+            redis_client.zremrangebyscore(key, 0, window_start)
+            attempt_count = redis_client.zcard(key)
+            
+            if attempt_count >= limits['max_attempts']:
+                # Trigger lockout
+                redis_client.setex(lockout_key, limits['lockout_seconds'], '1')
+                logger.warning(f"Rate limit exceeded for {key}, lockout for {limits['lockout_seconds']}s")
+                return False, limits['lockout_seconds']
+            
+            return True, None
+            
+        except Exception as e:
+            logger.error(f"Redis rate limit check failed: {e}, falling back to in-memory")
+            return cls._check_rate_limit_memory(endpoint_type, identifier)
+    
+    @classmethod
+    def _check_rate_limit_memory(cls, endpoint_type: str, identifier: Optional[str]) -> Tuple[bool, Optional[int]]:
+        """Check rate limit using in-memory storage (single-instance only)"""
         current_time = time.time()
         key = cls._get_client_key(endpoint_type, identifier)
         limits = cls.LIMITS.get(endpoint_type, cls.LIMITS['api_general'])
@@ -110,11 +215,46 @@ class RateLimiter:
         """
         Record an attempt at the endpoint.
         
+        Uses Redis for distributed tracking in production (if available),
+        falls back to in-memory storage for single-instance deployments.
+        
         Args:
             endpoint_type: Type of endpoint
             identifier: Optional additional identifier
             success: If True and successful, reset the attempt counter
         """
+        redis_client = _get_redis_client()
+        
+        if redis_client:
+            cls._record_attempt_redis(endpoint_type, identifier, success, redis_client)
+        else:
+            cls._record_attempt_memory(endpoint_type, identifier, success)
+    
+    @classmethod
+    def _record_attempt_redis(cls, endpoint_type: str, identifier: Optional[str], success: bool, redis_client):
+        """Record attempt using Redis"""
+        current_time = int(time.time())
+        key = f"ratelimit:{cls._get_client_key(endpoint_type, identifier)}"
+        lockout_key = f"{key}:lockout"
+        limits = cls.LIMITS.get(endpoint_type, cls.LIMITS['api_general'])
+        
+        try:
+            if success:
+                # Successful attempt - delete keys
+                redis_client.delete(key, lockout_key)
+                logger.info(f"Rate limit reset for {key} due to successful attempt")
+            else:
+                # Failed attempt - add to sorted set with timestamp as score
+                redis_client.zadd(key, {str(current_time): current_time})
+                # Set TTL on the key to auto-cleanup
+                redis_client.expire(key, limits['window_seconds'] + limits['lockout_seconds'])
+        except Exception as e:
+            logger.error(f"Redis record_attempt failed: {e}, falling back to in-memory")
+            cls._record_attempt_memory(endpoint_type, identifier, success)
+    
+    @classmethod
+    def _record_attempt_memory(cls, endpoint_type: str, identifier: Optional[str], success: bool):
+        """Record attempt using in-memory storage"""
         current_time = time.time()
         key = cls._get_client_key(endpoint_type, identifier)
         

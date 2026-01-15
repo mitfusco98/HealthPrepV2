@@ -133,19 +133,49 @@ def add_security_headers(app: Flask) -> None:
         )
         
         # Content-Security-Policy - Mitigate XSS and injection attacks
-        # Allow self, Bootstrap CDN, and inline scripts/styles (for legacy compatibility)
-        # Stricter CSP can be implemented after auditing all inline scripts
-        csp_directives = [
-            "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://code.jquery.com https://cdnjs.cloudflare.com",
-            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com",
-            "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:",
-            "img-src 'self' data: https:",
-            "connect-src 'self'",
-            "frame-ancestors 'self'",
-            "base-uri 'self'",
-            "form-action 'self'"
-        ]
+        # 
+        # SECURITY NOTES:
+        # - 'unsafe-inline' is required for Bootstrap/legacy templates with inline styles
+        # - 'unsafe-eval' is required for some Bootstrap tooltip/popover functionality
+        # - Production roadmap: Migrate to nonce-based CSP for stricter security
+        # - To enable strict mode: set CSP_STRICT_MODE=true in environment
+        # 
+        # Trusted CDN domains are whitelisted for Bootstrap, jQuery, and FontAwesome
+        import os
+        is_strict_mode = os.environ.get('CSP_STRICT_MODE', '').lower() == 'true'
+        
+        if is_strict_mode:
+            # Strict CSP - requires all inline scripts/styles to be moved to external files
+            # Only enable after migrating templates to use external JS/CSS
+            csp_directives = [
+                "default-src 'self'",
+                "script-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://cdnjs.cloudflare.com",
+                "style-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com",
+                "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:",
+                "img-src 'self' data: https:",
+                "connect-src 'self'",
+                "frame-ancestors 'self'",
+                "base-uri 'self'",
+                "form-action 'self'",
+                "upgrade-insecure-requests"
+            ]
+            logger.info("CSP: Strict mode enabled (no unsafe-inline/unsafe-eval)")
+        else:
+            # Standard CSP with unsafe-inline for Bootstrap compatibility
+            # This is the current default for existing Flask templates
+            csp_directives = [
+                "default-src 'self'",
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://code.jquery.com https://cdnjs.cloudflare.com",
+                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com",
+                "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:",
+                "img-src 'self' data: https:",
+                "connect-src 'self'",
+                "frame-ancestors 'self'",
+                "base-uri 'self'",
+                "form-action 'self'",
+                "upgrade-insecure-requests"
+            ]
+        
         response.headers['Content-Security-Policy'] = '; '.join(csp_directives)
         
         return response
