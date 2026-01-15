@@ -154,7 +154,11 @@ class PrepSheetGenerator:
     
     def _generate_quality_checklist(self, patient_id):
         """Generate screening quality checklist"""
-        screenings = Screening.query.filter_by(patient_id=patient_id).join(
+        # Exclude 'superseded' screenings - these are obsolete variant screenings
+        # that were replaced by more specific variants (e.g., general -> PCOS variant)
+        screenings = Screening.query.filter_by(patient_id=patient_id).filter(
+            Screening.status != 'superseded'
+        ).join(
             Screening.screening_type
         ).all()
         

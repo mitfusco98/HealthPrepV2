@@ -209,11 +209,24 @@ def get_provider_patients(user, all_providers: bool = False):
     return apply_provider_scope(query, Patient, user, all_providers)
 
 
-def get_provider_screenings(user, all_providers: bool = False):
+def get_provider_screenings(user, all_providers: bool = False, include_superseded: bool = False):
     """
     Get screenings scoped to user's provider access.
+    
+    Args:
+        user: Current user
+        all_providers: If True, get screenings from all accessible providers
+        include_superseded: If True, include 'superseded' status screenings (default False)
+                           Superseded screenings are variant screenings that were replaced
+                           by a more specific variant (e.g., general -> PCOS variant)
     """
     query = Screening.query
+    
+    # Filter out superseded screenings by default
+    # These are obsolete variant screenings replaced by more specific variants
+    if not include_superseded:
+        query = query.filter(Screening.status != 'superseded')
+    
     return apply_provider_scope(query, Screening, user, all_providers)
 
 

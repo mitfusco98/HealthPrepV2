@@ -829,9 +829,10 @@ def api_screening_status(patient_id):
                 'error': 'Access denied'
             }), 403
         
+        # Exclude 'superseded' screenings - these are obsolete variant screenings
         screenings = Screening.query.filter_by(
             patient_id=patient_id
-        ).join(ScreeningType).filter_by(is_active=True).all()
+        ).filter(Screening.status != 'superseded').join(ScreeningType).filter_by(is_active=True).all()
 
         screening_data = []
         for screening in screenings:

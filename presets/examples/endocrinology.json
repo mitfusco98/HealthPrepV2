@@ -28,13 +28,24 @@
     },
     {
       "name": "Diabetes Monitoring - A1C",
-      "description": "Regular A1C monitoring for established diabetic patients",
+      "description": "Regular A1C monitoring for well-controlled diabetic patients",
+      "keywords": ["a1c", "hemoglobin a1c", "hba1c", "diabetes monitoring", "glycemic control"],
+      "min_age": 18,
+      "max_age": null,
+      "eligible_genders": "both",
+      "frequency_years": 0.5,
+      "trigger_conditions": ["diabetes", "type 1 diabetes", "type 2 diabetes", "well-controlled diabetes"],
+      "is_active": true
+    },
+    {
+      "name": "Diabetes Monitoring - A1C Poorly Controlled",
+      "description": "Frequent A1C monitoring for poorly controlled diabetic patients",
       "keywords": ["a1c", "hemoglobin a1c", "hba1c", "diabetes monitoring", "glycemic control"],
       "min_age": 18,
       "max_age": null,
       "eligible_genders": "both",
       "frequency_years": 0.25,
-      "trigger_conditions": ["diabetes", "type 1 diabetes", "type 2 diabetes"],
+      "trigger_conditions": ["poorly controlled diabetes", "uncontrolled diabetes", "severe diabetes", "diabetic complications"],
       "is_active": true
     },
     {

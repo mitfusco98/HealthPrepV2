@@ -209,7 +209,10 @@ def get_patient_screenings(patient_id):
     """Get all screenings for a patient"""
     try:
         patient = Patient.query.get_or_404(patient_id)
-        screenings = Screening.query.filter_by(patient_id=patient_id).all()
+        # Exclude 'superseded' screenings - these are obsolete variant screenings
+        screenings = Screening.query.filter_by(patient_id=patient_id).filter(
+            Screening.status != 'superseded'
+        ).all()
 
         screening_data = []
         for screening in screenings:

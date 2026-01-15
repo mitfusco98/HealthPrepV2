@@ -71,6 +71,28 @@
       "is_active": true
     },
     {
+      "name": "Cervical Cancer Screening - PCOS",
+      "description": "More frequent cervical cancer screening for patients with polycystic ovary syndrome due to hormonal factors",
+      "keywords": ["pap smear", "hpv test", "cervical screening", "cytology", "cervical cancer screening", "pcos screening"],
+      "min_age": 21,
+      "max_age": 65,
+      "eligible_genders": "female",
+      "frequency_years": 2.0,
+      "trigger_conditions": ["PCOS", "polycystic ovary syndrome", "polycystic ovarian syndrome"],
+      "is_active": true
+    },
+    {
+      "name": "Cervical Cancer Screening - Immunocompromised",
+      "description": "Annual cervical cancer screening for immunocompromised patients at higher risk",
+      "keywords": ["pap smear", "hpv test", "cervical screening", "cytology", "cervical cancer screening"],
+      "min_age": 21,
+      "max_age": null,
+      "eligible_genders": "female",
+      "frequency_years": 1.0,
+      "trigger_conditions": ["HIV", "immunocompromised", "organ transplant", "immunosuppression"],
+      "is_active": true
+    },
+    {
       "name": "Bone Density Scan (DEXA)",
       "description": "Osteoporosis screening for all women 65 and older",
       "keywords": ["dexa", "dxa", "bone density", "bone scan", "osteoporosis screening", "bone mineral density"],

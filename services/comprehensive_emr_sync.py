@@ -850,26 +850,79 @@ class ComprehensiveEMRSync:
             return 0
     
     def _process_screening_eligibility(self, patient: Patient, sync_options: Dict[str, Any]) -> int:
-        """Step 6: Process synchronized data for screening engine"""
+        """Step 6: Process synchronized data for screening engine
+        
+        DETERMINISTIC VARIANT SELECTION:
+        Groups screening types by base_name and selects ONE variant per family.
+        This ensures patients with trigger conditions (e.g., PCOS) receive ONLY
+        the specialized variant protocol, not both general and variant screenings.
+        
+        Uses specificity_score for risk-stratified selection:
+        - General (no triggers): 0 points
+        - Condition-triggered: +10 points
+        - Severity-specific: +5 per level (mild=5, moderate=10, severe=15, very_severe=20)
+        """
         logger.info(f"Processing screening eligibility for patient {patient.epic_patient_id}")
         
         try:
             # Get all ACTIVE screening types for the organization
             screening_types = ScreeningType.query.filter_by(org_id=self.organization_id, is_active=True).all()
             
+            # Group screening types by base_name for variant deduplication
+            # This ensures only ONE variant per screening family is applied to each patient
+            base_name_groups = {}
+            for st in screening_types:
+                base_name = ScreeningType._extract_base_name(st.name)
+                if base_name not in base_name_groups:
+                    base_name_groups[base_name] = []
+                base_name_groups[base_name].append(st)
+            
+            logger.debug(f"Grouped {len(screening_types)} screening types into {len(base_name_groups)} families")
+            
             screenings_updated = 0
             
-            for screening_type in screening_types:
-                # Check eligibility based on demographics and conditions
-                is_eligible = self.screening_engine.criteria.is_patient_eligible(patient, screening_type)
+            for base_name, variants in base_name_groups.items():
+                # Find eligible variants for this patient
+                eligible_variants = []
+                for variant in variants:
+                    if self.screening_engine.criteria.is_patient_eligible(patient, variant):
+                        eligible_variants.append(variant)
                 
-                if is_eligible:
-                    # Check completion status based on documents and observations
-                    completion_status = self._check_screening_completion(patient, screening_type)
+                if not eligible_variants:
+                    continue
+                
+                # DETERMINISTIC VARIANT SELECTION using direct specificity scoring
+                # This replaces the flawed get_applicable_variant() approach
+                selected_variant = self._select_best_variant(patient, eligible_variants)
+                
+                logger.debug(f"Selected variant '{selected_variant.name}' for family '{base_name}' "
+                           f"(specificity_score={selected_variant.specificity_score}, "
+                           f"from {len(eligible_variants)} eligible variants)")
+                
+                # SOFT-ARCHIVE: Mark screenings from OTHER variants as 'superseded'
+                # This preserves historical data while preventing UI display of obsolete variants
+                from models import Screening
+                other_variant_ids = [v.id for v in variants if v.id != selected_variant.id]
+                if other_variant_ids:
+                    obsolete_screenings = Screening.query.filter(
+                        Screening.patient_id == patient.id,
+                        Screening.screening_type_id.in_(other_variant_ids),
+                        Screening.status != 'superseded'  # Don't re-process already superseded
+                    ).all()
                     
-                    # Update screening status
-                    self._update_screening_status(patient, screening_type, completion_status)
-                    screenings_updated += 1
+                    for obsolete in obsolete_screenings:
+                        obsolete_name = obsolete.screening_type.name if obsolete.screening_type else f"ID:{obsolete.screening_type_id}"
+                        logger.info(f"Marking obsolete variant screening '{obsolete_name}' as superseded for patient {patient.name} "
+                                  f"(replaced by '{selected_variant.name}')")
+                        obsolete.status = 'superseded'
+                        obsolete.updated_at = datetime.utcnow()
+                
+                # Check completion status based on documents and observations
+                completion_status = self._check_screening_completion(patient, selected_variant)
+                
+                # Update screening status for the SELECTED variant only
+                self._update_screening_status(patient, selected_variant, completion_status)
+                screenings_updated += 1
             
             # Mark that documents have been evaluated for this patient
             # This enables deterministic selective refresh - skip patients whose
@@ -883,6 +936,75 @@ class ComprehensiveEMRSync:
         except Exception as e:
             logger.error(f"Error processing screening eligibility: {str(e)}")
             return 0
+    
+    def _select_best_variant(self, patient: Patient, eligible_variants: list) -> 'ScreeningType':
+        """Select the best screening variant for a patient using deterministic scoring.
+        
+        DETERMINISTIC SELECTION ALGORITHM:
+        1. Count how many trigger conditions each variant matches in patient's conditions
+        2. For variants with matching triggers, prefer higher match count
+        3. For variants with same match count, prefer higher specificity_score
+        4. For complete ties, prefer lower ID (deterministic ordering)
+        
+        This ensures patients with specific conditions (e.g., PCOS, severe COPD) receive
+        ONLY the specialized variant protocol, not general population screenings.
+        
+        Args:
+            patient: Patient object with conditions relationship
+            eligible_variants: List of ScreeningType objects the patient is eligible for
+            
+        Returns:
+            Single ScreeningType representing the best variant for this patient
+        """
+        if len(eligible_variants) == 1:
+            return eligible_variants[0]
+        
+        # Get patient's active conditions (normalized to lowercase for matching)
+        patient_conditions = []
+        if hasattr(patient, 'conditions'):
+            patient_conditions = [
+                c.condition_name.lower().strip() 
+                for c in patient.conditions 
+                if c.is_active and c.condition_name
+            ]
+        
+        # Score each variant based on trigger condition matches and specificity
+        scored_variants = []
+        for variant in eligible_variants:
+            trigger_matches = 0
+            trigger_conditions = variant.trigger_conditions_list or []
+            
+            # Count matching trigger conditions
+            for trigger in trigger_conditions:
+                trigger_lower = trigger.lower().strip()
+                for patient_cond in patient_conditions:
+                    # Flexible matching: trigger in patient condition OR patient condition in trigger
+                    if trigger_lower in patient_cond or patient_cond in trigger_lower:
+                        trigger_matches += 1
+                        break  # Count each trigger only once
+            
+            # Scoring tuple for deterministic ordering
+            # Higher trigger matches = more specific to patient's conditions
+            # Higher specificity = more specialized protocol  
+            # Lower ID = deterministic tie-breaker
+            scored_variants.append({
+                'trigger_matches': trigger_matches,
+                'specificity_score': variant.specificity_score,
+                'id': variant.id,
+                'variant': variant
+            })
+        
+        # Sort by: trigger_matches DESC, specificity_score DESC, ID ASC
+        # Using explicit key function for clarity and correctness
+        scored_variants.sort(key=lambda x: (-x['trigger_matches'], -x['specificity_score'], x['id']))
+        
+        best = scored_variants[0]
+        selected = best['variant']
+        logger.debug(f"Variant selection for patient {patient.name}: "
+                    f"selected '{selected.name}' (matches={best['trigger_matches']}, "
+                    f"specificity={best['specificity_score']}) from {len(eligible_variants)} candidates")
+        
+        return selected
     
     def _get_last_encounter_date(self, patient: Patient) -> Optional[datetime]:
         """Get patient's last encounter date for data cutoff calculations"""

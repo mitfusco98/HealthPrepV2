@@ -289,9 +289,10 @@ def patient_detail(patient_id):
             flash('You do not have access to this patient.', 'error')
             return redirect(url_for('main.patients'))
 
+        # Exclude 'superseded' screenings - these are obsolete variant screenings
         screenings = Screening.query.filter_by(
             patient_id=patient_id
-        ).join(ScreeningType).filter_by(is_active=True).all()
+        ).filter(Screening.status != 'superseded').join(ScreeningType).filter_by(is_active=True).all()
 
         recent_docs = Document.query.filter_by(
             patient_id=patient_id
