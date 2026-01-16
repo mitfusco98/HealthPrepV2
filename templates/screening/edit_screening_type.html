@@ -243,4 +243,21 @@
 <!-- Include JavaScript for screening name autocomplete -->
 <script src="{{ url_for('static', filename='js/screening_name_autocomplete.js') }}"></script>
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var form = document.querySelector('form[method="POST"]');
+    if (form) {
+        form.addEventListener('submit', function() {
+            var loadingText = document.querySelector('#page-refresh-overlay .loading-text');
+            if (loadingText) {
+                loadingText.textContent = 'Recalculating eligibility...';
+            }
+            if (typeof window.triggerPageRefresh === 'function') {
+                window.triggerPageRefresh();
+            }
+        });
+    }
+});
+</script>
+
 {% endblock %}
