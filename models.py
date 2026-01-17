@@ -2252,18 +2252,40 @@ class FHIRDocument(db.Model):
             return False
     
     def _check_healthprep_identifier(self, fhir_document_reference):
-        """Check if FHIR resource has HealthPrep identifier marking it as self-generated"""
+        """Check if FHIR resource has HealthPrep identifier marking it as self-generated.
+        
+        Detection methods:
+        1. Check identifier with system 'urn:healthprep:document' (current standard)
+        2. Check legacy identifier system 'https://healthprep.io/fhir/identifier'
+        3. Check category coding for 'healthprep-prep-sheet'
+        4. Check author display for 'HealthPrep System'
+        """
+        # Method 1: Current standard - urn:healthprep:document
         if 'identifier' in fhir_document_reference:
             for identifier in fhir_document_reference['identifier']:
-                if identifier.get('system') == 'https://healthprep.io/fhir/identifier':
+                system = identifier.get('system', '')
+                if system == 'urn:healthprep:document':
+                    return True
+                # Method 2: Legacy identifier system
+                if system == 'https://healthprep.io/fhir/identifier':
                     if identifier.get('value') == 'healthprep-generated':
                         return True
+        
+        # Method 3: Category coding
         if 'category' in fhir_document_reference:
             for category in fhir_document_reference['category']:
                 if 'coding' in category:
                     for coding in category['coding']:
                         if coding.get('code') == 'healthprep-prep-sheet':
                             return True
+        
+        # Method 4: Author display contains HealthPrep System
+        if 'author' in fhir_document_reference:
+            for author in fhir_document_reference['author']:
+                display = author.get('display', '')
+                if 'HealthPrep System' in display:
+                    return True
+        
         return False
     
     def _filter_phi_text(self, text):

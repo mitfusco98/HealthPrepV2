@@ -706,6 +706,10 @@ PREP SHEET CONTENT
         document_reference = {
             "resourceType": "DocumentReference",
             "status": "current",
+            "identifier": [{
+                "system": "urn:healthprep:document",
+                "value": "prep-sheet-generated"
+            }],
             "type": {
                 "coding": [{
                     "system": "http://loinc.org",

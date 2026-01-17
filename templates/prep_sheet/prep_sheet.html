@@ -185,10 +185,11 @@
     <!-- Prep Sheet Content -->
     <div class="card">
         <div class="card-body">
-            {% if prep_sheet.content %}
+            {% if prep_sheet.content is string %}
+                {# If content is a pre-rendered HTML string, output it directly #}
                 {{ prep_sheet.content|safe }}
             {% else %}
-                <!-- Fallback content structure -->
+                {# Content is structured data dict - render using template sections #}
                 <div class="prep-section">
                     <h3 class="border-bottom pb-2 mb-3">
                         <i class="fas fa-user-md me-2"></i>
