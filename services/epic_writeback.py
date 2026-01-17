@@ -275,13 +275,25 @@ class EpicWriteBackService:
                 
                 # Immediately create local FHIRDocument record tagged as HealthPrep-generated
                 # This prevents circular reingestion during EMR sync
-                self._create_healthprep_document_record(
-                    patient=patient,
-                    epic_document_id=epic_doc_id,
-                    filename=filename,
-                    content_type=content_type,
-                    content_size=content_size
-                )
+                # CRITICAL: Tagging failure = operation failure (prevents reingestion loop)
+                try:
+                    self._create_healthprep_document_record(
+                        patient=patient,
+                        epic_document_id=epic_doc_id,
+                        filename=filename,
+                        content_type=content_type,
+                        content_size=content_size
+                    )
+                    db.session.commit()
+                except Exception as tag_error:
+                    self.logger.error(f"Failed to create HealthPrep document tag: {str(tag_error)}")
+                    db.session.rollback()
+                    return {
+                        'success': False,
+                        'error': f'Epic write succeeded (ID: {epic_doc_id}) but local tagging failed: {str(tag_error)}. Document may be reingested during sync.',
+                        'epic_document_id': epic_doc_id,
+                        'tagging_failed': True
+                    }
                 
                 # Log successful write to Epic
                 log_admin_event(
@@ -367,8 +379,9 @@ class EpicWriteBackService:
         - is_processed=True (no OCR needed for our own documents)
         - processing_status='completed'
         
-        Uses INSERT ... ON CONFLICT DO NOTHING to handle race conditions where
-        EMR sync might have already created the record.
+        Uses INSERT ... ON CONFLICT to handle race conditions. On conflict (if EMR sync
+        already created the record), ONLY updates the HealthPrep-related flags without
+        overwriting other legitimate metadata from Epic.
         
         Args:
             patient: Patient object
@@ -376,55 +389,59 @@ class EpicWriteBackService:
             filename: Filename of the prep sheet
             content_type: MIME type (application/pdf or text/plain)
             content_size: Size in bytes
+            
+        Raises:
+            Exception: Propagates database errors to caller for proper transaction handling
         """
-        try:
-            from sqlalchemy.dialects.postgresql import insert as pg_insert
-            from datetime import datetime
-            
-            now_utc = datetime.utcnow()
-            
-            # Prepare insert values
-            insert_values = {
-                'epic_document_id': epic_document_id,
-                'patient_id': patient.id,
-                'org_id': self.organization.id,
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+        from datetime import datetime
+        
+        now_utc = datetime.utcnow()
+        
+        # Prepare insert values for new record
+        insert_values = {
+            'epic_document_id': epic_document_id,
+            'patient_id': patient.id,
+            'org_id': self.organization.id,
+            'is_healthprep_generated': True,
+            'is_processed': True,
+            'processing_status': 'completed',
+            'title': f'HealthPrep Prep Sheet - {filename}',
+            'search_title': 'HealthPrep Prep Sheet',
+            'document_type_code': '11488-4',
+            'document_type_display': 'Consult Note',
+            'content_type': content_type,
+            'content_size': content_size,
+            'document_date': now_utc.date(),
+            'creation_date': now_utc,
+            'author_name': 'HealthPrep System',
+            'created_at': now_utc,
+            'updated_at': now_utc
+        }
+        
+        # Use upsert to handle race conditions gracefully
+        # On conflict, ONLY update HealthPrep-related flags - preserve other metadata
+        # This prevents corrupting legitimate EMR data if sync ran first
+        # WHERE clause ensures we only update if patient_id matches (prevents cross-patient tagging)
+        from sqlalchemy import and_
+        
+        stmt = pg_insert(FHIRDocument.__table__).values(**insert_values)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['epic_document_id', 'org_id'],
+            set_={
                 'is_healthprep_generated': True,
                 'is_processed': True,
                 'processing_status': 'completed',
-                'title': f'HealthPrep Prep Sheet - {filename}',
-                'search_title': 'HealthPrep Prep Sheet',
-                'document_type_code': '11488-4',
-                'document_type_display': 'Consult Note',
-                'content_type': content_type,
-                'content_size': content_size,
-                'document_date': now_utc.date(),
-                'creation_date': now_utc,
-                'author_name': 'HealthPrep System',
-                'created_at': now_utc,
                 'updated_at': now_utc
-            }
-            
-            # Use upsert to handle race conditions gracefully
-            # If record already exists (from EMR sync), update to ensure is_healthprep_generated=True
-            stmt = pg_insert(FHIRDocument.__table__).values(**insert_values)
-            stmt = stmt.on_conflict_do_update(
-                index_elements=['epic_document_id', 'org_id'],
-                set_={
-                    'is_healthprep_generated': True,
-                    'is_processed': True,
-                    'processing_status': 'completed',
-                    'updated_at': now_utc
-                }
-            )
-            
-            db.session.execute(stmt)
-            db.session.commit()
-            
-            self.logger.info(f"Created HealthPrep document record for epic_document_id={epic_document_id}")
-            
-        except Exception as e:
-            self.logger.error(f"Failed to create HealthPrep document record: {str(e)}")
-            db.session.rollback()
+            },
+            where=FHIRDocument.__table__.c.patient_id == patient.id
+        )
+        
+        db.session.execute(stmt)
+        # Let caller manage commit - this allows proper transaction handling
+        db.session.flush()
+        
+        self.logger.info(f"Created HealthPrep document record for epic_document_id={epic_document_id}")
     
     def _html_to_pdf(self, html_content, patient, timestamp, prep_data=None):
         """
