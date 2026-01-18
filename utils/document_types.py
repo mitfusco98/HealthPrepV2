@@ -555,7 +555,7 @@ def get_prep_sheet_category(document_type_code: str = None, document_type_displa
     if document_type_display:
         display_lower = document_type_display.lower()
         
-        if any(term in display_lower for term in ['laboratory', 'lab report', 'pathology', 'blood test', 'urinalysis', 'microbiology']):
+        if any(term in display_lower for term in ['laboratory', 'lab report', 'lab test', 'lab result', 'pathology', 'blood test', 'urinalysis', 'microbiology']):
             return 'lab'
         if any(term in display_lower for term in ['imaging', 'radiology', 'x-ray', 'ct scan', 'mri', 'ultrasound', 'diagnostic imaging', 'ekg', 'ecg', 'echo']):
             return 'imaging'
