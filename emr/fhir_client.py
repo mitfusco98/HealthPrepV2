@@ -772,6 +772,18 @@ class FHIRClient:
             - On failure: (None, {'error_type': str, 'status_code': int, 'message': str})
         """
         try:
+            # Reject internal file:// URLs that point to Epic's internal file server
+            # Epic sandbox sometimes returns paths like file:////172.16.61.84/q/data/...
+            # which are internal and cannot be accessed externally
+            if binary_url and binary_url.startswith('file://'):
+                error_info = {
+                    'error_type': 'internal_file_path',
+                    'status_code': None,
+                    'message': 'Epic internal file path not accessible - document content unavailable'
+                }
+                self.logger.warning(f"Skipping internal file path URL: {binary_url[:100]}...")
+                return None, error_info
+            
             # Handle relative URLs by prepending base URL if needed
             if binary_url.startswith('/'):
                 url = f"{self.base_url.rstrip('/')}{binary_url}"
