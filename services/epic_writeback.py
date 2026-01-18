@@ -36,6 +36,75 @@ class EpicWriteBackService:
         if self.dry_run:
             self.logger.warning("⚠️  EPIC DRY-RUN MODE ENABLED - No actual writes to Epic will occur")
     
+    def _detect_sandbox_from_fhir_url(self) -> bool:
+        """
+        Runtime detection of sandbox environment based on FHIR URL pattern.
+        
+        This is the AUTHORITATIVE source for environment detection during writeback,
+        overriding the stored epic_environment field to prevent format mismatches
+        when credentials change after initial setup.
+        
+        Detection strategy:
+        1. Check FHIR client's base_url (most current - from active session)
+        2. Fall back to organization.epic_fhir_url (stored config)
+        3. If no URL available, default to sandbox (safer - avoids sending PDF to sandbox)
+        
+        Returns:
+            True if sandbox (use plain text), False if production (use PDF)
+        """
+        from urllib.parse import urlparse
+        
+        # Try to get the actual FHIR URL being used
+        fhir_url = None
+        
+        # First priority: active FHIR client's base URL (most current)
+        if self.fhir_client and hasattr(self.fhir_client, 'base_url'):
+            fhir_url = self.fhir_client.base_url
+        
+        # Second priority: organization's stored FHIR URL
+        if not fhir_url:
+            fhir_url = self.organization.epic_fhir_url
+        
+        # If no URL available, default to sandbox (safer)
+        if not fhir_url:
+            self.logger.warning(
+                "⚠️ No FHIR URL available for environment detection. "
+                "Defaulting to SANDBOX mode (plain text) to avoid format errors."
+            )
+            return True
+        
+        # Normalize URL: lowercase, strip trailing slashes for consistent matching
+        normalized_url = fhir_url.lower().rstrip('/')
+        parsed = urlparse(normalized_url)
+        
+        # Epic sandbox host and path patterns
+        SANDBOX_HOSTS = ['fhir.epic.com']
+        SANDBOX_PATH_PATTERNS = ['interconnect-fhir-oauth']
+        
+        is_sandbox_host = parsed.netloc in SANDBOX_HOSTS
+        is_sandbox_path = any(pattern in parsed.path for pattern in SANDBOX_PATH_PATTERNS)
+        is_sandbox_url = is_sandbox_host and is_sandbox_path
+        
+        stored_environment = self.organization.epic_environment
+        
+        # Log warning if detected environment differs from stored setting
+        if is_sandbox_url and stored_environment != 'sandbox':
+            self.logger.warning(
+                f"⚠️ Environment mismatch detected: FHIR URL '{parsed.netloc}' indicates SANDBOX "
+                f"but epic_environment is set to '{stored_environment}'. "
+                f"Using sandbox mode (plain text) based on FHIR URL."
+            )
+        elif not is_sandbox_url and stored_environment == 'sandbox':
+            self.logger.warning(
+                f"⚠️ Environment mismatch detected: FHIR URL '{parsed.netloc}' indicates PRODUCTION "
+                f"but epic_environment is set to 'sandbox'. "
+                f"Using production mode (PDF) based on FHIR URL."
+            )
+        
+        self.logger.debug(f"Environment detection: URL={parsed.netloc}, is_sandbox={is_sandbox_url}")
+        
+        return is_sandbox_url
+    
     def _print_prep_sheet_to_console(self, patient, prep_data, result, verbose=True):
         """
         Print prep sheet content to console for instant feedback.
@@ -247,8 +316,9 @@ class EpicWriteBackService:
             # Generate timestamp for filename and document
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             
-            # Detect sandbox vs production environment
-            is_sandbox = self.organization.epic_environment == 'sandbox'
+            # Detect sandbox vs production environment using FHIR URL (authoritative source)
+            # This ensures correct format even if epic_environment was not updated after credential changes
+            is_sandbox = self._detect_sandbox_from_fhir_url()
             
             if is_sandbox:
                 # Epic sandbox only accepts text/plain content type
