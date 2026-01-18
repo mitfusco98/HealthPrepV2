@@ -561,7 +561,7 @@ def get_prep_sheet_category(document_type_code: str = None, document_type_displa
             return 'imaging'
         if any(term in display_lower for term in ['consult', 'referral', 'specialist']):
             return 'consult'
-        if any(term in display_lower for term in ['hospital', 'admission', 'discharge', 'inpatient', 'emergency department', 'progress note', 'icu', 'critical care']):
+        if any(term in display_lower for term in ['hospital', 'admission', 'discharge', 'inpatient', 'emergency department', 'progress note', 'icu', 'critical care', 'procedure']):
             return 'hospital'
     
     return None

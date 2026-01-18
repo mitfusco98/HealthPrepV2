@@ -7,6 +7,8 @@ Supports PDF, images, Word documents (.docx, .doc), and HTML
 import os
 import logging
 import tempfile
+import base64
+import re
 from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime
 from PIL import Image
@@ -63,6 +65,106 @@ class DocumentProcessor:
             'recommendation', 'follow-up', 'next screening'
         ]
     
+    def _preprocess_content(self, content: bytes, content_type: Optional[str]) -> Tuple[bytes, Optional[str], Optional[str]]:
+        """
+        Preprocess document content to detect and handle Epic sandbox artifacts.
+        
+        Detects and handles:
+        1. Base64 encoded content (starts with 'base64;' or data URI patterns)
+        2. PDF magic bytes (%PDF) - override file extension regardless of content_type
+        3. URL reference pages - garbage content with URLs to actual documents
+        4. Image magic bytes (JPEG, PNG) - override file extension
+        
+        Args:
+            content: Raw binary document content
+            content_type: MIME type from Epic
+            
+        Returns:
+            Tuple of (processed_content, detected_extension, rejection_reason)
+            - processed_content: Decoded/processed bytes
+            - detected_extension: Override file extension based on magic bytes (e.g., '.pdf')
+            - rejection_reason: If not None, content should be rejected with this reason
+        """
+        if not content:
+            return content, None, "Empty content"
+        
+        # Try to decode as text to check for text-based artifacts
+        try:
+            text_content = content.decode('utf-8', errors='ignore')
+        except:
+            text_content = ""
+        
+        # Check for base64 encoded content (Epic sometimes returns raw base64)
+        if text_content.startswith('base64;') or text_content.startswith('data:'):
+            self.logger.info("Detected base64 encoded content, attempting to decode")
+            try:
+                # Handle 'base64;...' format
+                if text_content.startswith('base64;'):
+                    b64_data = text_content[7:]  # Remove 'base64;' prefix
+                # Handle 'data:mimetype;base64,...' format
+                elif ';base64,' in text_content:
+                    b64_data = text_content.split(';base64,', 1)[1]
+                else:
+                    b64_data = text_content
+                
+                # Decode base64
+                decoded_content = base64.b64decode(b64_data)
+                self.logger.info(f"Successfully decoded base64 content: {len(decoded_content)} bytes")
+                content = decoded_content
+                # Re-check the decoded content for magic bytes
+                try:
+                    text_content = content.decode('utf-8', errors='ignore')
+                except:
+                    text_content = ""
+            except Exception as e:
+                self.logger.warning(f"Failed to decode base64 content: {e}")
+                return content, None, f"Invalid base64 encoding: {e}"
+        
+        # Check for URL reference pages (garbage + external URLs)
+        # Epic sandbox sometimes returns HTML pages with links to actual documents
+        url_patterns = [
+            r'https?://[^\s]+ifaxapp\.com[^\s]*',  # iFax URLs
+            r'https?://[^\s]+epic[^\s]*/attachment[^\s]*',  # Epic attachment URLs
+            r'file:////[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+',  # Internal file:// paths
+        ]
+        for pattern in url_patterns:
+            if re.search(pattern, text_content, re.IGNORECASE):
+                # Check if content is mostly URL/garbage (very short with URL)
+                clean_text = re.sub(r'https?://[^\s]+', '', text_content).strip()
+                clean_text = re.sub(r'file://[^\s]+', '', clean_text).strip()
+                # If remaining text is very short or garbage, reject
+                if len(clean_text) < 50 or not any(c.isalpha() for c in clean_text[:20]):
+                    self.logger.warning(f"Rejecting URL reference page: contains external URL with minimal content")
+                    return content, None, "URL reference page - no actual document content"
+        
+        # Check for PDF magic bytes (%PDF)
+        if content[:4] == b'%PDF':
+            self.logger.info("Detected PDF magic bytes, overriding to .pdf extension")
+            return content, '.pdf', None
+        
+        # Check for JPEG magic bytes (FFD8FF)
+        if content[:3] == b'\xff\xd8\xff':
+            self.logger.info("Detected JPEG magic bytes, overriding to .jpg extension")
+            return content, '.jpg', None
+        
+        # Check for PNG magic bytes (89 50 4E 47)
+        if content[:4] == b'\x89PNG':
+            self.logger.info("Detected PNG magic bytes, overriding to .png extension")
+            return content, '.png', None
+        
+        # Check for TIFF magic bytes (49 49 2A 00 or 4D 4D 00 2A)
+        if content[:4] in (b'II*\x00', b'MM\x00*'):
+            self.logger.info("Detected TIFF magic bytes, overriding to .tiff extension")
+            return content, '.tiff', None
+        
+        # Check if text content contains raw PDF structure (misidentified as text)
+        if '%PDF-' in text_content[:100]:
+            self.logger.warning("Detected raw PDF structure in text content - content type mismatch")
+            # This is PDF binary being treated as text - convert back to bytes and process as PDF
+            return content, '.pdf', None
+        
+        return content, None, None
+    
     def process_document(self, document_content: bytes, document_title: str, content_type: Optional[str] = None, 
                          phi_settings_snapshot=None, fhir_doc_id: Optional[int] = None, 
                          org_id: Optional[int] = None, patient_id: Optional[int] = None) -> Optional[str]:
@@ -93,8 +195,28 @@ class DocumentProcessor:
                     patient_id=patient_id
                 )
             
-            # Determine file extension from content type or filename
-            file_extension = self._get_file_extension_from_content_type(content_type) or self._get_file_extension(document_title)
+            # Preprocess content to handle Epic sandbox artifacts
+            # Decodes base64, detects magic bytes, rejects URL reference pages
+            processed_content, detected_extension, rejection_reason = self._preprocess_content(document_content, content_type)
+            
+            if rejection_reason:
+                self.logger.warning(f"Document rejected during preprocessing: {rejection_reason}")
+                if fhir_doc_id is not None and org_id is not None:
+                    DocumentAuditLogger.log_processing_failed(
+                        document_id=fhir_doc_id,
+                        document_type='fhir_document',
+                        org_id=org_id,
+                        error_message=f"Content preprocessing failed: {rejection_reason}",
+                        patient_id=patient_id
+                    )
+                return None
+            
+            # Determine file extension: magic bytes detection > content_type > filename
+            if detected_extension:
+                file_extension = detected_extension
+                self.logger.info(f"Using detected extension from magic bytes: {file_extension}")
+            else:
+                file_extension = self._get_file_extension_from_content_type(content_type) or self._get_file_extension(document_title)
             
             # Use verified secure deletion for PHI temp files (HIPAA compliance)
             from utils.secure_delete import secure_temp_file, secure_delete_file
@@ -102,7 +224,7 @@ class DocumentProcessor:
             with secure_temp_file(suffix=file_extension) as temp_file_path:
                 # Write content to secure temp file
                 with open(temp_file_path, 'wb') as f:
-                    f.write(document_content)
+                    f.write(processed_content)
                 
                 # Extract text using OCR
                 extracted_text, confidence = self._extract_text_from_file(temp_file_path)
