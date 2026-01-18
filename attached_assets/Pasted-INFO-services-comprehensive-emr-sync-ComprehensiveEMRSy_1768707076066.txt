@@ -1,0 +1,655 @@
+INFO:services.comprehensive_emr_sync:ComprehensiveEMRSync: forcing database/background token usage for org 33
+INFO:services.epic_fhir_service:Creating background Epic FHIR client for organization 33
+INFO:emr.fhir_client:Epic FHIR tokens set successfully
+INFO:routes.oauth_routes:Background Epic FHIR client created for organization 33
+INFO:services.comprehensive_emr_sync:ComprehensiveEMRSync: using database-stored tokens for stable sync operations
+INFO:services.comprehensive_emr_sync:Initialized ComprehensiveEMRSync for organization 33
+INFO:services.comprehensive_emr_sync:Starting patient discovery from Epic FHIR
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.comprehensive_emr_sync:Retrieving patient erXuFYUfucBZaryVksYEcMg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.comprehensive_emr_sync:Retrieving patient eq081-VQEgP8drUUqCWzHfw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.comprehensive_emr_sync:Retrieving patient eAB3mDIBBcyUKviyzrxsnAw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Retrieving patient egqBHVfQlt4Bw3XGXoxVxHg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.comprehensive_emr_sync:Retrieving patient eIXesllypH3M9tAA5WdJftQ3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.comprehensive_emr_sync:Retrieving patient eh2xYHuzl9nkSFVvV3osUHg3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.comprehensive_emr_sync:Retrieving patient e0w0LEDCYtfckT6N.CkJKCw3 from Epic
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:Retrieved 7 Epic sandbox patients
+INFO:services.comprehensive_emr_sync:Discovered 7 patients from Epic
+INFO:services.comprehensive_emr_sync:Created new patient: Camila Maria Lopez
+INFO:services.comprehensive_emr_sync:Created new patient: Derrick Lin
+INFO:services.comprehensive_emr_sync:Created new patient: Desiree Caroline Powell
+INFO:services.comprehensive_emr_sync:Created new patient: Elijah John Davis
+INFO:services.comprehensive_emr_sync:Created new patient: Linda Jane Ross
+INFO:services.comprehensive_emr_sync:Created new patient: Olivia Anne Roberts
+INFO:services.comprehensive_emr_sync:Created new patient: Warren James McGinnis
+INFO:services.comprehensive_emr_sync:Appointment-Based Screening Prioritization is ENABLED
+INFO:services.appointment_prioritization:Initialized AppointmentBasedPrioritization for organization 33
+INFO:services.appointment_prioritization:Getting priority patients with appointments between 2026-01-18 and 2026-02-01
+INFO:services.appointment_prioritization:Found 3 priority patients (0 from appointments, 3 from today's manually processed screenings)
+INFO:services.comprehensive_emr_sync:Processing 3 priority patients with upcoming appointments
+INFO:services.comprehensive_emr_sync:Processing non-scheduled patients (process_non_scheduled_patients is enabled)
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for erXuFYUfucBZaryVksYEcMg3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.epic_fhir_service:Successfully synced patient erXuFYUfucBZaryVksYEcMg3 from Epic for org 33
+INFO:services.comprehensive_emr_sync:Assigned patient Camila Maria Lopez to default provider: Provider - defa3
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Camila Maria Lopez
+INFO:services.comprehensive_emr_sync:Syncing conditions for patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.comprehensive_emr_sync:Added new condition: Polycystic ovarian syndrome
+INFO:services.comprehensive_emr_sync:Syncing observations (labs) for patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.comprehensive_emr_sync:Processed 0 screening-relevant observations (labs)
+INFO:services.comprehensive_emr_sync:Syncing imaging studies (DiagnosticReport) for patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.comprehensive_emr_sync:Processed 1 imaging studies (DiagnosticReports)
+INFO:services.comprehensive_emr_sync:Syncing documents for patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.comprehensive_emr_sync:Epic returned 28 documents for patient erXuFYUfucBZaryVksYEcMg3
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_dd1ef9bac7edb842] (351 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_dafa157a714fb08f] (351 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_7d6102a1bd7050d6] (351 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_248058dfb8d6a502] (351 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_88e841c4517a1d69] (351 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_2bbf515e4c67a507] (351 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_2f67a40ce8dfdbf8] (341 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_621dc1e187251a66] (351 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_77f1eceddd0d9a40] (351 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_3dc02aa12461cc12] (349 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Progress Notes
+INFO:ocr.document_processor:Successfully extracted 3034 characters from HTML
+INFO:ocr.document_processor:Successfully processed document with 1.00 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_1f451b945bd14847] (52769 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Progress Notes
+INFO:ocr.document_processor:Successfully extracted 3038 characters from HTML
+INFO:ocr.document_processor:Successfully processed document with 1.00 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_8f8b32b0af8285bc] (52773 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Progress Notes
+INFO:ocr.document_processor:Successfully extracted 2879 characters from HTML
+INFO:ocr.document_processor:Successfully processed document with 1.00 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_f54ee13bf087a3e6] (52017 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Progress Notes
+INFO:ocr.document_processor:Successfully extracted 2879 characters from HTML
+INFO:ocr.document_processor:Successfully processed document with 1.00 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_6a1a9bbcfa31218b] (52017 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Progress Notes
+INFO:ocr.document_processor:Successfully extracted 2850 characters from HTML
+INFO:ocr.document_processor:Successfully processed document with 1.00 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_2384605ad0105126] (51988 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Progress Notes
+INFO:ocr.document_processor:Successfully extracted 2850 characters from HTML
+INFO:ocr.document_processor:Successfully processed document with 1.00 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_488dad53b1393b99] (51988 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Progress Notes
+INFO:ocr.document_processor:Successfully extracted 349 characters from HTML
+INFO:ocr.document_processor:Successfully processed document with 1.00 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_83e3a934753bcfc6] (4628 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Progress Notes
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_0f1d7a19be8b235d] (303 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Patient Instructions
+INFO:ocr.document_processor:Successfully extracted 1128 characters from HTML
+INFO:ocr.document_processor:Successfully processed document with 1.00 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_cfb482b145af36d0] (6302 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Progress Notes
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_d757beb59e6e7d28] (441 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Nursing Note
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_6f394a9c3bb7183b] (322 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Nursing Note
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_318c12f3aeec3627] (355 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_afd80f2b5483fbd1] (337 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_355facb6d501d5d0] (337 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_835d25df7cb40f3a] (332 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_c327e3a0f82cdc07] (332 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_717e3b8abdc2781e] (314 bytes, 3 passes)
+INFO:services.comprehensive_emr_sync:Document has no date from Epic FHIR, using current date as fallback for sandbox testing
+INFO:services.comprehensive_emr_sync:Epic document IDs: egEMQ3ehyOziXIqbxeatdQA3, eWlYaUpl3ag6E5.EngR1.8w3, eT46uBNLJl0jM-Dd6j19E3g3, eNvAxA6BmDovcqj2ZsIrh6w3, e7Gyw00b90CahDeL37PuLXg3...
+INFO:services.comprehensive_emr_sync:Document sync summary - Total: 28, New: 27, Skipped: 0
+INFO:services.comprehensive_emr_sync:Syncing encounters for patient erXuFYUfucBZaryVksYEcMg3
+ERROR:services.comprehensive_emr_sync:Error syncing patient encounters: cannot import name 'get_local_today' from 'utils.date_helpers' (/home/runner/workspace/utils/date_helpers.py)
+INFO:services.comprehensive_emr_sync:Syncing appointments for patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.comprehensive_emr_sync:Added new appointment: 2017-10-06 20:45:00+00:00 for patient Camila Maria Lopez
+INFO:services.comprehensive_emr_sync:Added new appointment: 2017-10-06 21:15:00+00:00 for patient Camila Maria Lopez
+INFO:services.comprehensive_emr_sync:Added new appointment: 2017-10-09 13:00:00+00:00 for patient Camila Maria Lopez
+INFO:services.comprehensive_emr_sync:Added new appointment: 2021-01-05 17:15:00+00:00 for patient Camila Maria Lopez
+INFO:services.comprehensive_emr_sync:Added new appointment: 2021-01-06 14:00:00+00:00 for patient Camila Maria Lopez
+INFO:services.comprehensive_emr_sync:Added new appointment: 2021-01-06 14:00:00+00:00 for patient Camila Maria Lopez
+INFO:services.comprehensive_emr_sync:Processed 6 appointments
+INFO:services.comprehensive_emr_sync:Processing screening eligibility for patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.comprehensive_emr_sync:FHIR document match: Progress Note (ID: 176, Epic: euDgDxQm-GDlaD38KlmmLYg3) for Lipid Panel
+INFO:services.comprehensive_emr_sync:FHIR document match: Progress Note (ID: 177, Epic: ewGsPtFvYN8nFwrgU8HVqCQ3) for Lipid Panel
+INFO:services.comprehensive_emr_sync:FHIR document match: Progress Note (ID: 178, Epic: eWWelrkR9n.DJgiFmJ5D-iw3) for Lipid Panel
+INFO:services.comprehensive_emr_sync:FHIR document match: Progress Note (ID: 179, Epic: ewWu-nekCKvcuFn9rz7fCuQ3) for Lipid Panel
+INFO:services.comprehensive_emr_sync:FHIR document match: Progress Note (ID: 180, Epic: e10ZdQnDrQG7wQ3bAg0NAbg3) for Lipid Panel
+INFO:services.comprehensive_emr_sync:FHIR document match: Progress Note (ID: 181, Epic: eNUof569QcEHOH3Q2RjNjeQ3) for Lipid Panel
+INFO:services.comprehensive_emr_sync:Created FHIR document association: Progress Note (ID: 176) -> Lipid Panel
+INFO:services.comprehensive_emr_sync:Created FHIR document association: Progress Note (ID: 177) -> Lipid Panel
+INFO:services.comprehensive_emr_sync:Created FHIR document association: Progress Note (ID: 178) -> Lipid Panel
+INFO:services.comprehensive_emr_sync:Created FHIR document association: Progress Note (ID: 179) -> Lipid Panel
+INFO:services.comprehensive_emr_sync:Created FHIR document association: Progress Note (ID: 180) -> Lipid Panel
+INFO:services.comprehensive_emr_sync:Created FHIR document association: Progress Note (ID: 181) -> Lipid Panel
+INFO:services.comprehensive_emr_sync:Updated screening status for erXuFYUfucBZaryVksYEcMg3: Lipid Panel - complete (0 manual + 6 FHIR docs matched)
+INFO:services.comprehensive_emr_sync:Updated screening status for erXuFYUfucBZaryVksYEcMg3: Cervical Cancer Screening - due (0 manual + 0 FHIR docs matched)
+INFO:services.comprehensive_emr_sync:Updated 2 screening statuses
+INFO:services.comprehensive_emr_sync:Successfully completed comprehensive sync for patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for eq081-VQEgP8drUUqCWzHfw3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.epic_fhir_service:Successfully synced patient eq081-VQEgP8drUUqCWzHfw3 from Epic for org 33
+INFO:services.comprehensive_emr_sync:Assigned patient Derrick Lin to default provider: Provider - defa3
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Derrick Lin
+INFO:services.comprehensive_emr_sync:Syncing conditions for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.comprehensive_emr_sync:Added new condition: Other specified personal risk factors, not elsewhere classified
+INFO:services.comprehensive_emr_sync:Syncing observations (labs) for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.comprehensive_emr_sync:Processed 0 screening-relevant observations (labs)
+INFO:services.comprehensive_emr_sync:Syncing imaging studies (DiagnosticReport) for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.comprehensive_emr_sync:Processed 0 imaging studies (DiagnosticReports)
+INFO:services.comprehensive_emr_sync:Syncing documents for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.comprehensive_emr_sync:Epic returned 13 documents for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:ocr.document_processor:Processing document: Procedures
+INFO:ocr.document_processor:Successfully extracted 9263 characters from HTML
+INFO:ocr.document_processor:Successfully processed document with 1.00 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_1c7a0b05d86edf04] (38956 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_79da83c740c1933c] (303 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Procedures
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_d87edc66fcbe3e7d] (282 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Procedures
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_e795df0f4fa981f4] (282 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Procedures
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_79e8f19e2c7de070] (282 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Procedures
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_918edd7237d45246] (282 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Procedures
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_76d3318b48da36b8] (282 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Procedures
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_48839ff23bae7229] (282 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Procedures
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_9c03ebb827ad4b72] (282 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Procedures
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_2ba70108fa3ce935] (282 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Progress Notes
+INFO:ocr.document_processor:Successfully extracted 2977 characters from HTML
+INFO:ocr.document_processor:Successfully processed document with 1.00 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_685bf35c0a0685dd] (52203 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_4d72ce8116a393cc] (337 bytes, 3 passes)
+INFO:services.comprehensive_emr_sync:Document has no date from Epic FHIR, using current date as fallback for sandbox testing
+INFO:services.comprehensive_emr_sync:Epic document IDs: ePUTWmDq2WbJbN8pNExdU0g3, e2wAdC0fE5jxSMmZneEIbtg3, eakSAX4f58WL9LwN1.2-WHQ3, eGHly7SJJr9XysAKjIH-8hQ3, eAmOWKUAwM7pa1-Ik0gvU1Q3...
+INFO:services.comprehensive_emr_sync:Document sync summary - Total: 13, New: 12, Skipped: 0
+INFO:services.comprehensive_emr_sync:Syncing encounters for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.comprehensive_emr_sync:Processed 0 encounters
+INFO:services.comprehensive_emr_sync:Syncing appointments for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.comprehensive_emr_sync:Added new appointment: 2019-05-24 19:30:00+00:00 for patient Derrick Lin
+INFO:services.comprehensive_emr_sync:Added new appointment: 2020-01-07 15:30:00+00:00 for patient Derrick Lin
+INFO:services.comprehensive_emr_sync:Added new appointment: 2020-11-30 14:00:00+00:00 for patient Derrick Lin
+INFO:services.comprehensive_emr_sync:Added new appointment: 2021-01-05 14:00:00+00:00 for patient Derrick Lin
+INFO:services.comprehensive_emr_sync:Added new appointment: 2021-01-06 14:30:00+00:00 for patient Derrick Lin
+INFO:services.comprehensive_emr_sync:Processed 5 appointments
+INFO:services.comprehensive_emr_sync:Processing screening eligibility for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.comprehensive_emr_sync:FHIR document match: Progress Note (ID: 203, Epic: e7AIXAk0eiVnlB7O4yDjtIQ3) for Lipid Panel
+INFO:services.comprehensive_emr_sync:Created FHIR document association: Progress Note (ID: 203) -> Lipid Panel
+INFO:services.comprehensive_emr_sync:Updated screening status for eq081-VQEgP8drUUqCWzHfw3: Lipid Panel - complete (0 manual + 1 FHIR docs matched)
+INFO:services.comprehensive_emr_sync:FHIR document match: Progress Note (ID: 203, Epic: e7AIXAk0eiVnlB7O4yDjtIQ3) for Colonoscopy
+INFO:services.comprehensive_emr_sync:Created FHIR document association: Progress Note (ID: 203) -> Colonoscopy
+INFO:services.comprehensive_emr_sync:Updated screening status for eq081-VQEgP8drUUqCWzHfw3: Colonoscopy - complete (0 manual + 1 FHIR docs matched)
+INFO:services.comprehensive_emr_sync:Updated screening status for eq081-VQEgP8drUUqCWzHfw3: Immunization Review - due (0 manual + 0 FHIR docs matched)
+INFO:services.comprehensive_emr_sync:FHIR document match: Progress Note (ID: 203, Epic: e7AIXAk0eiVnlB7O4yDjtIQ3) for A1C Test
+INFO:services.comprehensive_emr_sync:Created FHIR document association: Progress Note (ID: 203) -> A1C Test
+INFO:services.comprehensive_emr_sync:Updated screening status for eq081-VQEgP8drUUqCWzHfw3: A1C Test - complete (0 manual + 1 FHIR docs matched)
+INFO:services.comprehensive_emr_sync:Updated 4 screening statuses
+INFO:services.comprehensive_emr_sync:Successfully completed comprehensive sync for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.epic_fhir_service:Successfully synced patient eAB3mDIBBcyUKviyzrxsnAw3 from Epic for org 33
+INFO:services.comprehensive_emr_sync:Assigned patient Desiree Caroline Powell to default provider: Provider - defa3
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Desiree Caroline Powell
+INFO:services.comprehensive_emr_sync:Syncing conditions for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Syncing observations (labs) for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Processed 0 screening-relevant observations (labs)
+INFO:services.comprehensive_emr_sync:Syncing imaging studies (DiagnosticReport) for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Processed 0 imaging studies (DiagnosticReports)
+INFO:services.comprehensive_emr_sync:Syncing documents for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Epic returned 1 documents for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Document has no date from Epic FHIR, using current date as fallback for sandbox testing
+INFO:services.comprehensive_emr_sync:Epic document IDs: 
+INFO:services.comprehensive_emr_sync:Document sync summary - Total: 1, New: 0, Skipped: 0
+INFO:services.comprehensive_emr_sync:Syncing encounters for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Processed 0 encounters
+INFO:services.comprehensive_emr_sync:Syncing appointments for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Added new appointment: 2017-10-06 20:30:00+00:00 for patient Desiree Caroline Powell
+INFO:services.comprehensive_emr_sync:Added new appointment: 2021-01-05 20:30:00+00:00 for patient Desiree Caroline Powell
+INFO:services.comprehensive_emr_sync:Processed 2 appointments
+INFO:services.comprehensive_emr_sync:Processing screening eligibility for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Updated 0 screening statuses
+INFO:services.comprehensive_emr_sync:Successfully completed comprehensive sync for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.epic_fhir_service:Successfully synced patient egqBHVfQlt4Bw3XGXoxVxHg3 from Epic for org 33
+INFO:services.comprehensive_emr_sync:Assigned patient Elijah John Davis to default provider: Provider - defa3
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Elijah John Davis
+INFO:services.comprehensive_emr_sync:Syncing conditions for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.comprehensive_emr_sync:Added new condition: Lobar pneumonia, unspecified organism
+INFO:services.comprehensive_emr_sync:Added new condition: Unspecified fracture of shaft of humerus, unspecified arm, initial encounter for closed fracture
+INFO:services.comprehensive_emr_sync:Syncing observations (labs) for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.comprehensive_emr_sync:Processed 0 screening-relevant observations (labs)
+INFO:services.comprehensive_emr_sync:Syncing imaging studies (DiagnosticReport) for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.comprehensive_emr_sync:Processed 0 imaging studies (DiagnosticReports)
+INFO:services.comprehensive_emr_sync:Syncing documents for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.comprehensive_emr_sync:Epic returned 10 documents for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_41253277a5966ebb] (355 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: H&P
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_f3df0ce4dbc81ebb] (357 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Discharge Summary
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_ad869863af53d39f] (355 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_113ecfcd2949ad3a] (351 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_fc389f868fdacbf8] (354 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Discharge Summary
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_38d2a30847db0b9e] (357 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Procedures
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_2371866f92a1ac4c] (356 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Progress Notes
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_0c691bcceb735727] (303 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Progress Notes
+INFO:ocr.document_processor:Successfully extracted 2386 characters from HTML
+INFO:ocr.document_processor:Successfully processed document with 1.00 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_a1cc7c98a6dad87e] (50447 bytes, 3 passes)
+INFO:services.comprehensive_emr_sync:Document has no date from Epic FHIR, using current date as fallback for sandbox testing
+INFO:services.comprehensive_emr_sync:Epic document IDs: e0Ak0P-btJgc9CBeZxCq.UA3, eMkXvxbAfE0nujhPbWMVbig3, eN2.7HPdySq53Dhx3fY81-g3, eGv4yfj9vACg-pX.xKnuAcg3, ej0e54WeKRAeZ8Pj8Zege3g3...
+INFO:services.comprehensive_emr_sync:Document sync summary - Total: 10, New: 9, Skipped: 0
+INFO:services.comprehensive_emr_sync:Syncing encounters for patient egqBHVfQlt4Bw3XGXoxVxHg3
+ERROR:services.comprehensive_emr_sync:Error syncing patient encounters: cannot import name 'get_local_today' from 'utils.date_helpers' (/home/runner/workspace/utils/date_helpers.py)
+INFO:services.comprehensive_emr_sync:Syncing appointments for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.comprehensive_emr_sync:Added new appointment: 2019-05-24 19:00:00+00:00 for patient Elijah John Davis
+INFO:services.comprehensive_emr_sync:Added new appointment: 2020-12-29 14:00:00+00:00 for patient Elijah John Davis
+INFO:services.comprehensive_emr_sync:Added new appointment: 2021-01-04 20:45:00+00:00 for patient Elijah John Davis
+INFO:services.comprehensive_emr_sync:Processed 3 appointments
+INFO:services.comprehensive_emr_sync:Processing screening eligibility for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.comprehensive_emr_sync:FHIR document match: Progress Note (ID: 213, Epic: ed.80CaBD8mADYOqlh..E0Q3) for Lipid Panel
+INFO:services.comprehensive_emr_sync:Created FHIR document association: Progress Note (ID: 213) -> Lipid Panel
+INFO:services.comprehensive_emr_sync:Updated screening status for egqBHVfQlt4Bw3XGXoxVxHg3: Lipid Panel - complete (0 manual + 1 FHIR docs matched)
+INFO:services.comprehensive_emr_sync:Updated 1 screening statuses
+INFO:services.comprehensive_emr_sync:Successfully completed comprehensive sync for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for eIXesllypH3M9tAA5WdJftQ3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.epic_fhir_service:Successfully synced patient eIXesllypH3M9tAA5WdJftQ3 from Epic for org 33
+INFO:services.comprehensive_emr_sync:Assigned patient Linda Jane Ross to default provider: Provider - defa3
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Linda Jane Ross
+INFO:services.comprehensive_emr_sync:Syncing conditions for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.comprehensive_emr_sync:Added new condition: Moderate persistent asthma, uncomplicated
+INFO:services.comprehensive_emr_sync:Added new condition: Acute bronchitis, unspecified
+INFO:services.comprehensive_emr_sync:Syncing observations (labs) for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.comprehensive_emr_sync:Processed 0 screening-relevant observations (labs)
+INFO:services.comprehensive_emr_sync:Syncing imaging studies (DiagnosticReport) for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.comprehensive_emr_sync:Processed 0 imaging studies (DiagnosticReports)
+INFO:services.comprehensive_emr_sync:Syncing documents for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.comprehensive_emr_sync:Epic returned 3 documents for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:ocr.document_processor:Processing document: Progress Notes
+INFO:ocr.document_processor:Successfully extracted 3327 characters from HTML
+INFO:ocr.document_processor:Successfully processed document with 1.00 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_962b0e0b041cf6fe] (52370 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Discharge Summary
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_16c1574aa12cac42] (866 bytes, 3 passes)
+INFO:services.comprehensive_emr_sync:Document has no date from Epic FHIR, using current date as fallback for sandbox testing
+INFO:services.comprehensive_emr_sync:Epic document IDs: eWz8-WeYnx23hVX2B7PnBZg3, ef7BMm4gk0LDKIGdTRfJO-Q3
+INFO:services.comprehensive_emr_sync:Document sync summary - Total: 3, New: 2, Skipped: 0
+INFO:services.comprehensive_emr_sync:Syncing encounters for patient eIXesllypH3M9tAA5WdJftQ3
+ERROR:services.comprehensive_emr_sync:Error syncing patient encounters: cannot import name 'get_local_today' from 'utils.date_helpers' (/home/runner/workspace/utils/date_helpers.py)
+INFO:services.comprehensive_emr_sync:Syncing appointments for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.comprehensive_emr_sync:Processed 0 appointments
+INFO:services.comprehensive_emr_sync:Processing screening eligibility for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.comprehensive_emr_sync:FHIR document match: Progress Note (ID: 214, Epic: eWz8-WeYnx23hVX2B7PnBZg3) for Lipid Panel
+INFO:services.comprehensive_emr_sync:Created FHIR document association: Progress Note (ID: 214) -> Lipid Panel
+INFO:services.comprehensive_emr_sync:Updated screening status for eIXesllypH3M9tAA5WdJftQ3: Lipid Panel - complete (0 manual + 1 FHIR docs matched)
+INFO:services.comprehensive_emr_sync:FHIR document match: Progress Note (ID: 214, Epic: eWz8-WeYnx23hVX2B7PnBZg3) for Colonoscopy
+INFO:services.comprehensive_emr_sync:Created FHIR document association: Progress Note (ID: 214) -> Colonoscopy
+INFO:services.comprehensive_emr_sync:Updated screening status for eIXesllypH3M9tAA5WdJftQ3: Colonoscopy - complete (0 manual + 1 FHIR docs matched)
+INFO:services.comprehensive_emr_sync:Updated screening status for eIXesllypH3M9tAA5WdJftQ3: Immunization Review - due (0 manual + 0 FHIR docs matched)
+INFO:services.comprehensive_emr_sync:FHIR document match: Progress Note (ID: 214, Epic: eWz8-WeYnx23hVX2B7PnBZg3) for A1C Test
+INFO:services.comprehensive_emr_sync:Created FHIR document association: Progress Note (ID: 214) -> A1C Test
+INFO:services.comprehensive_emr_sync:Updated screening status for eIXesllypH3M9tAA5WdJftQ3: A1C Test - complete (0 manual + 1 FHIR docs matched)
+INFO:services.comprehensive_emr_sync:FHIR document match: Progress Note (ID: 214, Epic: eWz8-WeYnx23hVX2B7PnBZg3) for Mammogram
+INFO:services.comprehensive_emr_sync:Created FHIR document association: Progress Note (ID: 214) -> Mammogram
+INFO:services.comprehensive_emr_sync:Updated screening status for eIXesllypH3M9tAA5WdJftQ3: Mammogram - complete (0 manual + 1 FHIR docs matched)
+INFO:services.comprehensive_emr_sync:Updated screening status for eIXesllypH3M9tAA5WdJftQ3: Cervical Cancer Screening - due (0 manual + 0 FHIR docs matched)
+INFO:services.comprehensive_emr_sync:Updated 6 screening statuses
+INFO:services.comprehensive_emr_sync:Successfully completed comprehensive sync for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.epic_fhir_service:Successfully synced patient eh2xYHuzl9nkSFVvV3osUHg3 from Epic for org 33
+INFO:services.comprehensive_emr_sync:Assigned patient Olivia Anne Roberts to default provider: Provider - defa3
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Olivia Anne Roberts
+INFO:services.comprehensive_emr_sync:Syncing conditions for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.comprehensive_emr_sync:Added new condition: Unspecified fracture of shaft of humerus, unspecified arm, initial encounter for closed fracture
+INFO:services.comprehensive_emr_sync:Syncing observations (labs) for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.comprehensive_emr_sync:Processed 0 screening-relevant observations (labs)
+INFO:services.comprehensive_emr_sync:Syncing imaging studies (DiagnosticReport) for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.comprehensive_emr_sync:Processed 0 imaging studies (DiagnosticReports)
+INFO:services.comprehensive_emr_sync:Syncing documents for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.comprehensive_emr_sync:Epic returned 5 documents for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_2dac376eac50bc8d] (351 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Consults
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_f4915e8fdfff83b9] (351 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Progress Notes
+INFO:ocr.document_processor:Successfully extracted 2605 characters from HTML
+INFO:ocr.document_processor:Successfully processed document with 1.00 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_d16047503945b3f8] (51296 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Progress Notes
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_6649590c237943d6] (357 bytes, 3 passes)
+INFO:services.comprehensive_emr_sync:Document has no date from Epic FHIR, using current date as fallback for sandbox testing
+INFO:services.comprehensive_emr_sync:Epic document IDs: e50EVhg2nZyLhMfr1Rb4uMg3, eH-.Q6gjsoLu5MxGSBpoNjw3, eJLSO5A56X23-Ndgm6rot5g3, eRlfm6nG.k9mcCZaAA8PJ2w3
+INFO:services.comprehensive_emr_sync:Document sync summary - Total: 5, New: 4, Skipped: 0
+INFO:services.comprehensive_emr_sync:Syncing encounters for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.comprehensive_emr_sync:Processed 0 encounters
+INFO:services.comprehensive_emr_sync:Syncing appointments for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.comprehensive_emr_sync:Processed 0 appointments
+INFO:services.comprehensive_emr_sync:Processing screening eligibility for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.comprehensive_emr_sync:Updated screening status for eh2xYHuzl9nkSFVvV3osUHg3: Cervical Cancer Screening - due (0 manual + 0 FHIR docs matched)
+INFO:services.comprehensive_emr_sync:Updated 1 screening statuses
+INFO:services.comprehensive_emr_sync:Successfully completed comprehensive sync for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.epic_fhir_service:Successfully synced patient e0w0LEDCYtfckT6N.CkJKCw3 from Epic for org 33
+INFO:services.comprehensive_emr_sync:Assigned patient Warren James McGinnis to default provider: Provider - defa3
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Warren James McGinnis
+INFO:services.comprehensive_emr_sync:Syncing conditions for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:Added new condition: Old myocardial infarction
+INFO:services.comprehensive_emr_sync:Added new condition: Heart disease, unspecified
+INFO:services.comprehensive_emr_sync:Syncing observations (labs) for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:Screening observation for e0w0LEDCYtfckT6N.CkJKCw3: 2093-3 = 187 mg/dL on 2019-05-28 15:59:00+00:00
+INFO:services.comprehensive_emr_sync:Processed 1 screening-relevant observations (labs)
+INFO:services.comprehensive_emr_sync:Syncing imaging studies (DiagnosticReport) for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:Processed 0 imaging studies (DiagnosticReports)
+INFO:services.comprehensive_emr_sync:Syncing documents for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:Epic returned 6 documents for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:ocr.document_processor:Processing document: Progress Notes
+INFO:ocr.document_processor:Successfully extracted 2945 characters from HTML
+INFO:ocr.document_processor:Successfully processed document with 1.00 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_528ac5dbd2616921] (51270 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Progress Notes
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_3a68fd520c06b0dd] (319 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Progress Notes
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_b31c9cf7acd12382] (319 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: H&P
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_5f07268b837832f7] (414 bytes, 3 passes)
+INFO:ocr.document_processor:Processing document: Procedures
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+ERROR:trafilatura.core:empty HTML tree: None
+WARNING:trafilatura.core:discarding data: None
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+INFO:utils.secure_delete:Securely deleted file: [path_61cea8a0d0a40aeb] (411 bytes, 3 passes)
+INFO:services.comprehensive_emr_sync:Document has no date from Epic FHIR, using current date as fallback for sandbox testing
+INFO:services.comprehensive_emr_sync:Epic document IDs: ervmF.QO5yZFD-635nz8H4Q3, ewbHjBDB7KFwiZ1B.73wAkA3, e2LI3pMSHJ-BZ7qKifTmlhw3, ejQPRy7XA9sgOPZmWi2aR3g3, eEBiTuPQOVIQJmvSh-UuuPA3
+INFO:services.comprehensive_emr_sync:Document sync summary - Total: 6, New: 5, Skipped: 0
+INFO:services.comprehensive_emr_sync:Syncing encounters for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:Processed 0 encounters
+INFO:services.comprehensive_emr_sync:Syncing appointments for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:Added new appointment: 2019-05-24 19:15:00+00:00 for patient Warren James McGinnis
+INFO:services.comprehensive_emr_sync:Processed 1 appointments
+INFO:services.comprehensive_emr_sync:Processing screening eligibility for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:FHIR document match: Progress Note (ID: 220, Epic: ervmF.QO5yZFD-635nz8H4Q3) for Lipid Panel
+INFO:services.comprehensive_emr_sync:Created FHIR document association: Progress Note (ID: 220) -> Lipid Panel
+INFO:services.comprehensive_emr_sync:Updated screening status for e0w0LEDCYtfckT6N.CkJKCw3: Lipid Panel - complete (0 manual + 1 FHIR docs matched)
+INFO:services.comprehensive_emr_sync:FHIR document match: Progress Note (ID: 220, Epic: ervmF.QO5yZFD-635nz8H4Q3) for Colonoscopy
+INFO:services.comprehensive_emr_sync:Created FHIR document association: Progress Note (ID: 220) -> Colonoscopy
+INFO:services.comprehensive_emr_sync:Updated screening status for e0w0LEDCYtfckT6N.CkJKCw3: Colonoscopy - complete (0 manual + 1 FHIR docs matched)
+INFO:services.comprehensive_emr_sync:Updated screening status for e0w0LEDCYtfckT6N.CkJKCw3: Immunization Review - due (0 manual + 0 FHIR docs matched)
+INFO:services.comprehensive_emr_sync:FHIR document match: Progress Note (ID: 220, Epic: ervmF.QO5yZFD-635nz8H4Q3) for A1C Test
+INFO:services.comprehensive_emr_sync:Created FHIR document association: Progress Note (ID: 220) -> A1C Test
+INFO:services.comprehensive_emr_sync:Updated screening status for e0w0LEDCYtfckT6N.CkJKCw3: A1C Test - complete (0 manual + 1 FHIR docs matched)
+INFO:services.comprehensive_emr_sync:Updated 4 screening statuses
+INFO:services.comprehensive_emr_sync:Successfully completed comprehensive sync for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:Discovery and sync completed: 7 patients synced, 18 screenings updated
+10.81.13.36 - - [18/Jan/2026:03:23:18 +0000] "POST /api/refresh-screenings HTTP/1.1" 200 271 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-0
