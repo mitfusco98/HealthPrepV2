@@ -20,6 +20,7 @@ Health-Prep v2 is a real-time medical preparation sheet generation engine design
 - Enhanced create_preset_from_types with user-specific filtering and variant grouping
 - Comprehensive database models for screening catalog management
 - Dry-run mode for Epic integration testing with PHI-safe logging
+- Console output for prep sheet feedback: Set `PREP_SHEET_CONSOLE_OUTPUT=true` to enable; verbose mode for individual generation (full sections), quiet mode for bulk (one-line summaries); PHI redacted
 
 ## System Architecture
 
