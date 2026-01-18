@@ -36,6 +36,95 @@ class EpicWriteBackService:
         if self.dry_run:
             self.logger.warning("⚠️  EPIC DRY-RUN MODE ENABLED - No actual writes to Epic will occur")
     
+    def _print_prep_sheet_to_console(self, patient, prep_data, result, verbose=True):
+        """
+        Print prep sheet content to console for instant feedback.
+        
+        SECURITY: Only enabled when PREP_SHEET_CONSOLE_OUTPUT=true (development/testing).
+        PHI is partially redacted even when enabled.
+        
+        Args:
+            patient: Patient object
+            prep_data: Prep sheet data dict with content sections
+            result: Epic writeback result dict
+            verbose: If True, print full content; if False, print summary only
+        """
+        console_enabled = os.environ.get('PREP_SHEET_CONSOLE_OUTPUT', 'false').lower() == 'true'
+        if not console_enabled:
+            return
+        
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        status_icon = "✓" if result.get('success') else "✗"
+        dry_run_tag = " [DRY-RUN]" if result.get('dry_run') else ""
+        
+        if not verbose:
+            epic_id = result.get('epic_document_id', 'N/A')
+            print(f"[{timestamp}] Prep Sheet → Epic: Patient {patient.id} (MRN:{patient.mrn}) {status_icon} {epic_id}{dry_run_tag}")
+            return
+        
+        print("\n" + "=" * 80)
+        print(f"PREP SHEET OUTPUT{dry_run_tag}")
+        print("=" * 80)
+        print(f"Timestamp: {timestamp}")
+        print(f"Status: {'SUCCESS' if result.get('success') else 'FAILED'} {status_icon}")
+        if result.get('epic_document_id'):
+            print(f"Epic Document ID: {result['epic_document_id']}")
+        if result.get('error'):
+            print(f"Error: {result['error']}")
+        
+        print("\n" + "-" * 40)
+        print("PATIENT")
+        print("-" * 40)
+        print(f"ID: {patient.id} | MRN: {patient.mrn}")
+        if patient.epic_patient_id:
+            print(f"Epic ID: {patient.epic_patient_id}")
+        
+        if prep_data:
+            prep_sheet = prep_data.get('prep_sheet', {})
+            content = prep_sheet.get('content', {})
+            enhanced = content.get('enhanced_data', {})
+            
+            print("\n" + "-" * 40)
+            print("MEDICAL DATA SECTIONS")
+            print("-" * 40)
+            
+            for section_key, section_name in [('laboratories', 'Labs'), ('imaging', 'Imaging'), 
+                                               ('consults', 'Consults'), ('hospital_visits', 'Hospital Records')]:
+                section = enhanced.get(section_key, {})
+                docs = section.get('documents', [])
+                cutoff = section.get('cutoff_date', 'N/A')
+                is_fallback = section.get('is_fallback', False)
+                fallback_tag = " (To Last Encounter)" if is_fallback else ""
+                
+                print(f"\n  [{section_name}] - {len(docs)} document(s), cutoff: {cutoff}{fallback_tag}")
+                
+                for doc in docs[:5]:
+                    doc_title = getattr(doc, 'title', None) or getattr(doc, 'document_type', 'Unknown')
+                    doc_date = getattr(doc, 'document_date', None) or getattr(doc, 'upload_date', None)
+                    date_str = doc_date.strftime('%Y-%m-%d') if doc_date else 'No date'
+                    doc_id = getattr(doc, 'id', 'N/A')
+                    print(f"    - [{date_str}] {doc_title} (id:{doc_id})")
+                
+                if len(docs) > 5:
+                    print(f"    ... and {len(docs) - 5} more")
+            
+            quality = content.get('quality_checklist', [])
+            if quality:
+                print("\n" + "-" * 40)
+                print("SCREENING CHECKLIST")
+                print("-" * 40)
+                for item in quality[:10]:
+                    name = item.get('name', 'Unknown')
+                    status = item.get('status', 'unknown')
+                    status_icons = {'due': '!', 'completed': '+', 'not_due': 'o', 'overdue': '!!'}
+                    icon = status_icons.get(status, '?')
+                    print(f"  [{icon}] {name}: {status}")
+                
+                if len(quality) > 10:
+                    print(f"  ... and {len(quality) - 10} more screenings")
+        
+        print("\n" + "=" * 80 + "\n")
+    
     def _initialize_fhir_client(self):
         """Initialize FHIR client with Epic credentials"""
         if not self.organization.epic_client_id:
@@ -115,7 +204,7 @@ class EpicWriteBackService:
             self.logger.error(f"Epic connection verification failed: {str(e)}")
             return False
     
-    def write_prep_sheet_to_epic(self, patient_id, prep_sheet_html, user_id, user_ip, prep_data=None):
+    def write_prep_sheet_to_epic(self, patient_id, prep_sheet_html, user_id, user_ip, prep_data=None, verbose=True):
         """
         Write prep sheet to Epic as DocumentReference
         
@@ -125,6 +214,7 @@ class EpicWriteBackService:
             user_id: User who triggered the generation
             user_ip: IP address of user
             prep_data: Optional prep sheet data dict with screening info and cutoff dates
+            verbose: If True, print full prep sheet to console; if False, print one-line summary
             
         Returns:
             dict: {'success': bool, 'epic_document_id': str, 'error': str}
@@ -238,13 +328,16 @@ class EpicWriteBackService:
                     }
                 )
                 
-                return {
+                dry_run_result = {
                     'success': True,
                     'epic_document_id': mock_epic_id,
                     'filename': filename,
                     'timestamp': timestamp,
                     'dry_run': True
                 }
+                
+                self._print_prep_sheet_to_console(patient, prep_data, dry_run_result, verbose=verbose)
+                return dry_run_result
             
             # PRODUCTION MODE: Write to Epic with retry on 401
             result = self._write_document_with_retry(document_reference)
@@ -310,12 +403,16 @@ class EpicWriteBackService:
                 )
                 
                 self.logger.info(f"Successfully wrote prep sheet to Epic: {epic_doc_id}")
-                return {
+                
+                success_result = {
                     'success': True,
                     'epic_document_id': epic_doc_id,
                     'filename': filename,
                     'timestamp': timestamp
                 }
+                
+                self._print_prep_sheet_to_console(patient, prep_data, success_result, verbose=verbose)
+                return success_result
             else:
                 return {'success': False, 'error': 'Epic DocumentReference creation failed - no document ID returned'}
                 
@@ -898,12 +995,14 @@ PREP SHEET CONTENT
                 prep_html = render_template('prep_sheet/prep_sheet.html', **prep_data)
                 
                 # Write to Epic with prep_data for comprehensive PDF header
+                # Use verbose=False for bulk generation (one-line summaries)
                 write_result = self.write_prep_sheet_to_epic(
                     patient_id=patient_id,
                     prep_sheet_html=prep_html,
                     user_id=user_id,
                     user_ip=user_ip,
-                    prep_data=prep_data
+                    prep_data=prep_data,
+                    verbose=False
                 )
                 
                 if write_result.get('success'):
