@@ -294,8 +294,8 @@
                                     <tr>
                                         <td>
                                             <strong>{{ screening_name }}</strong>
-                                            {% if screening.screening_type and screening.screening_type.variant_name %}
-                                                <br><small class="text-muted">{{ screening.screening_type.variant_name }} variant</small>
+                                            {% if item.screening_type and item.screening_type.variant_name %}
+                                                <br><small class="text-muted">{{ item.screening_type.variant_name }} variant</small>
                                             {% endif %}
                                         </td>
                                         <td>

@@ -6,7 +6,9 @@ from dateutil.relativedelta import relativedelta
 from app import db
 from models import Patient, Screening, Document, Appointment, PatientCondition, PrepSheetSettings
 from .filters import PrepSheetFilters
+from ocr.phi_filter import PHIFilter
 import logging
+import os
 
 class PrepSheetGenerator:
     """Generates comprehensive prep sheets for patient visits"""
@@ -14,9 +16,139 @@ class PrepSheetGenerator:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.filters = PrepSheetFilters()
+        self.phi_filter = PHIFilter()
+        self.console_output_enabled = os.environ.get('PREP_SHEET_CONSOLE_OUTPUT', 'false').lower() == 'true'
     
-    def generate_prep_sheet(self, patient_id, appointment_id=None):
-        """Generate complete prep sheet for a patient"""
+    def _redact_phi(self, text):
+        """Redact PHI from text using centralized PHI filter"""
+        if not text:
+            return text
+        return self.phi_filter.filter_text(str(text))
+    
+    def _redact_mrn(self, mrn):
+        """Redact MRN for console display - show only last 4 chars"""
+        if not mrn:
+            return '[REDACTED]'
+        mrn_str = str(mrn)
+        if len(mrn_str) <= 4:
+            return '****'
+        return f"****{mrn_str[-4:]}"
+    
+    def _output_prep_sheet_verbose(self, patient, medical_data, quality_checklist_data, verbose_mode=False):
+        """
+        Output verbose prep sheet details to console for individual generation.
+        PHI is redacted for safe logging.
+        
+        Args:
+            patient: Patient object
+            medical_data: Medical data dict with document matches
+            quality_checklist_data: Screening checklist data
+            verbose_mode: If True, output verbose details (individual generation).
+                          If False, skip output (bulk generation mode).
+        """
+        if not self.console_output_enabled or not verbose_mode:
+            return
+        
+        # Use print for direct console output that won't be filtered by log levels
+        print("\n" + "="*80)
+        print("PREP SHEET GENERATION - VERBOSE OUTPUT")
+        print("="*80)
+        print(f"Patient MRN: {self._redact_mrn(patient.mrn)}")
+        print(f"Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print("-"*80)
+        
+        # Medical Data Sections
+        print("\n[MEDICAL DATA SECTIONS]")
+        
+        # Labs
+        labs = medical_data.get('lab_results', [])
+        cutoffs = medical_data.get('cutoff_dates', {})
+        print(f"\n  LABS (cutoff: {cutoffs.get('labs', 'N/A')}):")
+        if labs:
+            for doc in labs:
+                doc_date = getattr(doc, 'document_date', None)
+                doc_title = self._redact_phi(getattr(doc, 'title', getattr(doc, 'search_title', 'Unknown')))
+                doc_type = getattr(doc, 'document_type', getattr(doc, 'document_type_display', 'Unknown'))
+                print(f"    - [{doc_date}] {doc_title} (type: {doc_type})")
+        else:
+            print("    No lab documents found within cutoff")
+        
+        # Imaging
+        imaging = medical_data.get('imaging_studies', [])
+        print(f"\n  IMAGING (cutoff: {cutoffs.get('imaging', 'N/A')}):")
+        if imaging:
+            for doc in imaging:
+                doc_date = getattr(doc, 'document_date', None)
+                doc_title = self._redact_phi(getattr(doc, 'title', getattr(doc, 'search_title', 'Unknown')))
+                doc_type = getattr(doc, 'document_type', getattr(doc, 'document_type_display', 'Unknown'))
+                print(f"    - [{doc_date}] {doc_title} (type: {doc_type})")
+        else:
+            print("    No imaging documents found within cutoff")
+        
+        # Consults
+        consults = medical_data.get('specialist_consults', [])
+        print(f"\n  CONSULTS (cutoff: {cutoffs.get('consults', 'N/A')}):")
+        if consults:
+            for doc in consults:
+                doc_date = getattr(doc, 'document_date', None)
+                doc_title = self._redact_phi(getattr(doc, 'title', getattr(doc, 'search_title', 'Unknown')))
+                doc_type = getattr(doc, 'document_type', getattr(doc, 'document_type_display', 'Unknown'))
+                print(f"    - [{doc_date}] {doc_title} (type: {doc_type})")
+        else:
+            print("    No consult documents found within cutoff")
+        
+        # Hospital
+        hospital = medical_data.get('hospital_stays', [])
+        print(f"\n  HOSPITAL RECORDS (cutoff: {cutoffs.get('hospital', 'N/A')}):")
+        if hospital:
+            for doc in hospital:
+                doc_date = getattr(doc, 'document_date', None)
+                doc_title = self._redact_phi(getattr(doc, 'title', getattr(doc, 'search_title', 'Unknown')))
+                doc_type = getattr(doc, 'document_type', getattr(doc, 'document_type_display', 'Unknown'))
+                print(f"    - [{doc_date}] {doc_title} (type: {doc_type})")
+        else:
+            print("    No hospital documents found within cutoff")
+        
+        # Quality Checklist / Screenings
+        print("\n[SCREENING QUALITY CHECKLIST]")
+        summary = quality_checklist_data.get('summary', {})
+        print(f"  Total: {summary.get('total', 0)} | Due: {summary.get('due', 0)} | Due Soon: {summary.get('due_soon', 0)} | Complete: {summary.get('complete', 0)}")
+        
+        items = quality_checklist_data.get('items', [])
+        for item in items:
+            # Apply PHI filter to screening name as it could contain patient-derived data
+            screening_name = self._redact_phi(item.get('screening_name', 'Unknown'))
+            status = item.get('status', 'unknown')
+            frequency = item.get('frequency', 'N/A')
+            last_completed = item.get('last_completed')
+            matched_docs = item.get('matched_documents', [])
+            
+            last_completed_str = last_completed.strftime('%Y-%m-%d') if last_completed else 'Never'
+            print(f"\n  {screening_name} [{status.upper()}]")
+            print(f"    Frequency: {frequency} | Last: {last_completed_str}")
+            print(f"    Matched Documents: {len(matched_docs)}")
+            if matched_docs:
+                for doc in matched_docs[:5]:  # Limit to first 5
+                    doc_date = getattr(doc, 'document_date', None)
+                    doc_title = self._redact_phi(getattr(doc, 'title', getattr(doc, 'search_title', 'Unknown')))
+                    print(f"      - [{doc_date}] {doc_title}")
+                if len(matched_docs) > 5:
+                    print(f"      ... and {len(matched_docs) - 5} more")
+        
+        print("\n" + "="*80)
+        print("END PREP SHEET OUTPUT")
+        print("="*80 + "\n")
+    
+    def generate_prep_sheet(self, patient_id, appointment_id=None, verbose_console=True):
+        """
+        Generate complete prep sheet for a patient
+        
+        Args:
+            patient_id: Patient ID
+            appointment_id: Optional appointment ID
+            verbose_console: If True, output verbose details to console (individual generation).
+                            If False, skip verbose output (for bulk generation).
+        """
         patient = Patient.query.get(patient_id)
         if not patient:
             return {'success': False, 'error': f'Patient {patient_id} not found'}
@@ -63,6 +195,9 @@ class PrepSheetGenerator:
                 'appointment': appointment,
                 'prep_sheet': prep_sheet
             }
+            
+            # Output verbose console details if enabled (individual generation mode only)
+            self._output_prep_sheet_verbose(patient, medical_data, quality_checklist_data, verbose_mode=verbose_console)
             
             self.logger.info(f"Generated prep sheet for patient {patient.mrn}")
             return {'success': True, 'data': prep_data}

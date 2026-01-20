@@ -14,9 +14,18 @@ from weasyprint import HTML, CSS
 from flask import render_template_string
 from emr.fhir_client import FHIRClient
 from models import Patient, Organization, Screening, EpicCredentials, FHIRDocument, log_admin_event
+from ocr.phi_filter import PHIFilter
 from app import db
 
 logger = logging.getLogger(__name__)
+
+# Shared PHI filter instance for console output redaction
+_phi_filter = None
+def _get_phi_filter():
+    global _phi_filter
+    if _phi_filter is None:
+        _phi_filter = PHIFilter()
+    return _phi_filter
 
 
 class EpicWriteBackService:
@@ -105,12 +114,28 @@ class EpicWriteBackService:
         
         return is_sandbox_url
     
+    def _redact_mrn_for_console(self, mrn):
+        """Redact MRN for console output - show only last 4 chars"""
+        if not mrn:
+            return '[REDACTED]'
+        mrn_str = str(mrn)
+        if len(mrn_str) <= 4:
+            return '****'
+        return f"****{mrn_str[-4:]}"
+    
+    def _redact_text_for_console(self, text):
+        """Redact PHI from text using centralized PHI filter"""
+        if not text:
+            return text
+        phi_filter = _get_phi_filter()
+        return phi_filter.filter_text(str(text))
+    
     def _print_prep_sheet_to_console(self, patient, prep_data, result, verbose=True):
         """
         Print prep sheet content to console for instant feedback.
         
         SECURITY: Only enabled when PREP_SHEET_CONSOLE_OUTPUT=true (development/testing).
-        PHI is partially redacted even when enabled.
+        PHI is redacted - MRNs show only last 4 chars, document titles are pattern-filtered.
         
         Args:
             patient: Patient object
@@ -125,10 +150,12 @@ class EpicWriteBackService:
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         status_icon = "✓" if result.get('success') else "✗"
         dry_run_tag = " [DRY-RUN]" if result.get('dry_run') else ""
+        redacted_mrn = self._redact_mrn_for_console(patient.mrn)
         
         if not verbose:
-            epic_id = result.get('epic_document_id', 'N/A')
-            print(f"[{timestamp}] Prep Sheet → Epic: Patient {patient.id} (MRN:{patient.mrn}) {status_icon} {epic_id}{dry_run_tag}")
+            epic_doc_id = result.get('epic_document_id', 'N/A')
+            # Non-verbose: one-line summary with redacted MRN only (no patient ID)
+            print(f"[{timestamp}] Prep Sheet → Epic: MRN:{redacted_mrn} {status_icon} Epic:{epic_doc_id}{dry_run_tag}")
             return
         
         print("\n" + "=" * 80)
@@ -142,11 +169,15 @@ class EpicWriteBackService:
             print(f"Error: {result['error']}")
         
         print("\n" + "-" * 40)
-        print("PATIENT")
+        print("PATIENT (PHI-redacted)")
         print("-" * 40)
-        print(f"ID: {patient.id} | MRN: {patient.mrn}")
+        # Only show redacted MRN - no patient IDs
+        print(f"MRN: {redacted_mrn}")
         if patient.epic_patient_id:
-            print(f"Epic ID: {patient.epic_patient_id}")
+            # Redact Epic ID as well - show only last 4 chars
+            epic_id_str = str(patient.epic_patient_id)
+            redacted_epic_id = f"****{epic_id_str[-4:]}" if len(epic_id_str) > 4 else '****'
+            print(f"Epic ID: {redacted_epic_id}")
         
         if prep_data:
             prep_sheet = prep_data.get('prep_sheet', {})
@@ -169,6 +200,7 @@ class EpicWriteBackService:
                 
                 for doc in docs[:5]:
                     doc_title = getattr(doc, 'title', None) or getattr(doc, 'document_type', 'Unknown')
+                    doc_title = self._redact_text_for_console(doc_title)  # PHI redaction
                     doc_date = getattr(doc, 'document_date', None) or getattr(doc, 'upload_date', None)
                     date_str = doc_date.strftime('%Y-%m-%d') if doc_date else 'No date'
                     doc_id = getattr(doc, 'id', 'N/A')
@@ -183,7 +215,8 @@ class EpicWriteBackService:
                 print("SCREENING CHECKLIST")
                 print("-" * 40)
                 for item in quality[:10]:
-                    name = item.get('name', 'Unknown')
+                    # Apply PHI filter to screening/checklist names
+                    name = self._redact_text_for_console(item.get('name', 'Unknown'))
                     status = item.get('status', 'unknown')
                     status_icons = {'due': '!', 'completed': '+', 'not_due': 'o', 'overdue': '!!'}
                     icon = status_icons.get(status, '?')
@@ -1045,8 +1078,8 @@ PREP SHEET CONTENT
         for patient_id in patient_ids:
             patient_info = patient_map.get(patient_id, {'name': 'Unknown', 'mrn': 'Unknown'})
             try:
-                # Generate prep sheet HTML
-                prep_result = prep_sheet_generator.generate_prep_sheet(patient_id)
+                # Generate prep sheet HTML (bulk mode - skip verbose console output)
+                prep_result = prep_sheet_generator.generate_prep_sheet(patient_id, verbose_console=False)
                 
                 if not prep_result.get('success'):
                     results.append({

@@ -125,7 +125,8 @@ def batch_generate():
                 if appointment:
                     result = generator.generate_prep_sheet(
                         appointment.patient_id, 
-                        appointment.id
+                        appointment.id,
+                        verbose_console=False  # Bulk mode - skip verbose output
                     )
                     
                     if result['success']:
