@@ -27,7 +27,8 @@ class SecurityAlertService:
         'brute_force_detected', 
         'phi_filter_failed',
         'document_processing_failed',
-        'suspicious_access_pattern'
+        'suspicious_access_pattern',
+        'document_integrity_violation'
     ]
     
     @staticmethod
@@ -265,6 +266,133 @@ class SecurityAlertService:
         return success
     
     @staticmethod
+    def send_document_integrity_violation_alert(
+        org_id: int, 
+        document_id: int, 
+        document_type: str, 
+        patient_id: int,
+        stored_hash: str,
+        computed_hash: str,
+        ip_address: str = None
+    ) -> bool:
+        """
+        Send critical alert when document content integrity violation is detected.
+        
+        This indicates potential tampering with PHI and triggers data breach protocols.
+        
+        Args:
+            org_id: Organization ID
+            document_id: ID of the document with integrity violation
+            document_type: Type of document (Document or FHIRDocument)
+            patient_id: Patient ID associated with the document
+            stored_hash: Original hash stored when document was uploaded
+            computed_hash: Current hash that doesn't match stored
+            ip_address: IP address of the request (if available)
+            
+        Returns:
+            True if alert sent successfully
+        """
+        org = Organization.query.get(org_id)
+        org_name = org.name if org else 'Unknown Organization'
+        
+        admin_emails = SecurityAlertService._get_org_admin_emails(org_id)
+        
+        subject = f"[CRITICAL SECURITY ALERT] Document Integrity Violation Detected"
+        
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+            <div style="background-color: #721c24; color: white; padding: 15px; margin-bottom: 20px;">
+                <h2 style="margin: 0;">CRITICAL: Document Integrity Violation</h2>
+            </div>
+            
+            <p style="background-color: #f8d7da; padding: 15px; border-left: 4px solid #721c24; margin-bottom: 20px;">
+                <strong>Data Breach Protocol Activated:</strong> A document's content hash does not match its stored value.
+                This may indicate unauthorized modification of Protected Health Information (PHI).
+            </p>
+            
+            <h3>Incident Details:</h3>
+            <ul>
+                <li><strong>Time:</strong> {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}</li>
+                <li><strong>Organization:</strong> {org_name}</li>
+                <li><strong>Document ID:</strong> {document_id}</li>
+                <li><strong>Document Type:</strong> {document_type}</li>
+                <li><strong>Patient ID:</strong> {patient_id}</li>
+                <li><strong>Request IP:</strong> {ip_address or 'Unknown'}</li>
+            </ul>
+            
+            <h3>Hash Comparison:</h3>
+            <ul>
+                <li><strong>Expected Hash:</strong> <code>{stored_hash[:32]}...</code></li>
+                <li><strong>Computed Hash:</strong> <code>{computed_hash[:32]}...</code></li>
+            </ul>
+            
+            <h3>Immediate Actions Required:</h3>
+            <ol>
+                <li><strong>Preserve Evidence:</strong> Do not modify or delete the affected document</li>
+                <li><strong>Review Access Logs:</strong> Check who accessed this document recently</li>
+                <li><strong>Assess PHI Exposure:</strong> Determine what patient data may have been compromised</li>
+                <li><strong>Activate Incident Response:</strong> Follow your HIPAA breach notification procedures</li>
+                <li><strong>Document Everything:</strong> Record all findings for compliance reporting</li>
+            </ol>
+            
+            <h3>HIPAA Breach Notification Requirements:</h3>
+            <p>If PHI has been compromised, you may be required to:</p>
+            <ul>
+                <li>Notify affected individuals within 60 days</li>
+                <li>Report to HHS if 500+ individuals affected</li>
+                <li>Notify local media if 500+ individuals in a state affected</li>
+            </ul>
+            
+            <p style="color: #666; font-size: 12px;">
+                This is an automated critical security alert from HealthPrep's data integrity monitoring system.
+                This event has been logged for HIPAA compliance.
+            </p>
+        </body>
+        </html>
+        """
+        
+        success = True
+        for email in admin_emails:
+            if not EmailService._send_email(email, subject, html_body):
+                success = False
+                logger.warning(f"Failed to send integrity violation alert to {email}")
+        
+        SecurityAlertService._log_alert_sent('document_integrity_violation', org_id, {
+            'document_id': document_id,
+            'document_type': document_type,
+            'patient_id': patient_id,
+            'stored_hash': stored_hash,
+            'computed_hash': computed_hash,
+            'ip_address': ip_address,
+            'recipients': admin_emails
+        })
+        
+        # Create formal incident for integrity violation
+        IncidentLogger.log_incident_detected(
+            org_id=org_id,
+            severity='P2',
+            category='data_integrity_violation',
+            description=f'Document integrity violation detected for {document_type} ID {document_id}',
+            details={
+                'document_id': document_id,
+                'document_type': document_type,
+                'patient_id': patient_id,
+                'stored_hash': stored_hash[:32],
+                'computed_hash': computed_hash[:32],
+                'org_name': org_name
+            },
+            ip_address=ip_address
+        )
+        
+        logger.critical(
+            f"DOCUMENT INTEGRITY VIOLATION: {document_type} {document_id} in org {org_id}. "
+            f"Patient ID: {patient_id}. Breach protocol activated."
+        )
+        
+        return success
+    
+    @staticmethod
     def check_and_alert_brute_force(ip_address: str, org_id: int) -> bool:
         """
         Check for brute force patterns and send alert if threshold exceeded
@@ -415,7 +543,8 @@ class IncidentLogger:
         'data_exfiltration',
         'ransomware',
         'insider_threat',
-        'third_party_breach'
+        'third_party_breach',
+        'data_integrity_violation'
     ]
     
     @staticmethod

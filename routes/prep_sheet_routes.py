@@ -13,6 +13,7 @@ from prep_sheet.generator import PrepSheetGenerator
 from models import log_admin_event
 from forms import PrepSheetSettingsForm
 from app import db
+from utils.rate_limiter import rate_limit_individual, rate_limit_bulk, rate_limit_writeback
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ prep_sheet_bp = Blueprint('prep_sheet', __name__)
 @login_required
 @subscription_required
 @non_admin_required
+@rate_limit_individual
 def generate_for_patient(patient_id):
     """Generate prep sheet for a specific patient"""
     try:
@@ -56,6 +58,7 @@ def generate_for_patient(patient_id):
 @prep_sheet_bp.route('/appointment/<int:appointment_id>')
 @login_required
 @subscription_required
+@rate_limit_individual
 def generate_for_appointment(appointment_id):
     """Generate prep sheet for a specific appointment"""
     try:
@@ -90,6 +93,7 @@ def generate_for_appointment(appointment_id):
 @login_required
 @subscription_required
 @non_admin_required
+@rate_limit_bulk
 def batch_generate():
     """Batch generate prep sheets for multiple patients"""
     try:
@@ -445,6 +449,7 @@ def prep_sheet_settings():
 @login_required
 @subscription_required
 @non_admin_required
+@rate_limit_writeback
 def generate_to_epic(patient_id):
     """Generate prep sheet and write to Epic as DocumentReference"""
     try:
@@ -509,6 +514,7 @@ def generate_to_epic(patient_id):
 @login_required
 @subscription_required
 @non_admin_required
+@rate_limit_bulk
 def bulk_generate_to_epic():
     """Bulk generate prep sheets and write to Epic using appointment prioritization window"""
     try:

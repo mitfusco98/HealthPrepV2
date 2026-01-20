@@ -2053,6 +2053,74 @@ class Document(db.Model):
     def mark_processed(self):
         """Mark document as processed and update timestamp."""
         self.last_processed_at = datetime.utcnow()
+    
+    def verify_content_integrity(self, content_bytes: bytes, user_id: int = None, ip: str = None) -> dict:
+        """Verify document content integrity by comparing stored hash with current content.
+        
+        SECURITY: Logs integrity violations as potential data breach events.
+        
+        Args:
+            content_bytes: Current binary content of document to verify
+            user_id: User ID for audit logging (optional)
+            ip: IP address for audit logging (optional)
+            
+        Returns:
+            dict: {'valid': bool, 'stored_hash': str, 'computed_hash': str, 'violation_logged': bool}
+        """
+        import hashlib
+        
+        computed_hash = hashlib.sha256(content_bytes).hexdigest()
+        stored_hash = self.content_hash
+        
+        result = {
+            'valid': computed_hash == stored_hash,
+            'stored_hash': stored_hash,
+            'computed_hash': computed_hash,
+            'violation_logged': False
+        }
+        
+        if not result['valid'] and stored_hash:
+            # Content has been modified - potential tampering
+            result['violation_logged'] = True
+            log_admin_event(
+                event_type='document_integrity_violation',
+                user_id=user_id,
+                org_id=self.organization_id,
+                ip=ip,
+                data={
+                    'document_id': self.id,
+                    'document_type': 'Document',
+                    'filename': self.filename,
+                    'patient_id': self.patient_id,
+                    'stored_hash': stored_hash,
+                    'computed_hash': computed_hash,
+                    'severity': 'critical',
+                    'breach_protocol': 'data_integrity_violation'
+                }
+            )
+            logger.warning(
+                f"INTEGRITY VIOLATION: Document {self.id} ({self.filename}) content hash mismatch. "
+                f"Stored: {stored_hash[:16]}..., Computed: {computed_hash[:16]}..."
+            )
+            
+            # Trigger security alert email via breach protocol
+            try:
+                from services.security_alerts import SecurityAlertService
+                SecurityAlertService.send_document_integrity_violation_alert(
+                    org_id=self.organization_id,
+                    document_id=self.id,
+                    document_type='Document',
+                    patient_id=self.patient_id,
+                    stored_hash=stored_hash,
+                    computed_hash=computed_hash,
+                    ip_address=ip
+                )
+                result['alert_sent'] = True
+            except Exception as e:
+                logger.error(f"Failed to send integrity violation alert: {e}")
+                result['alert_sent'] = False
+        
+        return result
 
     def __repr__(self):
         return f'<Document {self.filename}>'
@@ -2230,6 +2298,75 @@ class FHIRDocument(db.Model):
                     self.content_hash = sha256(content_bytes).hexdigest()
         
         self.updated_at = datetime.utcnow()
+    
+    def verify_content_integrity(self, content_bytes: bytes, user_id: int = None, ip: str = None) -> dict:
+        """Verify document content integrity by comparing stored hash with current content.
+        
+        SECURITY: Logs integrity violations as potential data breach events.
+        
+        Args:
+            content_bytes: Current binary content of document to verify
+            user_id: User ID for audit logging (optional)
+            ip: IP address for audit logging (optional)
+            
+        Returns:
+            dict: {'valid': bool, 'stored_hash': str, 'computed_hash': str, 'violation_logged': bool}
+        """
+        import hashlib
+        
+        computed_hash = hashlib.sha256(content_bytes).hexdigest()
+        stored_hash = self.content_hash
+        
+        result = {
+            'valid': computed_hash == stored_hash,
+            'stored_hash': stored_hash,
+            'computed_hash': computed_hash,
+            'violation_logged': False
+        }
+        
+        if not result['valid'] and stored_hash:
+            # Content has been modified - potential tampering
+            result['violation_logged'] = True
+            log_admin_event(
+                event_type='document_integrity_violation',
+                user_id=user_id,
+                org_id=self.org_id,
+                ip=ip,
+                data={
+                    'document_id': self.id,
+                    'document_type': 'FHIRDocument',
+                    'epic_document_id': self.epic_document_id,
+                    'title': self.title,
+                    'patient_id': self.patient_id,
+                    'stored_hash': stored_hash,
+                    'computed_hash': computed_hash,
+                    'severity': 'critical',
+                    'breach_protocol': 'data_integrity_violation'
+                }
+            )
+            logger.warning(
+                f"INTEGRITY VIOLATION: FHIRDocument {self.id} ({self.epic_document_id}) content hash mismatch. "
+                f"Stored: {stored_hash[:16]}..., Computed: {computed_hash[:16]}..."
+            )
+            
+            # Trigger security alert email via breach protocol
+            try:
+                from services.security_alerts import SecurityAlertService
+                SecurityAlertService.send_document_integrity_violation_alert(
+                    org_id=self.org_id,
+                    document_id=self.id,
+                    document_type='FHIRDocument',
+                    patient_id=self.patient_id,
+                    stored_hash=stored_hash,
+                    computed_hash=computed_hash,
+                    ip_address=ip
+                )
+                result['alert_sent'] = True
+            except Exception as e:
+                logger.error(f"Failed to send integrity violation alert: {e}")
+                result['alert_sent'] = False
+        
+        return result
     
     def is_relevant_for_screening(self, screening_type):
         """Check if document is relevant for a specific screening type"""

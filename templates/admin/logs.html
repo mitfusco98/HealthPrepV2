@@ -106,7 +106,20 @@
                                 </div>
                             </td>
                             <td>
-                                {% if log.event_type == 'document_processing_complete' and log.data %}
+                                {% if log.event_type == 'document_integrity_violation' %}
+                                    <span class="badge bg-danger">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>
+                                        {{ log.event_type.replace('_', ' ').title() }}
+                                    </span>
+                                    <span class="badge bg-dark ms-1" title="Data Breach Protocol Activated">
+                                        <i class="fas fa-shield-virus"></i> CRITICAL
+                                    </span>
+                                {% elif log.event_type in ['account_lockout', 'brute_force_detected', 'phi_filter_failed'] %}
+                                    <span class="badge bg-danger">
+                                        <i class="fas fa-exclamation-circle me-1"></i>
+                                        {{ log.event_type.replace('_', ' ').title() }}
+                                    </span>
+                                {% elif log.event_type == 'document_processing_complete' and log.data %}
                                     {% set status = log.data.get('status', 'unknown') %}
                                     {% set error_type = log.data.get('error_type', '') %}
                                     <span class="badge {% if status == 'success' %}bg-success{% else %}bg-danger{% endif %}">

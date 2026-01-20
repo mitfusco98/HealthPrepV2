@@ -103,7 +103,8 @@
                                     <td>
                                         <span class="badge 
                                             {% if log.event_type.startswith('incident_') or log.event_type.startswith('breach_') %}bg-danger
-                                            {% elif log.event_type.startswith('security_alert_') or log.event_type in ['brute_force_detected', 'account_lockout'] %}bg-danger
+                                            {% elif log.event_type == 'document_integrity_violation' %}bg-danger
+                                            {% elif log.event_type.startswith('security_alert_') or log.event_type in ['brute_force_detected', 'account_lockout', 'phi_filter_failed'] %}bg-danger
                                             {% elif log.event_type.startswith('phi_') %}bg-warning text-dark
                                             {% elif log.event_type in ['create_user', 'create_organization', 'create_screening_type', 'add_screening_type', 'create_manual_organization'] %}bg-success
                                             {% elif log.event_type in ['delete_user', 'delete_organization', 'delete_screening_type', 'organization_rejected_deleted'] %}bg-danger
