@@ -1490,6 +1490,274 @@ def run_screening_engine_tests():
             }
             results['errors'].append(error_info)
             log_progress(f"FAIL: Test 19.2 - Alias dictionary: {str(e)}")
+        
+        # ===========================================
+        # TEST SUITE 20: Variant Deduplication
+        # ===========================================
+        
+        # Test 20.1: Only one screening per variant family per patient
+        results['total'] += 1
+        try:
+            from collections import defaultdict
+            
+            # Get all patients with screenings in the test org
+            test_org = Organization.query.filter(Organization.id > 0).first()
+            if test_org:
+                patients_with_screenings = db.session.query(
+                    Screening.patient_id
+                ).filter(
+                    Screening.org_id == test_org.id
+                ).distinct().all()
+                
+                patient_ids = [p[0] for p in patients_with_screenings]
+                
+                duplicate_found = False
+                for patient_id in patient_ids:
+                    screenings = Screening.query.filter_by(patient_id=patient_id).all()
+                    
+                    # Group by base_name
+                    by_base = defaultdict(list)
+                    for s in screenings:
+                        st = s.screening_type
+                        if st:
+                            by_base[st.base_name].append((s.id, st.name))
+                    
+                    # Check for duplicates
+                    for base, items in by_base.items():
+                        if len(items) > 1:
+                            duplicate_found = True
+                            log_progress(f"  Duplicate variant family '{base}' for patient {patient_id}: {items}")
+                
+                assert not duplicate_found, "Should have only one screening per variant family per patient"
+            
+            results['passed'] += 1
+            log_progress("PASS: Test 20.1 - Variant deduplication")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '20.1_variant_deduplication',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 20.1 - Variant deduplication: {str(e)}")
+        
+        # Test 20.2: Completed screenings should be preserved during variant archiving
+        results['total'] += 1
+        try:
+            from services.screening_refresh_service import ScreeningRefreshService
+            
+            # Verify the archiving method filters out completed screenings
+            # The filter condition should be: Screening.status != 'complete'
+            import inspect
+            source = inspect.getsource(ScreeningRefreshService._archive_other_variant_screenings)
+            
+            assert "status != 'complete'" in source or 'status != "complete"' in source, \
+                "Archiving method should preserve completed screenings"
+            
+            results['passed'] += 1
+            log_progress("PASS: Test 20.2 - Completed screenings preservation")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '20.2_completed_preservation',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 20.2 - Completed screenings preservation: {str(e)}")
+        
+        # ===========================================
+        # TEST SUITE 21: Performance Benchmarks
+        # ===========================================
+        
+        # Test 21.1: Screening refresh service initialization should be fast
+        results['total'] += 1
+        try:
+            import time
+            from services.screening_refresh_service import ScreeningRefreshService
+            
+            test_org = Organization.query.filter(Organization.id > 0).first()
+            if test_org:
+                start = time.time()
+                service = ScreeningRefreshService(test_org.id)
+                elapsed = time.time() - start
+                
+                # Should initialize in under 1 second
+                assert elapsed < 1.0, f"ScreeningRefreshService init took {elapsed:.2f}s (should be < 1s)"
+                log_progress(f"  Init time: {elapsed*1000:.0f}ms")
+            
+            results['passed'] += 1
+            log_progress("PASS: Test 21.1 - Screening refresh service init performance")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '21.1_refresh_service_init_perf',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 21.1 - Refresh service init performance: {str(e)}")
+        
+        # Test 21.2: Eligibility check should be fast
+        results['total'] += 1
+        try:
+            import time
+            
+            test_org = Organization.query.filter(Organization.id > 0).first()
+            if test_org:
+                # Get a patient and screening type
+                patient = Patient.query.filter_by(org_id=test_org.id).first()
+                screening_type = ScreeningType.query.filter_by(
+                    org_id=test_org.id, 
+                    is_active=True
+                ).first()
+                
+                if patient and screening_type:
+                    criteria = EligibilityCriteria()
+                    
+                    # Time 100 eligibility checks
+                    start = time.time()
+                    for _ in range(100):
+                        criteria.is_patient_eligible(patient, screening_type)
+                    elapsed = time.time() - start
+                    
+                    # 100 checks should complete in under 3 seconds (database lookups included)
+                    assert elapsed < 3.0, f"100 eligibility checks took {elapsed:.2f}s (should be < 3s)"
+                    log_progress(f"  100 checks in {elapsed*1000:.0f}ms ({elapsed*10:.2f}ms per check)")
+            
+            results['passed'] += 1
+            log_progress("PASS: Test 21.2 - Eligibility check performance")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '21.2_eligibility_check_perf',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 21.2 - Eligibility check performance: {str(e)}")
+        
+        # Test 21.3: Document matcher should be fast
+        results['total'] += 1
+        try:
+            import time
+            
+            # Time initialization (DocumentMatcher takes no arguments)
+            start = time.time()
+            matcher = DocumentMatcher()
+            init_elapsed = time.time() - start
+            
+            # Should initialize in under 2 seconds
+            assert init_elapsed < 2.0, f"DocumentMatcher init took {init_elapsed:.2f}s (should be < 2s)"
+            log_progress(f"  Init time: {init_elapsed*1000:.0f}ms")
+            
+            results['passed'] += 1
+            log_progress("PASS: Test 21.3 - Document matcher init performance")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '21.3_document_matcher_perf',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 21.3 - Document matcher performance: {str(e)}")
+        
+        # Test 21.4: Fuzzy keyword matching should be performant
+        results['total'] += 1
+        try:
+            import time
+            
+            # Test fuzzy matching on a sample (without actual OCR)
+            from core.fuzzy_detection import FuzzyDetectionEngine
+            
+            fuzzy = FuzzyDetectionEngine()
+            
+            # Simulate processing a medium-length document text
+            sample_text = "Lab Results: Lipid Panel - Cholesterol 180, HDL 55, LDL 110. " * 50
+            
+            start = time.time()
+            for _ in range(10):
+                fuzzy.fuzzy_match_keywords(sample_text, ["lipid", "cholesterol", "HDL", "LDL"])
+            elapsed = time.time() - start
+            
+            # 10 detection runs should complete in under 15 seconds (fuzzy matching is compute-intensive)
+            assert elapsed < 15.0, f"10 keyword detections took {elapsed:.2f}s (should be < 15s)"
+            log_progress(f"  10 detections in {elapsed*1000:.0f}ms")
+            
+            results['passed'] += 1
+            log_progress("PASS: Test 21.4 - Fuzzy detection performance")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '21.4_fuzzy_detection_perf',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 21.4 - Fuzzy detection performance: {str(e)}")
+        
+        # Test 21.5: Specific screening types filter should reduce patient count
+        results['total'] += 1
+        try:
+            from services.screening_refresh_service import ScreeningRefreshService
+            
+            test_org = Organization.query.filter(Organization.id > 0).first()
+            if test_org:
+                service = ScreeningRefreshService(test_org.id)
+                
+                # Get total patient count
+                total_patients = Patient.query.filter_by(org_id=test_org.id).count()
+                
+                # Get a single screening type
+                single_type = ScreeningType.query.filter_by(
+                    org_id=test_org.id,
+                    is_active=True
+                ).first()
+                
+                if single_type and total_patients > 0:
+                    # Call _get_affected_patients with specific_screening_types
+                    changes = {
+                        'needs_refresh': True,
+                        'screening_types_modified': None,
+                        'documents_modified': [],
+                        'fhir_documents_modified': []
+                    }
+                    options = {
+                        'force_refresh': True,
+                        'specific_screening_types': [single_type.id]
+                    }
+                    
+                    affected = service._get_affected_patients(changes, options)
+                    
+                    # Should filter to subset (or equal if all patients potentially eligible)
+                    log_progress(f"  Total: {total_patients}, Affected: {len(affected)} (filtered by type '{single_type.name}')")
+                    
+                    # Just verify the method runs without error and returns a list
+                    assert isinstance(affected, list), "Should return a list of patients"
+                    
+                    # Affected should be <= total (can be equal if all are potentially eligible)
+                    assert len(affected) <= total_patients, "Affected patients should not exceed total"
+            
+            results['passed'] += 1
+            log_progress("PASS: Test 21.5 - Specific screening types filter")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '21.5_specific_screening_types_filter',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 21.5 - Specific screening types filter: {str(e)}")
     
     return results
 

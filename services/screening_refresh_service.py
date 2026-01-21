@@ -24,6 +24,7 @@ from models import (
 )
 from core.matcher import DocumentMatcher
 from core.criteria import EligibilityCriteria
+from core.variants import ScreeningVariants
 
 logger = logging.getLogger(__name__)
 
@@ -371,13 +372,61 @@ class ScreeningRefreshService:
             
             affected_patient_ids.update([pid[0] for pid in fhir_doc_patient_ids])
         
-        # If force refresh, get all patients
+        # If force refresh, check for specific screening types first
         if refresh_options.get('force_refresh', False):
-            all_patient_ids = db.session.query(Patient.id).filter(
-                Patient.org_id == self.organization_id
-            ).all()
+            specific_types = refresh_options.get('specific_screening_types', [])
             
-            affected_patient_ids.update([pid[0] for pid in all_patient_ids])
+            if specific_types:
+                # OPTIMIZATION: When specific_screening_types is set, only get patients 
+                # who might be affected by those types (have existing screenings OR are potentially eligible)
+                # This avoids checking ALL patients for a single toggle-status operation
+                
+                # Get patients with existing screenings for these types
+                existing_patient_ids = db.session.query(Screening.patient_id).filter(
+                    Screening.org_id == self.organization_id,
+                    Screening.screening_type_id.in_(specific_types)
+                ).distinct().all()
+                affected_patient_ids.update([pid[0] for pid in existing_patient_ids])
+                
+                # Also get patients who could be eligible based on screening type criteria
+                # This is a heuristic: check patients matching gender/age range
+                screening_types = ScreeningType.query.filter(
+                    ScreeningType.id.in_(specific_types),
+                    ScreeningType.org_id == self.organization_id
+                ).all()
+                
+                for st in screening_types:
+                    eligible_query = db.session.query(Patient.id).filter(
+                        Patient.org_id == self.organization_id
+                    )
+                    
+                    # Apply gender filter if specified (eligible_genders: 'M', 'F', or 'both')
+                    if st.eligible_genders and st.eligible_genders.upper() not in ['BOTH', 'ALL', 'ANY', '']:
+                        eligible_query = eligible_query.filter(
+                            Patient.gender.ilike(st.eligible_genders[:1])  # 'M' or 'F'
+                        )
+                    
+                    # Apply age range filter if specified (use date_of_birth field)
+                    from datetime import date
+                    today = date.today()
+                    if st.min_age:
+                        max_dob = date(today.year - st.min_age, today.month, today.day)
+                        eligible_query = eligible_query.filter(Patient.date_of_birth <= max_dob)
+                    if st.max_age:
+                        min_dob = date(today.year - st.max_age - 1, today.month, today.day)
+                        eligible_query = eligible_query.filter(Patient.date_of_birth >= min_dob)
+                    
+                    eligible_ids = eligible_query.distinct().all()
+                    affected_patient_ids.update([pid[0] for pid in eligible_ids])
+                
+                logger.info(f"Force refresh with specific_screening_types: {len(affected_patient_ids)} potentially affected patients")
+            else:
+                # No specific types - get all patients for full refresh
+                all_patient_ids = db.session.query(Patient.id).filter(
+                    Patient.org_id == self.organization_id
+                ).all()
+                
+                affected_patient_ids.update([pid[0] for pid in all_patient_ids])
         
         # Handle patient filter - behavior depends on whether this is a manual refresh
         if refresh_options.get('patient_filter'):
@@ -432,6 +481,11 @@ class ScreeningRefreshService:
                     org_id=self.organization_id,
                     is_active=True
                 ).all()
+            
+            # OPTIMIZATION: Filter to specific screening types if specified
+            specific_types = refresh_options.get('specific_screening_types', [])
+            if specific_types:
+                screening_types = [st for st in screening_types if st.id in specific_types]
             
             for screening_type in screening_types:
                 try:
@@ -491,6 +545,11 @@ class ScreeningRefreshService:
                             db.session.flush()
                             screening_created = True
                             logger.info(f"Created NEW screening {screening.id} for patient {patient.id}, type {screening_type.name}")
+                            
+                            # DETERMINISTIC VARIANT SELECTION: Archive other variant screenings for this family
+                            # When a more specific variant is created, remove screenings for other variants
+                            base_name = screening_type.base_name
+                            self._archive_other_variant_screenings(patient.id, screening_type.id, base_name)
                         
                         # Update status based on existing documents with current criteria
                         status_changed = self._update_screening_status_with_current_criteria(screening)
@@ -542,6 +601,82 @@ class ScreeningRefreshService:
             raise
         
         return updates_count
+    
+    def _archive_other_variant_screenings(self, patient_id: int, current_type_id: int, base_name: str) -> int:
+        """Archive screenings for other variants when a more specific variant is selected
+        
+        This ensures deterministic variant selection: only ONE screening per variant family per patient.
+        When a new/more specific variant screening is created, this removes screenings for other variants.
+        
+        Args:
+            patient_id: The patient ID
+            current_type_id: The screening type ID of the newly created/selected screening
+            base_name: The base name of the screening type family
+            
+        Returns:
+            Number of screenings archived
+        """
+        from models import DismissedDocumentMatch
+        
+        archived_count = 0
+        
+        try:
+            # Find all screening types in this variant family (excluding current)
+            variant_types = ScreeningType.query.filter(
+                ScreeningType.org_id == self.organization_id,
+                ScreeningType.id != current_type_id
+            ).all()
+            
+            # Filter to only types that share the same base_name
+            sibling_type_ids = [
+                st.id for st in variant_types 
+                if st.base_name == base_name
+            ]
+            
+            if not sibling_type_ids:
+                return 0
+            
+            # Find and archive screenings for sibling variants
+            # IMPORTANT: Only archive non-completed screenings to preserve historical records
+            sibling_screenings = Screening.query.filter(
+                Screening.patient_id == patient_id,
+                Screening.screening_type_id.in_(sibling_type_ids),
+                Screening.status != 'complete'  # Preserve completed/historical screenings
+            ).all()
+            
+            for sibling in sibling_screenings:
+                sibling_type = sibling.screening_type
+                
+                # Log audit trail for archiving
+                logger.info(
+                    f"VARIANT ARCHIVE: Screening {sibling.id} ({sibling_type.name}, status={sibling.status}) "
+                    f"for patient {patient_id} superseded by variant type {current_type_id} "
+                    f"(base_name='{base_name}', org_id={self.organization_id})"
+                )
+                
+                # Comprehensive cleanup of all related records
+                with db.session.no_autoflush:
+                    # 1. Delete ScreeningDocumentMatch records (local documents)
+                    ScreeningDocumentMatch.query.filter_by(screening_id=sibling.id).delete(synchronize_session='fetch')
+                    
+                    # 2. Delete DismissedDocumentMatch records (both local and FHIR)
+                    DismissedDocumentMatch.query.filter_by(screening_id=sibling.id).delete(synchronize_session='fetch')
+                    
+                    # 3. Remove FHIR document associations (many-to-many)
+                    sibling.fhir_documents.clear()
+                
+                # Delete the superseded screening
+                db.session.delete(sibling)
+                archived_count += 1
+            
+            if archived_count > 0:
+                db.session.flush()
+                logger.info(f"Archived {archived_count} superseded variant screening(s) for patient {patient_id}, base_name '{base_name}'")
+                
+        except Exception as e:
+            logger.error(f"Error archiving variant screenings for patient {patient_id}: {str(e)}")
+            
+        return archived_count
     
     def _find_fhir_document_matches(self, screening: Screening) -> List[Dict]:
         """

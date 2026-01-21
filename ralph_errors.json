@@ -398,5 +398,901 @@
     "message": "All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk",
     "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1282, in run_screening_engine_tests\n    assert st1.base_name == st2.base_name == st3.base_name, \\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk\n",
     "timestamp": "2026-01-21T19:02:34.555162"
+  },
+  {
+    "iteration": 1,
+    "test": "21.2_eligibility_check_perf",
+    "error_type": "AssertionError",
+    "message": "100 eligibility checks took 2.10s (should be < 1s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1603, in run_screening_engine_tests\n    assert elapsed < 1.0, f\"100 eligibility checks took {elapsed:.2f}s (should be < 1s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 100 eligibility checks took 2.10s (should be < 1s)\n",
+    "timestamp": "2026-01-21T20:38:48.627799"
+  },
+  {
+    "iteration": 1,
+    "test": "21.3_document_matcher_perf",
+    "error_type": "TypeError",
+    "message": "DocumentMatcher.__init__() takes 1 positional argument but 2 were given",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1626, in run_screening_engine_tests\n    matcher = DocumentMatcher(test_org.id)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: DocumentMatcher.__init__() takes 1 positional argument but 2 were given\n",
+    "timestamp": "2026-01-21T20:38:48.632661"
+  },
+  {
+    "iteration": 1,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AttributeError",
+    "message": "'FuzzyDetectionEngine' object has no attribute 'detect_keywords'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    fuzzy.detect_keywords(sample_text, [\"lipid\", \"cholesterol\", \"HDL\", \"LDL\"])\n    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'FuzzyDetectionEngine' object has no attribute 'detect_keywords'\n",
+    "timestamp": "2026-01-21T20:38:48.643919"
+  },
+  {
+    "iteration": 1,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1716, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:38:48.655764"
+  },
+  {
+    "iteration": 2,
+    "test": "21.2_eligibility_check_perf",
+    "error_type": "AssertionError",
+    "message": "100 eligibility checks took 2.05s (should be < 1s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1603, in run_screening_engine_tests\n    assert elapsed < 1.0, f\"100 eligibility checks took {elapsed:.2f}s (should be < 1s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 100 eligibility checks took 2.05s (should be < 1s)\n",
+    "timestamp": "2026-01-21T20:38:53.330700"
+  },
+  {
+    "iteration": 2,
+    "test": "21.3_document_matcher_perf",
+    "error_type": "TypeError",
+    "message": "DocumentMatcher.__init__() takes 1 positional argument but 2 were given",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1626, in run_screening_engine_tests\n    matcher = DocumentMatcher(test_org.id)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: DocumentMatcher.__init__() takes 1 positional argument but 2 were given\n",
+    "timestamp": "2026-01-21T20:38:53.333887"
+  },
+  {
+    "iteration": 2,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AttributeError",
+    "message": "'FuzzyDetectionEngine' object has no attribute 'detect_keywords'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    fuzzy.detect_keywords(sample_text, [\"lipid\", \"cholesterol\", \"HDL\", \"LDL\"])\n    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'FuzzyDetectionEngine' object has no attribute 'detect_keywords'\n",
+    "timestamp": "2026-01-21T20:38:53.346203"
+  },
+  {
+    "iteration": 2,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1716, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:38:53.360351"
+  },
+  {
+    "iteration": 3,
+    "test": "21.2_eligibility_check_perf",
+    "error_type": "AssertionError",
+    "message": "100 eligibility checks took 2.12s (should be < 1s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1603, in run_screening_engine_tests\n    assert elapsed < 1.0, f\"100 eligibility checks took {elapsed:.2f}s (should be < 1s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 100 eligibility checks took 2.12s (should be < 1s)\n",
+    "timestamp": "2026-01-21T20:38:58.200941"
+  },
+  {
+    "iteration": 3,
+    "test": "21.3_document_matcher_perf",
+    "error_type": "TypeError",
+    "message": "DocumentMatcher.__init__() takes 1 positional argument but 2 were given",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1626, in run_screening_engine_tests\n    matcher = DocumentMatcher(test_org.id)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: DocumentMatcher.__init__() takes 1 positional argument but 2 were given\n",
+    "timestamp": "2026-01-21T20:38:58.202895"
+  },
+  {
+    "iteration": 3,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AttributeError",
+    "message": "'FuzzyDetectionEngine' object has no attribute 'detect_keywords'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    fuzzy.detect_keywords(sample_text, [\"lipid\", \"cholesterol\", \"HDL\", \"LDL\"])\n    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'FuzzyDetectionEngine' object has no attribute 'detect_keywords'\n",
+    "timestamp": "2026-01-21T20:38:58.217435"
+  },
+  {
+    "iteration": 3,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1716, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:38:58.221474"
+  },
+  {
+    "iteration": 4,
+    "test": "21.2_eligibility_check_perf",
+    "error_type": "AssertionError",
+    "message": "100 eligibility checks took 2.08s (should be < 1s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1603, in run_screening_engine_tests\n    assert elapsed < 1.0, f\"100 eligibility checks took {elapsed:.2f}s (should be < 1s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 100 eligibility checks took 2.08s (should be < 1s)\n",
+    "timestamp": "2026-01-21T20:39:02.923178"
+  },
+  {
+    "iteration": 4,
+    "test": "21.3_document_matcher_perf",
+    "error_type": "TypeError",
+    "message": "DocumentMatcher.__init__() takes 1 positional argument but 2 were given",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1626, in run_screening_engine_tests\n    matcher = DocumentMatcher(test_org.id)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: DocumentMatcher.__init__() takes 1 positional argument but 2 were given\n",
+    "timestamp": "2026-01-21T20:39:02.926274"
+  },
+  {
+    "iteration": 4,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AttributeError",
+    "message": "'FuzzyDetectionEngine' object has no attribute 'detect_keywords'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    fuzzy.detect_keywords(sample_text, [\"lipid\", \"cholesterol\", \"HDL\", \"LDL\"])\n    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'FuzzyDetectionEngine' object has no attribute 'detect_keywords'\n",
+    "timestamp": "2026-01-21T20:39:02.938983"
+  },
+  {
+    "iteration": 4,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1716, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:39:02.942491"
+  },
+  {
+    "iteration": 5,
+    "test": "21.2_eligibility_check_perf",
+    "error_type": "AssertionError",
+    "message": "100 eligibility checks took 2.30s (should be < 1s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1603, in run_screening_engine_tests\n    assert elapsed < 1.0, f\"100 eligibility checks took {elapsed:.2f}s (should be < 1s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 100 eligibility checks took 2.30s (should be < 1s)\n",
+    "timestamp": "2026-01-21T20:39:08.048395"
+  },
+  {
+    "iteration": 5,
+    "test": "21.3_document_matcher_perf",
+    "error_type": "TypeError",
+    "message": "DocumentMatcher.__init__() takes 1 positional argument but 2 were given",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1626, in run_screening_engine_tests\n    matcher = DocumentMatcher(test_org.id)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: DocumentMatcher.__init__() takes 1 positional argument but 2 were given\n",
+    "timestamp": "2026-01-21T20:39:08.051584"
+  },
+  {
+    "iteration": 5,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AttributeError",
+    "message": "'FuzzyDetectionEngine' object has no attribute 'detect_keywords'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    fuzzy.detect_keywords(sample_text, [\"lipid\", \"cholesterol\", \"HDL\", \"LDL\"])\n    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'FuzzyDetectionEngine' object has no attribute 'detect_keywords'\n",
+    "timestamp": "2026-01-21T20:39:08.064387"
+  },
+  {
+    "iteration": 5,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1716, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:39:08.077861"
+  },
+  {
+    "iteration": 6,
+    "test": "21.2_eligibility_check_perf",
+    "error_type": "AssertionError",
+    "message": "100 eligibility checks took 2.13s (should be < 1s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1603, in run_screening_engine_tests\n    assert elapsed < 1.0, f\"100 eligibility checks took {elapsed:.2f}s (should be < 1s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 100 eligibility checks took 2.13s (should be < 1s)\n",
+    "timestamp": "2026-01-21T20:39:12.900020"
+  },
+  {
+    "iteration": 6,
+    "test": "21.3_document_matcher_perf",
+    "error_type": "TypeError",
+    "message": "DocumentMatcher.__init__() takes 1 positional argument but 2 were given",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1626, in run_screening_engine_tests\n    matcher = DocumentMatcher(test_org.id)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: DocumentMatcher.__init__() takes 1 positional argument but 2 were given\n",
+    "timestamp": "2026-01-21T20:39:12.903129"
+  },
+  {
+    "iteration": 6,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AttributeError",
+    "message": "'FuzzyDetectionEngine' object has no attribute 'detect_keywords'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    fuzzy.detect_keywords(sample_text, [\"lipid\", \"cholesterol\", \"HDL\", \"LDL\"])\n    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'FuzzyDetectionEngine' object has no attribute 'detect_keywords'\n",
+    "timestamp": "2026-01-21T20:39:12.917953"
+  },
+  {
+    "iteration": 6,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1716, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:39:12.930980"
+  },
+  {
+    "iteration": 7,
+    "test": "21.2_eligibility_check_perf",
+    "error_type": "AssertionError",
+    "message": "100 eligibility checks took 2.23s (should be < 1s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1603, in run_screening_engine_tests\n    assert elapsed < 1.0, f\"100 eligibility checks took {elapsed:.2f}s (should be < 1s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 100 eligibility checks took 2.23s (should be < 1s)\n",
+    "timestamp": "2026-01-21T20:39:17.890327"
+  },
+  {
+    "iteration": 7,
+    "test": "21.3_document_matcher_perf",
+    "error_type": "TypeError",
+    "message": "DocumentMatcher.__init__() takes 1 positional argument but 2 were given",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1626, in run_screening_engine_tests\n    matcher = DocumentMatcher(test_org.id)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: DocumentMatcher.__init__() takes 1 positional argument but 2 were given\n",
+    "timestamp": "2026-01-21T20:39:17.895271"
+  },
+  {
+    "iteration": 7,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AttributeError",
+    "message": "'FuzzyDetectionEngine' object has no attribute 'detect_keywords'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    fuzzy.detect_keywords(sample_text, [\"lipid\", \"cholesterol\", \"HDL\", \"LDL\"])\n    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'FuzzyDetectionEngine' object has no attribute 'detect_keywords'\n",
+    "timestamp": "2026-01-21T20:39:17.900603"
+  },
+  {
+    "iteration": 7,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1716, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:39:17.904388"
+  },
+  {
+    "iteration": 8,
+    "test": "21.2_eligibility_check_perf",
+    "error_type": "AssertionError",
+    "message": "100 eligibility checks took 2.05s (should be < 1s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1603, in run_screening_engine_tests\n    assert elapsed < 1.0, f\"100 eligibility checks took {elapsed:.2f}s (should be < 1s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 100 eligibility checks took 2.05s (should be < 1s)\n",
+    "timestamp": "2026-01-21T20:39:22.588501"
+  },
+  {
+    "iteration": 8,
+    "test": "21.3_document_matcher_perf",
+    "error_type": "TypeError",
+    "message": "DocumentMatcher.__init__() takes 1 positional argument but 2 were given",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1626, in run_screening_engine_tests\n    matcher = DocumentMatcher(test_org.id)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: DocumentMatcher.__init__() takes 1 positional argument but 2 were given\n",
+    "timestamp": "2026-01-21T20:39:22.592501"
+  },
+  {
+    "iteration": 8,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AttributeError",
+    "message": "'FuzzyDetectionEngine' object has no attribute 'detect_keywords'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    fuzzy.detect_keywords(sample_text, [\"lipid\", \"cholesterol\", \"HDL\", \"LDL\"])\n    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'FuzzyDetectionEngine' object has no attribute 'detect_keywords'\n",
+    "timestamp": "2026-01-21T20:39:22.596591"
+  },
+  {
+    "iteration": 8,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1716, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:39:22.600574"
+  },
+  {
+    "iteration": 9,
+    "test": "21.2_eligibility_check_perf",
+    "error_type": "AssertionError",
+    "message": "100 eligibility checks took 2.16s (should be < 1s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1603, in run_screening_engine_tests\n    assert elapsed < 1.0, f\"100 eligibility checks took {elapsed:.2f}s (should be < 1s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 100 eligibility checks took 2.16s (should be < 1s)\n",
+    "timestamp": "2026-01-21T20:39:27.433798"
+  },
+  {
+    "iteration": 9,
+    "test": "21.3_document_matcher_perf",
+    "error_type": "TypeError",
+    "message": "DocumentMatcher.__init__() takes 1 positional argument but 2 were given",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1626, in run_screening_engine_tests\n    matcher = DocumentMatcher(test_org.id)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: DocumentMatcher.__init__() takes 1 positional argument but 2 were given\n",
+    "timestamp": "2026-01-21T20:39:27.438870"
+  },
+  {
+    "iteration": 9,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AttributeError",
+    "message": "'FuzzyDetectionEngine' object has no attribute 'detect_keywords'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    fuzzy.detect_keywords(sample_text, [\"lipid\", \"cholesterol\", \"HDL\", \"LDL\"])\n    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'FuzzyDetectionEngine' object has no attribute 'detect_keywords'\n",
+    "timestamp": "2026-01-21T20:39:27.444294"
+  },
+  {
+    "iteration": 9,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1716, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:39:27.447822"
+  },
+  {
+    "iteration": 10,
+    "test": "21.2_eligibility_check_perf",
+    "error_type": "AssertionError",
+    "message": "100 eligibility checks took 2.05s (should be < 1s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1603, in run_screening_engine_tests\n    assert elapsed < 1.0, f\"100 eligibility checks took {elapsed:.2f}s (should be < 1s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 100 eligibility checks took 2.05s (should be < 1s)\n",
+    "timestamp": "2026-01-21T20:39:32.038684"
+  },
+  {
+    "iteration": 10,
+    "test": "21.3_document_matcher_perf",
+    "error_type": "TypeError",
+    "message": "DocumentMatcher.__init__() takes 1 positional argument but 2 were given",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1626, in run_screening_engine_tests\n    matcher = DocumentMatcher(test_org.id)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: DocumentMatcher.__init__() takes 1 positional argument but 2 were given\n",
+    "timestamp": "2026-01-21T20:39:32.045016"
+  },
+  {
+    "iteration": 10,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AttributeError",
+    "message": "'FuzzyDetectionEngine' object has no attribute 'detect_keywords'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    fuzzy.detect_keywords(sample_text, [\"lipid\", \"cholesterol\", \"HDL\", \"LDL\"])\n    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'FuzzyDetectionEngine' object has no attribute 'detect_keywords'\n",
+    "timestamp": "2026-01-21T20:39:32.058116"
+  },
+  {
+    "iteration": 10,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1716, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:39:32.072858"
+  },
+  {
+    "iteration": 1,
+    "test": "21.2_eligibility_check_perf",
+    "error_type": "AssertionError",
+    "message": "100 eligibility checks took 2.06s (should be < 1s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1603, in run_screening_engine_tests\n    assert elapsed < 1.0, f\"100 eligibility checks took {elapsed:.2f}s (should be < 1s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 100 eligibility checks took 2.06s (should be < 1s)\n",
+    "timestamp": "2026-01-21T20:39:40.821163"
+  },
+  {
+    "iteration": 1,
+    "test": "21.3_document_matcher_perf",
+    "error_type": "TypeError",
+    "message": "DocumentMatcher.__init__() takes 1 positional argument but 2 were given",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1626, in run_screening_engine_tests\n    matcher = DocumentMatcher(test_org.id)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: DocumentMatcher.__init__() takes 1 positional argument but 2 were given\n",
+    "timestamp": "2026-01-21T20:39:40.824491"
+  },
+  {
+    "iteration": 1,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AttributeError",
+    "message": "'FuzzyDetectionEngine' object has no attribute 'detect_keywords'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    fuzzy.detect_keywords(sample_text, [\"lipid\", \"cholesterol\", \"HDL\", \"LDL\"])\n    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'FuzzyDetectionEngine' object has no attribute 'detect_keywords'\n",
+    "timestamp": "2026-01-21T20:39:40.839318"
+  },
+  {
+    "iteration": 1,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1716, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:39:40.853026"
+  },
+  {
+    "iteration": 2,
+    "test": "21.2_eligibility_check_perf",
+    "error_type": "AssertionError",
+    "message": "100 eligibility checks took 2.11s (should be < 1s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1603, in run_screening_engine_tests\n    assert elapsed < 1.0, f\"100 eligibility checks took {elapsed:.2f}s (should be < 1s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 100 eligibility checks took 2.11s (should be < 1s)\n",
+    "timestamp": "2026-01-21T20:39:45.548794"
+  },
+  {
+    "iteration": 2,
+    "test": "21.3_document_matcher_perf",
+    "error_type": "TypeError",
+    "message": "DocumentMatcher.__init__() takes 1 positional argument but 2 were given",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1626, in run_screening_engine_tests\n    matcher = DocumentMatcher(test_org.id)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: DocumentMatcher.__init__() takes 1 positional argument but 2 were given\n",
+    "timestamp": "2026-01-21T20:39:45.551700"
+  },
+  {
+    "iteration": 2,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AttributeError",
+    "message": "'FuzzyDetectionEngine' object has no attribute 'detect_keywords'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    fuzzy.detect_keywords(sample_text, [\"lipid\", \"cholesterol\", \"HDL\", \"LDL\"])\n    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'FuzzyDetectionEngine' object has no attribute 'detect_keywords'\n",
+    "timestamp": "2026-01-21T20:39:45.567733"
+  },
+  {
+    "iteration": 2,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1716, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:39:45.580597"
+  },
+  {
+    "iteration": 3,
+    "test": "21.2_eligibility_check_perf",
+    "error_type": "AssertionError",
+    "message": "100 eligibility checks took 2.30s (should be < 1s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1603, in run_screening_engine_tests\n    assert elapsed < 1.0, f\"100 eligibility checks took {elapsed:.2f}s (should be < 1s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 100 eligibility checks took 2.30s (should be < 1s)\n",
+    "timestamp": "2026-01-21T20:39:50.804667"
+  },
+  {
+    "iteration": 3,
+    "test": "21.3_document_matcher_perf",
+    "error_type": "TypeError",
+    "message": "DocumentMatcher.__init__() takes 1 positional argument but 2 were given",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1626, in run_screening_engine_tests\n    matcher = DocumentMatcher(test_org.id)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: DocumentMatcher.__init__() takes 1 positional argument but 2 were given\n",
+    "timestamp": "2026-01-21T20:39:50.808738"
+  },
+  {
+    "iteration": 3,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AttributeError",
+    "message": "'FuzzyDetectionEngine' object has no attribute 'detect_keywords'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    fuzzy.detect_keywords(sample_text, [\"lipid\", \"cholesterol\", \"HDL\", \"LDL\"])\n    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'FuzzyDetectionEngine' object has no attribute 'detect_keywords'\n",
+    "timestamp": "2026-01-21T20:39:50.821955"
+  },
+  {
+    "iteration": 3,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1716, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:39:50.837398"
+  },
+  {
+    "iteration": 4,
+    "test": "21.2_eligibility_check_perf",
+    "error_type": "AssertionError",
+    "message": "100 eligibility checks took 2.18s (should be < 1s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1603, in run_screening_engine_tests\n    assert elapsed < 1.0, f\"100 eligibility checks took {elapsed:.2f}s (should be < 1s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 100 eligibility checks took 2.18s (should be < 1s)\n",
+    "timestamp": "2026-01-21T20:39:55.719809"
+  },
+  {
+    "iteration": 4,
+    "test": "21.3_document_matcher_perf",
+    "error_type": "TypeError",
+    "message": "DocumentMatcher.__init__() takes 1 positional argument but 2 were given",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1626, in run_screening_engine_tests\n    matcher = DocumentMatcher(test_org.id)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: DocumentMatcher.__init__() takes 1 positional argument but 2 were given\n",
+    "timestamp": "2026-01-21T20:39:55.724790"
+  },
+  {
+    "iteration": 4,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AttributeError",
+    "message": "'FuzzyDetectionEngine' object has no attribute 'detect_keywords'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    fuzzy.detect_keywords(sample_text, [\"lipid\", \"cholesterol\", \"HDL\", \"LDL\"])\n    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'FuzzyDetectionEngine' object has no attribute 'detect_keywords'\n",
+    "timestamp": "2026-01-21T20:39:55.738749"
+  },
+  {
+    "iteration": 4,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1716, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:39:55.755799"
+  },
+  {
+    "iteration": 5,
+    "test": "21.2_eligibility_check_perf",
+    "error_type": "AssertionError",
+    "message": "100 eligibility checks took 2.16s (should be < 1s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1603, in run_screening_engine_tests\n    assert elapsed < 1.0, f\"100 eligibility checks took {elapsed:.2f}s (should be < 1s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 100 eligibility checks took 2.16s (should be < 1s)\n",
+    "timestamp": "2026-01-21T20:40:00.586730"
+  },
+  {
+    "iteration": 5,
+    "test": "21.3_document_matcher_perf",
+    "error_type": "TypeError",
+    "message": "DocumentMatcher.__init__() takes 1 positional argument but 2 were given",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1626, in run_screening_engine_tests\n    matcher = DocumentMatcher(test_org.id)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: DocumentMatcher.__init__() takes 1 positional argument but 2 were given\n",
+    "timestamp": "2026-01-21T20:40:00.591658"
+  },
+  {
+    "iteration": 5,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AttributeError",
+    "message": "'FuzzyDetectionEngine' object has no attribute 'detect_keywords'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    fuzzy.detect_keywords(sample_text, [\"lipid\", \"cholesterol\", \"HDL\", \"LDL\"])\n    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'FuzzyDetectionEngine' object has no attribute 'detect_keywords'\n",
+    "timestamp": "2026-01-21T20:40:00.604765"
+  },
+  {
+    "iteration": 5,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1716, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:40:00.619081"
+  },
+  {
+    "iteration": 6,
+    "test": "21.2_eligibility_check_perf",
+    "error_type": "AssertionError",
+    "message": "100 eligibility checks took 2.03s (should be < 1s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1603, in run_screening_engine_tests\n    assert elapsed < 1.0, f\"100 eligibility checks took {elapsed:.2f}s (should be < 1s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 100 eligibility checks took 2.03s (should be < 1s)\n",
+    "timestamp": "2026-01-21T20:40:05.197393"
+  },
+  {
+    "iteration": 6,
+    "test": "21.3_document_matcher_perf",
+    "error_type": "TypeError",
+    "message": "DocumentMatcher.__init__() takes 1 positional argument but 2 were given",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1626, in run_screening_engine_tests\n    matcher = DocumentMatcher(test_org.id)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: DocumentMatcher.__init__() takes 1 positional argument but 2 were given\n",
+    "timestamp": "2026-01-21T20:40:05.201790"
+  },
+  {
+    "iteration": 6,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AttributeError",
+    "message": "'FuzzyDetectionEngine' object has no attribute 'detect_keywords'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    fuzzy.detect_keywords(sample_text, [\"lipid\", \"cholesterol\", \"HDL\", \"LDL\"])\n    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'FuzzyDetectionEngine' object has no attribute 'detect_keywords'\n",
+    "timestamp": "2026-01-21T20:40:05.216289"
+  },
+  {
+    "iteration": 6,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1716, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:40:05.231545"
+  },
+  {
+    "iteration": 7,
+    "test": "21.2_eligibility_check_perf",
+    "error_type": "AssertionError",
+    "message": "100 eligibility checks took 2.19s (should be < 1s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1603, in run_screening_engine_tests\n    assert elapsed < 1.0, f\"100 eligibility checks took {elapsed:.2f}s (should be < 1s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 100 eligibility checks took 2.19s (should be < 1s)\n",
+    "timestamp": "2026-01-21T20:40:10.120501"
+  },
+  {
+    "iteration": 7,
+    "test": "21.3_document_matcher_perf",
+    "error_type": "TypeError",
+    "message": "DocumentMatcher.__init__() takes 1 positional argument but 2 were given",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1626, in run_screening_engine_tests\n    matcher = DocumentMatcher(test_org.id)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: DocumentMatcher.__init__() takes 1 positional argument but 2 were given\n",
+    "timestamp": "2026-01-21T20:40:10.124476"
+  },
+  {
+    "iteration": 7,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AttributeError",
+    "message": "'FuzzyDetectionEngine' object has no attribute 'detect_keywords'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    fuzzy.detect_keywords(sample_text, [\"lipid\", \"cholesterol\", \"HDL\", \"LDL\"])\n    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'FuzzyDetectionEngine' object has no attribute 'detect_keywords'\n",
+    "timestamp": "2026-01-21T20:40:10.140318"
+  },
+  {
+    "iteration": 7,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1716, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:40:10.145117"
+  },
+  {
+    "iteration": 8,
+    "test": "21.2_eligibility_check_perf",
+    "error_type": "AssertionError",
+    "message": "100 eligibility checks took 2.08s (should be < 1s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1603, in run_screening_engine_tests\n    assert elapsed < 1.0, f\"100 eligibility checks took {elapsed:.2f}s (should be < 1s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 100 eligibility checks took 2.08s (should be < 1s)\n",
+    "timestamp": "2026-01-21T20:40:15.106276"
+  },
+  {
+    "iteration": 8,
+    "test": "21.3_document_matcher_perf",
+    "error_type": "TypeError",
+    "message": "DocumentMatcher.__init__() takes 1 positional argument but 2 were given",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1626, in run_screening_engine_tests\n    matcher = DocumentMatcher(test_org.id)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: DocumentMatcher.__init__() takes 1 positional argument but 2 were given\n",
+    "timestamp": "2026-01-21T20:40:15.110687"
+  },
+  {
+    "iteration": 8,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AttributeError",
+    "message": "'FuzzyDetectionEngine' object has no attribute 'detect_keywords'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    fuzzy.detect_keywords(sample_text, [\"lipid\", \"cholesterol\", \"HDL\", \"LDL\"])\n    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'FuzzyDetectionEngine' object has no attribute 'detect_keywords'\n",
+    "timestamp": "2026-01-21T20:40:15.125683"
+  },
+  {
+    "iteration": 8,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1716, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:40:15.140473"
+  },
+  {
+    "iteration": 9,
+    "test": "21.2_eligibility_check_perf",
+    "error_type": "AssertionError",
+    "message": "100 eligibility checks took 2.04s (should be < 1s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1603, in run_screening_engine_tests\n    assert elapsed < 1.0, f\"100 eligibility checks took {elapsed:.2f}s (should be < 1s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 100 eligibility checks took 2.04s (should be < 1s)\n",
+    "timestamp": "2026-01-21T20:40:19.813081"
+  },
+  {
+    "iteration": 9,
+    "test": "21.3_document_matcher_perf",
+    "error_type": "TypeError",
+    "message": "DocumentMatcher.__init__() takes 1 positional argument but 2 were given",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1626, in run_screening_engine_tests\n    matcher = DocumentMatcher(test_org.id)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: DocumentMatcher.__init__() takes 1 positional argument but 2 were given\n",
+    "timestamp": "2026-01-21T20:40:19.816304"
+  },
+  {
+    "iteration": 9,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AttributeError",
+    "message": "'FuzzyDetectionEngine' object has no attribute 'detect_keywords'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    fuzzy.detect_keywords(sample_text, [\"lipid\", \"cholesterol\", \"HDL\", \"LDL\"])\n    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'FuzzyDetectionEngine' object has no attribute 'detect_keywords'\n",
+    "timestamp": "2026-01-21T20:40:19.833885"
+  },
+  {
+    "iteration": 9,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1716, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:40:19.848499"
+  },
+  {
+    "iteration": 10,
+    "test": "21.2_eligibility_check_perf",
+    "error_type": "AssertionError",
+    "message": "100 eligibility checks took 2.08s (should be < 1s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1603, in run_screening_engine_tests\n    assert elapsed < 1.0, f\"100 eligibility checks took {elapsed:.2f}s (should be < 1s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 100 eligibility checks took 2.08s (should be < 1s)\n",
+    "timestamp": "2026-01-21T20:40:24.528484"
+  },
+  {
+    "iteration": 10,
+    "test": "21.3_document_matcher_perf",
+    "error_type": "TypeError",
+    "message": "DocumentMatcher.__init__() takes 1 positional argument but 2 were given",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1626, in run_screening_engine_tests\n    matcher = DocumentMatcher(test_org.id)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: DocumentMatcher.__init__() takes 1 positional argument but 2 were given\n",
+    "timestamp": "2026-01-21T20:40:24.533576"
+  },
+  {
+    "iteration": 10,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AttributeError",
+    "message": "'FuzzyDetectionEngine' object has no attribute 'detect_keywords'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    fuzzy.detect_keywords(sample_text, [\"lipid\", \"cholesterol\", \"HDL\", \"LDL\"])\n    ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'FuzzyDetectionEngine' object has no attribute 'detect_keywords'\n",
+    "timestamp": "2026-01-21T20:40:24.548532"
+  },
+  {
+    "iteration": 10,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1716, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:40:24.554665"
+  },
+  {
+    "iteration": 1,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AssertionError",
+    "message": "10 keyword detections took 9.49s (should be < 2s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    assert elapsed < 2.0, f\"10 keyword detections took {elapsed:.2f}s (should be < 2s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 10 keyword detections took 9.49s (should be < 2s)\n",
+    "timestamp": "2026-01-21T20:41:50.948946"
+  },
+  {
+    "iteration": 1,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1712, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:41:50.955684"
+  },
+  {
+    "iteration": 2,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AssertionError",
+    "message": "10 keyword detections took 9.66s (should be < 2s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    assert elapsed < 2.0, f\"10 keyword detections took {elapsed:.2f}s (should be < 2s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 10 keyword detections took 9.66s (should be < 2s)\n",
+    "timestamp": "2026-01-21T20:42:05.442027"
+  },
+  {
+    "iteration": 2,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1712, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:42:05.448661"
+  },
+  {
+    "iteration": 3,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AssertionError",
+    "message": "10 keyword detections took 10.25s (should be < 2s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    assert elapsed < 2.0, f\"10 keyword detections took {elapsed:.2f}s (should be < 2s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 10 keyword detections took 10.25s (should be < 2s)\n",
+    "timestamp": "2026-01-21T20:42:20.756941"
+  },
+  {
+    "iteration": 3,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1712, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:42:20.763752"
+  },
+  {
+    "iteration": 4,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AssertionError",
+    "message": "10 keyword detections took 9.69s (should be < 2s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    assert elapsed < 2.0, f\"10 keyword detections took {elapsed:.2f}s (should be < 2s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 10 keyword detections took 9.69s (should be < 2s)\n",
+    "timestamp": "2026-01-21T20:42:35.429440"
+  },
+  {
+    "iteration": 4,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1712, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:42:35.433319"
+  },
+  {
+    "iteration": 5,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AssertionError",
+    "message": "10 keyword detections took 10.20s (should be < 2s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    assert elapsed < 2.0, f\"10 keyword detections took {elapsed:.2f}s (should be < 2s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 10 keyword detections took 10.20s (should be < 2s)\n",
+    "timestamp": "2026-01-21T20:42:50.522062"
+  },
+  {
+    "iteration": 5,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "'ScreeningType' object has no attribute 'gender'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1712, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 404, in _get_affected_patients\n    if st.gender and st.gender.lower() not in ['all', 'any', '']:\n       ^^^^^^^^^\nAttributeError: 'ScreeningType' object has no attribute 'gender'\n",
+    "timestamp": "2026-01-21T20:42:50.527822"
+  },
+  {
+    "iteration": 1,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AssertionError",
+    "message": "10 keyword detections took 8.98s (should be < 2s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    assert elapsed < 2.0, f\"10 keyword detections took {elapsed:.2f}s (should be < 2s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 10 keyword detections took 8.98s (should be < 2s)\n",
+    "timestamp": "2026-01-21T20:43:38.089477"
+  },
+  {
+    "iteration": 1,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "type object 'Patient' has no attribute 'dob'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1712, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 414, in _get_affected_patients\n    eligible_query = eligible_query.filter(Patient.dob <= max_dob)\n                                           ^^^^^^^^^^^\nAttributeError: type object 'Patient' has no attribute 'dob'\n",
+    "timestamp": "2026-01-21T20:43:38.093882"
+  },
+  {
+    "iteration": 2,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AssertionError",
+    "message": "10 keyword detections took 9.67s (should be < 2s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    assert elapsed < 2.0, f\"10 keyword detections took {elapsed:.2f}s (should be < 2s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 10 keyword detections took 9.67s (should be < 2s)\n",
+    "timestamp": "2026-01-21T20:43:52.652639"
+  },
+  {
+    "iteration": 2,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "type object 'Patient' has no attribute 'dob'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1712, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 414, in _get_affected_patients\n    eligible_query = eligible_query.filter(Patient.dob <= max_dob)\n                                           ^^^^^^^^^^^\nAttributeError: type object 'Patient' has no attribute 'dob'\n",
+    "timestamp": "2026-01-21T20:43:52.657802"
+  },
+  {
+    "iteration": 3,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AssertionError",
+    "message": "10 keyword detections took 9.13s (should be < 2s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    assert elapsed < 2.0, f\"10 keyword detections took {elapsed:.2f}s (should be < 2s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 10 keyword detections took 9.13s (should be < 2s)\n",
+    "timestamp": "2026-01-21T20:44:06.922770"
+  },
+  {
+    "iteration": 3,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "type object 'Patient' has no attribute 'dob'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1712, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 414, in _get_affected_patients\n    eligible_query = eligible_query.filter(Patient.dob <= max_dob)\n                                           ^^^^^^^^^^^\nAttributeError: type object 'Patient' has no attribute 'dob'\n",
+    "timestamp": "2026-01-21T20:44:06.927443"
+  },
+  {
+    "iteration": 4,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AssertionError",
+    "message": "10 keyword detections took 9.01s (should be < 2s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    assert elapsed < 2.0, f\"10 keyword detections took {elapsed:.2f}s (should be < 2s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 10 keyword detections took 9.01s (should be < 2s)\n",
+    "timestamp": "2026-01-21T20:44:20.772301"
+  },
+  {
+    "iteration": 4,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "type object 'Patient' has no attribute 'dob'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1712, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 414, in _get_affected_patients\n    eligible_query = eligible_query.filter(Patient.dob <= max_dob)\n                                           ^^^^^^^^^^^\nAttributeError: type object 'Patient' has no attribute 'dob'\n",
+    "timestamp": "2026-01-21T20:44:20.777051"
+  },
+  {
+    "iteration": 5,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AssertionError",
+    "message": "10 keyword detections took 8.77s (should be < 2s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    assert elapsed < 2.0, f\"10 keyword detections took {elapsed:.2f}s (should be < 2s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 10 keyword detections took 8.77s (should be < 2s)\n",
+    "timestamp": "2026-01-21T20:44:34.200443"
+  },
+  {
+    "iteration": 5,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "type object 'Patient' has no attribute 'dob'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1712, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 414, in _get_affected_patients\n    eligible_query = eligible_query.filter(Patient.dob <= max_dob)\n                                           ^^^^^^^^^^^\nAttributeError: type object 'Patient' has no attribute 'dob'\n",
+    "timestamp": "2026-01-21T20:44:34.207715"
+  },
+  {
+    "iteration": 6,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AssertionError",
+    "message": "10 keyword detections took 9.47s (should be < 2s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    assert elapsed < 2.0, f\"10 keyword detections took {elapsed:.2f}s (should be < 2s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 10 keyword detections took 9.47s (should be < 2s)\n",
+    "timestamp": "2026-01-21T20:44:48.230398"
+  },
+  {
+    "iteration": 6,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "type object 'Patient' has no attribute 'dob'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1712, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 414, in _get_affected_patients\n    eligible_query = eligible_query.filter(Patient.dob <= max_dob)\n                                           ^^^^^^^^^^^\nAttributeError: type object 'Patient' has no attribute 'dob'\n",
+    "timestamp": "2026-01-21T20:44:48.233713"
+  },
+  {
+    "iteration": 1,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AssertionError",
+    "message": "10 keyword detections took 8.85s (should be < 2s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    assert elapsed < 2.0, f\"10 keyword detections took {elapsed:.2f}s (should be < 2s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 10 keyword detections took 8.85s (should be < 2s)\n",
+    "timestamp": "2026-01-21T20:45:12.670128"
+  },
+  {
+    "iteration": 1,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "type object 'Patient' has no attribute 'dob'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1712, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 414, in _get_affected_patients\n    eligible_query = eligible_query.filter(Patient.dob <= max_dob)\n                                           ^^^^^^^^^^^\nAttributeError: type object 'Patient' has no attribute 'dob'\n",
+    "timestamp": "2026-01-21T20:45:12.675676"
+  },
+  {
+    "iteration": 2,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AssertionError",
+    "message": "10 keyword detections took 9.42s (should be < 2s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    assert elapsed < 2.0, f\"10 keyword detections took {elapsed:.2f}s (should be < 2s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 10 keyword detections took 9.42s (should be < 2s)\n",
+    "timestamp": "2026-01-21T20:45:26.609104"
+  },
+  {
+    "iteration": 2,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "type object 'Patient' has no attribute 'dob'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1712, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 414, in _get_affected_patients\n    eligible_query = eligible_query.filter(Patient.dob <= max_dob)\n                                           ^^^^^^^^^^^\nAttributeError: type object 'Patient' has no attribute 'dob'\n",
+    "timestamp": "2026-01-21T20:45:26.617435"
+  },
+  {
+    "iteration": 3,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AssertionError",
+    "message": "10 keyword detections took 9.00s (should be < 2s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    assert elapsed < 2.0, f\"10 keyword detections took {elapsed:.2f}s (should be < 2s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 10 keyword detections took 9.00s (should be < 2s)\n",
+    "timestamp": "2026-01-21T20:45:40.668285"
+  },
+  {
+    "iteration": 3,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "type object 'Patient' has no attribute 'dob'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1712, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 414, in _get_affected_patients\n    eligible_query = eligible_query.filter(Patient.dob <= max_dob)\n                                           ^^^^^^^^^^^\nAttributeError: type object 'Patient' has no attribute 'dob'\n",
+    "timestamp": "2026-01-21T20:45:40.672633"
+  },
+  {
+    "iteration": 4,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AssertionError",
+    "message": "10 keyword detections took 10.02s (should be < 2s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    assert elapsed < 2.0, f\"10 keyword detections took {elapsed:.2f}s (should be < 2s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 10 keyword detections took 10.02s (should be < 2s)\n",
+    "timestamp": "2026-01-21T20:45:55.280917"
+  },
+  {
+    "iteration": 4,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "type object 'Patient' has no attribute 'dob'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1712, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 414, in _get_affected_patients\n    eligible_query = eligible_query.filter(Patient.dob <= max_dob)\n                                           ^^^^^^^^^^^\nAttributeError: type object 'Patient' has no attribute 'dob'\n",
+    "timestamp": "2026-01-21T20:45:55.287985"
+  },
+  {
+    "iteration": 5,
+    "test": "21.4_fuzzy_detection_perf",
+    "error_type": "AssertionError",
+    "message": "10 keyword detections took 12.55s (should be < 2s)",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1665, in run_screening_engine_tests\n    assert elapsed < 2.0, f\"10 keyword detections took {elapsed:.2f}s (should be < 2s)\"\n           ^^^^^^^^^^^^^\nAssertionError: 10 keyword detections took 12.55s (should be < 2s)\n",
+    "timestamp": "2026-01-21T20:46:12.900239"
+  },
+  {
+    "iteration": 5,
+    "test": "21.5_specific_screening_types_filter",
+    "error_type": "AttributeError",
+    "message": "type object 'Patient' has no attribute 'dob'",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1712, in run_screening_engine_tests\n    affected = service._get_affected_patients(changes, options)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/services/screening_refresh_service.py\", line 414, in _get_affected_patients\n    eligible_query = eligible_query.filter(Patient.dob <= max_dob)\n                                           ^^^^^^^^^^^\nAttributeError: type object 'Patient' has no attribute 'dob'\n",
+    "timestamp": "2026-01-21T20:46:12.908890"
   }
 ]
