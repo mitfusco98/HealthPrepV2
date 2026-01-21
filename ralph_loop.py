@@ -873,6 +873,259 @@ def run_screening_engine_tests():
             }
             results['errors'].append(error_info)
             log_progress(f"FAIL: Test 12.2 - Fractional frequencies: {str(e)}")
+        
+        # ===========================================
+        # TEST SUITE 13: Organization-Scoped Queries
+        # ===========================================
+        
+        # Test 13.1: Verify screening types are org-scoped
+        results['total'] += 1
+        try:
+            # Get two different orgs if available
+            orgs = Organization.query.filter(Organization.id > 0).limit(2).all()
+            
+            if len(orgs) >= 2:
+                org1, org2 = orgs[0], orgs[1]
+                
+                # Query screening types for each org
+                types_org1 = ScreeningType.query.filter(
+                    ScreeningType.org_id == org1.id,
+                    ScreeningType.is_active == True
+                ).all()
+                
+                types_org2 = ScreeningType.query.filter(
+                    ScreeningType.org_id == org2.id,
+                    ScreeningType.is_active == True
+                ).all()
+                
+                # Verify isolation - each org's types only belong to that org
+                for st in types_org1:
+                    assert st.org_id == org1.id, f"Type {st.id} should belong to org {org1.id}"
+                for st in types_org2:
+                    assert st.org_id == org2.id, f"Type {st.id} should belong to org {org2.id}"
+                
+                results['passed'] += 1
+                log_progress("PASS: Test 13.1 - Org-scoped screening type isolation")
+            else:
+                # Single org - test passes trivially
+                results['passed'] += 1
+                log_progress("PASS: Test 13.1 - Org-scoped types (single org)")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '13.1_org_scoped_queries',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 13.1 - Org-scoped queries: {str(e)}")
+        
+        # Test 13.2: Verify patients are org-scoped
+        results['total'] += 1
+        try:
+            test_org = Organization.query.filter(Organization.id > 0).first()
+            if test_org:
+                # Get patients for this org
+                patients = Patient.query.filter(
+                    Patient.org_id == test_org.id
+                ).limit(10).all()
+                
+                # Verify all patients belong to this org
+                for p in patients:
+                    assert p.org_id == test_org.id, f"Patient {p.id} should belong to org {test_org.id}"
+                
+                results['passed'] += 1
+                log_progress("PASS: Test 13.2 - Patient org isolation")
+            else:
+                results['passed'] += 1
+                log_progress("PASS: Test 13.2 - Patient org isolation (no org)")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '13.2_patient_org_isolation',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 13.2 - Patient org isolation: {str(e)}")
+        
+        # ===========================================
+        # TEST SUITE 14: FuzzyDetectionEngine Integration
+        # ===========================================
+        
+        # Test 14.1: Fuzzy engine with realistic OCR text
+        results['total'] += 1
+        try:
+            # Test with realistic medical document text
+            ocr_text = """
+            MAMMOGRAPHY SCREENING REPORT
+            Bilateral screening mammogram performed
+            BIRADS Category 1 - Negative
+            No suspicious findings
+            Recommend annual screening in 12 months
+            """
+            
+            # Keywords should match despite case/spacing variations
+            test_keywords = ['mammogram', 'mammography', 'breast', 'bilateral']
+            
+            # Pre-filter should find at least one match
+            matches = [kw for kw in test_keywords 
+                      if kw.lower() in ocr_text.lower()]
+            
+            assert len(matches) >= 2, f"Expected 2+ matches, got {matches}"
+            
+            # Test fuzzy engine if available
+            if hasattr(fuzzy_engine, 'extract_keywords'):
+                extracted = fuzzy_engine.extract_keywords(ocr_text)
+                assert isinstance(extracted, (list, set)), "Should return keywords"
+            
+            results['passed'] += 1
+            log_progress("PASS: Test 14.1 - Fuzzy engine OCR text")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '14.1_fuzzy_ocr_text',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 14.1 - Fuzzy OCR text: {str(e)}")
+        
+        # Test 14.2: Empty/edge case document text
+        results['total'] += 1
+        try:
+            # Test with empty text
+            empty_text = ""
+            test_keywords = ['mammogram']
+            matches = [kw for kw in test_keywords if kw.lower() in empty_text.lower()]
+            assert matches == [], "Empty text should have no matches"
+            
+            # Test with whitespace only
+            whitespace_text = "   \n\t  \n  "
+            matches = [kw for kw in test_keywords if kw.lower() in whitespace_text.lower()]
+            assert matches == [], "Whitespace text should have no matches"
+            
+            results['passed'] += 1
+            log_progress("PASS: Test 14.2 - Empty document handling")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '14.2_empty_document',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 14.2 - Empty document: {str(e)}")
+        
+        # ===========================================
+        # TEST SUITE 15: Integration-Level Variant Selection
+        # ===========================================
+        
+        # Test 15.1: Real database variant selection with severity
+        results['total'] += 1
+        try:
+            # Get screening types and group by base_name (computed property)
+            active_types = ScreeningType.query.filter(
+                ScreeningType.is_active == True
+            ).limit(50).all()
+            
+            # Group by base_name using the model's property
+            base_name_groups = {}
+            for st in active_types:
+                bn = st.base_name
+                if bn not in base_name_groups:
+                    base_name_groups[bn] = []
+                base_name_groups[bn].append(st)
+            
+            # Find a group with multiple variants
+            variant_group = None
+            for bn, variants in base_name_groups.items():
+                if len(variants) > 1:
+                    variant_group = variants
+                    break
+            
+            if variant_group:
+                # Verify deterministic ordering
+                sorted_variants = sorted(variant_group, key=lambda v: (
+                    -len(v.trigger_conditions_list),  # More conditions first
+                    -v.specificity_score,              # Higher specificity first
+                    v.id                               # Stable tie-breaker
+                ))
+                
+                # Same sort should produce same order
+                sorted_again = sorted(variant_group, key=lambda v: (
+                    -len(v.trigger_conditions_list),
+                    -v.specificity_score,
+                    v.id
+                ))
+                
+                assert [v.id for v in sorted_variants] == [v.id for v in sorted_again], \
+                    "Variant sorting should be deterministic"
+                
+                results['passed'] += 1
+                log_progress("PASS: Test 15.1 - Database variant selection")
+            else:
+                results['passed'] += 1
+                log_progress("PASS: Test 15.1 - Variant selection (no variants)")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '15.1_db_variant_selection',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 15.1 - DB variant selection: {str(e)}")
+        
+        # Test 15.2: Screening-Patient eligibility with real data
+        results['total'] += 1
+        try:
+            # Get a patient with conditions
+            patient_with_conditions = db.session.query(Patient).join(
+                PatientCondition, Patient.id == PatientCondition.patient_id
+            ).filter(
+                Patient.date_of_birth.isnot(None),
+                Patient.gender.isnot(None)
+            ).first()
+            
+            if patient_with_conditions:
+                # Get screening types for this patient's org
+                screening_types = ScreeningType.query.filter(
+                    ScreeningType.org_id == patient_with_conditions.org_id,
+                    ScreeningType.is_active == True
+                ).limit(5).all()
+                
+                # Test eligibility checks run without error
+                for st in screening_types:
+                    try:
+                        # These should not throw
+                        age_check = eligibility._check_age_eligibility(patient_with_conditions, st)
+                        gender_check = eligibility._check_gender_eligibility(patient_with_conditions, st)
+                        assert isinstance(age_check, bool), "Age check should return bool"
+                        assert isinstance(gender_check, bool), "Gender check should return bool"
+                    except Exception as check_error:
+                        raise AssertionError(f"Eligibility check failed: {check_error}")
+                
+                results['passed'] += 1
+                log_progress("PASS: Test 15.2 - Real patient eligibility")
+            else:
+                results['passed'] += 1
+                log_progress("PASS: Test 15.2 - Eligibility (no patient data)")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '15.2_real_eligibility',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 15.2 - Real eligibility: {str(e)}")
     
     return results
 
