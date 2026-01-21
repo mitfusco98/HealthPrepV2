@@ -1491,8 +1491,8 @@ class ScreeningType(db.Model):
 
     @property
     def base_name(self):
-        """Return the base screening name without variant"""
-        return self.name
+        """Return the base screening name without variant suffix"""
+        return self._extract_base_name(self.name)
 
     @classmethod
     def get_variants(cls, base_name):

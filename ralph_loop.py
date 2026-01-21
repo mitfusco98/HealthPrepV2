@@ -1126,6 +1126,370 @@ def run_screening_engine_tests():
             }
             results['errors'].append(error_info)
             log_progress(f"FAIL: Test 15.2 - Real eligibility: {str(e)}")
+        
+        # ===========================================
+        # TEST SUITE 16: Condition Normalization
+        # ===========================================
+        
+        # Test 16.1: MedicalConditionsDB initialization and alias matching
+        results['total'] += 1
+        try:
+            from utils.medical_conditions import MedicalConditionsDB
+            
+            conditions_db = MedicalConditionsDB()
+            assert conditions_db is not None, "MedicalConditionsDB should initialize"
+            
+            # Verify diabetes aliases exist and are comprehensive
+            diabetes_aliases = conditions_db.conditions.get('diabetes', [])
+            expected_aliases = ['diabetes mellitus', 'DM', 'T2DM', 'type 2 diabetes']
+            for expected in expected_aliases:
+                found = any(expected.lower() in alias.lower() for alias in diabetes_aliases)
+                assert found, f"Diabetes aliases should include '{expected}'"
+            
+            results['passed'] += 1
+            log_progress("PASS: Test 16.1 - MedicalConditionsDB alias matching")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '16.1_conditions_db_aliases',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 16.1 - Conditions DB aliases: {str(e)}")
+        
+        # Test 16.2: Condition name normalization
+        results['total'] += 1
+        try:
+            from utils.medical_conditions import MedicalConditionsDB
+            
+            conditions_db = MedicalConditionsDB()
+            
+            # Test normalization removes clinical modifiers
+            test_cases = [
+                ("Moderate persistent asthma, uncomplicated", "asthma"),
+                ("Old myocardial infarction", "myocardial infarction"),
+                ("Acute bronchitis, unspecified", "bronchitis"),
+                ("Type 2 diabetes mellitus", "type 2 diabetes mellitus"),
+                ("Severe persistent asthma", "asthma"),
+            ]
+            
+            for input_condition, expected_base in test_cases:
+                normalized = conditions_db.normalize_condition_name(input_condition)
+                # Check that the expected base is contained in the result
+                assert expected_base.lower() in normalized.lower(), \
+                    f"'{input_condition}' should normalize to contain '{expected_base}', got '{normalized}'"
+            
+            results['passed'] += 1
+            log_progress("PASS: Test 16.2 - Condition normalization")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '16.2_condition_normalization',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 16.2 - Condition normalization: {str(e)}")
+        
+        # Test 16.3: Deterministic condition matching across variations
+        results['total'] += 1
+        try:
+            from utils.medical_conditions import MedicalConditionsDB
+            
+            conditions_db = MedicalConditionsDB()
+            
+            # Test that different variations all map to same category
+            diabetes_variations = [
+                'diabetes', 'Diabetes Mellitus', 'DM', 'T2DM', 
+                'type 2 diabetes', 'NIDDM', 'diabetic'
+            ]
+            
+            # Check all variations are found in diabetes category
+            diabetes_aliases = conditions_db.conditions.get('diabetes', [])
+            diabetes_aliases_lower = [a.lower() for a in diabetes_aliases]
+            
+            for variation in diabetes_variations:
+                found = any(variation.lower() in alias or alias in variation.lower() 
+                           for alias in diabetes_aliases_lower)
+                assert found, f"Variation '{variation}' should be found in diabetes aliases"
+            
+            results['passed'] += 1
+            log_progress("PASS: Test 16.3 - Deterministic condition matching")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '16.3_deterministic_condition_matching',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 16.3 - Deterministic matching: {str(e)}")
+        
+        # ===========================================
+        # TEST SUITE 17: Variant Suffix Parsing
+        # ===========================================
+        
+        # Test 17.1: Base name extraction from variant names
+        results['total'] += 1
+        try:
+            # Test _extract_base_name method
+            test_cases = [
+                ("Cervical Cancer Screening", "Cervical Cancer Screening"),
+                ("Cervical Cancer Screening - mild risk", "Cervical Cancer Screening"),
+                ("Cervical Cancer Screening - high risk", "Cervical Cancer Screening"),
+                ("A1C Test - Diabetic", "A1C Test"),
+                ("Mammogram - High Risk", "Mammogram"),
+                ("Colonoscopy (High Risk)", "Colonoscopy"),
+                ("Lipid Panel: Extended", "Lipid Panel"),
+            ]
+            
+            for input_name, expected_base in test_cases:
+                extracted = ScreeningType._extract_base_name(input_name)
+                assert extracted == expected_base, \
+                    f"'{input_name}' should extract to '{expected_base}', got '{extracted}'"
+            
+            results['passed'] += 1
+            log_progress("PASS: Test 17.1 - Base name extraction")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '17.1_base_name_extraction',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 17.1 - Base name extraction: {str(e)}")
+        
+        # Test 17.2: Variant association via base_name property
+        results['total'] += 1
+        try:
+            # Create mock screening types and verify base_name grouping
+            st1 = ScreeningType()
+            st1.name = "Cervical Cancer Screening"
+            
+            st2 = ScreeningType()
+            st2.name = "Cervical Cancer Screening - mild risk"
+            
+            st3 = ScreeningType()
+            st3.name = "Cervical Cancer Screening - high risk"
+            
+            # All should have the same base_name
+            assert st1.base_name == st2.base_name == st3.base_name, \
+                f"All variants should have same base_name: {st1.base_name}, {st2.base_name}, {st3.base_name}"
+            
+            assert st1.base_name == "Cervical Cancer Screening", \
+                f"Base name should be 'Cervical Cancer Screening', got '{st1.base_name}'"
+            
+            results['passed'] += 1
+            log_progress("PASS: Test 17.2 - Variant association via base_name")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '17.2_variant_association',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 17.2 - Variant association: {str(e)}")
+        
+        # Test 17.3: Various delimiter formats
+        results['total'] += 1
+        try:
+            delimiter_cases = [
+                ("Test - suffix", "Test"),       # hyphen with spaces
+                ("Test – suffix", "Test"),       # en-dash
+                ("Test — suffix", "Test"),       # em-dash  
+                ("Test (parenthetical)", "Test"), # parentheses
+                ("Test: colon suffix", "Test"),  # colon
+            ]
+            
+            for input_name, expected_base in delimiter_cases:
+                extracted = ScreeningType._extract_base_name(input_name)
+                assert extracted == expected_base, \
+                    f"Delimiter test: '{input_name}' should extract to '{expected_base}', got '{extracted}'"
+            
+            results['passed'] += 1
+            log_progress("PASS: Test 17.3 - Delimiter format handling")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '17.3_delimiter_formats',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 17.3 - Delimiter formats: {str(e)}")
+        
+        # ===========================================
+        # TEST SUITE 18: Free-Text Error Handling
+        # ===========================================
+        
+        # Test 18.1: Empty and null input handling
+        results['total'] += 1
+        try:
+            from utils.medical_conditions import MedicalConditionsDB
+            
+            conditions_db = MedicalConditionsDB()
+            
+            # Test empty/null handling in normalize_condition_name
+            assert conditions_db.normalize_condition_name("") == "", "Empty string should return empty"
+            assert conditions_db.normalize_condition_name(None) == "", "None should return empty"
+            
+            # Test base_name with empty/null
+            assert ScreeningType._extract_base_name("") == "", "Empty should return empty"
+            assert ScreeningType._extract_base_name(None) is None, "None should return None"
+            
+            results['passed'] += 1
+            log_progress("PASS: Test 18.1 - Empty/null input handling")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '18.1_empty_null_handling',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 18.1 - Empty/null handling: {str(e)}")
+        
+        # Test 18.2: Unusual formatting in free-text inputs
+        results['total'] += 1
+        try:
+            from utils.medical_conditions import MedicalConditionsDB
+            
+            conditions_db = MedicalConditionsDB()
+            
+            # Test various unusual formats
+            unusual_inputs = [
+                "  diabetes  ",           # extra whitespace
+                "DIABETES MELLITUS",      # all caps
+                "diabetes\ntype 2",       # newline
+                "diabetes, type 2",       # comma
+                "diabetes   type   2",    # multiple spaces
+            ]
+            
+            for input_text in unusual_inputs:
+                try:
+                    result = conditions_db.normalize_condition_name(input_text)
+                    # Should not throw, result should be a string
+                    assert isinstance(result, str), f"Should return string for '{input_text}'"
+                except Exception as format_error:
+                    raise AssertionError(f"Failed on unusual format '{input_text}': {format_error}")
+            
+            results['passed'] += 1
+            log_progress("PASS: Test 18.2 - Unusual formatting handling")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '18.2_unusual_formatting',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 18.2 - Unusual formatting: {str(e)}")
+        
+        # Test 18.3: Abbreviation handling
+        results['total'] += 1
+        try:
+            from utils.medical_conditions import MedicalConditionsDB
+            
+            conditions_db = MedicalConditionsDB()
+            
+            # Test common medical abbreviations are in the database
+            abbreviations_to_check = {
+                'diabetes': ['DM', 'T2DM', 'T1DM', 'NIDDM'],
+                'cardiovascular': ['CVD', 'CAD', 'MI', 'CHF', 'HTN'],
+                'pulmonary': ['COPD', 'CAP', 'OSA'],
+            }
+            
+            for category, abbrevs in abbreviations_to_check.items():
+                category_conditions = conditions_db.conditions.get(category, [])
+                category_lower = [c.lower() for c in category_conditions]
+                
+                for abbrev in abbrevs:
+                    found = abbrev.lower() in category_lower or \
+                            any(abbrev.lower() in cond for cond in category_lower)
+                    assert found, f"Abbreviation '{abbrev}' should be in '{category}' category"
+            
+            results['passed'] += 1
+            log_progress("PASS: Test 18.3 - Abbreviation handling")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '18.3_abbreviation_handling',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 18.3 - Abbreviation handling: {str(e)}")
+        
+        # ===========================================
+        # TEST SUITE 19: Screening Name Standardization
+        # ===========================================
+        
+        # Test 19.1: StandardizedScreeningNames initialization
+        results['total'] += 1
+        try:
+            from utils.screening_names import StandardizedScreeningNames
+            
+            names_db = StandardizedScreeningNames()
+            assert names_db is not None, "StandardizedScreeningNames should initialize"
+            assert len(names_db.screening_names) > 0, "Should have screening names loaded"
+            
+            # Check for common screening names
+            common_names = ['Mammogram', 'Colonoscopy', 'A1C Test', 'Lipid Panel']
+            for name in common_names:
+                assert name in names_db.screening_names, f"'{name}' should be in standardized names"
+            
+            results['passed'] += 1
+            log_progress("PASS: Test 19.1 - StandardizedScreeningNames init")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '19.1_standardized_names_init',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 19.1 - Standardized names init: {str(e)}")
+        
+        # Test 19.2: Alias dictionary for variant creation
+        results['total'] += 1
+        try:
+            from utils.screening_names import StandardizedScreeningNames
+            
+            names_db = StandardizedScreeningNames()
+            
+            # Check aliases exist
+            assert hasattr(names_db, 'aliases'), "Should have aliases attribute"
+            
+            # Verify alias structure if present
+            if names_db.aliases:
+                # Aliases should map variations to canonical names
+                assert isinstance(names_db.aliases, dict), "Aliases should be a dictionary"
+            
+            results['passed'] += 1
+            log_progress("PASS: Test 19.2 - Alias dictionary structure")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '19.2_alias_dictionary',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 19.2 - Alias dictionary: {str(e)}")
     
     return results
 

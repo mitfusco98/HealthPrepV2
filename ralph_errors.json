@@ -318,5 +318,85 @@
     "message": "Column expression, FROM clause, or other columns clause element expected, got <property object at 0x7fb767fca610>.",
     "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1032, in run_screening_engine_tests\n    variant_groups = db.session.query(\n                     ^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/scoping.py\", line 1680, in query\n    return self._proxied.query(*entities, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py\", line 2955, in query\n    return self._query_cls(entities, self, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/query.py\", line 276, in __init__\n    self._set_entities(entities)\n  File \"/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/query.py\", line 288, in _set_entities\n    self._raw_columns = [\n                        ^\n  File \"/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/query.py\", line 289, in <listcomp>\n    coercions.expect(\n  File \"/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/coercions.py\", line 395, in expect\n    resolved = impl._literal_coercion(\n               ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/coercions.py\", line 634, in _literal_coercion\n    self._raise_for_expected(element, argname)\n  File \"/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/coercions.py\", line 1132, in _raise_for_expected\n    return super()._raise_for_expected(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/coercions.py\", line 695, in _raise_for_expected\n    super()._raise_for_expected(\n  File \"/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/coercions.py\", line 518, in _raise_for_expected\n    raise exc.ArgumentError(msg, code=code) from err\nsqlalchemy.exc.ArgumentError: Column expression, FROM clause, or other columns clause element expected, got <property object at 0x7fb767fca610>.\n",
     "timestamp": "2026-01-21T05:12:48.844042"
+  },
+  {
+    "iteration": 1,
+    "test": "17.2_variant_association",
+    "error_type": "AssertionError",
+    "message": "All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1282, in run_screening_engine_tests\n    assert st1.base_name == st2.base_name == st3.base_name, \\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk\n",
+    "timestamp": "2026-01-21T19:02:15.327895"
+  },
+  {
+    "iteration": 2,
+    "test": "17.2_variant_association",
+    "error_type": "AssertionError",
+    "message": "All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1282, in run_screening_engine_tests\n    assert st1.base_name == st2.base_name == st3.base_name, \\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk\n",
+    "timestamp": "2026-01-21T19:02:17.380390"
+  },
+  {
+    "iteration": 3,
+    "test": "17.2_variant_association",
+    "error_type": "AssertionError",
+    "message": "All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1282, in run_screening_engine_tests\n    assert st1.base_name == st2.base_name == st3.base_name, \\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk\n",
+    "timestamp": "2026-01-21T19:02:19.461731"
+  },
+  {
+    "iteration": 4,
+    "test": "17.2_variant_association",
+    "error_type": "AssertionError",
+    "message": "All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1282, in run_screening_engine_tests\n    assert st1.base_name == st2.base_name == st3.base_name, \\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk\n",
+    "timestamp": "2026-01-21T19:02:21.576862"
+  },
+  {
+    "iteration": 5,
+    "test": "17.2_variant_association",
+    "error_type": "AssertionError",
+    "message": "All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1282, in run_screening_engine_tests\n    assert st1.base_name == st2.base_name == st3.base_name, \\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk\n",
+    "timestamp": "2026-01-21T19:02:23.709884"
+  },
+  {
+    "iteration": 6,
+    "test": "17.2_variant_association",
+    "error_type": "AssertionError",
+    "message": "All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1282, in run_screening_engine_tests\n    assert st1.base_name == st2.base_name == st3.base_name, \\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk\n",
+    "timestamp": "2026-01-21T19:02:26.055584"
+  },
+  {
+    "iteration": 7,
+    "test": "17.2_variant_association",
+    "error_type": "AssertionError",
+    "message": "All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1282, in run_screening_engine_tests\n    assert st1.base_name == st2.base_name == st3.base_name, \\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk\n",
+    "timestamp": "2026-01-21T19:02:28.167924"
+  },
+  {
+    "iteration": 8,
+    "test": "17.2_variant_association",
+    "error_type": "AssertionError",
+    "message": "All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1282, in run_screening_engine_tests\n    assert st1.base_name == st2.base_name == st3.base_name, \\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk\n",
+    "timestamp": "2026-01-21T19:02:30.343993"
+  },
+  {
+    "iteration": 9,
+    "test": "17.2_variant_association",
+    "error_type": "AssertionError",
+    "message": "All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1282, in run_screening_engine_tests\n    assert st1.base_name == st2.base_name == st3.base_name, \\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk\n",
+    "timestamp": "2026-01-21T19:02:32.483319"
+  },
+  {
+    "iteration": 10,
+    "test": "17.2_variant_association",
+    "error_type": "AssertionError",
+    "message": "All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk",
+    "traceback": "Traceback (most recent call last):\n  File \"/home/runner/workspace/ralph_loop.py\", line 1282, in run_screening_engine_tests\n    assert st1.base_name == st2.base_name == st3.base_name, \\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: All variants should have same base_name: Cervical Cancer Screening, Cervical Cancer Screening - mild risk, Cervical Cancer Screening - high risk\n",
+    "timestamp": "2026-01-21T19:02:34.555162"
   }
 ]
