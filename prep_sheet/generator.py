@@ -23,7 +23,7 @@ class PrepSheetGenerator:
         """Redact PHI from text using centralized PHI filter"""
         if not text:
             return text
-        return self.phi_filter.filter_text(str(text))
+        return self.phi_filter.filter_phi(str(text))
     
     def _redact_mrn(self, mrn):
         """Redact MRN for console display - show only last 4 chars"""

@@ -128,7 +128,7 @@ class EpicWriteBackService:
         if not text:
             return text
         phi_filter = _get_phi_filter()
-        return phi_filter.filter_text(str(text))
+        return phi_filter.filter_phi(str(text))
     
     def _print_prep_sheet_to_console(self, patient, prep_data, result, verbose=True):
         """
