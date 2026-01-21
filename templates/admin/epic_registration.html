@@ -755,8 +755,8 @@ function updateHyperspaceIndicator() {
                 <small class="text-muted">
                     Scopes: ${data.scopes && data.scopes.length > 0 ? data.scopes.join(', ') : 'None'}<br>
                     ${data.expires_at_local ? 'Token expires: ' + data.expires_at_local : ''}
-                    ${data.created_at_local ? '<br>First authorized: ' + data.created_at_local : ''}
-                    ${refreshInfo}
+                    ${data.last_updated_local ? '<br>Last authorized: ' + data.last_updated_local : ''}
+                    ${data.created_at_local && data.was_auto_refreshed ? '<br>First authorized: ' + data.created_at_local : ''}
                 </small>
             `;
         } else if (data.connected && data.expired) {
@@ -829,8 +829,8 @@ function checkOAuthStatus() {
                 <small>
                     <strong>Scopes:</strong> ${scopes}<br>
                     ${data.expires_at_local ? '<strong>Token expires:</strong> ' + data.expires_at_local : ''}
-                    ${data.created_at_local ? '<br><strong>First authorized:</strong> ' + data.created_at_local : ''}
-                    ${refreshInfo}
+                    ${data.last_updated_local ? '<br><strong>Last authorized:</strong> ' + data.last_updated_local : ''}
+                    ${data.created_at_local && data.was_auto_refreshed ? '<br><strong>First authorized:</strong> ' + data.created_at_local : ''}
                     ${data.patient_id ? '<br><strong>Patient ID:</strong> ' + data.patient_id : ''}
                 </small>
             `;
