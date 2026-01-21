@@ -124,7 +124,7 @@ class PrepSheetFilters:
                 ])
             else:
                 search_text = ' '.join([
-                    (doc.title or '').lower(),
+                    (getattr(doc, 'title', '') or '').lower(),
                     (getattr(doc, 'description', '') or '').lower(),
                     (getattr(doc, 'filename', '') or '').lower(),
                     (doc.ocr_text or '').lower()
@@ -197,7 +197,7 @@ class PrepSheetFilters:
                 ])
             else:
                 search_text = ' '.join([
-                    (doc.title or '').lower(),
+                    (getattr(doc, 'title', '') or '').lower(),
                     (getattr(doc, 'description', '') or '').lower(),
                     (getattr(doc, 'filename', '') or '').lower(),
                     (doc.ocr_text or '').lower()

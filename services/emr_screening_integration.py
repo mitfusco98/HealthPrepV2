@@ -230,7 +230,7 @@ class EMRScreeningIntegration:
             for document in recent_documents:
                 # Use document matcher to find relevant screenings
                 matches = self.document_matcher.find_document_matches_by_text(
-                    document.extracted_text or document.title,
+                    document.extracted_text or getattr(document, 'title', '') or getattr(document, 'filename', ''),
                     patient.id
                 )
                 
@@ -467,7 +467,7 @@ class EMRScreeningIntegration:
             screening.last_completed = document.document_date or datetime.now().date()
             screening.last_updated = datetime.now()
             screening.confidence_score = confidence
-            screening.notes = f"Completed based on document: {document.title} (confidence: {confidence:.2f})"
+            screening.notes = f"Completed based on document: {getattr(document, 'title', '') or getattr(document, 'filename', 'Unknown')} (confidence: {confidence:.2f})"
             
             # Calculate next due date based on frequency
             if screening.screening_type.frequency_value:

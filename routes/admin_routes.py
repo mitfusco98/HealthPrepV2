@@ -2591,7 +2591,7 @@ def admin_documents():
                     'id': doc.id,
                     'source': 'Epic FHIR',
                     'source_badge': 'success',
-                    'title': doc.title or 'Untitled',
+                    'title': getattr(doc, 'title', '') or 'Untitled',
                     'document_type': doc.document_type_display or 'Unknown',
                     'ocr_text': doc.ocr_text,
                     'document_date': doc.document_date,
