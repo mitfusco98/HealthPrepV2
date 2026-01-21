@@ -3,8 +3,9 @@ Assembles content into prep sheet format with medical data integration
 """
 from datetime import datetime, date, timedelta
 from dateutil.relativedelta import relativedelta
+from zoneinfo import ZoneInfo
 from app import db
-from models import Patient, Screening, Document, Appointment, PatientCondition, PrepSheetSettings
+from models import Patient, Screening, Document, Appointment, PatientCondition, PrepSheetSettings, Organization
 from .filters import PrepSheetFilters
 from ocr.phi_filter import PHIFilter
 import logging
@@ -154,6 +155,17 @@ class PrepSheetGenerator:
             return {'success': False, 'error': f'Patient {patient_id} not found'}
         
         try:
+            # Get organization timezone for timestamp display
+            org = Organization.query.get(patient.org_id) if patient.org_id else None
+            org_timezone = getattr(org, 'timezone', None) or 'UTC'
+            
+            # Convert generated_at to org's local timezone
+            try:
+                tz = ZoneInfo(org_timezone)
+                generated_at_local = datetime.now(tz)
+            except Exception:
+                generated_at_local = datetime.now(ZoneInfo('UTC'))
+            
             # Get appointment if specified
             appointment = None
             if appointment_id:
@@ -167,7 +179,7 @@ class PrepSheetGenerator:
             
             # Create prep sheet object-like structure for template
             prep_sheet = {
-                'generated_at': datetime.now(),
+                'generated_at': generated_at_local,
                 'appointment_date': appointment.appointment_date if appointment else None,
                 'documents_processed': summary_data.get('total_documents', 0),
                 'screenings_included': quality_checklist_data['summary']['total'],
@@ -627,6 +639,17 @@ class PrepSheetGenerator:
         if not patient:
             raise ValueError(f"Patient {patient_id} not found")
         
+        # Get organization timezone for timestamp display
+        org = Organization.query.get(patient.org_id) if patient.org_id else None
+        org_timezone = getattr(org, 'timezone', None) or 'UTC'
+        
+        # Convert generated_at to org's local timezone
+        try:
+            tz = ZoneInfo(org_timezone)
+            generated_at_local = datetime.now(tz)
+        except Exception:
+            generated_at_local = datetime.now(ZoneInfo('UTC'))
+        
         # Get only critical screenings (due/due soon)
         critical_screenings = Screening.query.filter_by(
             patient_id=patient_id
@@ -640,7 +663,7 @@ class PrepSheetGenerator:
         
         return {
             'patient': patient,
-            'generated_at': datetime.now(),
+            'generated_at': generated_at_local,
             'type': 'quick_prep',
             'critical_screenings': critical_screenings,
             'recent_documents': recent_docs,

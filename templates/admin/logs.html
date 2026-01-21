@@ -100,9 +100,9 @@
                         {% for log in logs %}
                         <tr>
                             <td>
-                                <div class="text-nowrap local-timestamp" data-utc="{{ log.timestamp.strftime('%Y-%m-%dT%H:%M:%SZ') }}">
-                                    <small class="text-muted date-part">{{ log.timestamp.strftime('%Y-%m-%d') }}</small><br>
-                                    <strong class="time-part">{{ log.timestamp.strftime('%H:%M:%S') }}</strong>
+                                <div class="text-nowrap">
+                                    <small class="text-muted">{{ log.timestamp.strftime('%Y-%m-%d') }}</small><br>
+                                    <strong>{{ log.timestamp.strftime('%H:%M:%S') }} UTC</strong>
                                 </div>
                             </td>
                             <td>
@@ -279,22 +279,6 @@
 
 <script>
 $(document).ready(function() {
-    // Function to convert UTC timestamps to local time
-    function convertTimestamps() {
-        document.querySelectorAll('.local-timestamp').forEach(function(el) {
-            var utcStr = el.getAttribute('data-utc');
-            if (utcStr && !el.getAttribute('data-converted')) {
-                var date = new Date(utcStr);
-                el.querySelector('.date-part').textContent = date.toLocaleDateString('en-US', {month: '2-digit', day: '2-digit', year: 'numeric'});
-                el.querySelector('.time-part').textContent = date.toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit', hour12: true});
-                el.setAttribute('data-converted', 'true');
-            }
-        });
-    }
-    
-    // Initial conversion
-    convertTimestamps();
-    
     // Initialize DataTables
     var table = $('#logsTable').DataTable({
         pageLength: 25,
@@ -323,11 +307,6 @@ $(document).ready(function() {
             }
         ],
         responsive: true
-    });
-    
-    // Re-convert timestamps on DataTables draw (pagination, search, etc.)
-    table.on('draw', function() {
-        convertTimestamps();
     });
 });
 
