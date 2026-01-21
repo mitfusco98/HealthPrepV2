@@ -5,6 +5,7 @@ Admin dashboard routes and functionality
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, send_file, make_response
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from sqlalchemy import desc
 import logging
 import functools
@@ -782,6 +783,34 @@ def logs():
             page=page, per_page=50, error_out=False
         )
 
+        # Get organization timezone for timestamp display
+        org = Organization.query.get(current_user.org_id) if current_user.org_id else None
+        org_timezone = getattr(org, 'timezone', None) or 'UTC'
+        
+        # Convert log timestamps to org's local timezone
+        try:
+            tz = ZoneInfo(org_timezone)
+        except Exception:
+            tz = ZoneInfo('UTC')
+        
+        # Create log entries with local timestamps
+        logs_with_local_time = []
+        for log in logs_pagination.items:
+            # Convert UTC timestamp to local
+            if log.timestamp:
+                # Handle both naive (assume UTC) and aware timestamps
+                if log.timestamp.tzinfo is None:
+                    utc_ts = log.timestamp.replace(tzinfo=ZoneInfo('UTC'))
+                else:
+                    utc_ts = log.timestamp.astimezone(ZoneInfo('UTC'))
+                local_ts = utc_ts.astimezone(tz)
+            else:
+                local_ts = None
+            logs_with_local_time.append({
+                'log': log,
+                'local_timestamp': local_ts
+            })
+
         # Get filter options
         # Apply organization filtering for multi-tenancy
         if hasattr(current_user, 'org_id'):
@@ -792,11 +821,12 @@ def logs():
         event_types = [event.event_type for event in event_types if event.event_type]
 
         return render_template('admin/logs.html',
-                             logs=logs_pagination.items,
+                             logs=logs_with_local_time,
                              pagination=logs_pagination,
                              users=users,
                              event_types=event_types,
-                             filters=filters)
+                             filters=filters,
+                             org_timezone=org_timezone)
 
     except Exception as e:
         logger.error(f"Error in admin logs: {str(e)}")

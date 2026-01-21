@@ -97,12 +97,17 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for log in logs %}
+                        {% for item in logs %}
+                        {% set log = item.log %}
                         <tr>
                             <td>
                                 <div class="text-nowrap">
-                                    <small class="text-muted">{{ log.timestamp.strftime('%Y-%m-%d') }}</small><br>
-                                    <strong>{{ log.timestamp.strftime('%H:%M:%S') }} UTC</strong>
+                                    {% if item.local_timestamp %}
+                                    <small class="text-muted">{{ item.local_timestamp.strftime('%m/%d/%Y') }}</small><br>
+                                    <strong>{{ item.local_timestamp.strftime('%I:%M:%S %p') }}</strong>
+                                    {% else %}
+                                    <small class="text-muted">N/A</small>
+                                    {% endif %}
                                 </div>
                             </td>
                             <td>
