@@ -54,7 +54,7 @@ class PrepSheetGenerator:
         print("PREP SHEET GENERATION - VERBOSE OUTPUT")
         print("="*80)
         print(f"Patient MRN: {self._redact_mrn(patient.mrn)}")
-        print(f"Generated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"Generated at: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
         print("-"*80)
         
         # Medical Data Sections

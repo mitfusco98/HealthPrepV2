@@ -1081,6 +1081,9 @@ class ComprehensiveEMRSync:
         2. Check legacy identifier system 'https://healthprep.io/fhir/identifier' with value 'healthprep-generated'
         3. Check category coding for 'healthprep-prep-sheet'
         4. Check author display containing 'HealthPrep System'
+        5. Check attachment title for 'PrepSheet_' filename pattern (case-insensitive, most reliable)
+        6. Check description for 'preparation sheet', 'prep sheet', or 'prepsheet' text
+        7. Check type.text for 'Medical Preparation Sheet'
         
         Args:
             document_resource: FHIR DocumentReference resource dict
@@ -1120,6 +1123,35 @@ class ComprehensiveEMRSync:
                 display = author.get('display', '')
                 if 'HealthPrep System' in display:
                     logger.debug(f"Skipping HealthPrep-generated document (author match: {display})")
+                    return True
+            
+            # Method 5: Check attachment title for PrepSheet_ filename pattern
+            # This is the most reliable marker as Epic preserves attachment metadata
+            # Use case-insensitive matching and normalize whitespace for robustness
+            contents = document_resource.get('content', [])
+            for content in contents:
+                attachment = content.get('attachment', {})
+                title = attachment.get('title', '')
+                if title:
+                    normalized_title = title.strip().lower()
+                    if normalized_title.startswith('prepsheet_'):
+                        logger.debug(f"Skipping HealthPrep-generated document (filename pattern match: {title})")
+                        return True
+            
+            # Method 6: Check description for prep sheet indicator
+            description = document_resource.get('description', '')
+            if description:
+                desc_lower = description.lower()
+                if 'preparation sheet' in desc_lower or 'prep sheet' in desc_lower or 'prepsheet' in desc_lower:
+                    logger.debug(f"Skipping HealthPrep-generated document (description match: {description})")
+                    return True
+            
+            # Method 7: Check type.text for "Medical Preparation Sheet"
+            type_info = document_resource.get('type', {})
+            type_text = type_info.get('text', '')
+            if type_text:
+                if 'preparation sheet' in type_text.lower():
+                    logger.debug(f"Skipping HealthPrep-generated document (type.text match: {type_text})")
                     return True
             
             return False
