@@ -67,13 +67,14 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for log in recent_logs %}
+                                    {% for item in recent_logs %}
+                                    {% set log = item.log %}
                                     <tr>
                                         <td>
                                             <span class="badge bg-primary">{{ log.event_type.replace('_', ' ').title() if log.event_type else 'Unknown' }}</span>
                                         </td>
                                         <td>{{ log.user.username if log.user else 'System' }}</td>
-                                        <td>{{ log.timestamp.strftime('%m/%d/%H:%M') }}</td>
+                                        <td>{{ item.local_timestamp.strftime('%m/%d %I:%M %p') if item.local_timestamp else '' }}</td>
                                         <td>
                                             <small class="text-muted">{{ log.data.get('description', '') if log.data else '' }}</small>
                                         </td>

@@ -582,10 +582,33 @@ def get_dashboard_data():
     
     # Get recent activity - ORGANIZATION SCOPED
     # Exclude system logs (org_id=0) and only show current org's logs
-    recent_logs = AdminLog.query.filter(
+    recent_logs_raw = AdminLog.query.filter(
         AdminLog.org_id == current_user.org_id,
         AdminLog.org_id > 0  # Exclude system org logs
     ).order_by(AdminLog.timestamp.desc()).limit(10).all()
+    
+    # Convert timestamps to org's local timezone
+    org_timezone = getattr(current_user.organization, 'timezone', None) if current_user.organization else None
+    try:
+        tz = ZoneInfo(org_timezone) if org_timezone else ZoneInfo('UTC')
+    except Exception:
+        tz = ZoneInfo('UTC')
+    
+    recent_logs = []
+    for log in recent_logs_raw:
+        if log.timestamp:
+            # Handle both naive (assume UTC) and aware timestamps
+            if log.timestamp.tzinfo is None:
+                utc_ts = log.timestamp.replace(tzinfo=ZoneInfo('UTC'))
+            else:
+                utc_ts = log.timestamp.astimezone(ZoneInfo('UTC'))
+            local_ts = utc_ts.astimezone(tz)
+        else:
+            local_ts = None
+        recent_logs.append({
+            'log': log,
+            'local_timestamp': local_ts
+        })
     
     # Get system health indicators
     system_health = analytics.get_usage_statistics()
