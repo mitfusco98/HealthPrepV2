@@ -324,7 +324,7 @@
                                         <td>
                                             {% if matched_docs and matched_docs|length > 0 %}
                                                 {% for doc in matched_docs[:3] %}
-                                                    <a href="{{ url_for('document.view_document', document_id=doc.id) }}" 
+                                                    <a href="{{ url_for('ui.document_view', document_id=doc.id) }}" 
                                                        target="_blank" 
                                                        class="btn btn-sm btn-outline-primary mb-1 me-1"
                                                        title="View {{ doc.filename }}">
@@ -404,7 +404,7 @@
                                                 {% endif %}
                                             </td>
                                             <td>
-                                                <a href="{{ url_for('document.view_document', document_id=doc.id) }}" 
+                                                <a href="{{ url_for('ui.document_view', document_id=doc.id) }}" 
                                                    target="_blank" 
                                                    class="btn btn-sm btn-outline-primary">
                                                     <i class="fas fa-eye"></i>
@@ -450,7 +450,7 @@
                                             <td>{{ doc.document_date.strftime('%m/%d/%Y') if doc.document_date else 'N/A' }}</td>
                                             <td>{{ doc.impression or 'See document' }}</td>
                                             <td>
-                                                <a href="{{ url_for('document.view_document', document_id=doc.id) }}" 
+                                                <a href="{{ url_for('ui.document_view', document_id=doc.id) }}" 
                                                    target="_blank" 
                                                    class="btn btn-sm btn-outline-primary">
                                                     <i class="fas fa-eye"></i>
@@ -496,7 +496,7 @@
                                             <td>{{ doc.document_date.strftime('%m/%d/%Y') if doc.document_date else 'N/A' }}</td>
                                             <td>{{ doc.recommendations or 'See document' }}</td>
                                             <td>
-                                                <a href="{{ url_for('document.view_document', document_id=doc.id) }}" 
+                                                <a href="{{ url_for('ui.document_view', document_id=doc.id) }}" 
                                                    target="_blank" 
                                                    class="btn btn-sm btn-outline-primary">
                                                     <i class="fas fa-eye"></i>
@@ -542,7 +542,7 @@
                                             <td>{{ doc.discharge_date.strftime('%m/%d/%Y') if doc.discharge_date else 'N/A' }}</td>
                                             <td>{{ doc.discharge_diagnosis or 'See document' }}</td>
                                             <td>
-                                                <a href="{{ url_for('document.view_document', document_id=doc.id) }}" 
+                                                <a href="{{ url_for('ui.document_view', document_id=doc.id) }}" 
                                                    target="_blank" 
                                                    class="btn btn-sm btn-outline-primary">
                                                     <i class="fas fa-eye"></i>
@@ -571,7 +571,7 @@
                             <div class="document-item {{ 'high-confidence' if doc.ocr_confidence and doc.ocr_confidence >= 0.8 else 'medium-confidence' if doc.ocr_confidence and doc.ocr_confidence >= 0.6 else 'low-confidence' }}">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
-                                        <a href="{{ url_for('document.view_document', document_id=doc.id) }}" 
+                                        <a href="{{ url_for('ui.document_view', document_id=doc.id) }}" 
                                            target="_blank" 
                                            class="text-decoration-none">
                                             <strong>{{ doc.original_filename or doc.filename }}</strong>
