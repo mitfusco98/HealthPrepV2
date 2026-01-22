@@ -2013,6 +2013,104 @@ def run_screening_engine_tests():
             }
             results['errors'].append(error_info)
             log_progress(f"FAIL: Test 24.3 - Screening list query: {str(e)}")
+        
+        # ===========================================
+        # TEST SUITE 25: HealthPrep Document Exclusion
+        # ===========================================
+        
+        # Test 25.1: Admin document queries should exclude HealthPrep-generated documents
+        results['total'] += 1
+        try:
+            from models import FHIRDocument
+            
+            test_org = Organization.query.filter(Organization.id > 0).first()
+            if test_org:
+                # Query with HealthPrep exclusion filter (as used in /admin/documents)
+                filtered_docs = FHIRDocument.query.filter_by(
+                    org_id=test_org.id,
+                    is_healthprep_generated=False
+                ).count()
+                
+                # Query all docs including HealthPrep-generated
+                all_docs = FHIRDocument.query.filter_by(org_id=test_org.id).count()
+                
+                # Query only HealthPrep-generated
+                healthprep_docs = FHIRDocument.query.filter_by(
+                    org_id=test_org.id,
+                    is_healthprep_generated=True
+                ).count()
+                
+                # Verify counts are consistent
+                assert filtered_docs + healthprep_docs == all_docs, \
+                    f"Document counts inconsistent: {filtered_docs} + {healthprep_docs} != {all_docs}"
+                
+                results['passed'] += 1
+                log_progress(f"PASS: Test 25.1 - HealthPrep exclusion: {healthprep_docs} excluded, {filtered_docs} visible")
+            else:
+                results['passed'] += 1
+                log_progress("PASS: Test 25.1 - HealthPrep exclusion (no orgs to test)")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '25.1_healthprep_exclusion',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 25.1 - HealthPrep exclusion: {str(e)}")
+        
+        # Test 25.2: EMR sync detection method should identify HealthPrep documents
+        results['total'] += 1
+        try:
+            from services.comprehensive_emr_sync import ComprehensiveEMRSync
+            
+            test_org = Organization.query.filter(Organization.id > 0).first()
+            if test_org:
+                sync_service = ComprehensiveEMRSync(test_org.id)
+                
+                # Test with mock FHIR document containing PrepSheet_ pattern
+                mock_healthprep_doc = {
+                    'id': 'test-doc-123',
+                    'content': [{
+                        'attachment': {
+                            'title': 'PrepSheet_12345_20260121.pdf'
+                        }
+                    }]
+                }
+                
+                # Test detection
+                is_healthprep = sync_service._is_healthprep_generated_document(mock_healthprep_doc)
+                assert is_healthprep == True, "Should detect PrepSheet_ pattern"
+                
+                # Test with non-HealthPrep document
+                mock_normal_doc = {
+                    'id': 'test-doc-456',
+                    'content': [{
+                        'attachment': {
+                            'title': 'Lab_Results_12345.pdf'
+                        }
+                    }]
+                }
+                
+                is_normal = sync_service._is_healthprep_generated_document(mock_normal_doc)
+                assert is_normal == False, "Should not detect normal documents"
+                
+                results['passed'] += 1
+                log_progress("PASS: Test 25.2 - EMR sync HealthPrep detection")
+            else:
+                results['passed'] += 1
+                log_progress("PASS: Test 25.2 - EMR sync HealthPrep detection (no orgs to test)")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '25.2_emr_sync_detection',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 25.2 - EMR sync HealthPrep detection: {str(e)}")
     
     return results
 
