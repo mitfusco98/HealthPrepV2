@@ -2522,10 +2522,11 @@ def admin_documents():
             # Get manual documents
             manual_documents = Document.query.filter_by(patient_id=patient.id).all()
             
-            # Get FHIR documents (exclude HealthPrep-generated prep sheets)
+            # Get FHIR documents (exclude HealthPrep-generated and superseded prep sheets)
             fhir_documents = FHIRDocument.query.filter_by(
                 patient_id=patient.id,
-                is_healthprep_generated=False
+                is_healthprep_generated=False,
+                is_superseded=False
             ).all()
             
             # Get immunizations

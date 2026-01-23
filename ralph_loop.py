@@ -2177,6 +2177,70 @@ def run_screening_engine_tests():
             }
             results['errors'].append(error_info)
             log_progress(f"FAIL: Test 26.2 - FHIRDocument supersession flag: {str(e)}")
+        
+        # Test 26.3: Verify relatesTo structure in DocumentReference payload
+        results['total'] += 1
+        try:
+            from services.epic_writeback import EpicWriteBackService
+            from models import Organization
+            import base64
+            
+            test_org = Organization.query.first()
+            if test_org:
+                # Create writeback service (set env var for dry-run)
+                os.environ['EPIC_DRY_RUN'] = 'true'
+                writeback = EpicWriteBackService(test_org.id)
+                
+                # Create a mock patient-like object for testing structure
+                class MockPatient:
+                    epic_patient_id = "TEST123"
+                    full_name = "Test Patient"
+                
+                mock_patient = MockPatient()
+                test_content = base64.b64encode(b"Test content").decode('utf-8')
+                
+                # Test WITHOUT supersedes_id
+                doc_ref_no_supersede = writeback._create_document_reference_structure(
+                    patient=mock_patient,
+                    content_base64=test_content,
+                    content_type="text/plain",
+                    filename="TestPrepSheet.txt",
+                    timestamp="20260123_120000",
+                    encounter_id=None,
+                    supersedes_id=None
+                )
+                assert "relatesTo" not in doc_ref_no_supersede, "Should not have relatesTo without supersedes_id"
+                
+                # Test WITH supersedes_id (living document)
+                doc_ref_with_supersede = writeback._create_document_reference_structure(
+                    patient=mock_patient,
+                    content_base64=test_content,
+                    content_type="text/plain",
+                    filename="TestPrepSheet.txt",
+                    timestamp="20260123_120000",
+                    encounter_id=None,
+                    supersedes_id="PREV_DOC_123"
+                )
+                assert "relatesTo" in doc_ref_with_supersede, "Should have relatesTo with supersedes_id"
+                relates_to = doc_ref_with_supersede["relatesTo"][0]
+                assert relates_to["code"] == "replaces", "relatesTo code should be 'replaces'"
+                assert relates_to["target"]["reference"] == "DocumentReference/PREV_DOC_123", "relatesTo target should reference superseded doc"
+                
+                results['passed'] += 1
+                log_progress("PASS: Test 26.3 - relatesTo structure in DocumentReference")
+            else:
+                results['passed'] += 1
+                log_progress("PASS: Test 26.3 - relatesTo structure (no orgs to test)")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '26.3_relates_to_structure',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 26.3 - relatesTo structure: {str(e)}")
     
     return results
 
