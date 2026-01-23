@@ -288,9 +288,9 @@
                                     <label class="form-label">Appointment Window (days ahead)</label>
                                     <input type="number" class="form-control" id="windowDays" 
                                            value="{{ organization.prioritization_window_days or 14 }}" 
-                                           min="1" max="90">
+                                           min="1" max="20">
                                     <small class="form-text text-muted">
-                                        Process patients with appointments in the next X days (default: 14)
+                                        Process patients with appointments in the next X days (max: 20)
                                     </small>
                                 </div>
                                 

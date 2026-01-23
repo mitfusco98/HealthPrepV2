@@ -2111,6 +2111,72 @@ def run_screening_engine_tests():
             }
             results['errors'].append(error_info)
             log_progress(f"FAIL: Test 25.2 - EMR sync HealthPrep detection: {str(e)}")
+        
+        # ===========================================
+        # TEST SUITE 26: Living Document & Daily Limits
+        # ===========================================
+        
+        # Test 26.1: Patient daily prep sheet limit tracking
+        results['total'] += 1
+        try:
+            from models import Patient
+            from datetime import date
+            
+            test_patient = Patient.query.filter(Patient.id > 0).first()
+            if test_patient:
+                # Test can_generate_prep_sheet method
+                can_gen, current, remaining = test_patient.can_generate_prep_sheet(max_per_day=10)
+                
+                # Should be able to generate if count is fresh (different day) or under limit
+                if test_patient.prep_sheet_count_date != date.today():
+                    assert can_gen == True, "Should allow generation on new day"
+                    assert current == 0, "Current count should be 0 on new day"
+                    assert remaining == 10, "Remaining should be max on new day"
+                else:
+                    # Already has today's date, verify logic consistency
+                    assert (current < 10) == can_gen, "can_gen should match limit check"
+                    assert remaining == max(0, 10 - current), "Remaining should be calculated correctly"
+                
+                results['passed'] += 1
+                log_progress(f"PASS: Test 26.1 - Daily prep sheet limit tracking (current: {current}, can_gen: {can_gen})")
+            else:
+                results['passed'] += 1
+                log_progress("PASS: Test 26.1 - Daily prep sheet limit tracking (no patients to test)")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '26.1_daily_limit_tracking',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 26.1 - Daily prep sheet limit tracking: {str(e)}")
+        
+        # Test 26.2: FHIRDocument supersession flag exists
+        results['total'] += 1
+        try:
+            from models import FHIRDocument
+            
+            # Verify is_superseded column exists on FHIRDocument
+            assert hasattr(FHIRDocument, 'is_superseded'), "FHIRDocument should have is_superseded attribute"
+            
+            # Query should work with is_superseded filter
+            superseded_count = FHIRDocument.query.filter_by(is_superseded=True).count()
+            active_count = FHIRDocument.query.filter_by(is_superseded=False).count()
+            
+            results['passed'] += 1
+            log_progress(f"PASS: Test 26.2 - FHIRDocument supersession (active: {active_count}, superseded: {superseded_count})")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '26.2_supersession_flag',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 26.2 - FHIRDocument supersession flag: {str(e)}")
     
     return results
 

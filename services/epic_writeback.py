@@ -333,6 +333,19 @@ class EpicWriteBackService:
                     'error': f'Patient {patient.full_name} (MRN: {patient.mrn}) does not have an Epic patient ID. Please sync with Epic first.'
                 }
             
+            # Check daily prep sheet limit (living document - max 10 per day)
+            can_generate, current_count, remaining = patient.can_generate_prep_sheet(max_per_day=10)
+            if not can_generate:
+                return {
+                    'success': False,
+                    'error': f'Daily prep sheet limit reached for {patient.full_name} (MRN: {patient.mrn}). Maximum 10 prep sheets per patient per day. Current count: {current_count}. Limit resets at midnight.',
+                    'limit_reached': True,
+                    'current_count': current_count
+                }
+            
+            # Store previous prep sheet ID for supersession (living document)
+            previous_prep_sheet_id = patient.last_prep_sheet_epic_id
+            
             # Initialize FHIR client
             self._initialize_fhir_client()
             
@@ -379,14 +392,15 @@ class EpicWriteBackService:
                 content_type = "application/pdf"
                 content_size = len(pdf_content)
             
-            # Create FHIR DocumentReference resource
+            # Create FHIR DocumentReference resource (with supersession if applicable)
             document_reference = self._create_document_reference_structure(
                 patient=patient,
                 content_base64=content_base64,
                 content_type=content_type,
                 filename=filename,
                 timestamp=timestamp,
-                encounter_id=encounter_id
+                encounter_id=encounter_id,
+                supersedes_id=previous_prep_sheet_id  # Living document: supersede previous prep sheet
             )
             
             # DRY-RUN MODE: Log payload without sending to Epic
@@ -480,6 +494,14 @@ class EpicWriteBackService:
                         content_type=content_type,
                         content_size=content_size
                     )
+                    
+                    # Update daily prep sheet count and track for supersession (living document)
+                    patient.increment_prep_sheet_count(epic_document_id=epic_doc_id)
+                    
+                    # Mark superseded document in local FHIRDocument records
+                    if previous_prep_sheet_id:
+                        self._mark_document_superseded(previous_prep_sheet_id)
+                    
                     db.session.commit()
                 except Exception as tag_error:
                     self.logger.error(f"Failed to create HealthPrep document tag: {str(tag_error)}")
@@ -501,6 +523,8 @@ class EpicWriteBackService:
                         'patient_mrn': patient.mrn,
                         'epic_document_id': epic_doc_id,
                         'filename': filename,
+                        'supersedes': previous_prep_sheet_id,
+                        'daily_count': patient.prep_sheet_count_today,
                         'description': f'Wrote prep sheet to Epic for patient {patient.mrn}'
                     }
                 )
@@ -511,7 +535,9 @@ class EpicWriteBackService:
                     'success': True,
                     'epic_document_id': epic_doc_id,
                     'filename': filename,
-                    'timestamp': timestamp
+                    'timestamp': timestamp,
+                    'supersedes': previous_prep_sheet_id,
+                    'daily_count': patient.prep_sheet_count_today
                 }
                 
                 self._print_prep_sheet_to_console(patient, prep_data, success_result, verbose=verbose)
@@ -642,6 +668,33 @@ class EpicWriteBackService:
         db.session.flush()
         
         self.logger.info(f"Created HealthPrep document record for epic_document_id={epic_document_id}")
+    
+    def _mark_document_superseded(self, epic_document_id):
+        """
+        Mark a FHIRDocument as superseded by a newer version (living document).
+        
+        This updates the local record to indicate this prep sheet is no longer
+        the current version. Does not modify Epic - the relatesTo field in the
+        new document handles the FHIR relationship.
+        
+        Args:
+            epic_document_id: Epic ID of the document to mark as superseded
+        """
+        try:
+            doc = FHIRDocument.query.filter_by(
+                epic_document_id=epic_document_id,
+                org_id=self.organization.id
+            ).first()
+            
+            if doc:
+                doc.is_superseded = True
+                doc.updated_at = datetime.utcnow()
+                self.logger.info(f"Marked document {epic_document_id} as superseded")
+            else:
+                self.logger.warning(f"Could not find document to mark superseded: {epic_document_id}")
+        except Exception as e:
+            self.logger.error(f"Error marking document superseded: {str(e)}")
+            # Don't raise - supersession marking failure shouldn't block success
     
     def _html_to_pdf(self, html_content, patient, timestamp, prep_data=None):
         """
@@ -979,7 +1032,7 @@ PREP SHEET CONTENT
         
         return header + text
     
-    def _create_document_reference_structure(self, patient, content_base64, content_type, filename, timestamp, encounter_id=None):
+    def _create_document_reference_structure(self, patient, content_base64, content_type, filename, timestamp, encounter_id=None, supersedes_id=None):
         """
         Create FHIR DocumentReference structure for Epic
         
@@ -990,6 +1043,7 @@ PREP SHEET CONTENT
             filename: Document filename
             timestamp: Timestamp string
             encounter_id: Epic Encounter ID for context (required by Epic)
+            supersedes_id: Epic document ID that this document supersedes (living document)
             
         Returns:
             dict: FHIR DocumentReference resource
@@ -1039,6 +1093,17 @@ PREP SHEET CONTENT
                 }
             }]
         }
+        
+        # Add relatesTo for living document supersession (FHIR R4)
+        # This marks the previous prep sheet as superseded by this new version
+        if supersedes_id:
+            document_reference["relatesTo"] = [{
+                "code": "replaces",
+                "target": {
+                    "reference": f"DocumentReference/{supersedes_id}"
+                }
+            }]
+            self.logger.info(f"Prep sheet supersedes previous document: {supersedes_id}")
         
         # Add encounter context if provided (required by Epic for DocumentReference writes)
         if encounter_id:
