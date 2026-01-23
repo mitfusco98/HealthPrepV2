@@ -2241,6 +2241,62 @@ def run_screening_engine_tests():
             }
             results['errors'].append(error_info)
             log_progress(f"FAIL: Test 26.3 - relatesTo structure: {str(e)}")
+        
+        # Test 26.4: Verify HealthPrep documents excluded from screening document matching
+        results['total'] += 1
+        try:
+            from prep_sheet.filters import PrepSheetFilters
+            from models import Patient, FHIRDocument
+            
+            # Get a patient with FHIR documents
+            patient_with_docs = db.session.query(Patient).join(
+                FHIRDocument, Patient.id == FHIRDocument.patient_id
+            ).first()
+            
+            if patient_with_docs:
+                # Count total FHIR docs including HealthPrep-generated ones
+                total_fhir = FHIRDocument.query.filter_by(patient_id=patient_with_docs.id).count()
+                healthprep_count = FHIRDocument.query.filter_by(
+                    patient_id=patient_with_docs.id,
+                    is_healthprep_generated=True
+                ).count()
+                superseded_count = FHIRDocument.query.filter_by(
+                    patient_id=patient_with_docs.id,
+                    is_superseded=True
+                ).count()
+                
+                # Now test the filters - they should exclude HealthPrep and superseded docs
+                filters = PrepSheetFilters()
+                all_docs = filters._get_all_patient_documents(patient_with_docs.id)
+                
+                # Count FHIRDocument types in the result
+                fhir_in_result = sum(1 for d in all_docs if hasattr(d, 'epic_document_id'))
+                
+                # Expected: total_fhir - healthprep_count - superseded_count (but may overlap)
+                # Just verify no HealthPrep docs are in result
+                healthprep_in_result = sum(1 for d in all_docs 
+                    if hasattr(d, 'is_healthprep_generated') and d.is_healthprep_generated)
+                superseded_in_result = sum(1 for d in all_docs 
+                    if hasattr(d, 'is_superseded') and d.is_superseded)
+                
+                assert healthprep_in_result == 0, f"Found {healthprep_in_result} HealthPrep docs in filter results"
+                assert superseded_in_result == 0, f"Found {superseded_in_result} superseded docs in filter results"
+                
+                results['passed'] += 1
+                log_progress(f"PASS: Test 26.4 - HealthPrep exclusion (total: {total_fhir}, HP: {healthprep_count}, returned: {fhir_in_result})")
+            else:
+                results['passed'] += 1
+                log_progress("PASS: Test 26.4 - HealthPrep exclusion (no patients with FHIR docs to test)")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '26.4_healthprep_exclusion',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 26.4 - HealthPrep exclusion: {str(e)}")
     
     return results
 

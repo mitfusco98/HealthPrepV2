@@ -170,13 +170,21 @@ class PrepSheetFilters:
         return keyword_filtered
     
     def _get_all_patient_documents(self, patient_id):
-        """Get all documents (Document + FHIRDocument) for a patient"""
+        """Get all documents (Document + FHIRDocument) for a patient
+        
+        IMPORTANT: Excludes HealthPrep-generated and superseded documents to prevent
+        circular matching (prep sheets should not be matched back to screenings).
+        """
         all_docs = []
         
         manual_docs = Document.query.filter_by(patient_id=patient_id).all()
         all_docs.extend(manual_docs)
         
-        fhir_docs = FHIRDocument.query.filter_by(patient_id=patient_id).all()
+        fhir_docs = FHIRDocument.query.filter_by(
+            patient_id=patient_id,
+            is_healthprep_generated=False,
+            is_superseded=False
+        ).all()
         all_docs.extend(fhir_docs)
         
         return all_docs
