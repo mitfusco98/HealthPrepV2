@@ -54,6 +54,7 @@ User onboarding supports both self-service via Stripe setup mode and manual crea
 - **Deterministic PHI Metadata Protection:** Document titles derived exclusively from structured FHIR type codes (LOINC), eliminating PHI leakage from free-text metadata. Free-text title/description/display fields in stored FHIR JSON are redacted.
 - **Dual-Title Architecture:** `FHIRDocument` stores two title fields: `title` (LOINC-derived, PHI-free for UI display) and `search_title` (PHI-filtered, preserves medical keywords for screening matching).
 - **AWS Backup/Recovery Architecture:** Designed for deterministic recovery with minimal data storage. Essential data backed up via RDS PITR and S3. Regenerable data reconstructed from Epic sync. Recovery preserves admin and screening functionality.
+- **Key Management Policy:** Documented in `docs/security/key-management-policy.md`. Covers rotation schedules, Replit → AWS Secrets Manager migration mapping, ENCRYPTION_KEY dual-key rotation for PHI re-encryption, HITRUST 10.g alignment, and container secret injection patterns (ECS/EKS). Infrastructure-agnostic policy with platform-specific procedures.
 - **Timezone-Aware Dormancy Rollover:** Organization model includes IANA timezone field. Dormancy cutoff uses local midnight for clean day-boundary transitions when appointment-based prioritization is enabled. Rolling 14-day window used for other configurations.
 
 ## External Dependencies
