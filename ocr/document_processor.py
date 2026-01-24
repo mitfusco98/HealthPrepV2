@@ -22,6 +22,35 @@ from core.fuzzy_detection import FuzzyDetectionEngine
 from utils.document_audit import DocumentAuditLogger
 from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 
+
+def get_max_document_pages() -> int:
+    """
+    Get the maximum number of pages allowed for document OCR processing.
+    
+    This is a COST CONTROL MECHANISM to prevent runaway compute costs from
+    processing extremely large documents (e.g., 100+ page medical histories).
+    
+    At $300/month/provider pricing with HITRUST i2 compliance debt, it's critical
+    to cap the compute time spent on any single document.
+    
+    Priority:
+    1. MAX_DOCUMENT_PAGES environment variable
+    2. Fallback to 20 pages (reasonable for most screening-relevant documents)
+    
+    Documents exceeding this limit are flagged as skipped_oversized in the database
+    and logged for audit purposes.
+    """
+    env_limit = os.environ.get('MAX_DOCUMENT_PAGES')
+    if env_limit:
+        try:
+            limit = int(env_limit)
+            if limit > 0:
+                return limit
+        except ValueError:
+            pass
+    
+    return 20  # Default: 20 pages (reasonable for most screening docs)
+
 try:
     from docx import Document as DocxDocument
     DOCX_AVAILABLE = True
@@ -228,6 +257,19 @@ class DocumentProcessor:
                 
                 # Extract text using OCR
                 extracted_text, confidence = self._extract_text_from_file(temp_file_path)
+                
+                # COST CONTROL: Check for oversized document sentinel
+                if confidence == -2.0:
+                    self.logger.warning(f"COST CONTROL: Document skipped due to page limit: {document_title}")
+                    if fhir_doc_id is not None and org_id is not None:
+                        DocumentAuditLogger.log_processing_failed(
+                            document_id=fhir_doc_id,
+                            document_type='fhir_document',
+                            org_id=org_id,
+                            error_message=f'Document exceeds MAX_DOCUMENT_PAGES limit (cost control)',
+                            patient_id=patient_id
+                        )
+                    return None
                 
                 if extracted_text:
                     original_length = len(extracted_text)
@@ -512,17 +554,133 @@ class DocumentProcessor:
             self.logger.error(f"Error extracting text from {file_path}: {str(e)}")
             return None, 0.0
     
-    def _extract_from_pdf(self, pdf_path: str) -> Tuple[Optional[str], float]:
+    def _get_pdf_page_count(self, pdf_path: str) -> Optional[int]:
+        """
+        Get page count from PDF without full processing.
+        
+        Uses PyMuPDF (fitz) if available for efficiency, otherwise
+        falls back to pdf2image which is slower but always available.
+        
+        Returns:
+            Page count, or None if unable to determine
+        """
+        try:
+            # Try PyMuPDF first (fast, doesn't render pages)
+            try:
+                import fitz
+                doc = fitz.open(pdf_path)
+                page_count = len(doc)
+                doc.close()
+                return page_count
+            except ImportError:
+                pass
+            
+            # Fallback: use pdf2image with just page count (slower but reliable)
+            # This actually loads pages, but we just count them
+            images = pdf2image.convert_from_path(pdf_path, first_page=1, last_page=1)
+            # Use pdfinfo_from_path for page count if available
+            try:
+                from pdf2image import pdfinfo_from_path
+                info = pdfinfo_from_path(pdf_path)
+                return info.get('Pages', None)
+            except:
+                pass
+            
+            # Last resort: actually convert and count (expensive)
+            images = pdf2image.convert_from_path(pdf_path)
+            return len(images)
+            
+        except Exception as e:
+            self.logger.warning(f"Could not determine page count for {pdf_path}: {e}")
+            return None
+    
+    def _get_pdf_page_count_from_bytes(self, content: bytes) -> Optional[int]:
+        """
+        Get page count from PDF bytes without full OCR processing.
+        
+        COST CONTROL: This is used to check document size before committing
+        to expensive OCR processing. Uses PyMuPDF (fitz) for efficiency.
+        
+        Args:
+            content: Raw PDF bytes
+            
+        Returns:
+            Page count, or None if unable to determine
+        """
+        try:
+            # Try PyMuPDF first (fast, works directly from bytes)
+            try:
+                import fitz
+                doc = fitz.open(stream=content, filetype="pdf")
+                page_count = len(doc)
+                doc.close()
+                return page_count
+            except ImportError:
+                pass
+            except Exception as e:
+                self.logger.debug(f"PyMuPDF failed to open PDF bytes: {e}")
+            
+            # Fallback: write to temp file and use pdfinfo
+            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tf:
+                tf.write(content)
+                temp_path = tf.name
+            
+            try:
+                from pdf2image import pdfinfo_from_path
+                info = pdfinfo_from_path(temp_path)
+                return info.get('Pages', None)
+            except Exception as e:
+                self.logger.debug(f"pdfinfo_from_path failed: {e}")
+                return None
+            finally:
+                try:
+                    os.unlink(temp_path)
+                except:
+                    pass
+                    
+        except Exception as e:
+            self.logger.warning(f"Could not determine page count from PDF bytes: {e}")
+            return None
+    
+    def _extract_from_pdf(self, pdf_path: str, fhir_doc: Optional[FHIRDocument] = None) -> Tuple[Optional[str], float]:
         """Extract text from PDF using OCR with per-page timeout handling
         
         If a page times out, continues processing remaining pages instead of
         failing the entire document. This matches the graceful degradation
         behavior expected for healthcare document processing.
+        
+        COST CONTROL: Checks MAX_DOCUMENT_PAGES and skips oversized documents
+        to prevent runaway compute costs on large medical records.
         """
         try:
+            max_pages = get_max_document_pages()
+            
+            # Get page count before processing
+            page_count = self._get_pdf_page_count(pdf_path)
+            
+            # Update FHIRDocument with page count if provided
+            if fhir_doc is not None and page_count is not None:
+                fhir_doc.page_count = page_count
+            
+            # COST CONTROL: Skip oversized documents
+            if page_count is not None and page_count > max_pages:
+                self.logger.warning(
+                    f"COST CONTROL: Skipping oversized PDF ({page_count} pages > {max_pages} limit): {pdf_path}"
+                )
+                if fhir_doc is not None:
+                    fhir_doc.skipped_oversized = True
+                    fhir_doc.processing_status = 'skipped_oversized'
+                    fhir_doc.processing_error = f"Document has {page_count} pages, exceeds limit of {max_pages}"
+                # Return special sentinel: -2.0 indicates skipped due to size
+                return None, -2.0
+            
             with tempfile.TemporaryDirectory() as temp_dir:
                 # Convert PDF to images
                 images = pdf2image.convert_from_path(pdf_path)
+                
+                # Update page count if we didn't get it earlier
+                if fhir_doc is not None and fhir_doc.page_count is None:
+                    fhir_doc.page_count = len(images)
                 
                 all_text = []
                 confidences = []
@@ -994,6 +1152,7 @@ class DocumentProcessor:
             'successful': [],
             'failed': [],
             'timed_out': [],
+            'skipped_oversized': [],  # COST CONTROL: documents exceeding MAX_DOCUMENT_PAGES
             'start_time': time.time()
         }
         
@@ -1005,24 +1164,48 @@ class DocumentProcessor:
         # Pre-load PHI filter settings snapshot for thread-safe batch processing
         phi_settings_snapshot = self.phi_filter.get_settings_snapshot()
         
-        def process_single_fhir_document_with_session(fhir_doc_id: int) -> Tuple[int, bool, Optional[str]]:
-            """Process a single FHIR document with thread-local session for safety"""
+        def process_single_fhir_document_with_session(fhir_doc_id: int) -> Tuple[int, str, Optional[str]]:
+            """
+            Process a single FHIR document with thread-local session for safety.
+            
+            Returns:
+                Tuple of (doc_id, status, error_message)
+                status is one of: 'success', 'failed', 'skipped_oversized', 'skipped_already_processed'
+            """
             with app.app_context():
                 thread_session = scoped_session(sessionmaker(bind=app_db.engine))
                 try:
                     fhir_doc = thread_session.query(FHIRDocument).get(fhir_doc_id)
                     if not fhir_doc:
-                        return (fhir_doc_id, False, "Document not found")
+                        return (fhir_doc_id, 'failed', "Document not found")
                     
                     # Skip already processed documents
                     if fhir_doc.is_processed:
-                        return (fhir_doc_id, True, None)
+                        return (fhir_doc_id, 'skipped_already_processed', None)
+                    
+                    # Skip already marked as oversized
+                    if fhir_doc.skipped_oversized:
+                        return (fhir_doc_id, 'skipped_oversized', f"Previously skipped: {fhir_doc.page_count} pages")
                     
                     # Get document content if available
                     if fhir_doc.content_data:
                         content = fhir_doc.content_data
                         title = fhir_doc.title or f"document_{fhir_doc_id}"
                         content_type = fhir_doc.content_type
+                        
+                        # COST CONTROL: Check page count for PDFs before OCR processing
+                        max_pages = get_max_document_pages()
+                        if content_type and 'pdf' in content_type.lower():
+                            page_count = self._get_pdf_page_count_from_bytes(content)
+                            if page_count is not None:
+                                fhir_doc.page_count = page_count
+                                if page_count > max_pages:
+                                    fhir_doc.skipped_oversized = True
+                                    fhir_doc.processing_status = 'skipped_oversized'
+                                    fhir_doc.processing_error = f"Document has {page_count} pages, exceeds limit of {max_pages}"
+                                    thread_session.commit()
+                                    self.logger.warning(f"COST CONTROL: Skipping oversized doc {fhir_doc_id} ({page_count} pages > {max_pages} limit)")
+                                    return (fhir_doc_id, 'skipped_oversized', f"{page_count} pages exceeds {max_pages} limit")
                         
                         # Process the document (OCR, PHI filtering with pre-loaded settings and audit logging)
                         extracted_text = self.process_document(
@@ -1037,17 +1220,17 @@ class DocumentProcessor:
                             # Use mark_processed() helper to properly set all status/audit fields
                             fhir_doc.mark_processed(status='completed', ocr_text=extracted_text)
                             thread_session.commit()
-                            return (fhir_doc_id, True, None)
+                            return (fhir_doc_id, 'success', None)
                         else:
                             fhir_doc.mark_processed(status='failed', error="No text extracted")
                             thread_session.commit()
-                            return (fhir_doc_id, False, "No text extracted")
+                            return (fhir_doc_id, 'failed', "No text extracted")
                     else:
-                        return (fhir_doc_id, False, "No content data available")
+                        return (fhir_doc_id, 'failed', "No content data available")
                         
                 except Exception as e:
                     thread_session.rollback()
-                    return (fhir_doc_id, False, str(e))
+                    return (fhir_doc_id, 'failed', str(e))
                 finally:
                     thread_session.remove()
         
@@ -1068,10 +1251,17 @@ class DocumentProcessor:
                     processed_count += 1
                     
                     try:
-                        result_doc_id, success, error = future.result()
+                        result_doc_id, status, error = future.result()
                         
-                        if success:
+                        if status == 'success':
                             results['successful'].append(result_doc_id)
+                        elif status == 'skipped_already_processed':
+                            results['successful'].append(result_doc_id)  # Count as successful
+                        elif status == 'skipped_oversized':
+                            results['skipped_oversized'].append({
+                                'document_id': result_doc_id,
+                                'reason': error or 'Exceeded page limit'
+                            })
                         else:
                             results['failed'].append({
                                 'document_id': result_doc_id,
@@ -1112,9 +1302,11 @@ class DocumentProcessor:
         results['duration_seconds'] = results['end_time'] - results['start_time']
         results['docs_per_second'] = len(fhir_document_ids) / results['duration_seconds'] if results['duration_seconds'] > 0 else 0
         
-        self.logger.info(
-            f"Parallel FHIR OCR complete: {len(results['successful'])}/{len(fhir_document_ids)} successful, "
-            f"{results['docs_per_second']:.2f} docs/sec"
-        )
+        skipped_count = len(results['skipped_oversized'])
+        log_msg = f"Parallel FHIR OCR complete: {len(results['successful'])}/{len(fhir_document_ids)} successful"
+        if skipped_count > 0:
+            log_msg += f", {skipped_count} skipped (COST CONTROL: exceeded page limit)"
+        log_msg += f", {results['docs_per_second']:.2f} docs/sec"
+        self.logger.info(log_msg)
         
         return results

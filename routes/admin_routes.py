@@ -17,7 +17,7 @@ import difflib
 import re
 from werkzeug.utils import secure_filename
 
-from models import User, AdminLog, PHIFilterSettings, log_admin_event, Document, ScreeningPreset, ScreeningType, Provider, UserProviderAssignment, Organization
+from models import User, AdminLog, PHIFilterSettings, log_admin_event, Document, ScreeningPreset, ScreeningType, Provider, UserProviderAssignment, Organization, FHIRDocument
 from app import db
 from services.stripe_service import StripeService
 from flask import request as flask_request
@@ -27,6 +27,58 @@ from ocr.monitor import OCRMonitor
 from ocr.phi_filter import PHIFilter
 
 logger = logging.getLogger(__name__)
+
+
+def _get_oversized_document_stats():
+    """
+    Get statistics about oversized documents that were skipped due to cost control.
+    
+    Returns summary of documents exceeding MAX_DOCUMENT_PAGES limit, useful for 
+    monitoring cost savings and identifying if the limit is too restrictive.
+    """
+    try:
+        from sqlalchemy import func
+        
+        # Count documents skipped due to size
+        total_skipped = FHIRDocument.query.filter(
+            FHIRDocument.skipped_oversized == True
+        ).count()
+        
+        # Get page count distribution for skipped documents
+        page_stats = db.session.query(
+            func.min(FHIRDocument.page_count).label('min_pages'),
+            func.max(FHIRDocument.page_count).label('max_pages'),
+            func.avg(FHIRDocument.page_count).label('avg_pages')
+        ).filter(
+            FHIRDocument.skipped_oversized == True,
+            FHIRDocument.page_count.isnot(None)
+        ).first()
+        
+        # Recent skipped documents (last 7 days)
+        from datetime import datetime, timedelta
+        week_ago = datetime.utcnow() - timedelta(days=7)
+        recent_skipped = FHIRDocument.query.filter(
+            FHIRDocument.skipped_oversized == True,
+            FHIRDocument.updated_at >= week_ago
+        ).count()
+        
+        return {
+            'total_skipped': total_skipped,
+            'recent_skipped_7d': recent_skipped,
+            'page_count_stats': {
+                'min': page_stats.min_pages if page_stats else None,
+                'max': page_stats.max_pages if page_stats else None,
+                'avg': round(float(page_stats.avg_pages), 1) if page_stats and page_stats.avg_pages else None
+            } if page_stats else None
+        }
+    except Exception as e:
+        logger.warning(f"Error getting oversized document stats: {e}")
+        return {
+            'total_skipped': 0,
+            'recent_skipped_7d': 0,
+            'page_count_stats': None,
+            'error': str(e)
+        }
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -1226,13 +1278,17 @@ def performance_metrics_api():
     JSON API for comprehensive performance metrics.
     
     Returns system resource usage, throughput metrics, queue status,
-    and scaling recommendations for capacity planning.
+    scaling recommendations, and cost control stats for capacity planning.
     """
     try:
         from utils.performance import PerformanceMonitor, get_ocr_max_workers_recommendation
+        from ocr.document_processor import get_max_document_pages
         from datetime import datetime
         
         monitor = PerformanceMonitor()
+        
+        # Get cost control stats for oversized documents
+        oversized_stats = _get_oversized_document_stats()
         
         response = {
             'timestamp': datetime.utcnow().isoformat(),
@@ -1243,7 +1299,12 @@ def performance_metrics_api():
                 '5min': monitor.get_throughput_metrics(300)
             },
             'scaling': monitor.get_scaling_recommendations(),
-            'worker_recommendations': get_ocr_max_workers_recommendation()
+            'worker_recommendations': get_ocr_max_workers_recommendation(),
+            'cost_control': {
+                'max_document_pages': get_max_document_pages(),
+                'env_setting': os.environ.get('MAX_DOCUMENT_PAGES', 'default (20)'),
+                'oversized_documents': oversized_stats
+            }
         }
         
         return jsonify(response)

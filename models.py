@@ -2222,6 +2222,10 @@ class FHIRDocument(db.Model):
     # Selective refresh optimization
     last_processed_at = db.Column(db.DateTime, nullable=True)  # When OCR/matching last ran
     
+    # Cost control - page count tracking for oversized document detection
+    page_count = db.Column(db.Integer, nullable=True)  # Number of pages (for PDFs)
+    skipped_oversized = db.Column(db.Boolean, default=False)  # True if skipped due to page limit
+    
     # System fields
     last_accessed = db.Column(db.DateTime)  # Last time document was accessed from Epic
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
