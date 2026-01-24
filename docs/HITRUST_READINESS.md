@@ -152,12 +152,12 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 | PHI filter implementation | Implemented in `ocr/phi_filter.py` | January 2026 |
 | Audit logging | Implemented via AdminLog + DocumentAuditLogger | January 2026 |
 | Security alerting | Implemented via Resend integration | January 2026 |
+| CSP hardening | Nonce-based CSP with FHIR URL auto-detection in `utils/security_headers.py` | January 2026 |
 
 ### Remaining Gaps
 
 | Gap | Priority | Owner | Remediation Plan | Target Date |
 |-----|----------|-------|------------------|-------------|
-| Production CSP hardening | Medium | Dev Team | Remove unsafe-inline from Content-Security-Policy | Pre-launch |
 | Formal incident response testing | Medium | Security Officer | Conduct tabletop exercise per IRP procedures | Pre-launch |
 | TOTP 2FA implementation | Low | Dev Team | Optional enhancement (justified by Epic MFA context) | Future |
 | Network architecture diagram | Medium | DevOps | Document AWS VPC, security groups, subnets | AWS migration |
@@ -172,7 +172,7 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 ### Remediation Timeline
 
 **Phase 1: Pre-Launch (Current → Production)**
-- [ ] CSP hardening
+- [x] CSP hardening (nonce-based, FHIR URL auto-detection)
 - [ ] Incident response tabletop exercise
 - [ ] Data flow diagram
 - [ ] Penetration test engagement
