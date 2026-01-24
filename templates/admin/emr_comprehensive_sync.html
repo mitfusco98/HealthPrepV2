@@ -386,7 +386,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ g.csp_nonce }}">
 $(document).ready(function() {
     // Load initial statistics
     loadSyncStatistics();

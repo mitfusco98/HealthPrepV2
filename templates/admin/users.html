@@ -341,7 +341,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ g.csp_nonce }}">
 let editingUserId = null;
 let deletingUserId = null;
 

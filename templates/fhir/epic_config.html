@@ -289,7 +289,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ g.csp_nonce }}">
 function testConnection() {
     $('#connectionModal').modal('show');
     

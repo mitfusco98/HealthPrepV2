@@ -432,7 +432,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ g.csp_nonce }}">
 function saveAppInfo() {
     const data = {
         epic_client_id: document.getElementById('epicClientId').value,

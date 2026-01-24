@@ -221,7 +221,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ g.csp_nonce }}">
 // Initialize DataTable if available
 if (typeof $.fn.DataTable !== 'undefined') {
     $(document).ready(function() {

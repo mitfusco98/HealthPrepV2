@@ -191,7 +191,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ g.csp_nonce }}">
 // Auto-refresh status every 30 seconds
 setInterval(function() {
     fetch('/emr/api/sync/status')

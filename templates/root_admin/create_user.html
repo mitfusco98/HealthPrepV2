@@ -124,7 +124,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ g.csp_nonce }}">
 // Disable organizations at capacity
 document.addEventListener('DOMContentLoaded', function() {
     const orgSelect = document.getElementById('org_id');

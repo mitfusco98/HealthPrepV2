@@ -753,7 +753,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ g.csp_nonce }}">
 // Print functionality
 window.addEventListener('beforeprint', function() {
     document.title = `PrepSheet_${document.querySelector('.prep-sheet-header h2').textContent.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}`;

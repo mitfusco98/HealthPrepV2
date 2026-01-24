@@ -704,7 +704,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ g.csp_nonce }}">
 // Table sorting functionality
 function sortTable(column) {
     const table = document.querySelector('.screening-table-compact tbody');

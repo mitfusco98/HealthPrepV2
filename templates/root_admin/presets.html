@@ -263,7 +263,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ g.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     // Add confirmation dialogs for destructive actions
     const deleteButtons = document.querySelectorAll('button[onclick*="delete"]');

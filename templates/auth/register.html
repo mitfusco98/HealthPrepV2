@@ -158,7 +158,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ g.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     // Focus on username field
     document.getElementById('username').focus();

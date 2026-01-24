@@ -276,7 +276,7 @@ John Doe, DOB: 01/15/1980, SSN: 123-45-6789, Phone: (555) 123-4567, MRN: MR12345
     </div>
 </div>
 
-<script>
+<script nonce="{{ g.csp_nonce }}">
 // Master toggle control
 document.getElementById('masterToggle').addEventListener('change', function() {
     const phiFilters = document.querySelectorAll('.phi-filter');
