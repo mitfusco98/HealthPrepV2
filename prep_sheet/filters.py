@@ -190,9 +190,13 @@ class PrepSheetFilters:
         return all_docs
     
     def _filter_by_keywords(self, documents, screening_type):
-        """Filter documents by screening type keywords (supports both Document and FHIRDocument)"""
+        """Filter documents by screening type keywords (supports both Document and FHIRDocument)
+        
+        IMPORTANT: If no keywords are defined, returns empty list (no keywords = no matches).
+        This prevents all documents from matching screenings with empty keyword configurations.
+        """
         if not screening_type.keywords_list:
-            return documents
+            return []  # No keywords defined = no document matches
         
         keywords = [k.lower() for k in screening_type.keywords_list]
         relevant_docs = []
