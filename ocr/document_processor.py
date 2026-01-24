@@ -249,6 +249,19 @@ class DocumentProcessor:
                     # Enhance text for screening detection
                     enhanced_text = self._enhance_text_for_screening(filtered_text, document_title)
                     
+                    # Binary content guard may reject content
+                    if enhanced_text is None:
+                        self.logger.warning(f"Document rejected by binary content guard: {document_title}")
+                        if fhir_doc_id is not None and org_id is not None:
+                            DocumentAuditLogger.log_processing_failed(
+                                document_id=fhir_doc_id,
+                                document_type='fhir_document',
+                                org_id=org_id,
+                                error_message='Binary content detected in extracted text (PDF/binary not properly processed)',
+                                patient_id=patient_id
+                            )
+                        return None
+                    
                     if fhir_doc_id is not None and org_id is not None:
                         DocumentAuditLogger.log_processing_completed(
                             document_id=fhir_doc_id,
@@ -392,6 +405,53 @@ class DocumentProcessor:
             self.logger.error(f"Error extracting screening dates: {str(e)}")
             return []
     
+    def _detect_content_type_from_magic_bytes(self, file_path: str) -> Optional[str]:
+        """
+        Detect actual file type from magic bytes (first bytes of file content).
+        
+        This is crucial for Epic documents that may arrive without proper content_type,
+        causing them to be saved with .tmp extension but containing valid PDF/image data.
+        
+        Returns:
+            Detected extension (e.g., '.pdf', '.jpg') or None if unknown
+        """
+        try:
+            with open(file_path, 'rb') as f:
+                header = f.read(100)  # Read first 100 bytes for detection
+            
+            if not header:
+                return None
+            
+            # PDF: %PDF anywhere in first 100 bytes (some PDFs have BOM or whitespace prefix)
+            if b'%PDF' in header:
+                return '.pdf'
+            
+            # JPEG: FFD8FF
+            if header[:3] == b'\xff\xd8\xff':
+                return '.jpg'
+            
+            # PNG: 89 50 4E 47 0D 0A 1A 0A
+            if header[:8] == b'\x89PNG\r\n\x1a\n':
+                return '.png'
+            
+            # TIFF: 49 49 2A 00 (little-endian) or 4D 4D 00 2A (big-endian)
+            if header[:4] in (b'II*\x00', b'MM\x00*'):
+                return '.tiff'
+            
+            # BMP: 42 4D
+            if header[:2] == b'BM':
+                return '.bmp'
+            
+            # HTML detection
+            header_lower = header.lower()
+            if b'<!doctype html' in header_lower or b'<html' in header_lower:
+                return '.html'
+            
+            return None
+        except Exception as e:
+            self.logger.warning(f"Magic byte detection failed for {file_path}: {e}")
+            return None
+    
     def _extract_text_from_file(self, file_path: str) -> Tuple[Optional[str], float]:
         """
         Extract text from file using appropriate method
@@ -405,12 +465,34 @@ class DocumentProcessor:
         try:
             file_ext = os.path.splitext(file_path)[1].lower()
             
+            # For unknown/temp files, detect actual type from magic bytes
+            if file_ext in ['.tmp', '']:
+                detected_ext = self._detect_content_type_from_magic_bytes(file_path)
+                if detected_ext:
+                    self.logger.info(f"Detected {detected_ext} from magic bytes for {file_ext} file")
+                    file_ext = detected_ext
+                else:
+                    self.logger.warning(f"Could not detect content type for {file_ext} file, skipping")
+                    return None, 0.0
+            
             if file_ext == '.pdf':
                 return self._extract_from_pdf(file_path)
             elif file_ext in ['.png', '.jpg', '.jpeg', '.tiff', '.bmp']:
                 return self._extract_from_image(file_path)
             elif file_ext in ['.txt']:
-                # Plain text file
+                # Plain text file - but verify it's actually text, not misidentified binary
+                with open(file_path, 'rb') as f:
+                    raw_content = f.read(100)
+                
+                # Check for binary magic bytes that shouldn't be in text files
+                if b'%PDF' in raw_content:
+                    self.logger.info("Text file contains PDF data, processing as PDF")
+                    return self._extract_from_pdf(file_path)
+                if raw_content[:3] == b'\xff\xd8\xff':
+                    self.logger.info("Text file contains JPEG data, processing as image")
+                    return self._extract_from_image(file_path)
+                
+                # Actually read as text
                 with open(file_path, 'r', encoding='utf-8') as f:
                     return f.read(), 1.0
             elif file_ext in ['.html', '.htm']:
@@ -707,7 +789,7 @@ class DocumentProcessor:
         self.logger.error(f"Unable to extract text from DOC file: {doc_path}. Install antiword, catdoc, or LibreOffice.")
         return None, 0.0
     
-    def _enhance_text_for_screening(self, text: str, document_title: str) -> str:
+    def _enhance_text_for_screening(self, text: str, document_title: str) -> Optional[str]:
         """
         Enhance extracted text for better screening detection
         
@@ -716,9 +798,22 @@ class DocumentProcessor:
             document_title: Document title for context
             
         Returns:
-            Enhanced text with normalized formatting
+            Enhanced text with normalized formatting, or None if content is binary/corrupted
         """
         try:
+            # BINARY CONTENT GUARD: Reject raw PDF/binary content that wasn't properly extracted
+            # This catches cases where PDF content bypassed OCR and was stored as raw text
+            binary_signatures = [
+                '%PDF-',           # PDF header
+                'endstream',       # PDF internal structure
+                '/FlateDecode',    # PDF compression marker
+                '\x00',            # Null bytes indicate binary
+            ]
+            for sig in binary_signatures:
+                if sig in text[:500]:  # Check first 500 chars
+                    self.logger.warning(f"Rejecting binary content in text (found '{sig[:10]}...')")
+                    return None
+            
             # Start with title for additional context
             enhanced = f"DOCUMENT: {document_title}\n\n{text}"
             
