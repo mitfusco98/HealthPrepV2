@@ -280,9 +280,16 @@
 <script nonce="{{ g.csp_nonce }}">
 let unlockingUserId = null;
 
-// Enable/disable unlock button based on checkbox
-document.getElementById('unlockAcknowledge').addEventListener('change', function() {
-    document.getElementById('confirmUnlockBtn').disabled = !this.checked;
+// Wait for DOM to be ready before adding event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Enable/disable unlock button based on checkbox
+    const unlockCheckbox = document.getElementById('unlockAcknowledge');
+    if (unlockCheckbox) {
+        unlockCheckbox.addEventListener('change', function() {
+            const btn = document.getElementById('confirmUnlockBtn');
+            if (btn) btn.disabled = !this.checked;
+        });
+    }
 });
 
 function showUnlockModal(userId, username) {
