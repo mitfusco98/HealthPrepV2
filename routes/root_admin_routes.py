@@ -1477,6 +1477,116 @@ def reset_security_questions(user_id):
 
 # Duplicate delete_organization route removed - keeping only the one added at the end
 
+@root_admin_bp.route('/users/<int:user_id>/unlock', methods=['POST'])
+@login_required
+@root_admin_required
+def unlock_user(user_id):
+    """Unlock a security-locked user account (root admin only)"""
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        if not user.security_locked:
+            return jsonify({
+                'success': False,
+                'error': 'This account is not security-locked'
+            }), 400
+        
+        # Get lockout details from admin logs for the response
+        lockout_details = None
+        try:
+            lockout_log = AdminLog.query.filter(
+                AdminLog.user_id == user.id,
+                AdminLog.event_type.in_(['login_failed', 'account_lockout', 'login_attempt_on_security_locked_account'])
+            ).order_by(AdminLog.timestamp.desc()).first()
+            
+            if lockout_log:
+                lockout_details = {
+                    'ip': lockout_log.ip_address,
+                    'timestamp': lockout_log.timestamp.isoformat() if lockout_log.timestamp else None,
+                    'event_type': lockout_log.event_type
+                }
+        except Exception as e:
+            logger.warning(f"Could not fetch lockout details: {e}")
+        
+        # Clear the security lock
+        user.clear_security_lock()
+        db.session.commit()
+        
+        # Log the unlock action
+        log_admin_event(
+            event_type='security_unlock',
+            user_id=current_user.id,
+            org_id=0,  # System Organization - all root admin actions
+            ip=flask_request.remote_addr,
+            data={
+                'target_user_id': user.id,
+                'target_username': user.username,
+                'target_org_id': user.org_id,
+                'lockout_details': lockout_details,
+                'description': f'Unlocked security-locked account for user: {user.username}'
+            }
+        )
+        
+        logger.info(f"Root admin {current_user.username} unlocked security-locked account for user {user.username}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Account unlocked for {user.username}. They can now log in again.'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error unlocking user {user_id}: {str(e)}")
+        return jsonify({'success': False, 'error': 'Error unlocking user account'}), 500
+
+
+@root_admin_bp.route('/users/<int:user_id>/lockout-details', methods=['GET'])
+@login_required
+@root_admin_required
+def get_lockout_details(user_id):
+    """Get lockout details for a security-locked user (for unlock confirmation modal)"""
+    try:
+        user = User.query.get_or_404(user_id)
+        
+        if not user.security_locked:
+            return jsonify({
+                'success': False,
+                'error': 'This account is not security-locked'
+            }), 400
+        
+        # Get lockout-related logs
+        lockout_logs = AdminLog.query.filter(
+            AdminLog.user_id == user.id,
+            AdminLog.event_type.in_(['login_failed', 'account_lockout', 'login_attempt_on_security_locked_account', 'login_attempt_on_locked_account'])
+        ).order_by(AdminLog.timestamp.desc()).limit(10).all()
+        
+        log_entries = []
+        for log in lockout_logs:
+            log_entries.append({
+                'event_type': log.event_type,
+                'ip_address': log.ip_address,
+                'timestamp': log.timestamp.isoformat() if log.timestamp else None,
+                'data': log.data if hasattr(log, 'data') else {}
+            })
+        
+        return jsonify({
+            'success': True,
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'org_id': user.org_id,
+                'security_locked_at': user.security_locked_at.isoformat() if user.security_locked_at else None,
+                'failed_login_attempts': user.failed_login_attempts
+            },
+            'lockout_logs': log_entries
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching lockout details for user {user_id}: {str(e)}")
+        return jsonify({'success': False, 'error': 'Error fetching lockout details'}), 500
+
+
 @root_admin_bp.route('/presets/<int:preset_id>/promote', methods=['POST'])
 @login_required
 @root_admin_required

@@ -106,7 +106,17 @@ def login():
         user = User.query.filter_by(username=form.username.data).first()
 
         if user and form.password.data and user.check_password(form.password.data):
-            # Check if account is locked
+            # Check if account is permanently security-locked (requires root admin to unlock)
+            if user.is_security_locked():
+                flash('Your account has been locked due to multiple failed login attempts. Please contact your system administrator to unlock your account.', 'error')
+                log_security_event('login_attempt_on_security_locked_account', {
+                    'username': user.username,
+                    'ip': request.remote_addr,
+                    'locked_at': user.security_locked_at.isoformat() if user.security_locked_at else None
+                }, user_id=user.id, org_id=user.org_id or 0)
+                return render_template('auth/login.html', form=form)
+            
+            # Check if account is temporarily locked (rate limiting)
             if user.is_account_locked():
                 flash('Account is temporarily locked due to multiple failed login attempts. Please try again later.', 'error')
                 log_security_event('login_attempt_on_locked_account', {

@@ -94,9 +94,15 @@
                             </span>
                         </td>
                         <td>
-                            <span class="badge bg-{{ 'success' if user.is_active_user else 'danger' }}">
-                                {{ 'Active' if user.is_active_user else 'Inactive' }}
+                            {% if user.security_locked %}
+                            <span class="badge bg-dark" title="Security locked at {{ user.security_locked_at.strftime('%m/%d/%Y %H:%M') if user.security_locked_at else 'unknown' }}">
+                                <i class="fas fa-lock me-1"></i>Security Locked
                             </span>
+                            {% elif user.is_active_user %}
+                            <span class="badge bg-success">Active</span>
+                            {% else %}
+                            <span class="badge bg-danger">Inactive</span>
+                            {% endif %}
                         </td>
                         <td>
                             <small class="text-muted">
@@ -111,6 +117,13 @@
                         <td>
                             <div class="btn-group btn-group-sm">
                                 {% if not user.is_root_admin_user() %}
+                                {% if user.security_locked %}
+                                <button type="button" class="btn btn-outline-success" 
+                                        onclick="showUnlockModal({{ user.id }}, '{{ user.username }}')" 
+                                        title="Unlock Security-Locked Account">
+                                    <i class="fas fa-unlock"></i>
+                                </button>
+                                {% endif %}
                                 {% if user.is_admin_user() %}
                                 <button type="button" class="btn btn-outline-info" 
                                         onclick="resetSecurityQuestions({{ user.id }}, '{{ user.username }}')" 
@@ -216,10 +229,159 @@
     </div>
 </div>
 {% endif %}
+
+<!-- Unlock Security-Locked Account Modal -->
+<div class="modal fade" id="unlockUserModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">
+                    <i class="fas fa-unlock me-2"></i>
+                    Unlock Security-Locked Account
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Security Review Required:</strong> This account was locked due to multiple failed login attempts. Please review the details below before unlocking.
+                </div>
+                
+                <div id="unlockUserDetails">
+                    <div class="text-center py-3">
+                        <i class="fas fa-spinner fa-spin fa-2x"></i>
+                        <p class="mt-2">Loading lockout details...</p>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="unlockAcknowledge" required>
+                    <label class="form-check-label" for="unlockAcknowledge">
+                        <strong>I acknowledge that I have reviewed the lockout details and am granting this user access to the system again.</strong>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="confirmUnlockBtn" disabled onclick="confirmUnlock()">
+                    <i class="fas fa-unlock me-1"></i>
+                    Unlock Account
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script nonce="{{ g.csp_nonce }}">
+let unlockingUserId = null;
+
+// Enable/disable unlock button based on checkbox
+document.getElementById('unlockAcknowledge').addEventListener('change', function() {
+    document.getElementById('confirmUnlockBtn').disabled = !this.checked;
+});
+
+function showUnlockModal(userId, username) {
+    unlockingUserId = userId;
+    const detailsDiv = document.getElementById('unlockUserDetails');
+    detailsDiv.innerHTML = '<div class="text-center py-3"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">Loading lockout details...</p></div>';
+    
+    // Reset checkbox
+    document.getElementById('unlockAcknowledge').checked = false;
+    document.getElementById('confirmUnlockBtn').disabled = true;
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('unlockUserModal'));
+    modal.show();
+    
+    // Fetch lockout details
+    fetch(`/root-admin/users/${userId}/lockout-details`, {
+        headers: {
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            let html = `
+                <h6><i class="fas fa-user me-2"></i>User: <strong>${data.user.username}</strong></h6>
+                <p class="text-muted mb-2">Email: ${data.user.email}</p>
+                <p class="text-muted mb-2">Failed Attempts: <span class="badge bg-danger">${data.user.failed_login_attempts}</span></p>
+                <p class="text-muted mb-3">Locked At: ${data.user.security_locked_at ? new Date(data.user.security_locked_at).toLocaleString() : 'Unknown'}</p>
+                
+                <h6><i class="fas fa-history me-2"></i>Recent Login Activity:</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Event</th>
+                                <th>IP Address</th>
+                                <th>Timestamp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            if (data.lockout_logs && data.lockout_logs.length > 0) {
+                data.lockout_logs.forEach(log => {
+                    html += `
+                        <tr>
+                            <td><span class="badge bg-${log.event_type.includes('failed') ? 'danger' : 'warning'}">${log.event_type}</span></td>
+                            <td><code>${log.ip_address || 'N/A'}</code></td>
+                            <td>${log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A'}</td>
+                        </tr>
+                    `;
+                });
+            } else {
+                html += '<tr><td colspan="3" class="text-center text-muted">No recent login activity found</td></tr>';
+            }
+            
+            html += '</tbody></table></div>';
+            detailsDiv.innerHTML = html;
+        } else {
+            detailsDiv.innerHTML = `<div class="alert alert-danger">${data.error || 'Failed to load lockout details'}</div>`;
+        }
+    })
+    .catch(error => {
+        detailsDiv.innerHTML = '<div class="alert alert-danger">Error loading lockout details</div>';
+    });
+}
+
+function confirmUnlock() {
+    if (!unlockingUserId) return;
+    
+    const btn = document.getElementById('confirmUnlockBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Unlocking...';
+    
+    fetch(`/root-admin/users/${unlockingUserId}/unlock`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-unlock me-1"></i>Unlock Account';
+        }
+    })
+    .catch(error => {
+        alert('Error unlocking user account');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-unlock me-1"></i>Unlock Account';
+    });
+}
+
 // Toggle user active status
 function toggleUserStatus(userId, username, isActive) {
     const action = isActive ? 'deactivate' : 'activate';

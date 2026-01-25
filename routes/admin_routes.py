@@ -1610,7 +1610,7 @@ def edit_user(user_id):
 
         role = request.form.get('role')
         admin_type = request.form.get('admin_type', 'business_admin')  # For admin role
-        is_active = request.form.get('is_active') == 'on'
+        # Note: is_active is no longer managed by org admins - removed from edit form
 
         # Validate input (email cannot be changed after account creation)
         if not role:
@@ -1627,15 +1627,26 @@ def edit_user(user_id):
             'email': user.email,
             'role': user.role,
             'admin_type': user.admin_type,
-            'is_admin': user.is_admin,
-            'is_active_user': user.is_active_user
+            'is_admin': user.is_admin
         }
+        
+        # Role escalation prevention: nurses/MAs cannot be promoted to admin
+        original_role = user.role
+        if original_role in ('nurse', 'MA') and role == 'admin':
+            flash('Nurses and Medical Assistants cannot be promoted to Administrator. The user must be deleted and re-registered.', 'error')
+            return redirect(url_for('admin.users'))
+        
+        # For admin users, only allow admin_type changes (provider <-> business_admin)
+        # Cannot change admin back to nurse/MA
+        if original_role == 'admin' and role in ('nurse', 'MA'):
+            flash('Administrators cannot be demoted to Nurse or Medical Assistant. The user must be deleted and re-registered.', 'error')
+            return redirect(url_for('admin.users'))
 
         # Update user (username and email cannot be changed after account creation)
         user.role = role
         user.is_admin = (role == 'admin')
         user.admin_type = admin_type if role == 'admin' else None
-        user.is_active_user = is_active
+        # Note: is_active_user is NOT updated here - managed by root admin only
         
         # Capture after values for logging
         after_values = {
@@ -1643,8 +1654,7 @@ def edit_user(user_id):
             'email': user.email,
             'role': user.role,
             'admin_type': user.admin_type,
-            'is_admin': user.is_admin,
-            'is_active_user': user.is_active_user
+            'is_admin': user.is_admin
         }
         
         db.session.commit()
@@ -1738,46 +1748,16 @@ def delete_user(user_id):
 @login_required
 @admin_required
 def toggle_user_status(user_id):
-    """Toggle user active status"""
-    try:
-        user = User.query.get_or_404(user_id)
-        
-        # Check organization access
-        org_id = getattr(current_user, 'org_id', 1)
-        if user.org_id != org_id:
-            return jsonify({'success': False, 'error': 'Access denied'}), 403
-
-        # Don't allow deactivating yourself
-        if user.id == current_user.id:
-            return jsonify({'success': False, 'error': 'Cannot modify your own status'}), 400
-
-        # Toggle status
-        user.is_active_user = not user.is_active_user
-        db.session.commit()
-
-        # Log the action
-        status = 'activated' if user.is_active_user else 'deactivated'
-        log_admin_event(
-            event_type='toggle_user_status',
-            user_id=current_user.id,
-            org_id=org_id,
-            ip=flask_request.remote_addr,
-            data={'target_user': user.username, 'user_id': user_id, 'new_status': user.is_active_user, 'description': f'User {user.username} {status}'}
-        )
-
-        return jsonify({
-            'success': True,
-            'message': f'User {user.username} {status} successfully',
-            'is_active': user.is_active_user
-        })
-
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error toggling user status: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Error updating user status'
-        }), 500
+    """Toggle user active status - DEPRECATED for org admins
+    
+    Org admins can no longer activate/deactivate users directly.
+    - Security lockouts can only be cleared by root admin
+    - User activation status is managed by root admin
+    """
+    return jsonify({
+        'success': False, 
+        'error': 'User activation/deactivation is restricted. Please contact your system administrator.'
+    }), 403
 
 
 @admin_bp.route('/presets/import', methods=['GET', 'POST'])

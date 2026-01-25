@@ -775,6 +775,11 @@ class User(UserMixin, db.Model):
     failed_login_attempts = db.Column(db.Integer, default=0)
     locked_until = db.Column(db.DateTime)
     
+    # Security lockout - permanent lock until root admin clears (system-triggered)
+    # Distinct from is_active_user which is admin-triggered deactivation
+    security_locked = db.Column(db.Boolean, default=False, nullable=False)
+    security_locked_at = db.Column(db.DateTime, nullable=True)  # When the lockout occurred
+    
     # Security Questions (Admin 2FA)
     security_question_1 = db.Column(db.String(200))  # "What year did you graduate high school?"
     security_answer_1_hash = db.Column(db.String(255))  # Hashed answer
@@ -890,10 +895,14 @@ class User(UserMixin, db.Model):
         return datetime.utcnow() > (self.last_activity + timeout_delta)
 
     def is_account_locked(self):
-        """Check if account is temporarily locked"""
+        """Check if account is temporarily locked (pre-security-lock state)"""
         if not self.locked_until:
             return False
         return datetime.utcnow() < self.locked_until
+    
+    def is_security_locked(self):
+        """Check if account is permanently security-locked (requires root admin to unlock)"""
+        return self.security_locked
 
     def record_login_attempt(self, success=True):
         """Record login attempt and handle account locking"""
@@ -904,9 +913,19 @@ class User(UserMixin, db.Model):
             self.last_activity = datetime.utcnow()
         else:
             self.failed_login_attempts += 1
-            # Lock account after 5 failed attempts for 30 minutes
+            # Lock account after 5 failed attempts - permanent lock until root admin clears
             if self.failed_login_attempts >= 5:
-                self.locked_until = datetime.utcnow() + timedelta(minutes=30)
+                self.locked_until = datetime.utcnow() + timedelta(minutes=30)  # Keep temporary lock for rate limiting
+                # Also set permanent security lock that requires root admin to clear
+                self.security_locked = True
+                self.security_locked_at = datetime.utcnow()
+    
+    def clear_security_lock(self):
+        """Clear security lock (only root admin should call this)"""
+        self.security_locked = False
+        self.security_locked_at = None
+        self.failed_login_attempts = 0
+        self.locked_until = None
 
     def update_activity(self):
         """Update last activity timestamp"""
@@ -956,7 +975,9 @@ class User(UserMixin, db.Model):
     @property
     def user_status(self):
         """Get user onboarding/activation status"""
-        if not self.is_active_user:
+        if self.security_locked:
+            return 'locked'
+        elif not self.is_active_user:
             return 'inactive'
         elif self.is_temp_password:
             return 'pending'
@@ -967,6 +988,7 @@ class User(UserMixin, db.Model):
     def status_display(self):
         """Get display name for user status"""
         status_names = {
+            'locked': 'Security Locked',
             'pending': 'Pending Setup',
             'active': 'Active',
             'inactive': 'Inactive'
