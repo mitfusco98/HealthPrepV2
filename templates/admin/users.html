@@ -92,13 +92,15 @@
                         </td>
                         <td>
                             <div class="btn-group btn-group-sm" role="group">
-                                <!-- Edit Button -->
+                                <!-- Edit Button - only shown for admin users (role changes between provider/business admin) -->
+                                {% if user.role == 'admin' %}
                                 <button type="button" class="btn btn-outline-primary btn-sm"
                                         onclick="editUser({{ user.id }}, '{{ user.username }}', '{{ user.email }}', '{{ user.role }}', '{{ user.admin_type or '' }}')"
                                         data-bs-toggle="modal" data-bs-target="#editUserModal"
-                                        {% if user.role in ['nurse', 'MA'] %}title="Role cannot be changed for nurses/MAs"{% endif %}>
+                                        title="Edit admin type">
                                     <i class="fas fa-edit"></i>
                                 </button>
+                                {% endif %}
 
                                 <!-- Toggle Status removed - user activation now managed by root admin only -->
 
