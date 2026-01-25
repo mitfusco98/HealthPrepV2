@@ -122,7 +122,7 @@
                             <small class="text-muted" id="epic_fhir_url_help"></small>
                         </div>
                         
-                        <script>
+                        <script nonce="{{ g.csp_nonce }}">
                         function updateEpicFhirUrl() {
                             const env = document.getElementById('epic_environment').value;
                             const urlField = document.getElementById('epic_fhir_url');

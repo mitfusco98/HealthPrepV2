@@ -56,7 +56,7 @@
         }
     </style>
     <!-- Early check: if sessionStorage indicates refresh in progress, add class before paint -->
-    <script>
+    <script nonce="{{ g.csp_nonce }}">
         (function() {
             if (sessionStorage.getItem('page_refreshing')) {
                 document.documentElement.className += ' is-refreshing-html';
@@ -75,7 +75,7 @@
         <div class="loading-text">Refreshing data...</div>
     </div>
     
-    <script>
+    <script nonce="{{ g.csp_nonce }}">
         // Apply is-refreshing class to body immediately if flag is set
         if (sessionStorage.getItem('page_refreshing')) {
             document.body.classList.add('is-refreshing');
@@ -176,7 +176,7 @@
     <script src="{{ url_for('static', filename='js/medical_terminology.js') }}"></script>
     
     <!-- Page refresh loading - clear on window load -->
-    <script>
+    <script nonce="{{ g.csp_nonce }}">
         window.addEventListener('load', function() {
             // Small delay to ensure content is painted
             requestAnimationFrame(function() {

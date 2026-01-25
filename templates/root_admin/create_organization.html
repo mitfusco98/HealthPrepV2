@@ -156,7 +156,7 @@
                         </div>
                     </div>
                     
-                    <script>
+                    <script nonce="{{ g.csp_nonce }}">
                     function updateCreateOrgFhirUrl() {
                         const env = document.getElementById('epic_environment').value;
                         const urlField = document.getElementById('epic_fhir_url');
