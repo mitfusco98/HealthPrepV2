@@ -114,7 +114,7 @@ def smart_start(server_type='dev'):
     if server_type == 'dev':
         logger.info("Starting Flask development server...")
         app = create_app()
-        app.run(host='0.0.0.0', port=available_port, debug=True)
+        app.run(host='0.0.0.0', port=available_port)
     
     elif server_type == 'prod':
         logger.info("Starting Gunicorn production server...")
