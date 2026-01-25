@@ -86,9 +86,21 @@ def login():
     form = LoginForm()
 
     if form.validate_on_submit():
-        from models import User
+        from models import User, Organization, IPBlocklist, UserSession
         from datetime import datetime
         from app import db
+        
+        client_ip = request.remote_addr or 'unknown'
+        
+        # SECURITY: Check if IP is blocked due to password spray detection
+        if IPBlocklist.is_ip_blocked(client_ip):
+            log_security_event('login_blocked_ip', {
+                'ip': client_ip,
+                'username_attempted': form.username.data,
+                'reason': 'password_spray_block'
+            })
+            flash('Your IP address has been temporarily blocked due to suspicious activity. Please try again later.', 'error')
+            return render_template('auth/login.html', form=form)
         
         # SECURITY: IP-based rate limiting to prevent credential stuffing attacks
         # This protects against attackers trying many usernames from the same IP
@@ -147,11 +159,57 @@ def login():
                 logger.info(f"Security question verification required for user: {user.username}")
                 return redirect(url_for('auth.verify_login_security'))
 
+            # SECURITY: Check for concurrent sessions (UNIVERSAL - all environments)
+            has_concurrent, existing_session = UserSession.check_concurrent_session(user.id, client_ip)
+            if has_concurrent:
+                # Concurrent session detected - trigger security lockout
+                user.security_locked = True
+                user.security_locked_at = datetime.utcnow()
+                db.session.commit()
+                
+                # Invalidate all sessions
+                UserSession.invalidate_all_sessions(user.id, 'concurrent_session_lockout')
+                
+                # Send alert
+                SecurityAlertService.send_concurrent_session_alert(
+                    user=user,
+                    new_ip=client_ip,
+                    existing_ip=existing_session.ip_address
+                )
+                
+                # Log the event
+                log_admin_event(
+                    event_type='concurrent_session_lockout',
+                    user_id=user.id,
+                    org_id=user.org_id or 0,
+                    ip=client_ip,
+                    data={
+                        'username': user.username,
+                        'new_ip': client_ip,
+                        'existing_ip': existing_session.ip_address,
+                        'description': f'Concurrent session lockout: {user.username}'
+                    }
+                )
+                
+                flash('Security alert: Your account has been locked due to a login from a different location while you have an active session. Please contact your administrator.', 'error')
+                return render_template('auth/login.html', form=form)
+            
             # Record successful login
             user.record_login_attempt(success=True)
             # SECURITY: Reset IP rate limiter on successful login
             RateLimiter.record_attempt('login', success=True)
             login_user(user)
+            
+            # SECURITY: Create session record for concurrent session tracking
+            import uuid
+            session_token = str(uuid.uuid4())
+            UserSession.create_session(
+                user_id=user.id,
+                session_token=session_token,
+                ip_address=client_ip,
+                user_agent=request.headers.get('User-Agent', '')
+            )
+            session['security_session_token'] = session_token
             
             # Log the login event to audit log
             # Root admin events go to system org (0), never to tenant orgs
@@ -164,13 +222,48 @@ def login():
                 event_type='user_login',
                 user_id=user.id,
                 org_id=log_org_id,
-                ip=request.remote_addr,
+                ip=client_ip,
                 data={
                     'username': user.username,
                     'role': user.role,
                     'description': f'Successful login: {user.username}'
                 }
             )
+            
+            # SECURITY: Unusual hours alert (PRODUCTION ONLY - 6 AM to 5 PM)
+            # Check if organization is in production mode
+            org = Organization.query.get(user.org_id) if user.org_id else None
+            if org and org.is_production_mode:
+                try:
+                    import pytz
+                    org_tz = pytz.timezone(org.timezone or 'UTC')
+                    local_time = datetime.now(org_tz)
+                    local_hour = local_time.hour
+                    
+                    # Business hours: 6 AM (06:00) to 5 PM (17:00)
+                    if local_hour < 6 or local_hour >= 17:
+                        # Outside business hours - send alert (no lockout)
+                        SecurityAlertService.send_unusual_hours_alert(
+                            user=user,
+                            ip_address=client_ip,
+                            login_time=local_time,
+                            org_timezone=org.timezone or 'UTC'
+                        )
+                        
+                        log_admin_event(
+                            event_type='unusual_hours_login',
+                            user_id=user.id,
+                            org_id=log_org_id,
+                            ip=client_ip,
+                            data={
+                                'username': user.username,
+                                'local_hour': local_hour,
+                                'timezone': org.timezone,
+                                'description': f'Login outside business hours: {user.username} at {local_time.strftime("%I:%M %p")}'
+                            }
+                        )
+                except Exception as e:
+                    logger.warning(f"Error checking unusual hours: {e}")
 
             flash('Login successful!', 'success')
 
@@ -225,6 +318,43 @@ def login():
                 ip_address=client_ip,
                 org_id=target_org_id
             )
+            
+            # SECURITY: Password spray detection (UNIVERSAL - all environments)
+            # Track failed attempts by IP across different usernames
+            IPBlocklist.record_failed_attempt(client_ip, form.username.data)
+            db.session.commit()
+            
+            # Check if IP should be blocked (3+ distinct usernames failed in 15 min)
+            should_block, block_record, distinct_count = IPBlocklist.should_block_ip(client_ip)
+            if should_block:
+                # Block the IP
+                IPBlocklist.block_ip(
+                    client_ip, 
+                    f"Password spray detected: {distinct_count} distinct usernames attempted",
+                    duration_minutes=60
+                )
+                
+                # Send alert
+                SecurityAlertService.send_password_spray_alert(
+                    ip_address=client_ip,
+                    usernames_targeted=block_record.failed_usernames if block_record else [],
+                    org_id=target_org_id
+                )
+                
+                # Log the event
+                log_admin_event(
+                    event_type='password_spray_blocked',
+                    user_id=None,
+                    org_id=target_org_id,
+                    ip=client_ip,
+                    data={
+                        'usernames_targeted': block_record.failed_usernames[:10] if block_record else [],
+                        'distinct_count': distinct_count,
+                        'description': f'Password spray attack blocked: {client_ip}'
+                    }
+                )
+                
+                logger.critical(f"Password spray detected and blocked for IP: {client_ip}")
             
             # SECURITY: Record failed attempt for IP-based rate limiting
             RateLimiter.record_attempt('login', success=False)
@@ -295,7 +425,14 @@ def register():
 @auth_bp.route('/logout')
 @login_required
 def logout():
-    """User logout"""
+    """User logout with session invalidation"""
+    from models import UserSession
+    
+    # Invalidate the security session token
+    session_token = session.get('security_session_token')
+    if session_token:
+        UserSession.invalidate_session(session_token, reason='logout')
+    
     logout_user()
     flash('You have been logged out.', 'info')
     return redirect(url_for('auth.login'))
@@ -373,6 +510,19 @@ def verify_login_security():
             # Successful verification
             user.record_login_attempt(success=True)
             login_user(user)
+            
+            # SECURITY: Create session record for concurrent session tracking
+            from models import UserSession
+            import uuid
+            client_ip = request.remote_addr or 'unknown'
+            session_token = str(uuid.uuid4())
+            UserSession.create_session(
+                user_id=user.id,
+                session_token=session_token,
+                ip_address=client_ip,
+                user_agent=request.headers.get('User-Agent', '')
+            )
+            session['security_session_token'] = session_token
             
             # Reset rate limiter on success
             RateLimiter.record_attempt('2fa_verification', user.username, success=True)

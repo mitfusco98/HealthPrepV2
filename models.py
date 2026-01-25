@@ -165,6 +165,30 @@ class Organization(db.Model):
         return bool(self.is_epic_connected)
     
     @property
+    def is_production_mode(self):
+        """
+        Check if organization is in production mode based on Epic FHIR URL.
+        Used to gate certain security features (e.g., unusual hours alerts).
+        Returns False for sandbox mode to allow development testing.
+        """
+        # Check epic_environment field first
+        if self.epic_environment == 'production':
+            return True
+        
+        # Also check FHIR URL for production indicators
+        if self.epic_fhir_url:
+            sandbox_indicators = ['sandbox', 'fhir.epic.com/interconnect-fhir-oauth']
+            fhir_url_lower = self.epic_fhir_url.lower()
+            for indicator in sandbox_indicators:
+                if indicator in fhir_url_lower:
+                    return False
+            # Has FHIR URL but not sandbox - assume production
+            return True
+        
+        # No FHIR URL and environment is sandbox/default
+        return False
+    
+    @property
     def live_user_count(self):
         """Get count of users with permanent passwords (not temp passwords)"""
         from sqlalchemy import func
@@ -4194,6 +4218,304 @@ class DismissedDocumentMatch(db.Model):
 
 
 # Note: ExportRequest model removed - global preset management handled directly by root admin
+
+
+# =============================================================================
+# SECURITY MODELS FOR ADVANCED THREAT DETECTION
+# =============================================================================
+
+class IPBlocklist(db.Model):
+    """Track blocked IPs for password spray detection (HITRUST i1 requirement)"""
+    __tablename__ = 'ip_blocklist'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    ip_address = db.Column(db.String(45), nullable=False, index=True)  # IPv4 or IPv6
+    
+    # Block type and reason
+    block_type = db.Column(db.String(50), nullable=False)  # password_spray, brute_force, manual
+    reason = db.Column(db.Text)
+    
+    # Tracking failed attempts per username from this IP
+    failed_usernames = db.Column(db.JSON, default=list)  # List of distinct usernames attempted
+    failed_attempt_count = db.Column(db.Integer, default=0)
+    
+    # Timing
+    first_attempt_at = db.Column(db.DateTime, default=datetime.utcnow)
+    blocked_at = db.Column(db.DateTime, nullable=True)  # When IP was actually blocked
+    expires_at = db.Column(db.DateTime, nullable=True)  # When block expires (null = permanent)
+    
+    # Status
+    is_blocked = db.Column(db.Boolean, default=False)
+    
+    # Audit
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Indexes for performance
+    __table_args__ = (
+        db.Index('idx_ip_blocklist_lookup', 'ip_address', 'is_blocked'),
+        db.Index('idx_ip_blocklist_expiry', 'expires_at', 'is_blocked'),
+    )
+    
+    @classmethod
+    def record_failed_attempt(cls, ip_address: str, username: str, window_minutes: int = 15) -> 'IPBlocklist':
+        """Record a failed login attempt from an IP. Returns the record."""
+        from app import db
+        
+        # Find or create record for this IP
+        record = cls.query.filter_by(ip_address=ip_address, is_blocked=False).first()
+        
+        # Check if existing record is stale (outside the tracking window)
+        if record:
+            cutoff = datetime.utcnow() - timedelta(minutes=window_minutes)
+            if record.first_attempt_at and record.first_attempt_at < cutoff:
+                # Record is outside the window - reset it for fresh tracking
+                record.failed_usernames = []
+                record.failed_attempt_count = 0
+                record.first_attempt_at = datetime.utcnow()
+        
+        if not record:
+            record = cls(
+                ip_address=ip_address,
+                block_type='password_spray',
+                failed_usernames=[],
+                failed_attempt_count=0,
+                first_attempt_at=datetime.utcnow()
+            )
+            db.session.add(record)
+        
+        # Check if this is a new username (password spray indicator)
+        if username not in (record.failed_usernames or []):
+            usernames = record.failed_usernames or []
+            usernames.append(username)
+            record.failed_usernames = usernames
+        
+        record.failed_attempt_count += 1
+        record.updated_at = datetime.utcnow()
+        
+        return record
+    
+    @classmethod
+    def should_block_ip(cls, ip_address: str, threshold_usernames: int = 3, 
+                       window_minutes: int = 15) -> tuple:
+        """
+        Check if IP should be blocked based on password spray pattern.
+        Returns (should_block, record, distinct_usernames_count)
+        """
+        cutoff = datetime.utcnow() - timedelta(minutes=window_minutes)
+        
+        record = cls.query.filter(
+            cls.ip_address == ip_address,
+            cls.is_blocked == False,
+            cls.first_attempt_at >= cutoff
+        ).first()
+        
+        if not record:
+            return False, None, 0
+        
+        distinct_usernames = len(record.failed_usernames or [])
+        should_block = distinct_usernames >= threshold_usernames
+        
+        return should_block, record, distinct_usernames
+    
+    @classmethod
+    def block_ip(cls, ip_address: str, reason: str, duration_minutes: int = 60) -> 'IPBlocklist':
+        """Block an IP address for a specified duration."""
+        from app import db
+        
+        record = cls.query.filter_by(ip_address=ip_address).first()
+        if not record:
+            record = cls(ip_address=ip_address, block_type='password_spray')
+            db.session.add(record)
+        
+        record.is_blocked = True
+        record.blocked_at = datetime.utcnow()
+        record.expires_at = datetime.utcnow() + timedelta(minutes=duration_minutes)
+        record.reason = reason
+        
+        db.session.commit()
+        return record
+    
+    @classmethod
+    def is_ip_blocked(cls, ip_address: str) -> bool:
+        """Check if an IP is currently blocked."""
+        record = cls.query.filter_by(ip_address=ip_address, is_blocked=True).first()
+        
+        if not record:
+            return False
+        
+        # Check if block has expired
+        if record.expires_at and record.expires_at < datetime.utcnow():
+            # Reset the record for fresh tracking after block expires
+            record.is_blocked = False
+            record.failed_usernames = []
+            record.failed_attempt_count = 0
+            record.first_attempt_at = None
+            db.session.commit()
+            return False
+        
+        return True
+    
+    @classmethod
+    def cleanup_expired(cls):
+        """Clean up expired IP blocks (run periodically)."""
+        from app import db
+        
+        expired = cls.query.filter(
+            cls.is_blocked == True,
+            cls.expires_at < datetime.utcnow()
+        ).all()
+        
+        for record in expired:
+            record.is_blocked = False
+        
+        db.session.commit()
+        return len(expired)
+    
+    def __repr__(self):
+        return f'<IPBlocklist {self.ip_address} blocked={self.is_blocked}>'
+
+
+class UserSession(db.Model):
+    """Track active user sessions for concurrent session detection (HITRUST i1 requirement)"""
+    __tablename__ = 'user_sessions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    
+    # Session identification
+    session_token = db.Column(db.String(255), unique=True, nullable=False)  # Flask session ID or custom token
+    
+    # Session metadata
+    ip_address = db.Column(db.String(45), nullable=False)  # IPv4 or IPv6
+    user_agent = db.Column(db.Text)  # Browser/device info
+    device_fingerprint = db.Column(db.String(64))  # Optional device fingerprint hash
+    
+    # Session timing
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_activity = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=True)
+    
+    # Status
+    is_active = db.Column(db.Boolean, default=True)
+    invalidated_reason = db.Column(db.String(100))  # logout, concurrent_session, security_lockout
+    
+    # Relationships
+    user = db.relationship('User', backref=db.backref('sessions', lazy='dynamic'))
+    
+    # Indexes for performance
+    __table_args__ = (
+        db.Index('idx_user_sessions_lookup', 'user_id', 'is_active'),
+        db.Index('idx_user_sessions_token', 'session_token'),
+        db.Index('idx_user_sessions_expiry', 'expires_at', 'is_active'),
+    )
+    
+    @classmethod
+    def create_session(cls, user_id: int, session_token: str, ip_address: str, 
+                      user_agent: str = None, expires_hours: int = 24) -> 'UserSession':
+        """Create a new session record."""
+        from app import db
+        
+        session = cls(
+            user_id=user_id,
+            session_token=session_token,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            expires_at=datetime.utcnow() + timedelta(hours=expires_hours)
+        )
+        db.session.add(session)
+        db.session.commit()
+        return session
+    
+    @classmethod
+    def get_active_sessions(cls, user_id: int) -> list:
+        """Get all active sessions for a user."""
+        return cls.query.filter(
+            cls.user_id == user_id,
+            cls.is_active == True,
+            (cls.expires_at == None) | (cls.expires_at > datetime.utcnow())
+        ).all()
+    
+    @classmethod
+    def check_concurrent_session(cls, user_id: int, current_ip: str) -> tuple:
+        """
+        Check if there's a concurrent session from a different IP.
+        Returns (has_concurrent, conflicting_session)
+        """
+        active_sessions = cls.get_active_sessions(user_id)
+        
+        for session in active_sessions:
+            if session.ip_address != current_ip:
+                # Found a session from a different IP
+                return True, session
+        
+        return False, None
+    
+    @classmethod
+    def invalidate_all_sessions(cls, user_id: int, reason: str = 'security_lockout') -> int:
+        """Invalidate all sessions for a user. Returns count of invalidated sessions."""
+        from app import db
+        
+        sessions = cls.query.filter(
+            cls.user_id == user_id,
+            cls.is_active == True
+        ).all()
+        
+        count = 0
+        for session in sessions:
+            session.is_active = False
+            session.invalidated_reason = reason
+            count += 1
+        
+        db.session.commit()
+        return count
+    
+    @classmethod
+    def invalidate_session(cls, session_token: str, reason: str = 'logout') -> bool:
+        """Invalidate a specific session."""
+        from app import db
+        
+        session = cls.query.filter_by(session_token=session_token).first()
+        if session:
+            session.is_active = False
+            session.invalidated_reason = reason
+            db.session.commit()
+            return True
+        return False
+    
+    @classmethod
+    def update_activity(cls, session_token: str) -> bool:
+        """Update last activity time for a session."""
+        from app import db
+        
+        session = cls.query.filter_by(session_token=session_token, is_active=True).first()
+        if session:
+            session.last_activity = datetime.utcnow()
+            db.session.commit()
+            return True
+        return False
+    
+    @classmethod
+    def cleanup_expired(cls) -> int:
+        """Clean up expired sessions (run periodically)."""
+        from app import db
+        
+        expired = cls.query.filter(
+            cls.is_active == True,
+            cls.expires_at < datetime.utcnow()
+        ).all()
+        
+        count = 0
+        for session in expired:
+            session.is_active = False
+            session.invalidated_reason = 'expired'
+            count += 1
+        
+        db.session.commit()
+        return count
+    
+    def __repr__(self):
+        return f'<UserSession user={self.user_id} ip={self.ip_address} active={self.is_active}>'
 
 
 # =============================================================================
