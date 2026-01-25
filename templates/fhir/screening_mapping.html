@@ -214,7 +214,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ g.csp_nonce }}">
 function generateAllMappings() {
     if (!confirm('Generate FHIR mappings for all screening types? This may take a moment.')) {
         return;

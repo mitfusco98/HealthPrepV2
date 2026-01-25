@@ -218,8 +218,8 @@ def update_appointment_prioritization():
         
         if 'prioritization_window_days' in data:
             window_days = int(data['prioritization_window_days'])
-            if window_days < 1 or window_days > 90:
-                return jsonify({'success': False, 'error': 'Window days must be between 1 and 90'})
+            if window_days < 1 or window_days > 20:
+                return jsonify({'success': False, 'error': 'Window days must be between 1 and 20'})
             organization.prioritization_window_days = window_days
         
         if 'process_non_scheduled_patients' in data:

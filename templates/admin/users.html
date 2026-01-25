@@ -62,9 +62,23 @@
                             {% endif %}
                         </td>
                         <td>
-                            <span class="badge bg-{{ 'warning' if user.user_status == 'pending' else ('success' if user.user_status == 'active' else 'danger') }}">
+                            {% if user.user_status == 'locked' %}
+                            <span class="badge bg-dark" title="Security locked - contact system administrator">
+                                <i class="fas fa-lock me-1"></i>{{ user.status_display }}
+                            </span>
+                            {% elif user.user_status == 'pending' %}
+                            <span class="badge bg-warning">
                                 {{ user.status_display }}
                             </span>
+                            {% elif user.user_status == 'active' %}
+                            <span class="badge bg-success">
+                                {{ user.status_display }}
+                            </span>
+                            {% else %}
+                            <span class="badge bg-danger">
+                                {{ user.status_display }}
+                            </span>
+                            {% endif %}
                         </td>
                         <td>
                             <small class="text-muted">
@@ -78,20 +92,17 @@
                         </td>
                         <td>
                             <div class="btn-group btn-group-sm" role="group">
-                                <!-- Edit Button -->
+                                <!-- Edit Button - only shown for admin users (role changes between provider/business admin) -->
+                                {% if user.role == 'admin' %}
                                 <button type="button" class="btn btn-outline-primary btn-sm"
-                                        onclick="editUser({{ user.id }}, '{{ user.username }}', '{{ user.email }}', '{{ user.role }}', {{ user.is_active_user|lower }}, '{{ user.admin_type or '' }}')"
-                                        data-bs-toggle="modal" data-bs-target="#editUserModal">
+                                        onclick="editUser({{ user.id }}, '{{ user.username }}', '{{ user.email }}', '{{ user.role }}', '{{ user.admin_type or '' }}')"
+                                        data-bs-toggle="modal" data-bs-target="#editUserModal"
+                                        title="Edit admin type">
                                     <i class="fas fa-edit"></i>
                                 </button>
-
-                                <!-- Toggle Status Button -->
-                                {% if user.id != current_user.id %}
-                                <button type="button" class="btn btn-outline-{{ 'warning' if user.is_active_user else 'success' }} btn-sm"
-                                        onclick="toggleUserStatus({{ user.id }}, '{{ user.username }}', {{ user.is_active_user|lower }})">
-                                    <i class="fas fa-{{ 'ban' if user.is_active_user else 'check' }}"></i>
-                                </button>
                                 {% endif %}
+
+                                <!-- Toggle Status removed - user activation now managed by root admin only -->
 
                                 <!-- Delete Button -->
                                 {% if user.id != current_user.id %}
@@ -215,12 +226,6 @@
                         </div>
                     </div>
 
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="addIsActive" name="is_active" checked>
-                        <label class="form-check-label" for="addIsActive">
-                            Active User
-                        </label>
-                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -283,17 +288,6 @@
                         </div>
                     </div>
 
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="editIsActive" name="is_active">
-                        <label class="form-check-label" for="editIsActive">
-                            Active User
-                        </label>
-                    </div>
-                    
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        <strong>Password Reset:</strong> To reset this user's password, use the "Send Password Reset Email" button below.
-                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -341,7 +335,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ g.csp_nonce }}">
 let editingUserId = null;
 let deletingUserId = null;
 
@@ -389,14 +383,30 @@ document.addEventListener('DOMContentLoaded', function() {
     toggleRoleFields('add');
 });
 
-function editUser(userId, username, email, role, isActive, adminType) {
+function editUser(userId, username, email, role, adminType) {
     editingUserId = userId;
 
     // Populate form fields
     document.getElementById('editUsername').value = username;
     document.getElementById('editEmail').value = email;
-    document.getElementById('editRole').value = role;
-    document.getElementById('editIsActive').checked = isActive;
+    
+    const roleSelect = document.getElementById('editRole');
+    roleSelect.value = role;
+    
+    // Role escalation prevention: nurses/MAs cannot change roles
+    // Admins can only switch admin_type (provider <-> business_admin)
+    if (role === 'nurse' || role === 'MA') {
+        // Disable role dropdown for nurses/MAs - they cannot be promoted
+        roleSelect.disabled = true;
+        roleSelect.title = 'Nurses and Medical Assistants cannot change roles. User must be deleted and re-registered.';
+    } else if (role === 'admin') {
+        // Admins can only stay as admin - disable other options
+        roleSelect.disabled = true;
+        roleSelect.title = 'Administrators cannot be demoted. User must be deleted and re-registered.';
+    } else {
+        roleSelect.disabled = false;
+        roleSelect.title = '';
+    }
     
     // Set admin type if provided
     if (adminType) {

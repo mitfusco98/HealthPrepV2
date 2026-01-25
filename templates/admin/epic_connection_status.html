@@ -118,7 +118,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ g.csp_nonce }}">
 function checkConnectionStatus() {
     const btn = event.target.closest('button');
     const originalContent = btn.innerHTML;

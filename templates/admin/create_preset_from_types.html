@@ -599,7 +599,7 @@
     {% endif %}
 </div>
 
-<script>
+<script nonce="{{ g.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     const checkboxes = document.querySelectorAll('.screening-checkbox');
     const selectedCountEl = document.getElementById('selectedCount');

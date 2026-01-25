@@ -491,7 +491,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ g.csp_nonce }}">
 function approveRequest(requestId, typeName) {
     document.getElementById('approveTypeName').textContent = typeName;
     document.getElementById('approveForm').action = `/root-admin/export-requests/${requestId}/approve`;

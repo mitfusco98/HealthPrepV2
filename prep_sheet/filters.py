@@ -170,21 +170,33 @@ class PrepSheetFilters:
         return keyword_filtered
     
     def _get_all_patient_documents(self, patient_id):
-        """Get all documents (Document + FHIRDocument) for a patient"""
+        """Get all documents (Document + FHIRDocument) for a patient
+        
+        IMPORTANT: Excludes HealthPrep-generated and superseded documents to prevent
+        circular matching (prep sheets should not be matched back to screenings).
+        """
         all_docs = []
         
         manual_docs = Document.query.filter_by(patient_id=patient_id).all()
         all_docs.extend(manual_docs)
         
-        fhir_docs = FHIRDocument.query.filter_by(patient_id=patient_id).all()
+        fhir_docs = FHIRDocument.query.filter_by(
+            patient_id=patient_id,
+            is_healthprep_generated=False,
+            is_superseded=False
+        ).all()
         all_docs.extend(fhir_docs)
         
         return all_docs
     
     def _filter_by_keywords(self, documents, screening_type):
-        """Filter documents by screening type keywords (supports both Document and FHIRDocument)"""
+        """Filter documents by screening type keywords (supports both Document and FHIRDocument)
+        
+        IMPORTANT: If no keywords are defined, returns empty list (no keywords = no matches).
+        This prevents all documents from matching screenings with empty keyword configurations.
+        """
         if not screening_type.keywords_list:
-            return documents
+            return []  # No keywords defined = no document matches
         
         keywords = [k.lower() for k in screening_type.keywords_list]
         relevant_docs = []

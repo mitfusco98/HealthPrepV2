@@ -315,7 +315,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ g.csp_nonce }}">
 function deleteOrganization(orgId, orgName) {
     if (confirm(`Are you sure you want to delete organization "${orgName}"?\n\nThis action cannot be undone.`)) {
         fetch(`/root-admin/organizations/${orgId}/delete`, {

@@ -290,7 +290,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ g.csp_nonce }}">
 // Confidence Distribution Chart
 const confidenceCtx = document.getElementById('confidenceChart').getContext('2d');
 const confidenceChart = new Chart(confidenceCtx, {

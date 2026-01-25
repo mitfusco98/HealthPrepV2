@@ -2111,6 +2111,192 @@ def run_screening_engine_tests():
             }
             results['errors'].append(error_info)
             log_progress(f"FAIL: Test 25.2 - EMR sync HealthPrep detection: {str(e)}")
+        
+        # ===========================================
+        # TEST SUITE 26: Living Document & Daily Limits
+        # ===========================================
+        
+        # Test 26.1: Patient daily prep sheet limit tracking
+        results['total'] += 1
+        try:
+            from models import Patient
+            from datetime import date
+            
+            test_patient = Patient.query.filter(Patient.id > 0).first()
+            if test_patient:
+                # Test can_generate_prep_sheet method
+                can_gen, current, remaining = test_patient.can_generate_prep_sheet(max_per_day=10)
+                
+                # Should be able to generate if count is fresh (different day) or under limit
+                if test_patient.prep_sheet_count_date != date.today():
+                    assert can_gen == True, "Should allow generation on new day"
+                    assert current == 0, "Current count should be 0 on new day"
+                    assert remaining == 10, "Remaining should be max on new day"
+                else:
+                    # Already has today's date, verify logic consistency
+                    assert (current < 10) == can_gen, "can_gen should match limit check"
+                    assert remaining == max(0, 10 - current), "Remaining should be calculated correctly"
+                
+                results['passed'] += 1
+                log_progress(f"PASS: Test 26.1 - Daily prep sheet limit tracking (current: {current}, can_gen: {can_gen})")
+            else:
+                results['passed'] += 1
+                log_progress("PASS: Test 26.1 - Daily prep sheet limit tracking (no patients to test)")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '26.1_daily_limit_tracking',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 26.1 - Daily prep sheet limit tracking: {str(e)}")
+        
+        # Test 26.2: FHIRDocument supersession flag exists
+        results['total'] += 1
+        try:
+            from models import FHIRDocument
+            
+            # Verify is_superseded column exists on FHIRDocument
+            assert hasattr(FHIRDocument, 'is_superseded'), "FHIRDocument should have is_superseded attribute"
+            
+            # Query should work with is_superseded filter
+            superseded_count = FHIRDocument.query.filter_by(is_superseded=True).count()
+            active_count = FHIRDocument.query.filter_by(is_superseded=False).count()
+            
+            results['passed'] += 1
+            log_progress(f"PASS: Test 26.2 - FHIRDocument supersession (active: {active_count}, superseded: {superseded_count})")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '26.2_supersession_flag',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 26.2 - FHIRDocument supersession flag: {str(e)}")
+        
+        # Test 26.3: Verify relatesTo structure in DocumentReference payload
+        results['total'] += 1
+        try:
+            from services.epic_writeback import EpicWriteBackService
+            from models import Organization
+            import base64
+            
+            test_org = Organization.query.first()
+            if test_org:
+                # Create writeback service (set env var for dry-run)
+                os.environ['EPIC_DRY_RUN'] = 'true'
+                writeback = EpicWriteBackService(test_org.id)
+                
+                # Create a mock patient-like object for testing structure
+                class MockPatient:
+                    epic_patient_id = "TEST123"
+                    full_name = "Test Patient"
+                
+                mock_patient = MockPatient()
+                test_content = base64.b64encode(b"Test content").decode('utf-8')
+                
+                # Test WITHOUT supersedes_id
+                doc_ref_no_supersede = writeback._create_document_reference_structure(
+                    patient=mock_patient,
+                    content_base64=test_content,
+                    content_type="text/plain",
+                    filename="TestPrepSheet.txt",
+                    timestamp="20260123_120000",
+                    encounter_id=None,
+                    supersedes_id=None
+                )
+                assert "relatesTo" not in doc_ref_no_supersede, "Should not have relatesTo without supersedes_id"
+                
+                # Test WITH supersedes_id (living document)
+                doc_ref_with_supersede = writeback._create_document_reference_structure(
+                    patient=mock_patient,
+                    content_base64=test_content,
+                    content_type="text/plain",
+                    filename="TestPrepSheet.txt",
+                    timestamp="20260123_120000",
+                    encounter_id=None,
+                    supersedes_id="PREV_DOC_123"
+                )
+                assert "relatesTo" in doc_ref_with_supersede, "Should have relatesTo with supersedes_id"
+                relates_to = doc_ref_with_supersede["relatesTo"][0]
+                assert relates_to["code"] == "replaces", "relatesTo code should be 'replaces'"
+                assert relates_to["target"]["reference"] == "DocumentReference/PREV_DOC_123", "relatesTo target should reference superseded doc"
+                
+                results['passed'] += 1
+                log_progress("PASS: Test 26.3 - relatesTo structure in DocumentReference")
+            else:
+                results['passed'] += 1
+                log_progress("PASS: Test 26.3 - relatesTo structure (no orgs to test)")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '26.3_relates_to_structure',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 26.3 - relatesTo structure: {str(e)}")
+        
+        # Test 26.4: Verify HealthPrep documents excluded from screening document matching
+        results['total'] += 1
+        try:
+            from prep_sheet.filters import PrepSheetFilters
+            from models import Patient, FHIRDocument
+            
+            # Get a patient with FHIR documents
+            patient_with_docs = db.session.query(Patient).join(
+                FHIRDocument, Patient.id == FHIRDocument.patient_id
+            ).first()
+            
+            if patient_with_docs:
+                # Count total FHIR docs including HealthPrep-generated ones
+                total_fhir = FHIRDocument.query.filter_by(patient_id=patient_with_docs.id).count()
+                healthprep_count = FHIRDocument.query.filter_by(
+                    patient_id=patient_with_docs.id,
+                    is_healthprep_generated=True
+                ).count()
+                superseded_count = FHIRDocument.query.filter_by(
+                    patient_id=patient_with_docs.id,
+                    is_superseded=True
+                ).count()
+                
+                # Now test the filters - they should exclude HealthPrep and superseded docs
+                filters = PrepSheetFilters()
+                all_docs = filters._get_all_patient_documents(patient_with_docs.id)
+                
+                # Count FHIRDocument types in the result
+                fhir_in_result = sum(1 for d in all_docs if hasattr(d, 'epic_document_id'))
+                
+                # Expected: total_fhir - healthprep_count - superseded_count (but may overlap)
+                # Just verify no HealthPrep docs are in result
+                healthprep_in_result = sum(1 for d in all_docs 
+                    if hasattr(d, 'is_healthprep_generated') and d.is_healthprep_generated)
+                superseded_in_result = sum(1 for d in all_docs 
+                    if hasattr(d, 'is_superseded') and d.is_superseded)
+                
+                assert healthprep_in_result == 0, f"Found {healthprep_in_result} HealthPrep docs in filter results"
+                assert superseded_in_result == 0, f"Found {superseded_in_result} superseded docs in filter results"
+                
+                results['passed'] += 1
+                log_progress(f"PASS: Test 26.4 - HealthPrep exclusion (total: {total_fhir}, HP: {healthprep_count}, returned: {fhir_in_result})")
+            else:
+                results['passed'] += 1
+                log_progress("PASS: Test 26.4 - HealthPrep exclusion (no patients with FHIR docs to test)")
+        except Exception as e:
+            results['failed'] += 1
+            error_info = {
+                'test': '26.4_healthprep_exclusion',
+                'error_type': type(e).__name__,
+                'message': str(e),
+                'traceback': traceback.format_exc()
+            }
+            results['errors'].append(error_info)
+            log_progress(f"FAIL: Test 26.4 - HealthPrep exclusion: {str(e)}")
     
     return results
 

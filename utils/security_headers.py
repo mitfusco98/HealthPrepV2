@@ -3,19 +3,54 @@ Security headers middleware for Flask application
 
 Implements comprehensive HTTP security headers including:
 - HSTS (HTTP Strict Transport Security)
-- CSP (Content Security Policy)
+- CSP (Content Security Policy) with nonce-based script execution
 - X-Frame-Options
 - X-Content-Type-Options
 - Referrer-Policy
 
 All headers configured for HIPAA compliance and modern browser security.
+CSP strictness is controlled via FHIR URL detection (sandbox = relaxed, production = strict nonces).
 """
 
-from flask import Flask, request
+from flask import Flask, request, g
 from werkzeug.middleware.proxy_fix import ProxyFix
 import logging
+import secrets
+import os
 
 logger = logging.getLogger(__name__)
+
+
+def generate_csp_nonce() -> str:
+    """Generate a cryptographically secure nonce for CSP script execution.
+    
+    Returns:
+        A base64-encoded 16-byte random nonce
+    """
+    return secrets.token_urlsafe(16)
+
+
+def is_production_environment() -> bool:
+    """Detect if running in production based on FHIR URL configuration.
+    
+    Production detection uses the same logic as Epic FHIR client:
+    - If FHIR URL contains 'fhir.epic.com' or 'sandbox' -> sandbox/development
+    - Otherwise -> production
+    
+    This ensures CSP strictness mirrors the FHIR environment mode.
+    
+    Returns:
+        True if production environment, False if sandbox/development
+    """
+    fhir_url = os.environ.get('EPIC_FHIR_BASE_URL', '')
+    
+    # Check for sandbox indicators (matches emr/fhir_client.py logic)
+    if not fhir_url:
+        # No FHIR URL configured - treat as development
+        return False
+    
+    is_sandbox = 'fhir.epic.com' in fhir_url or 'sandbox' in fhir_url.lower()
+    return not is_sandbox
 
 
 class SecurityHeadersMiddleware:
@@ -93,11 +128,27 @@ class SecurityHeadersMiddleware:
 
 def add_security_headers(app: Flask) -> None:
     """
-    Add security headers to all Flask responses
+    Add security headers to all Flask responses with nonce-based CSP.
+    
+    CSP strictness is controlled by FHIR URL environment detection:
+    - Sandbox (fhir.epic.com or 'sandbox' in URL): Relaxed CSP with unsafe-inline
+    - Production: Strict nonce-based CSP for HITRUST i2 compliance
+    
+    Both modes maintain identical functionality - only security strictness differs.
     
     Args:
         app: Flask application instance
     """
+    
+    @app.before_request
+    def generate_request_nonce():
+        """Generate unique CSP nonce for each request.
+        
+        The nonce is stored in Flask's g object and available to templates
+        via {{ g.csp_nonce }} for use in script/style tags.
+        """
+        g.csp_nonce = generate_csp_nonce()
+        g.is_production = is_production_environment()
     
     @app.after_request
     def set_security_headers(response):
@@ -134,23 +185,30 @@ def add_security_headers(app: Flask) -> None:
         
         # Content-Security-Policy - Mitigate XSS and injection attacks
         # 
-        # SECURITY NOTES:
-        # - 'unsafe-inline' is required for Bootstrap/legacy templates with inline styles
-        # - 'unsafe-eval' is required for some Bootstrap tooltip/popover functionality
-        # - Production roadmap: Migrate to nonce-based CSP for stricter security
-        # - To enable strict mode: set CSP_STRICT_MODE=true in environment
+        # HITRUST i2 COMPLIANCE:
+        # - Production mode uses nonce-based CSP (no unsafe-inline)
+        # - Sandbox mode uses relaxed CSP for development compatibility
+        # - Both modes have identical functionality via nonce injection
+        # - Mode is detected via FHIR URL (same logic as Epic FHIR client)
         # 
         # Trusted CDN domains are whitelisted for Bootstrap, jQuery, and FontAwesome
-        import os
-        is_strict_mode = os.environ.get('CSP_STRICT_MODE', '').lower() == 'true'
         
-        if is_strict_mode:
-            # Strict CSP - requires all inline scripts/styles to be moved to external files
-            # Only enable after migrating templates to use external JS/CSS
+        # Get nonce from request context (generated in before_request)
+        nonce = getattr(g, 'csp_nonce', None)
+        is_prod = getattr(g, 'is_production', False)
+        
+        # Allow manual override via environment variable
+        force_strict = os.environ.get('CSP_STRICT_MODE', '').lower() == 'true'
+        use_strict_csp = is_prod or force_strict
+        
+        if use_strict_csp and nonce:
+            # Production/Strict CSP - uses nonces for inline scripts
+            # Scripts must have nonce="{{ g.csp_nonce }}" attribute
+            # Styles still use unsafe-inline for Bootstrap compatibility (lower risk than scripts)
             csp_directives = [
                 "default-src 'self'",
-                "script-src 'self' https://cdn.jsdelivr.net https://code.jquery.com https://cdnjs.cloudflare.com",
-                "style-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com",
+                f"script-src 'self' 'nonce-{nonce}' https://cdn.jsdelivr.net https://code.jquery.com https://cdnjs.cloudflare.com",
+                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com",
                 "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:",
                 "img-src 'self' data: https:",
                 "connect-src 'self'",
@@ -159,10 +217,10 @@ def add_security_headers(app: Flask) -> None:
                 "form-action 'self'",
                 "upgrade-insecure-requests"
             ]
-            logger.info("CSP: Strict mode enabled (no unsafe-inline/unsafe-eval)")
+            logger.debug(f"CSP: Production mode with nonce (env={is_prod}, force={force_strict})")
         else:
-            # Standard CSP with unsafe-inline for Bootstrap compatibility
-            # This is the current default for existing Flask templates
+            # Sandbox/Development CSP with unsafe-inline for Bootstrap compatibility
+            # This matches sandbox behavior for development testing
             csp_directives = [
                 "default-src 'self'",
                 "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://code.jquery.com https://cdnjs.cloudflare.com",
@@ -180,7 +238,11 @@ def add_security_headers(app: Flask) -> None:
         
         return response
     
-    logger.info("Security headers middleware enabled")
+    # Log CSP mode at startup
+    if is_production_environment():
+        logger.info("Security headers middleware enabled (PRODUCTION mode - nonce-based CSP)")
+    else:
+        logger.info("Security headers middleware enabled (SANDBOX mode - relaxed CSP)")
 
 
 def configure_security_middleware(app: Flask, force_https: bool = True) -> None:

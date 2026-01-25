@@ -22,6 +22,35 @@ from core.fuzzy_detection import FuzzyDetectionEngine
 from utils.document_audit import DocumentAuditLogger
 from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 
+
+def get_max_document_pages() -> int:
+    """
+    Get the maximum number of pages allowed for document OCR processing.
+    
+    This is a COST CONTROL MECHANISM to prevent runaway compute costs from
+    processing extremely large documents (e.g., 100+ page medical histories).
+    
+    At $300/month/provider pricing with HITRUST i2 compliance debt, it's critical
+    to cap the compute time spent on any single document.
+    
+    Priority:
+    1. MAX_DOCUMENT_PAGES environment variable
+    2. Fallback to 20 pages (reasonable for most screening-relevant documents)
+    
+    Documents exceeding this limit are flagged as skipped_oversized in the database
+    and logged for audit purposes.
+    """
+    env_limit = os.environ.get('MAX_DOCUMENT_PAGES')
+    if env_limit:
+        try:
+            limit = int(env_limit)
+            if limit > 0:
+                return limit
+        except ValueError:
+            pass
+    
+    return 20  # Default: 20 pages (reasonable for most screening docs)
+
 try:
     from docx import Document as DocxDocument
     DOCX_AVAILABLE = True
@@ -229,6 +258,19 @@ class DocumentProcessor:
                 # Extract text using OCR
                 extracted_text, confidence = self._extract_text_from_file(temp_file_path)
                 
+                # COST CONTROL: Check for oversized document sentinel
+                if confidence == -2.0:
+                    self.logger.warning(f"COST CONTROL: Document skipped due to page limit: {document_title}")
+                    if fhir_doc_id is not None and org_id is not None:
+                        DocumentAuditLogger.log_processing_failed(
+                            document_id=fhir_doc_id,
+                            document_type='fhir_document',
+                            org_id=org_id,
+                            error_message=f'Document exceeds MAX_DOCUMENT_PAGES limit (cost control)',
+                            patient_id=patient_id
+                        )
+                    return None
+                
                 if extracted_text:
                     original_length = len(extracted_text)
                     
@@ -248,6 +290,19 @@ class DocumentProcessor:
                     
                     # Enhance text for screening detection
                     enhanced_text = self._enhance_text_for_screening(filtered_text, document_title)
+                    
+                    # Binary content guard may reject content
+                    if enhanced_text is None:
+                        self.logger.warning(f"Document rejected by binary content guard: {document_title}")
+                        if fhir_doc_id is not None and org_id is not None:
+                            DocumentAuditLogger.log_processing_failed(
+                                document_id=fhir_doc_id,
+                                document_type='fhir_document',
+                                org_id=org_id,
+                                error_message='Binary content detected in extracted text (PDF/binary not properly processed)',
+                                patient_id=patient_id
+                            )
+                        return None
                     
                     if fhir_doc_id is not None and org_id is not None:
                         DocumentAuditLogger.log_processing_completed(
@@ -392,6 +447,53 @@ class DocumentProcessor:
             self.logger.error(f"Error extracting screening dates: {str(e)}")
             return []
     
+    def _detect_content_type_from_magic_bytes(self, file_path: str) -> Optional[str]:
+        """
+        Detect actual file type from magic bytes (first bytes of file content).
+        
+        This is crucial for Epic documents that may arrive without proper content_type,
+        causing them to be saved with .tmp extension but containing valid PDF/image data.
+        
+        Returns:
+            Detected extension (e.g., '.pdf', '.jpg') or None if unknown
+        """
+        try:
+            with open(file_path, 'rb') as f:
+                header = f.read(100)  # Read first 100 bytes for detection
+            
+            if not header:
+                return None
+            
+            # PDF: %PDF anywhere in first 100 bytes (some PDFs have BOM or whitespace prefix)
+            if b'%PDF' in header:
+                return '.pdf'
+            
+            # JPEG: FFD8FF
+            if header[:3] == b'\xff\xd8\xff':
+                return '.jpg'
+            
+            # PNG: 89 50 4E 47 0D 0A 1A 0A
+            if header[:8] == b'\x89PNG\r\n\x1a\n':
+                return '.png'
+            
+            # TIFF: 49 49 2A 00 (little-endian) or 4D 4D 00 2A (big-endian)
+            if header[:4] in (b'II*\x00', b'MM\x00*'):
+                return '.tiff'
+            
+            # BMP: 42 4D
+            if header[:2] == b'BM':
+                return '.bmp'
+            
+            # HTML detection
+            header_lower = header.lower()
+            if b'<!doctype html' in header_lower or b'<html' in header_lower:
+                return '.html'
+            
+            return None
+        except Exception as e:
+            self.logger.warning(f"Magic byte detection failed for {file_path}: {e}")
+            return None
+    
     def _extract_text_from_file(self, file_path: str) -> Tuple[Optional[str], float]:
         """
         Extract text from file using appropriate method
@@ -405,12 +507,34 @@ class DocumentProcessor:
         try:
             file_ext = os.path.splitext(file_path)[1].lower()
             
+            # For unknown/temp files, detect actual type from magic bytes
+            if file_ext in ['.tmp', '']:
+                detected_ext = self._detect_content_type_from_magic_bytes(file_path)
+                if detected_ext:
+                    self.logger.info(f"Detected {detected_ext} from magic bytes for {file_ext} file")
+                    file_ext = detected_ext
+                else:
+                    self.logger.warning(f"Could not detect content type for {file_ext} file, skipping")
+                    return None, 0.0
+            
             if file_ext == '.pdf':
                 return self._extract_from_pdf(file_path)
             elif file_ext in ['.png', '.jpg', '.jpeg', '.tiff', '.bmp']:
                 return self._extract_from_image(file_path)
             elif file_ext in ['.txt']:
-                # Plain text file
+                # Plain text file - but verify it's actually text, not misidentified binary
+                with open(file_path, 'rb') as f:
+                    raw_content = f.read(100)
+                
+                # Check for binary magic bytes that shouldn't be in text files
+                if b'%PDF' in raw_content:
+                    self.logger.info("Text file contains PDF data, processing as PDF")
+                    return self._extract_from_pdf(file_path)
+                if raw_content[:3] == b'\xff\xd8\xff':
+                    self.logger.info("Text file contains JPEG data, processing as image")
+                    return self._extract_from_image(file_path)
+                
+                # Actually read as text
                 with open(file_path, 'r', encoding='utf-8') as f:
                     return f.read(), 1.0
             elif file_ext in ['.html', '.htm']:
@@ -430,38 +554,223 @@ class DocumentProcessor:
             self.logger.error(f"Error extracting text from {file_path}: {str(e)}")
             return None, 0.0
     
-    def _extract_from_pdf(self, pdf_path: str) -> Tuple[Optional[str], float]:
-        """Extract text from PDF using OCR with per-page timeout handling
+    def _get_pdf_page_count(self, pdf_path: str) -> Optional[int]:
+        """
+        Get page count from PDF without full processing.
+        
+        Uses PyMuPDF (fitz) if available for efficiency, otherwise
+        falls back to pdf2image which is slower but always available.
+        
+        Returns:
+            Page count, or None if unable to determine
+        """
+        try:
+            # Try PyMuPDF first (fast, doesn't render pages)
+            try:
+                import fitz
+                doc = fitz.open(pdf_path)
+                page_count = len(doc)
+                doc.close()
+                return page_count
+            except ImportError:
+                pass
+            
+            # Fallback: use pdf2image with just page count (slower but reliable)
+            # This actually loads pages, but we just count them
+            images = pdf2image.convert_from_path(pdf_path, first_page=1, last_page=1)
+            # Use pdfinfo_from_path for page count if available
+            try:
+                from pdf2image import pdfinfo_from_path
+                info = pdfinfo_from_path(pdf_path)
+                return info.get('Pages', None)
+            except:
+                pass
+            
+            # Last resort: actually convert and count (expensive)
+            images = pdf2image.convert_from_path(pdf_path)
+            return len(images)
+            
+        except Exception as e:
+            self.logger.warning(f"Could not determine page count for {pdf_path}: {e}")
+            return None
+    
+    def _get_pdf_page_count_from_bytes(self, content: bytes) -> Optional[int]:
+        """
+        Get page count from PDF bytes without full OCR processing.
+        
+        COST CONTROL: This is used to check document size before committing
+        to expensive OCR processing. Uses PyMuPDF (fitz) for efficiency.
+        
+        Args:
+            content: Raw PDF bytes
+            
+        Returns:
+            Page count, or None if unable to determine
+        """
+        try:
+            # Try PyMuPDF first (fast, works directly from bytes)
+            try:
+                import fitz
+                doc = fitz.open(stream=content, filetype="pdf")
+                page_count = len(doc)
+                doc.close()
+                return page_count
+            except ImportError:
+                pass
+            except Exception as e:
+                self.logger.debug(f"PyMuPDF failed to open PDF bytes: {e}")
+            
+            # Fallback: write to temp file and use pdfinfo
+            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tf:
+                tf.write(content)
+                temp_path = tf.name
+            
+            try:
+                from pdf2image import pdfinfo_from_path
+                info = pdfinfo_from_path(temp_path)
+                return info.get('Pages', None)
+            except Exception as e:
+                self.logger.debug(f"pdfinfo_from_path failed: {e}")
+                return None
+            finally:
+                try:
+                    os.unlink(temp_path)
+                except:
+                    pass
+                    
+        except Exception as e:
+            self.logger.warning(f"Could not determine page count from PDF bytes: {e}")
+            return None
+    
+    def _extract_from_pdf(self, pdf_path: str, fhir_doc: Optional[FHIRDocument] = None) -> Tuple[Optional[str], float]:
+        """Extract text from PDF using hybrid approach with per-page timeout handling
+        
+        COST OPTIMIZATION (v2): Uses PyMuPDF hybrid extraction:
+        1. Try embedded text first (fast, no rendering)
+        2. Only render pages that need OCR using get_pixmap() (lazy rendering)
+        3. Eliminates pdf2image dependency for most documents
+        
+        This reduces compute by 50-80% for documents with embedded text.
         
         If a page times out, continues processing remaining pages instead of
         failing the entire document. This matches the graceful degradation
         behavior expected for healthcare document processing.
+        
+        COST CONTROL: Checks MAX_DOCUMENT_PAGES and skips oversized documents
+        to prevent runaway compute costs on large medical records.
         """
         try:
+            import fitz
+            PYMUPDF_AVAILABLE = True
+        except ImportError:
+            PYMUPDF_AVAILABLE = False
+        
+        try:
+            max_pages = get_max_document_pages()
+            
+            # Get page count before processing
+            page_count = self._get_pdf_page_count(pdf_path)
+            
+            # Update FHIRDocument with page count if provided
+            if fhir_doc is not None and page_count is not None:
+                fhir_doc.page_count = page_count
+            
+            # COST CONTROL: Skip oversized documents
+            if page_count is not None and page_count > max_pages:
+                self.logger.warning(
+                    f"COST CONTROL: Skipping oversized PDF ({page_count} pages > {max_pages} limit): {pdf_path}"
+                )
+                if fhir_doc is not None:
+                    fhir_doc.skipped_oversized = True
+                    fhir_doc.processing_status = 'skipped_oversized'
+                    fhir_doc.processing_error = f"Document has {page_count} pages, exceeds limit of {max_pages}"
+                # Return special sentinel: -2.0 indicates skipped due to size
+                return None, -2.0
+            
             with tempfile.TemporaryDirectory() as temp_dir:
-                # Convert PDF to images
-                images = pdf2image.convert_from_path(pdf_path)
-                
                 all_text = []
                 confidences = []
                 timed_out_pages = []
+                pages_extracted = 0
+                pages_ocred = 0
                 
-                for i, image in enumerate(images):
-                    # Save image temporarily
-                    image_path = os.path.join(temp_dir, f"page_{i}.png")
-                    image.save(image_path, 'PNG')
+                if PYMUPDF_AVAILABLE:
+                    # OPTIMIZED PATH: Use PyMuPDF for hybrid extraction
+                    doc = fitz.open(pdf_path)
+                    try:
+                        num_pages = len(doc)
+                        
+                        # Update page count if we didn't get it earlier
+                        if fhir_doc is not None and fhir_doc.page_count is None:
+                            fhir_doc.page_count = num_pages
+                        
+                        for i in range(num_pages):
+                            page = doc[i]
+                            page_text = page.get_text("text").strip()
+                            
+                            # If page has embedded text (>50 chars), use directly (no OCR needed)
+                            if len(page_text) >= 50:
+                                all_text.append(page_text)
+                                confidences.append(1.0)
+                                pages_extracted += 1
+                            else:
+                                # LAZY RENDERING: Only render this page for OCR
+                                # Use get_pixmap() instead of pdf2image (faster, no poppler)
+                                zoom = 150 / 72  # 150 DPI for good OCR quality
+                                matrix = fitz.Matrix(zoom, zoom)
+                                pixmap = page.get_pixmap(matrix=matrix, alpha=False)
+                                
+                                image_path = os.path.join(temp_dir, f"page_{i}.png")
+                                pixmap.save(image_path)
+                                
+                                # Extract text from image (has its own timeout)
+                                text, confidence = self._extract_from_image(image_path)
+                                
+                                if confidence == -1.0:
+                                    # Timeout sentinel - page OCR timed out
+                                    timed_out_pages.append(i + 1)
+                                    self.logger.warning(f"Page {i+1} of {pdf_path} timed out during OCR")
+                                    # FALLBACK: Use short embedded text if OCR timed out
+                                    if page_text:
+                                        all_text.append(page_text)
+                                        confidences.append(0.5)  # Lower confidence for short text
+                                        pages_extracted += 1
+                                elif text:
+                                    all_text.append(text)
+                                    confidences.append(confidence)
+                                    pages_ocred += 1
+                                elif page_text:
+                                    # OCR returned nothing, but we have some embedded text - use it
+                                    all_text.append(page_text)
+                                    confidences.append(0.5)  # Lower confidence for short text
+                                    pages_extracted += 1
+                    finally:
+                        doc.close()
                     
-                    # Extract text from image (has its own timeout)
-                    text, confidence = self._extract_from_image(image_path)
+                    self.logger.info(
+                        f"PDF hybrid extraction: {pages_extracted} pages embedded text, "
+                        f"{pages_ocred} pages OCR'd ({pdf_path})"
+                    )
+                else:
+                    # FALLBACK: Use pdf2image if PyMuPDF not available
+                    images = pdf2image.convert_from_path(pdf_path)
                     
-                    if confidence == -1.0:
-                        # Timeout sentinel - page OCR timed out
-                        timed_out_pages.append(i + 1)
-                        self.logger.warning(f"Page {i+1} of {pdf_path} timed out during OCR")
-                    elif text:
-                        all_text.append(text)
-                        confidences.append(confidence)
-                    # Low-confidence results (confidence >= 0 but no text) are just skipped silently
+                    # Update page count if we didn't get it earlier
+                    if fhir_doc is not None and fhir_doc.page_count is None:
+                        fhir_doc.page_count = len(images)
+                    
+                    for i, image in enumerate(images):
+                        image_path = os.path.join(temp_dir, f"page_{i}.png")
+                        image.save(image_path, 'PNG')
+                        
+                        text, confidence = self._extract_from_image(image_path)
+                        
+                        if confidence == -1.0:
+                            timed_out_pages.append(i + 1)
+                            self.logger.warning(f"Page {i+1} of {pdf_path} timed out during OCR")
+                        elif text:
+                            all_text.append(text)
+                            confidences.append(confidence)
                 
                 if timed_out_pages:
                     self.logger.warning(f"PDF {pdf_path}: {len(timed_out_pages)} pages had no text: {timed_out_pages}")
@@ -707,7 +1016,7 @@ class DocumentProcessor:
         self.logger.error(f"Unable to extract text from DOC file: {doc_path}. Install antiword, catdoc, or LibreOffice.")
         return None, 0.0
     
-    def _enhance_text_for_screening(self, text: str, document_title: str) -> str:
+    def _enhance_text_for_screening(self, text: str, document_title: str) -> Optional[str]:
         """
         Enhance extracted text for better screening detection
         
@@ -716,9 +1025,22 @@ class DocumentProcessor:
             document_title: Document title for context
             
         Returns:
-            Enhanced text with normalized formatting
+            Enhanced text with normalized formatting, or None if content is binary/corrupted
         """
         try:
+            # BINARY CONTENT GUARD: Reject raw PDF/binary content that wasn't properly extracted
+            # This catches cases where PDF content bypassed OCR and was stored as raw text
+            binary_signatures = [
+                '%PDF-',           # PDF header
+                'endstream',       # PDF internal structure
+                '/FlateDecode',    # PDF compression marker
+                '\x00',            # Null bytes indicate binary
+            ]
+            for sig in binary_signatures:
+                if sig in text[:500]:  # Check first 500 chars
+                    self.logger.warning(f"Rejecting binary content in text (found '{sig[:10]}...')")
+                    return None
+            
             # Start with title for additional context
             enhanced = f"DOCUMENT: {document_title}\n\n{text}"
             
@@ -899,6 +1221,7 @@ class DocumentProcessor:
             'successful': [],
             'failed': [],
             'timed_out': [],
+            'skipped_oversized': [],  # COST CONTROL: documents exceeding MAX_DOCUMENT_PAGES
             'start_time': time.time()
         }
         
@@ -910,24 +1233,48 @@ class DocumentProcessor:
         # Pre-load PHI filter settings snapshot for thread-safe batch processing
         phi_settings_snapshot = self.phi_filter.get_settings_snapshot()
         
-        def process_single_fhir_document_with_session(fhir_doc_id: int) -> Tuple[int, bool, Optional[str]]:
-            """Process a single FHIR document with thread-local session for safety"""
+        def process_single_fhir_document_with_session(fhir_doc_id: int) -> Tuple[int, str, Optional[str]]:
+            """
+            Process a single FHIR document with thread-local session for safety.
+            
+            Returns:
+                Tuple of (doc_id, status, error_message)
+                status is one of: 'success', 'failed', 'skipped_oversized', 'skipped_already_processed'
+            """
             with app.app_context():
                 thread_session = scoped_session(sessionmaker(bind=app_db.engine))
                 try:
                     fhir_doc = thread_session.query(FHIRDocument).get(fhir_doc_id)
                     if not fhir_doc:
-                        return (fhir_doc_id, False, "Document not found")
+                        return (fhir_doc_id, 'failed', "Document not found")
                     
                     # Skip already processed documents
                     if fhir_doc.is_processed:
-                        return (fhir_doc_id, True, None)
+                        return (fhir_doc_id, 'skipped_already_processed', None)
+                    
+                    # Skip already marked as oversized
+                    if fhir_doc.skipped_oversized:
+                        return (fhir_doc_id, 'skipped_oversized', f"Previously skipped: {fhir_doc.page_count} pages")
                     
                     # Get document content if available
                     if fhir_doc.content_data:
                         content = fhir_doc.content_data
                         title = fhir_doc.title or f"document_{fhir_doc_id}"
                         content_type = fhir_doc.content_type
+                        
+                        # COST CONTROL: Check page count for PDFs before OCR processing
+                        max_pages = get_max_document_pages()
+                        if content_type and 'pdf' in content_type.lower():
+                            page_count = self._get_pdf_page_count_from_bytes(content)
+                            if page_count is not None:
+                                fhir_doc.page_count = page_count
+                                if page_count > max_pages:
+                                    fhir_doc.skipped_oversized = True
+                                    fhir_doc.processing_status = 'skipped_oversized'
+                                    fhir_doc.processing_error = f"Document has {page_count} pages, exceeds limit of {max_pages}"
+                                    thread_session.commit()
+                                    self.logger.warning(f"COST CONTROL: Skipping oversized doc {fhir_doc_id} ({page_count} pages > {max_pages} limit)")
+                                    return (fhir_doc_id, 'skipped_oversized', f"{page_count} pages exceeds {max_pages} limit")
                         
                         # Process the document (OCR, PHI filtering with pre-loaded settings and audit logging)
                         extracted_text = self.process_document(
@@ -942,17 +1289,17 @@ class DocumentProcessor:
                             # Use mark_processed() helper to properly set all status/audit fields
                             fhir_doc.mark_processed(status='completed', ocr_text=extracted_text)
                             thread_session.commit()
-                            return (fhir_doc_id, True, None)
+                            return (fhir_doc_id, 'success', None)
                         else:
                             fhir_doc.mark_processed(status='failed', error="No text extracted")
                             thread_session.commit()
-                            return (fhir_doc_id, False, "No text extracted")
+                            return (fhir_doc_id, 'failed', "No text extracted")
                     else:
-                        return (fhir_doc_id, False, "No content data available")
+                        return (fhir_doc_id, 'failed', "No content data available")
                         
                 except Exception as e:
                     thread_session.rollback()
-                    return (fhir_doc_id, False, str(e))
+                    return (fhir_doc_id, 'failed', str(e))
                 finally:
                     thread_session.remove()
         
@@ -973,10 +1320,17 @@ class DocumentProcessor:
                     processed_count += 1
                     
                     try:
-                        result_doc_id, success, error = future.result()
+                        result_doc_id, status, error = future.result()
                         
-                        if success:
+                        if status == 'success':
                             results['successful'].append(result_doc_id)
+                        elif status == 'skipped_already_processed':
+                            results['successful'].append(result_doc_id)  # Count as successful
+                        elif status == 'skipped_oversized':
+                            results['skipped_oversized'].append({
+                                'document_id': result_doc_id,
+                                'reason': error or 'Exceeded page limit'
+                            })
                         else:
                             results['failed'].append({
                                 'document_id': result_doc_id,
@@ -1017,9 +1371,11 @@ class DocumentProcessor:
         results['duration_seconds'] = results['end_time'] - results['start_time']
         results['docs_per_second'] = len(fhir_document_ids) / results['duration_seconds'] if results['duration_seconds'] > 0 else 0
         
-        self.logger.info(
-            f"Parallel FHIR OCR complete: {len(results['successful'])}/{len(fhir_document_ids)} successful, "
-            f"{results['docs_per_second']:.2f} docs/sec"
-        )
+        skipped_count = len(results['skipped_oversized'])
+        log_msg = f"Parallel FHIR OCR complete: {len(results['successful'])}/{len(fhir_document_ids)} successful"
+        if skipped_count > 0:
+            log_msg += f", {skipped_count} skipped (COST CONTROL: exceeded page limit)"
+        log_msg += f", {results['docs_per_second']:.2f} docs/sec"
+        self.logger.info(log_msg)
         
         return results

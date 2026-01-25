@@ -375,7 +375,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ g.csp_nonce }}">
 function applyPreset(presetId, presetName) {
     document.getElementById('applyPresetName').textContent = presetName;
     document.getElementById('applyPresetForm').action = '/admin/presets/' + presetId + '/apply-to-organization';

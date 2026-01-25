@@ -108,7 +108,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ g.csp_nonce }}">
 function testConnection() {
     const endpoint = document.getElementById('emr_endpoint').value;
     const resultDiv = document.getElementById('connectionResult');

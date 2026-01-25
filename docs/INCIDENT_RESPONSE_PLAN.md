@@ -496,3 +496,236 @@ Use this worksheet to determine if unauthorized PHI access constitutes a reporta
 **Determination**: Based on above factors, probability of PHI compromise is:
 - [ ] LOW - Not a reportable breach
 - [ ] NOT LOW - Reportable breach, proceed with notifications
+
+---
+
+## Appendix C: Incident Response Testing Plan
+
+### Purpose
+
+Regular testing of incident response procedures ensures the team is prepared for real security events. HITRUST CSF requires documented evidence of IR plan testing (Domain 09.1). These exercises validate that:
+1. Detection mechanisms trigger correctly
+2. Alert notifications reach appropriate personnel
+3. Response procedures are understood and executable
+4. Documentation and logging capture necessary information
+
+### Testing Schedule
+
+| Exercise Type | Frequency | Last Performed | Next Due |
+|--------------|-----------|----------------|----------|
+| Tabletop Exercise | Quarterly | [TBD] | [TBD] |
+| Full Simulation | Annually | [TBD] | [TBD] |
+
+---
+
+### Test Scenario 1: Account Lockout (P3 - Medium)
+
+**Objective**: Verify that 5 failed login attempts trigger account lockout and admin notification.
+
+**Prerequisites**:
+- Test user account (not production)
+- Admin email configured in organization settings
+
+**Test Steps**:
+1. Navigate to login page
+2. Enter valid username with incorrect password - repeat 5 times
+3. Verify account lockout message appears on 6th attempt
+
+**Expected Outcomes**:
+| Check | Expected Result | Pass/Fail |
+|-------|-----------------|-----------|
+| Account locked | User sees "Account locked" message | [ ] |
+| AdminLog entry | `security_account_lockout` event logged with IP, username | [ ] |
+| Email alert | Admin receives lockout notification email | [ ] |
+| Lockout duration | Account remains locked for 30 minutes | [ ] |
+
+**Response Validation**:
+- [ ] Admin can view lockout in `/admin/logs`
+- [ ] Admin can manually unlock account if legitimate user
+- [ ] Incident documented per IRP Section 5
+
+---
+
+### Test Scenario 2: Brute Force Detection (P2 - High)
+
+**Objective**: Verify that 10+ failed logins from same IP trigger brute force alert.
+
+**Prerequisites**:
+- Multiple test user accounts
+- Admin email configured
+
+**Test Steps**:
+1. From same IP, attempt failed logins against 10+ different usernames within 5 minutes
+2. Verify brute force alert is triggered
+
+**Expected Outcomes**:
+| Check | Expected Result | Pass/Fail |
+|-------|-----------------|-----------|
+| Alert triggered | `security_brute_force` event logged | [ ] |
+| Email alert | Security contacts receive brute force notification | [ ] |
+| Alert details | Email includes IP address, attempt count, usernames targeted | [ ] |
+| Rate limiting | Further attempts from IP are throttled | [ ] |
+
+**Response Validation**:
+- [ ] Security team can identify attacking IP from logs
+- [ ] IP can be blocked at infrastructure level if needed
+- [ ] Affected users can be notified if accounts were real targets
+
+---
+
+### Test Scenario 3: Unauthorized Admin Access (P3 - Medium)
+
+**Objective**: Verify that non-admin users cannot access admin routes.
+
+**Prerequisites**:
+- Standard user account (non-admin role)
+- Admin route URLs
+
+**Test Steps**:
+1. Log in as standard user
+2. Attempt to navigate directly to `/admin/dashboard`
+3. Attempt to navigate to `/admin/users`
+4. Attempt to navigate to `/root-admin/system`
+
+**Expected Outcomes**:
+| Check | Expected Result | Pass/Fail |
+|-------|-----------------|-----------|
+| Access denied | User redirected to user dashboard | [ ] |
+| No admin UI | Admin navigation not visible | [ ] |
+| Audit log | Access attempt logged (if enabled) | [ ] |
+| No data leak | No admin data visible in response | [ ] |
+
+**Response Validation**:
+- [ ] RBAC enforcement is functioning
+- [ ] No privilege escalation possible via URL manipulation
+
+---
+
+### Test Scenario 4: PHI Filter Failure (P2 - High)
+
+**Objective**: Verify that PHI filter failures are detected and alerted.
+
+**Prerequisites**:
+- Test document with known PHI patterns
+- PHI filter logging enabled
+
+**Test Steps**:
+1. Upload a test document containing SSN, phone, email patterns
+2. Verify PHI filter processes and redacts content
+3. Intentionally trigger a filter failure scenario (if testable)
+
+**Expected Outcomes**:
+| Check | Expected Result | Pass/Fail |
+|-------|-----------------|-----------|
+| PHI redacted | SSN shows as `[SSN REDACTED]` | [ ] |
+| Phone redacted | Phone shows as `[PHONE REDACTED]` | [ ] |
+| Audit log | `phi_redacted` event logged with counts | [ ] |
+| On failure | `security_phi_filter_failure` alert sent | [ ] |
+
+**Response Validation**:
+- [ ] PHI filter catches standard identifier patterns
+- [ ] Failures trigger immediate alert to security team
+- [ ] Failed documents are quarantined for manual review
+
+---
+
+### Test Scenario 5: Suspicious Access Pattern (P3 - Medium)
+
+**Objective**: Verify audit trail captures access patterns for manual review.
+
+**Prerequisites**:
+- User account with patient access
+- Multiple patient records in test environment
+
+**Test Steps**:
+1. Log in as test user
+2. Access 10+ different patient records within 5 minutes
+3. Review audit logs for access pattern
+
+**Expected Outcomes**:
+| Check | Expected Result | Pass/Fail |
+|-------|-----------------|-----------|
+| Access logged | Each `patient_view` event logged with timestamp | [ ] |
+| User identified | Logs show user_id, session_id, IP | [ ] |
+| Pattern visible | Log review shows rapid access pattern | [ ] |
+| Export available | Logs can be exported for analysis | [ ] |
+
+**Response Validation**:
+- [ ] Audit trail sufficient to identify unusual access
+- [ ] Security team knows how to query for access patterns
+- [ ] Escalation path clear for confirmed snooping
+
+---
+
+### Test Scenario 6: Password Reset Abuse (P4 - Low)
+
+**Objective**: Verify rate limiting prevents password reset abuse.
+
+**Prerequisites**:
+- Test user account
+- Email access
+
+**Test Steps**:
+1. Navigate to password reset page
+2. Request password reset for same email 5+ times rapidly
+3. Verify rate limit triggers
+
+**Expected Outcomes**:
+| Check | Expected Result | Pass/Fail |
+|-------|-----------------|-----------|
+| Rate limited | "Too many attempts" message after 5 requests | [ ] |
+| Tokens invalidated | Previous reset tokens invalidated on new request | [ ] |
+| Audit log | `security_password_reset` events logged | [ ] |
+| Lockout period | Must wait before additional reset requests | [ ] |
+
+**Response Validation**:
+- [ ] Cannot flood user with reset emails
+- [ ] Previous tokens don't remain valid (single-use)
+- [ ] Rate limit window appropriate (5 min)
+
+---
+
+### Test Scenario 7: Epic OAuth Failure (P3 - Medium)
+
+**Objective**: Verify Epic integration failures are handled gracefully with logging.
+
+**Prerequisites**:
+- Epic sandbox credentials
+- Test organization with Epic configured
+
+**Test Steps**:
+1. Initiate Epic sync with invalid/expired token
+2. Verify error handling and logging
+3. Check user sees appropriate error message
+
+**Expected Outcomes**:
+| Check | Expected Result | Pass/Fail |
+|-------|-----------------|-----------|
+| Graceful failure | User sees friendly error, not stack trace | [ ] |
+| Error logged | `epic_sync_failed` or similar event logged | [ ] |
+| No PHI in error | Error message doesn't contain patient data | [ ] |
+| Retry guidance | User informed how to re-authenticate | [ ] |
+
+**Response Validation**:
+- [ ] Epic failures don't crash the application
+- [ ] Token refresh attempted before failure
+- [ ] User can re-initiate OAuth flow
+
+---
+
+### Test Execution Record
+
+| Date | Scenario | Tester | Result | Notes |
+|------|----------|--------|--------|-------|
+| | | | | |
+| | | | | |
+| | | | | |
+
+### Post-Test Actions
+
+After completing IR testing:
+1. [ ] Document all pass/fail results in table above
+2. [ ] Create remediation tasks for any failures
+3. [ ] Update this document with lessons learned
+4. [ ] Schedule next quarterly test
+5. [ ] File test evidence for HITRUST audit

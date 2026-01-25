@@ -202,7 +202,7 @@
 
 <!-- Settings Modal removed - settings managed via main admin dashboard -->
 
-<script>
+<script nonce="{{ g.csp_nonce }}">
 function loadSample(text) {
     document.getElementById('testInput').value = text;
 }

@@ -17,7 +17,7 @@ import difflib
 import re
 from werkzeug.utils import secure_filename
 
-from models import User, AdminLog, PHIFilterSettings, log_admin_event, Document, ScreeningPreset, ScreeningType, Provider, UserProviderAssignment, Organization
+from models import User, AdminLog, PHIFilterSettings, log_admin_event, Document, ScreeningPreset, ScreeningType, Provider, UserProviderAssignment, Organization, FHIRDocument
 from app import db
 from services.stripe_service import StripeService
 from flask import request as flask_request
@@ -27,6 +27,58 @@ from ocr.monitor import OCRMonitor
 from ocr.phi_filter import PHIFilter
 
 logger = logging.getLogger(__name__)
+
+
+def _get_oversized_document_stats():
+    """
+    Get statistics about oversized documents that were skipped due to cost control.
+    
+    Returns summary of documents exceeding MAX_DOCUMENT_PAGES limit, useful for 
+    monitoring cost savings and identifying if the limit is too restrictive.
+    """
+    try:
+        from sqlalchemy import func
+        
+        # Count documents skipped due to size
+        total_skipped = FHIRDocument.query.filter(
+            FHIRDocument.skipped_oversized == True
+        ).count()
+        
+        # Get page count distribution for skipped documents
+        page_stats = db.session.query(
+            func.min(FHIRDocument.page_count).label('min_pages'),
+            func.max(FHIRDocument.page_count).label('max_pages'),
+            func.avg(FHIRDocument.page_count).label('avg_pages')
+        ).filter(
+            FHIRDocument.skipped_oversized == True,
+            FHIRDocument.page_count.isnot(None)
+        ).first()
+        
+        # Recent skipped documents (last 7 days)
+        from datetime import datetime, timedelta
+        week_ago = datetime.utcnow() - timedelta(days=7)
+        recent_skipped = FHIRDocument.query.filter(
+            FHIRDocument.skipped_oversized == True,
+            FHIRDocument.updated_at >= week_ago
+        ).count()
+        
+        return {
+            'total_skipped': total_skipped,
+            'recent_skipped_7d': recent_skipped,
+            'page_count_stats': {
+                'min': page_stats.min_pages if page_stats else None,
+                'max': page_stats.max_pages if page_stats else None,
+                'avg': round(float(page_stats.avg_pages), 1) if page_stats and page_stats.avg_pages else None
+            } if page_stats else None
+        }
+    except Exception as e:
+        logger.warning(f"Error getting oversized document stats: {e}")
+        return {
+            'total_skipped': 0,
+            'recent_skipped_7d': 0,
+            'page_count_stats': None,
+            'error': str(e)
+        }
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -1226,13 +1278,17 @@ def performance_metrics_api():
     JSON API for comprehensive performance metrics.
     
     Returns system resource usage, throughput metrics, queue status,
-    and scaling recommendations for capacity planning.
+    scaling recommendations, and cost control stats for capacity planning.
     """
     try:
         from utils.performance import PerformanceMonitor, get_ocr_max_workers_recommendation
+        from ocr.document_processor import get_max_document_pages
         from datetime import datetime
         
         monitor = PerformanceMonitor()
+        
+        # Get cost control stats for oversized documents
+        oversized_stats = _get_oversized_document_stats()
         
         response = {
             'timestamp': datetime.utcnow().isoformat(),
@@ -1243,7 +1299,12 @@ def performance_metrics_api():
                 '5min': monitor.get_throughput_metrics(300)
             },
             'scaling': monitor.get_scaling_recommendations(),
-            'worker_recommendations': get_ocr_max_workers_recommendation()
+            'worker_recommendations': get_ocr_max_workers_recommendation(),
+            'cost_control': {
+                'max_document_pages': get_max_document_pages(),
+                'env_setting': os.environ.get('MAX_DOCUMENT_PAGES', 'default (20)'),
+                'oversized_documents': oversized_stats
+            }
         }
         
         return jsonify(response)
@@ -1549,7 +1610,7 @@ def edit_user(user_id):
 
         role = request.form.get('role')
         admin_type = request.form.get('admin_type', 'business_admin')  # For admin role
-        is_active = request.form.get('is_active') == 'on'
+        # Note: is_active is no longer managed by org admins - removed from edit form
 
         # Validate input (email cannot be changed after account creation)
         if not role:
@@ -1566,15 +1627,26 @@ def edit_user(user_id):
             'email': user.email,
             'role': user.role,
             'admin_type': user.admin_type,
-            'is_admin': user.is_admin,
-            'is_active_user': user.is_active_user
+            'is_admin': user.is_admin
         }
+        
+        # Role escalation prevention: nurses/MAs cannot be promoted to admin
+        original_role = user.role
+        if original_role in ('nurse', 'MA') and role == 'admin':
+            flash('Nurses and Medical Assistants cannot be promoted to Administrator. The user must be deleted and re-registered.', 'error')
+            return redirect(url_for('admin.users'))
+        
+        # For admin users, only allow admin_type changes (provider <-> business_admin)
+        # Cannot change admin back to nurse/MA
+        if original_role == 'admin' and role in ('nurse', 'MA'):
+            flash('Administrators cannot be demoted to Nurse or Medical Assistant. The user must be deleted and re-registered.', 'error')
+            return redirect(url_for('admin.users'))
 
         # Update user (username and email cannot be changed after account creation)
         user.role = role
         user.is_admin = (role == 'admin')
         user.admin_type = admin_type if role == 'admin' else None
-        user.is_active_user = is_active
+        # Note: is_active_user is NOT updated here - managed by root admin only
         
         # Capture after values for logging
         after_values = {
@@ -1582,8 +1654,7 @@ def edit_user(user_id):
             'email': user.email,
             'role': user.role,
             'admin_type': user.admin_type,
-            'is_admin': user.is_admin,
-            'is_active_user': user.is_active_user
+            'is_admin': user.is_admin
         }
         
         db.session.commit()
@@ -1677,46 +1748,16 @@ def delete_user(user_id):
 @login_required
 @admin_required
 def toggle_user_status(user_id):
-    """Toggle user active status"""
-    try:
-        user = User.query.get_or_404(user_id)
-        
-        # Check organization access
-        org_id = getattr(current_user, 'org_id', 1)
-        if user.org_id != org_id:
-            return jsonify({'success': False, 'error': 'Access denied'}), 403
-
-        # Don't allow deactivating yourself
-        if user.id == current_user.id:
-            return jsonify({'success': False, 'error': 'Cannot modify your own status'}), 400
-
-        # Toggle status
-        user.is_active_user = not user.is_active_user
-        db.session.commit()
-
-        # Log the action
-        status = 'activated' if user.is_active_user else 'deactivated'
-        log_admin_event(
-            event_type='toggle_user_status',
-            user_id=current_user.id,
-            org_id=org_id,
-            ip=flask_request.remote_addr,
-            data={'target_user': user.username, 'user_id': user_id, 'new_status': user.is_active_user, 'description': f'User {user.username} {status}'}
-        )
-
-        return jsonify({
-            'success': True,
-            'message': f'User {user.username} {status} successfully',
-            'is_active': user.is_active_user
-        })
-
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error toggling user status: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Error updating user status'
-        }), 500
+    """Toggle user active status - DEPRECATED for org admins
+    
+    Org admins can no longer activate/deactivate users directly.
+    - Security lockouts can only be cleared by root admin
+    - User activation status is managed by root admin
+    """
+    return jsonify({
+        'success': False, 
+        'error': 'User activation/deactivation is restricted. Please contact your system administrator.'
+    }), 403
 
 
 @admin_bp.route('/presets/import', methods=['GET', 'POST'])
@@ -2522,10 +2563,11 @@ def admin_documents():
             # Get manual documents
             manual_documents = Document.query.filter_by(patient_id=patient.id).all()
             
-            # Get FHIR documents (exclude HealthPrep-generated prep sheets)
+            # Get FHIR documents (exclude HealthPrep-generated and superseded prep sheets)
             fhir_documents = FHIRDocument.query.filter_by(
                 patient_id=patient.id,
-                is_healthprep_generated=False
+                is_healthprep_generated=False,
+                is_superseded=False
             ).all()
             
             # Get immunizations

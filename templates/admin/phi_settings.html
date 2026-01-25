@@ -301,7 +301,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ g.csp_nonce }}">
 function testPHIFilter() {
     const testText = document.getElementById('testText').value;
     if (!testText.trim()) {

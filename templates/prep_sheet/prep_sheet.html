@@ -327,9 +327,9 @@
                                                     <a href="{{ url_for('ui.document_view', document_id=doc.id) }}" 
                                                        target="_blank" 
                                                        class="btn btn-sm btn-outline-primary mb-1 me-1"
-                                                       title="View {{ doc.filename }}">
+                                                       title="View {{ doc.filename or doc.title or 'Document' }}">
                                                         <i class="fas fa-file-medical me-1"></i>
-                                                        {{ doc.filename[:15] }}...
+                                                        {{ (doc.filename or doc.title or 'Document')[:15] }}...
                                                         {% if doc.ocr_confidence %}
                                                             <span class="confidence-indicator {{ 'confidence-high' if doc.ocr_confidence >= 0.8 else 'confidence-medium' if doc.ocr_confidence >= 0.6 else 'confidence-low' }}"></span>
                                                         {% endif %}
@@ -388,7 +388,7 @@
                                     <tbody>
                                         {% for doc in medical_data.lab_results %}
                                         <tr>
-                                            <td>{{ doc.test_name or doc.filename }}</td>
+                                            <td>{{ doc.test_name or doc.filename or doc.title or 'Document' }}</td>
                                             <td>{{ doc.document_date.strftime('%m/%d/%Y') if doc.document_date else 'N/A' }}</td>
                                             <td>{{ doc.result_value or 'See document' }}</td>
                                             <td>{{ doc.reference_range or 'N/A' }}</td>
@@ -445,7 +445,7 @@
                                     <tbody>
                                         {% for doc in medical_data.imaging_studies %}
                                         <tr>
-                                            <td>{{ doc.study_type or doc.filename }}</td>
+                                            <td>{{ doc.study_type or doc.filename or doc.title or 'Document' }}</td>
                                             <td>{{ doc.body_site or 'N/A' }}</td>
                                             <td>{{ doc.document_date.strftime('%m/%d/%Y') if doc.document_date else 'N/A' }}</td>
                                             <td>{{ doc.impression or 'See document' }}</td>
@@ -574,7 +574,7 @@
                                         <a href="{{ url_for('ui.document_view', document_id=doc.id) }}" 
                                            target="_blank" 
                                            class="text-decoration-none">
-                                            <strong>{{ doc.original_filename or doc.filename }}</strong>
+                                            <strong>{{ doc.original_filename or doc.filename or doc.title or 'Document' }}</strong>
                                         </a>
                                         <span class="badge bg-secondary">{{ doc.document_type.title() if doc.document_type else 'Unknown' }}</span>
                                         {% if doc.ocr_confidence %}
@@ -753,7 +753,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
+<script nonce="{{ g.csp_nonce }}">
 // Print functionality
 window.addEventListener('beforeprint', function() {
     document.title = `PrepSheet_${document.querySelector('.prep-sheet-header h2').textContent.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}`;

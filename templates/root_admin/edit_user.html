@@ -169,7 +169,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ g.csp_nonce }}">
 // Disable full organizations (except current one)
 document.addEventListener('DOMContentLoaded', function() {
     const orgSelect = document.getElementById('org_id');

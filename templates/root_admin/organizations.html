@@ -253,7 +253,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script nonce="{{ g.csp_nonce }}">
 let deleteOrgId = null;
 
 // Listen for modal show event to populate data

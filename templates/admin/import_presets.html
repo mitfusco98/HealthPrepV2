@@ -118,7 +118,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ g.csp_nonce }}">
 document.getElementById('preset_filename').addEventListener('change', function() {
     const selectedPreset = this.value;
     const presets = {{ presets | tojson }};

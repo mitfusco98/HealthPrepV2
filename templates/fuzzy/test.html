@@ -262,7 +262,7 @@ mammo_gram_study"></textarea>
     </div>
 </div>
 
-<script>
+<script nonce="{{ g.csp_nonce }}">
 // Update threshold display
 document.getElementById('confidenceThreshold').addEventListener('input', function() {
     document.getElementById('thresholdValue').textContent = this.value;

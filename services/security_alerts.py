@@ -491,6 +491,258 @@ class SecurityAlertService:
         return False
     
     @staticmethod
+    def send_unusual_hours_alert(user: User, ip_address: str, login_time: datetime, org_timezone: str) -> bool:
+        """
+        Send alert when a user logs in outside normal business hours (6 AM - 5 PM).
+        This is an ALERT ONLY - does not trigger lockout.
+        Only triggered in production mode.
+        
+        Args:
+            user: The user who logged in
+            ip_address: IP address of the login
+            login_time: The time of login in org's local timezone
+            org_timezone: The organization's timezone
+            
+        Returns:
+            True if alert sent successfully
+        """
+        org = Organization.query.get(user.org_id)
+        org_name = org.name if org else 'Unknown Organization'
+        
+        # Send to root admin emails (system org_id=0)
+        root_admin_emails = SecurityAlertService._get_root_admin_emails()
+        org_admin_emails = SecurityAlertService._get_org_admin_emails(user.org_id)
+        all_emails = list(set(root_admin_emails + org_admin_emails))
+        
+        local_time_str = login_time.strftime('%I:%M %p %Z') if login_time else 'Unknown'
+        
+        subject = f"[SECURITY NOTICE] Unusual Hours Login - {user.username}"
+        
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+            <div style="background-color: #856404; color: white; padding: 15px; margin-bottom: 20px;">
+                <h2 style="margin: 0;">Security Notice: Login Outside Business Hours</h2>
+            </div>
+            
+            <h3>Login Details:</h3>
+            <ul>
+                <li><strong>Time:</strong> {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}</li>
+                <li><strong>Local Time:</strong> {local_time_str} ({org_timezone})</li>
+                <li><strong>User:</strong> {user.username}</li>
+                <li><strong>Email:</strong> {user.email}</li>
+                <li><strong>Role:</strong> {user.role}</li>
+                <li><strong>Organization:</strong> {org_name}</li>
+                <li><strong>IP Address:</strong> {ip_address}</li>
+            </ul>
+            
+            <h3>Context:</h3>
+            <p>Normal business hours are 6:00 AM - 5:00 PM in the organization's timezone ({org_timezone}). 
+            This login occurred outside of these hours.</p>
+            
+            <p style="background-color: #d1ecf1; padding: 10px; border-left: 4px solid #0c5460;">
+                <strong>Note:</strong> This is an informational notice only. The login was allowed to proceed.
+                If this appears suspicious, please review the user's recent activity in the audit logs.
+            </p>
+            
+            <p style="color: #666; font-size: 12px;">
+                This is an automated security notice from HealthPrep.
+            </p>
+        </body>
+        </html>
+        """
+        
+        success = True
+        for email in all_emails:
+            if not EmailService._send_email(email, subject, html_body):
+                success = False
+                logger.warning(f"Failed to send unusual hours alert to {email}")
+        
+        SecurityAlertService._log_alert_sent('unusual_hours_login', user.org_id, {
+            'user_id': user.id,
+            'username': user.username,
+            'ip_address': ip_address,
+            'login_time_utc': datetime.utcnow().isoformat(),
+            'local_time': local_time_str,
+            'timezone': org_timezone,
+            'recipients': all_emails
+        })
+        
+        logger.info(f"Unusual hours login alert sent for user {user.username} at {local_time_str}")
+        return success
+    
+    @staticmethod
+    def send_concurrent_session_alert(user: User, new_ip: str, existing_ip: str) -> bool:
+        """
+        Send alert when concurrent session lockout is triggered.
+        
+        Args:
+            user: The user who triggered the lockout
+            new_ip: IP address of the new login attempt
+            existing_ip: IP address of the existing session
+            
+        Returns:
+            True if alert sent successfully
+        """
+        org = Organization.query.get(user.org_id)
+        org_name = org.name if org else 'Unknown Organization'
+        
+        # Send to root admin and org admin emails
+        root_admin_emails = SecurityAlertService._get_root_admin_emails()
+        org_admin_emails = SecurityAlertService._get_org_admin_emails(user.org_id)
+        all_emails = list(set(root_admin_emails + org_admin_emails + [user.email]))
+        
+        subject = f"[SECURITY ALERT] Concurrent Session Lockout - {user.username}"
+        
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+            <div style="background-color: #dc3545; color: white; padding: 15px; margin-bottom: 20px;">
+                <h2 style="margin: 0;">Security Alert: Concurrent Session Detected</h2>
+            </div>
+            
+            <h3>Incident Details:</h3>
+            <ul>
+                <li><strong>Time:</strong> {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}</li>
+                <li><strong>User:</strong> {user.username}</li>
+                <li><strong>Organization:</strong> {org_name}</li>
+                <li><strong>New Login Attempt IP:</strong> {new_ip}</li>
+                <li><strong>Existing Session IP:</strong> {existing_ip}</li>
+            </ul>
+            
+            <h3>What Happened:</h3>
+            <p>A login attempt was made from a different IP address while an active session already exists.
+            This could indicate:</p>
+            <ul>
+                <li>The user is legitimately logging in from a different device/network</li>
+                <li>A potential credential compromise where someone else has the user's password</li>
+            </ul>
+            
+            <h3>Action Taken:</h3>
+            <p style="background-color: #f8d7da; padding: 10px; border-left: 4px solid #dc3545;">
+                <strong>The account has been security-locked.</strong> A root administrator must unlock 
+                this account after verifying the user's identity.
+            </p>
+            
+            <h3>Recommended Actions:</h3>
+            <ol>
+                <li>Contact the user to verify if they initiated both sessions</li>
+                <li>Review audit logs for any suspicious activity</li>
+                <li>If legitimate, unlock the account and advise the user to log out of other devices</li>
+                <li>If unauthorized access is suspected, initiate incident response procedures</li>
+            </ol>
+            
+            <p style="color: #666; font-size: 12px;">
+                This is an automated security alert from HealthPrep's concurrent session detection system.
+            </p>
+        </body>
+        </html>
+        """
+        
+        success = True
+        for email in all_emails:
+            if not EmailService._send_email(email, subject, html_body):
+                success = False
+                logger.warning(f"Failed to send concurrent session alert to {email}")
+        
+        SecurityAlertService._log_alert_sent('concurrent_session_lockout', user.org_id, {
+            'user_id': user.id,
+            'username': user.username,
+            'new_ip': new_ip,
+            'existing_ip': existing_ip,
+            'recipients': all_emails
+        })
+        
+        logger.warning(f"Concurrent session lockout alert sent for user {user.username}")
+        return success
+    
+    @staticmethod
+    def send_password_spray_alert(ip_address: str, usernames_targeted: List[str], org_id: int = 0) -> bool:
+        """
+        Send alert when password spray attack is detected and IP is blocked.
+        
+        Args:
+            ip_address: The blocked IP address
+            usernames_targeted: List of usernames that were targeted
+            org_id: Organization ID (default to 0 for system-wide)
+            
+        Returns:
+            True if alert sent successfully
+        """
+        # Send to root admin emails
+        root_admin_emails = SecurityAlertService._get_root_admin_emails()
+        
+        usernames_display = ', '.join(usernames_targeted[:5])
+        if len(usernames_targeted) > 5:
+            usernames_display += f' and {len(usernames_targeted) - 5} more'
+        
+        subject = f"[CRITICAL SECURITY ALERT] Password Spray Attack - IP Blocked"
+        
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+            <div style="background-color: #721c24; color: white; padding: 15px; margin-bottom: 20px;">
+                <h2 style="margin: 0;">CRITICAL: Password Spray Attack Detected</h2>
+            </div>
+            
+            <h3>Attack Details:</h3>
+            <ul>
+                <li><strong>Time:</strong> {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}</li>
+                <li><strong>Source IP:</strong> {ip_address}</li>
+                <li><strong>Accounts Targeted:</strong> {len(usernames_targeted)} distinct usernames</li>
+                <li><strong>Usernames:</strong> {usernames_display}</li>
+            </ul>
+            
+            <h3>What Happened:</h3>
+            <p>Multiple failed login attempts were detected from this IP address targeting different user accounts.
+            This is a classic password spray attack pattern where attackers try common passwords across many accounts.</p>
+            
+            <h3>Action Taken:</h3>
+            <p style="background-color: #f8d7da; padding: 10px; border-left: 4px solid #dc3545;">
+                <strong>The IP address has been temporarily blocked for 60 minutes.</strong>
+            </p>
+            
+            <h3>Recommended Actions:</h3>
+            <ol>
+                <li>Review the targeted accounts for any successful logins</li>
+                <li>Consider adding this IP to a permanent blocklist</li>
+                <li>Alert affected users to change their passwords</li>
+                <li>Document this incident for compliance purposes</li>
+            </ol>
+            
+            <p style="color: #666; font-size: 12px;">
+                This is an automated security alert from HealthPrep's password spray detection system.
+            </p>
+        </body>
+        </html>
+        """
+        
+        success = True
+        for email in root_admin_emails:
+            if not EmailService._send_email(email, subject, html_body):
+                success = False
+                logger.warning(f"Failed to send password spray alert to {email}")
+        
+        SecurityAlertService._log_alert_sent('password_spray_blocked', org_id, {
+            'ip_address': ip_address,
+            'usernames_targeted': usernames_targeted,
+            'recipients': root_admin_emails
+        })
+        
+        logger.critical(f"Password spray attack detected and IP {ip_address} blocked")
+        return success
+    
+    @staticmethod
+    def _get_root_admin_emails() -> List[str]:
+        """Get email addresses of all root admins"""
+        root_admins = User.query.filter(
+            User.is_root_admin == True,
+            User.email.isnot(None)
+        ).all()
+        
+        return [admin.email for admin in root_admins if admin.email]
+    
+    @staticmethod
     def _get_org_admin_emails(org_id: int) -> List[str]:
         """Get email addresses of all admins in an organization"""
         admins = User.query.filter(

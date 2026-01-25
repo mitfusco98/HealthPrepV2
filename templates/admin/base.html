@@ -206,7 +206,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.min.js"></script>
     
     <!-- Admin Global JavaScript -->
-    <script>
+    <script nonce="{{ g.csp_nonce }}">
         // Show loading overlay
         function showLoading(message = 'Processing...') {
             const overlay = document.getElementById('loadingOverlay');

@@ -606,3 +606,20 @@ def format_timezone_display(org_timezone: str) -> str:
     }
     
     return timezone_display_names.get(org_timezone, org_timezone)
+
+
+def get_local_today(org_timezone: str = 'UTC') -> date:
+    """
+    Get today's date in the organization's local timezone.
+    
+    This is used for encounter date comparisons to determine if an encounter
+    occurred before, on, or after today (for "To Last Encounter" prep sheet cutoffs).
+    
+    Args:
+        org_timezone: IANA timezone string (e.g., 'America/New_York')
+    
+    Returns:
+        Today's date in the organization's local timezone
+    """
+    zone = get_org_zoneinfo(org_timezone)
+    return datetime.now(zone).date()

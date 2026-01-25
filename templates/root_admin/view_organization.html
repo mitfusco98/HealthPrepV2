@@ -335,7 +335,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ g.csp_nonce }}">
 // Toggle user active status
 function toggleUserStatus(userId, username, isActive) {
     const action = isActive ? 'deactivate' : 'activate';

@@ -237,9 +237,9 @@ def get_patient_screenings(patient_id):
                 'matched_documents': [
                     {
                         'id': doc.id,
-                        'filename': doc.filename,
-                        'date': doc.created_at.date().isoformat(),
-                        'confidence': doc.ocr_confidence
+                        'filename': getattr(doc, 'filename', None) or getattr(doc, 'title', 'Document'),
+                        'date': (getattr(doc, 'created_at', None) or getattr(doc, 'creation_date', None) or datetime.now()).date().isoformat(),
+                        'confidence': getattr(doc, 'ocr_confidence', None)
                     } for doc in matched_docs
                 ]
             }
