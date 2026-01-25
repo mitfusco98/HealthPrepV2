@@ -1422,20 +1422,28 @@ class ComprehensiveEMRSync:
                     )
                     return True
             
-            # Log consolidated document_processing_complete event (FAILED - no content/text)
-            processing_duration = (datetime.now() - processing_start).total_seconds()
-            
+            # Handle no content/text cases
             # Build error details from download_error if available
             if download_error:
                 error_type = download_error.get('error_type', 'unknown')
                 error_message = download_error.get('message', 'No content downloaded or text extracted')
                 status_code = download_error.get('status_code')
+                
+                # SKIP SILENTLY: Documents with no downloadable content are common in FHIR
+                # (e.g., reference-only documents, pending scans). Don't log as errors.
+                if error_type == 'no_content_url':
+                    logger.debug(f"Skipping document with no content URL: {title}")
+                    return False
+                
                 action_details = f'Document processing failed: {error_message}'
             else:
                 error_type = 'no_text_extracted'
                 error_message = 'No text extracted from document content'
                 status_code = None
                 action_details = 'Document processing failed: No content or text extracted'
+            
+            # Log consolidated document_processing_complete event (FAILED - actual errors only)
+            processing_duration = (datetime.now() - processing_start).total_seconds()
             
             log_admin_event(
                 event_type='document_processing_complete',
