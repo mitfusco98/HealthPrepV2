@@ -19,6 +19,9 @@ if __name__ == '__main__':
     
     # Enhanced port configuration with conflict resolution
     port = int(os.environ.get('PORT', 5000))
+
+    # Configure debug mode via environment variable (disabled by default)
+    debug = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
     
     # Check if smart_start.py should be used for better conflict resolution
     use_smart_start = os.environ.get('USE_SMART_START', 'false').lower() == 'true'
@@ -30,14 +33,14 @@ if __name__ == '__main__':
     else:
         # Standard startup with basic port handling
         try:
-            app.run(host='0.0.0.0', port=port, debug=True)
+            app.run(host='0.0.0.0', port=port, debug=debug)
         except OSError as e:
             if "Address already in use" in str(e):
                 logger.warning(f"Port {port} is busy, trying alternative ports...")
                 for alt_port in range(port + 1, port + 10):
                     try:
                         logger.info(f"Trying port {alt_port}...")
-                        app.run(host='0.0.0.0', port=alt_port, debug=True)
+                        app.run(host='0.0.0.0', port=alt_port, debug=debug)
                         break
                     except OSError:
                         continue
