@@ -103,11 +103,16 @@ class FHIRClient:
         # Epic is very strict about parameter encoding
         auth_url = f"{self.auth_url}?{urlencode(params)}"
         
-        # Debug logging for Epic OAuth parameters
-        self.logger.info(f"Epic OAuth Parameters:")
-        for key, value in params.items():
+        # Debug logging for Epic OAuth parameters (avoid logging sensitive values)
+        self.logger.info("Epic OAuth Parameters:")
+        safe_params = {
+            'response_type': params.get('response_type'),
+            'scope_count': len(scopes) if scopes else 0,
+            'aud': params.get('aud'),
+        }
+        for key, value in safe_params.items():
             self.logger.info(f"  {key}: {value}")
-        self.logger.info(f"Generated Epic authorization URL: {auth_url}")
+        self.logger.info("Generated Epic authorization URL")
         
         return auth_url, state
     
@@ -132,13 +137,13 @@ class FHIRClient:
                 'client_secret': self.client_secret
             }
             
-            # Debug logging for token exchange
-            self.logger.info(f"Token exchange request:")
+            # Debug logging for token exchange (avoid logging sensitive values)
+            self.logger.info("Token exchange request:")
             self.logger.info(f"  - URL: {self.token_url}")
-            self.logger.info(f"  - client_id: {self.client_id}")
-            self.logger.info(f"  - redirect_uri: {self.redirect_uri}")
-            self.logger.info(f"  - grant_type: authorization_code")
-            self.logger.info(f"  - code: {'<present>' if authorization_code else 'None'}")
+            self.logger.info("  - client_id: [REDACTED]")
+            self.logger.info("  - redirect_uri: [REDACTED]")
+            self.logger.info("  - grant_type: authorization_code")
+            self.logger.info(f"  - code_present: {bool(authorization_code)}")
             
             response = requests.post(self.token_url, data=data)
             
@@ -149,7 +154,7 @@ class FHIRClient:
             
             if response.status_code != 200:
                 self.logger.error(f"Token exchange failed with status {response.status_code}")
-                self.logger.error(f"Response body: {response.text}")
+                self.logger.error("Response body: [REDACTED]")
                 return None
             
             response.raise_for_status()
@@ -170,7 +175,8 @@ class FHIRClient:
         except requests.exceptions.HTTPError as e:
             self.logger.error(f"HTTP error during token exchange: {str(e)}")
             if hasattr(e, 'response') and e.response:
-                self.logger.error(f"Response content: {e.response.text}")
+                # Avoid logging full response content, which may contain sensitive data
+                self.logger.error("Response content: [REDACTED]")
             return None
         except Exception as e:
             self.logger.error(f"Token exchange failed: {str(e)}")
