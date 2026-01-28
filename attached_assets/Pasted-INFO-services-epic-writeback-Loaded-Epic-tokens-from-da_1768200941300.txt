@@ -1,0 +1,459 @@
+INFO:services.epic_writeback:Loaded Epic tokens from database for organization 32 (valid for 3197s)
+WARNING:weasyprint:Unknown empty rule <AtRule @charset … { … }> at 1:1
+WARNING:weasyprint:Ignored `color-scheme:dark` at 5:3701, unknown property.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:no-preference)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:no-preference)' the whole @media rule was ignored at 5:5383.
+WARNING:weasyprint:Ignored `font-size:calc(1.375rem + 1.5vw)` at 5:6030, invalid value.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:6063.
+WARNING:weasyprint:Ignored `font-size:calc(1.325rem + .9vw)` at 5:6121, invalid value.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:6153.
+WARNING:weasyprint:Ignored `font-size:calc(1.3rem + .6vw)` at 5:6209, invalid value.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:6239.
+WARNING:weasyprint:Ignored `font-size:calc(1.275rem + .3vw)` at 5:6298, invalid value.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:6330.
+WARNING:weasyprint:Ignored `text-decoration-skip-ink:none` at 5:6598, unknown property.
+WARNING:weasyprint:Ignored `text-align:-webkit-match-parent` at 5:8044, invalid value.
+WARNING:weasyprint:Invalid or unsupported selector, '[list]:not([type=date]):not([type=datetime-local]):not([type=month]):not([type=week]):not([type=time])::-webkit-calendar-picker-indicator'
+WARNING:weasyprint:Invalid or unsupported selector, '::-moz-focus-inner'
+WARNING:weasyprint:Ignored `font-size:calc(1.275rem + .3vw)` at 5:9007, invalid value.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:9059.
+WARNING:weasyprint:Invalid or unsupported selector, '::-webkit-datetime-edit-day-field,::-webkit-datetime-edit-fields-wrapper,::-webkit-datetime-edit-hour-field,::-webkit-datetime-edit-minute,::-webkit-datetime-edit-month-field,::-webkit-datetime-edit-text,::-webkit-datetime-edit-year-field'
+WARNING:weasyprint:Invalid or unsupported selector, '::-webkit-inner-spin-button'
+WARNING:weasyprint:Invalid or unsupported selector, '::-webkit-search-decoration'
+WARNING:weasyprint:Invalid or unsupported selector, '::-webkit-color-swatch-wrapper'
+WARNING:weasyprint:Invalid or unsupported selector, '::-webkit-file-upload-button'
+WARNING:weasyprint:Invalid or unsupported selector, '::file-selector-button', unknown pseudo-element: file-selector-button
+WARNING:weasyprint:Ignored `font-size:calc(1.625rem + 4.5vw)` at 5:9906, invalid value.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:9971.
+WARNING:weasyprint:Ignored `font-size:calc(1.575rem + 3.9vw)` at 5:10035, invalid value.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:10100.
+WARNING:weasyprint:Ignored `font-size:calc(1.525rem + 3.3vw)` at 5:10166, invalid value.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:10231.
+WARNING:weasyprint:Ignored `font-size:calc(1.475rem + 2.7vw)` at 5:10295, invalid value.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:10360.
+WARNING:weasyprint:Ignored `font-size:calc(1.425rem + 2.1vw)` at 5:10426, invalid value.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:10491.
+WARNING:weasyprint:Ignored `font-size:calc(1.375rem + 1.5vw)` at 5:10555, invalid value.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:10620.
+WARNING:weasyprint:Expected a media type, got '(min-width:576px)'
+WARNING:weasyprint:Invalid media type ' (min-width:576px)' the whole @media rule was ignored at 5:11763.
+WARNING:weasyprint:Expected a media type, got '(min-width:768px)'
+WARNING:weasyprint:Invalid media type ' (min-width:768px)' the whole @media rule was ignored at 5:11830.
+WARNING:weasyprint:Expected a media type, got '(min-width:992px)'
+WARNING:weasyprint:Invalid media type ' (min-width:992px)' the whole @media rule was ignored at 5:11911.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:12006.
+WARNING:weasyprint:Expected a media type, got '(min-width:1400px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1400px)' the whole @media rule was ignored at 5:12117.
+WARNING:weasyprint:Expected a media type, got '(min-width:576px)'
+WARNING:weasyprint:Invalid media type ' (min-width:576px)' the whole @media rule was ignored at 5:14279.
+WARNING:weasyprint:Expected a media type, got '(min-width:768px)'
+WARNING:weasyprint:Invalid media type ' (min-width:768px)' the whole @media rule was ignored at 5:16019.
+WARNING:weasyprint:Expected a media type, got '(min-width:992px)'
+WARNING:weasyprint:Invalid media type ' (min-width:992px)' the whole @media rule was ignored at 5:17759.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:19499.
+WARNING:weasyprint:Expected a media type, got '(min-width:1400px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1400px)' the whole @media rule was ignored at 5:21240.
+WARNING:weasyprint:Ignored `box-shadow:inset 0 0 0 9999px var(--bs-table-bg-state,var(--bs-table-bg-type,var(--bs-table-accent-bg)))` at 5:23867, unknown property.
+WARNING:weasyprint:Ignored `overflow-x:auto` at 5:27686, unknown property.
+WARNING:weasyprint:Expected a media type, got '(max-width:575.98px)'
+WARNING:weasyprint:Invalid media type ' (max-width:575.98px)' the whole @media rule was ignored at 5:27735.
+WARNING:weasyprint:Expected a media type, got '(max-width:767.98px)'
+WARNING:weasyprint:Invalid media type ' (max-width:767.98px)' the whole @media rule was ignored at 5:27834.
+WARNING:weasyprint:Expected a media type, got '(max-width:991.98px)'
+WARNING:weasyprint:Invalid media type ' (max-width:991.98px)' the whole @media rule was ignored at 5:27933.
+WARNING:weasyprint:Expected a media type, got '(max-width:1199.98px)'
+WARNING:weasyprint:Invalid media type ' (max-width:1199.98px)' the whole @media rule was ignored at 5:28032.
+WARNING:weasyprint:Expected a media type, got '(max-width:1399.98px)'
+WARNING:weasyprint:Invalid media type ' (max-width:1399.98px)' the whole @media rule was ignored at 5:28132.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:29218.
+WARNING:weasyprint:Ignored `box-shadow:0 0 0 .25rem rgba(13,110,253,.25)` at 5:29513, unknown property.
+WARNING:weasyprint:Invalid or unsupported selector, '.form-control::-webkit-date-and-time-value'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-control::-webkit-datetime-edit'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-control::-moz-placeholder'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-control::placeholder', unknown pseudo-element: placeholder
+WARNING:weasyprint:Invalid or unsupported selector, '.form-control::-webkit-file-upload-button'
+WARNING:weasyprint:Ignored `margin-inline-end:.75rem` at 5:30628, unknown property.
+WARNING:weasyprint:Ignored `border-inline-end-width:var(--bs-border-width)` at 5:30794, unknown property.
+WARNING:weasyprint:Invalid or unsupported selector, '.form-control::file-selector-button', unknown pseudo-element: file-selector-button
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:30983.
+WARNING:weasyprint:Invalid or unsupported selector, '.form-control:hover:not(:disabled):not([readonly])::-webkit-file-upload-button'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-control:hover:not(:disabled):not([readonly])::file-selector-button', unknown pseudo-element: file-selector-button
+WARNING:weasyprint:Invalid or unsupported selector, '.form-control-sm::-webkit-file-upload-button'
+WARNING:weasyprint:Ignored `margin-inline-end:.5rem` at 5:32165, unknown property.
+WARNING:weasyprint:Invalid or unsupported selector, '.form-control-sm::file-selector-button', unknown pseudo-element: file-selector-button
+WARNING:weasyprint:Invalid or unsupported selector, '.form-control-lg::-webkit-file-upload-button'
+WARNING:weasyprint:Ignored `margin-inline-end:1rem` at 5:32582, unknown property.
+WARNING:weasyprint:Invalid or unsupported selector, '.form-control-lg::file-selector-button', unknown pseudo-element: file-selector-button
+WARNING:weasyprint:Invalid or unsupported selector, '.form-control-color::-moz-color-swatch'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-control-color::-webkit-color-swatch'
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:34277.
+WARNING:weasyprint:Ignored `box-shadow:0 0 0 .25rem rgba(13,110,253,.25)` at 5:34396, unknown property.
+WARNING:weasyprint:Invalid or unsupported selector, '.form-select:-moz-focusring'
+WARNING:weasyprint:Ignored `color-adjust:exact` at 5:35971, unknown property.
+WARNING:weasyprint:Ignored `print-color-adjust:exact` at 5:35990, unknown property.
+WARNING:weasyprint:Ignored `filter:brightness(90%)` at 5:36141, unknown property.
+WARNING:weasyprint:Ignored `box-shadow:0 0 0 .25rem rgba(13,110,253,.25)` at 5:36219, unknown property.
+WARNING:weasyprint:Invalid or unsupported selector, '.form-check-input[type=checkbox]:indeterminate'
+WARNING:weasyprint:Ignored `filter:none` at 5:37202, unknown property.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:37745.
+WARNING:weasyprint:Ignored `filter:none` at 5:38600, unknown property.
+WARNING:weasyprint:Invalid or unsupported selector, '.form-range:focus::-webkit-slider-thumb'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-range:focus::-moz-range-thumb'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-range::-moz-focus-outer'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-range::-webkit-slider-thumb'
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:39662.
+WARNING:weasyprint:Invalid or unsupported selector, '.form-range::-webkit-slider-thumb:active'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-range::-webkit-slider-runnable-track'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-range::-moz-range-thumb'
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:40379.
+WARNING:weasyprint:Invalid or unsupported selector, '.form-range::-moz-range-thumb:active'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-range::-moz-range-track'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-range:disabled::-webkit-slider-thumb'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-range:disabled::-moz-range-thumb'
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:41506.
+WARNING:weasyprint:Invalid or unsupported selector, '.form-floating>.form-control-plaintext::-moz-placeholder,.form-floating>.form-control::-moz-placeholder'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-floating>.form-control-plaintext::placeholder,.form-floating>.form-control::placeholder', unknown pseudo-element: placeholder
+WARNING:weasyprint:Invalid or unsupported selector, '.form-floating>.form-control-plaintext:not(:-moz-placeholder-shown),.form-floating>.form-control:not(:-moz-placeholder-shown)'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-floating>.form-control-plaintext:focus,.form-floating>.form-control-plaintext:not(:placeholder-shown),.form-floating>.form-control:focus,.form-floating>.form-control:not(:placeholder-shown)'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-floating>.form-control-plaintext:-webkit-autofill,.form-floating>.form-control:-webkit-autofill'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-floating>.form-control:not(:-moz-placeholder-shown)~label'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-floating>.form-control-plaintext~label,.form-floating>.form-control:focus~label,.form-floating>.form-control:not(:placeholder-shown)~label,.form-floating>.form-select~label'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-floating>.form-control:not(:-moz-placeholder-shown)~label::after'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-floating>.form-control-plaintext~label::after,.form-floating>.form-control:focus~label::after,.form-floating>.form-control:not(:placeholder-shown)~label::after,.form-floating>.form-select~label::after'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-floating>.form-control:-webkit-autofill~label'
+WARNING:weasyprint:Invalid or unsupported selector, '.is-valid~.valid-feedback,.is-valid~.valid-tooltip,.was-validated :valid~.valid-feedback,.was-validated :valid~.valid-tooltip'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-control.is-valid,.was-validated .form-control:valid'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-control.is-valid:focus,.was-validated .form-control:valid:focus'
+WARNING:weasyprint:Invalid or unsupported selector, '.was-validated textarea.form-control:valid,textarea.form-control.is-valid'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-select.is-valid,.was-validated .form-select:valid'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-select.is-valid:not([multiple]):not([size]),.form-select.is-valid:not([multiple])[size="1"],.was-validated .form-select:valid:not([multiple]):not([size]),.was-validated .form-select:valid:not([multiple])[size="1"]'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-select.is-valid:focus,.was-validated .form-select:valid:focus'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-control-color.is-valid,.was-validated .form-control-color:valid'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-check-input.is-valid,.was-validated .form-check-input:valid'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-check-input.is-valid:checked,.was-validated .form-check-input:valid:checked'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-check-input.is-valid:focus,.was-validated .form-check-input:valid:focus'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-check-input.is-valid~.form-check-label,.was-validated .form-check-input:valid~.form-check-label'
+WARNING:weasyprint:Invalid or unsupported selector, '.input-group>.form-control:not(:focus).is-valid,.input-group>.form-floating:not(:focus-within).is-valid,.input-group>.form-select:not(:focus).is-valid,.was-validated .input-group>.form-control:not(:focus):valid,.was-validated .input-group>.form-floating:not(:focus-within):valid,.was-validated .input-group>.form-select:not(:focus):valid'
+WARNING:weasyprint:Invalid or unsupported selector, '.is-invalid~.invalid-feedback,.is-invalid~.invalid-tooltip,.was-validated :invalid~.invalid-feedback,.was-validated :invalid~.invalid-tooltip'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-control.is-invalid,.was-validated .form-control:invalid'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-control.is-invalid:focus,.was-validated .form-control:invalid:focus'
+WARNING:weasyprint:Invalid or unsupported selector, '.was-validated textarea.form-control:invalid,textarea.form-control.is-invalid'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-select.is-invalid,.was-validated .form-select:invalid'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-select.is-invalid:not([multiple]):not([size]),.form-select.is-invalid:not([multiple])[size="1"],.was-validated .form-select:invalid:not([multiple]):not([size]),.was-validated .form-select:invalid:not([multiple])[size="1"]'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-select.is-invalid:focus,.was-validated .form-select:invalid:focus'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-control-color.is-invalid,.was-validated .form-control-color:invalid'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-check-input.is-invalid,.was-validated .form-check-input:invalid'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-check-input.is-invalid:checked,.was-validated .form-check-input:invalid:checked'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-check-input.is-invalid:focus,.was-validated .form-check-input:invalid:focus'
+WARNING:weasyprint:Invalid or unsupported selector, '.form-check-input.is-invalid~.form-check-label,.was-validated .form-check-input:invalid~.form-check-label'
+WARNING:weasyprint:Invalid or unsupported selector, '.input-group>.form-control:not(:focus).is-invalid,.input-group>.form-floating:not(:focus-within).is-invalid,.input-group>.form-select:not(:focus).is-invalid,.was-validated .input-group>.form-control:not(:focus):invalid,.was-validated .input-group>.form-floating:not(:focus-within):invalid,.was-validated .input-group>.form-select:not(:focus):invalid'
+WARNING:weasyprint:Ignored `--bs-btn-font-family: ` at 5:53229, no value.
+WARNING:weasyprint:Ignored `user-select:none` at 5:54129, unknown property.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:54415.
+WARNING:weasyprint:Ignored `box-shadow:var(--bs-btn-focus-box-shadow)` at 5:54874, unknown property.
+WARNING:weasyprint:Ignored `box-shadow:var(--bs-btn-focus-box-shadow)` at 5:55002, unknown property.
+WARNING:weasyprint:Ignored `box-shadow:var(--bs-btn-focus-box-shadow)` at 5:55433, unknown property.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:64048.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:64236.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:64383.
+WARNING:weasyprint:Expected a media type, got '(min-width:576px)'
+WARNING:weasyprint:Invalid media type ' (min-width:576px)' the whole @media rule was ignored at 5:66721.
+WARNING:weasyprint:Expected a media type, got '(min-width:768px)'
+WARNING:weasyprint:Invalid media type ' (min-width:768px)' the whole @media rule was ignored at 5:66945.
+WARNING:weasyprint:Expected a media type, got '(min-width:992px)'
+WARNING:weasyprint:Invalid media type ' (min-width:992px)' the whole @media rule was ignored at 5:67169.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:67393.
+WARNING:weasyprint:Expected a media type, got '(min-width:1400px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1400px)' the whole @media rule was ignored at 5:67618.
+WARNING:weasyprint:Ignored `--bs-dropdown-box-shadow: ` at 5:70683, no value.
+WARNING:weasyprint:Ignored `--bs-nav-link-font-weight: ` at 5:73381, no value.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:73979.
+WARNING:weasyprint:Ignored `box-shadow:0 0 0 .25rem rgba(13,110,253,.25)` at 5:74148, unknown property.
+WARNING:weasyprint:Ignored `isolation:isolate` at 5:75146, unknown property.
+WARNING:weasyprint:Ignored `--bs-nav-link-font-weight: ` at 5:79086, no value.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:80113.
+WARNING:weasyprint:Ignored `box-shadow:0 0 0 var(--bs-navbar-toggler-focus-width)` at 5:80281, unknown property.
+WARNING:weasyprint:Ignored `overflow-y:auto` at 5:80609, unknown property.
+WARNING:weasyprint:Expected a media type, got '(min-width:576px)'
+WARNING:weasyprint:Invalid media type ' (min-width:576px)' the whole @media rule was ignored at 5:80625.
+WARNING:weasyprint:Expected a media type, got '(min-width:768px)'
+WARNING:weasyprint:Invalid media type ' (min-width:768px)' the whole @media rule was ignored at 5:81539.
+WARNING:weasyprint:Expected a media type, got '(min-width:992px)'
+WARNING:weasyprint:Invalid media type ' (min-width:992px)' the whole @media rule was ignored at 5:82453.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:83367.
+WARNING:weasyprint:Expected a media type, got '(min-width:1400px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1400px)' the whole @media rule was ignored at 5:84282.
+WARNING:weasyprint:Ignored `overflow-y:visible` at 5:86046, unknown property.
+WARNING:weasyprint:Ignored `--bs-card-title-color: ` at 5:87073, no value.
+WARNING:weasyprint:Ignored `--bs-card-subtitle-color: ` at 5:87097, no value.
+WARNING:weasyprint:Ignored `--bs-card-box-shadow: ` at 5:87276, no value.
+WARNING:weasyprint:Ignored `--bs-card-cap-color: ` at 5:87500, no value.
+WARNING:weasyprint:Ignored `--bs-card-height: ` at 5:87522, no value.
+WARNING:weasyprint:Ignored `--bs-card-color: ` at 5:87541, no value.
+WARNING:weasyprint:Expected a media type, got '(min-width:576px)'
+WARNING:weasyprint:Invalid media type ' (min-width:576px)' the whole @media rule was ignored at 5:90575.
+WARNING:weasyprint:Ignored `overflow-anchor:none` at 5:93443, unknown property.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:93506.
+WARNING:weasyprint:Ignored `box-shadow:inset 0 calc(-1 * var(--bs-accordion-border-width)) 0 var(--bs-accordion-border-color)` at 5:93700, unknown property.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:94267.
+WARNING:weasyprint:Ignored `box-shadow:var(--bs-accordion-btn-focus-box-shadow)` at 5:94482, unknown property.
+WARNING:weasyprint:Ignored `--bs-breadcrumb-bg: ` at 5:96832, no value.
+WARNING:weasyprint:Ignored `--bs-breadcrumb-border-radius: ` at 5:96853, no value.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:99137.
+WARNING:weasyprint:Ignored `box-shadow:var(--bs-pagination-focus-box-shadow)` at 5:99493, unknown property.
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 5:103743
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:104574.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:105083.
+WARNING:weasyprint:Expected a media type, got '(min-width:576px)'
+WARNING:weasyprint:Invalid media type ' (min-width:576px)' the whole @media rule was ignored at 5:108437.
+WARNING:weasyprint:Expected a media type, got '(min-width:768px)'
+WARNING:weasyprint:Invalid media type ' (min-width:768px)' the whole @media rule was ignored at 5:109196.
+WARNING:weasyprint:Expected a media type, got '(min-width:992px)'
+WARNING:weasyprint:Invalid media type ' (min-width:992px)' the whole @media rule was ignored at 5:109955.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:110714.
+WARNING:weasyprint:Expected a media type, got '(min-width:1400px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1400px)' the whole @media rule was ignored at 5:111474.
+WARNING:weasyprint:Ignored `box-shadow:var(--bs-btn-close-focus-shadow)` at 5:118343, unknown property.
+WARNING:weasyprint:Ignored `user-select:none` at 5:118536, unknown property.
+WARNING:weasyprint:Ignored `filter:var(--bs-btn-close-white-filter)` at 5:118615, unknown property.
+WARNING:weasyprint:Ignored `filter:var(--bs-btn-close-white-filter)` at 5:118687, unknown property.
+WARNING:weasyprint:Ignored `--bs-toast-color: ` at 5:118897, no value.
+WARNING:weasyprint:Ignored `box-shadow:var(--bs-toast-box-shadow)` at 5:119599, unknown property.
+WARNING:weasyprint:Ignored `width:-webkit-max-content` at 5:119826, invalid value.
+WARNING:weasyprint:Ignored `width:-moz-max-content` at 5:119852, invalid value.
+WARNING:weasyprint:Ignored `width:max-content` at 5:119875, invalid value.
+WARNING:weasyprint:Ignored `--bs-modal-color: ` at 5:120762, no value.
+WARNING:weasyprint:Ignored `--bs-modal-footer-bg: ` at 5:121396, no value.
+WARNING:weasyprint:Ignored `overflow-x:hidden` at 5:121622, unknown property.
+WARNING:weasyprint:Ignored `overflow-y:auto` at 5:121640, unknown property.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:121848.
+WARNING:weasyprint:Ignored `overflow-y:auto` at 5:122208, unknown property.
+WARNING:weasyprint:Ignored `width:100vw` at 5:122798, invalid value.
+WARNING:weasyprint:Ignored `height:100vh` at 5:122810, invalid value.
+WARNING:weasyprint:Expected a media type, got '(min-width:576px)'
+WARNING:weasyprint:Invalid media type ' (min-width:576px)' the whole @media rule was ignored at 5:124198.
+WARNING:weasyprint:Expected a media type, got '(min-width:992px)'
+WARNING:weasyprint:Invalid media type ' (min-width:992px)' the whole @media rule was ignored at 5:124427.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:124496.
+WARNING:weasyprint:Ignored `width:100vw` at 5:124575, invalid value.
+WARNING:weasyprint:Ignored `overflow-y:auto` at 5:124803, unknown property.
+WARNING:weasyprint:Expected a media type, got '(max-width:575.98px)'
+WARNING:weasyprint:Invalid media type ' (max-width:575.98px)' the whole @media rule was ignored at 5:124819.
+WARNING:weasyprint:Expected a media type, got '(max-width:767.98px)'
+WARNING:weasyprint:Invalid media type ' (max-width:767.98px)' the whole @media rule was ignored at 5:125150.
+WARNING:weasyprint:Expected a media type, got '(max-width:991.98px)'
+WARNING:weasyprint:Invalid media type ' (max-width:991.98px)' the whole @media rule was ignored at 5:125481.
+WARNING:weasyprint:Expected a media type, got '(max-width:1199.98px)'
+WARNING:weasyprint:Invalid media type ' (max-width:1199.98px)' the whole @media rule was ignored at 5:125812.
+WARNING:weasyprint:Expected a media type, got '(max-width:1399.98px)'
+WARNING:weasyprint:Invalid media type ' (max-width:1399.98px)' the whole @media rule was ignored at 5:126144.
+WARNING:weasyprint:Ignored `--bs-tooltip-margin: ` at 5:126605, no value.
+WARNING:weasyprint:Ignored `text-shadow:none` at 5:127099, unknown property.
+WARNING:weasyprint:Ignored `line-break:auto` at 5:127215, unknown property.
+WARNING:weasyprint:Ignored `text-shadow:none` at 5:130683, unknown property.
+WARNING:weasyprint:Ignored `line-break:auto` at 5:130799, unknown property.
+WARNING:weasyprint:Ignored `backface-visibility:hidden` at 5:136148, unknown property.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:136212.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:136936.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:137333.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:138944.
+WARNING:weasyprint:Ignored `filter:invert(1) grayscale(100)` at 5:139305, unknown property.
+WARNING:weasyprint:Ignored `filter:invert(1) grayscale(100)` at 5:139690, unknown property.
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 5:140261
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 5:140717
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:141075.
+WARNING:weasyprint:Expected a media type, got '(max-width:575.98px)'
+WARNING:weasyprint:Invalid media type ' (max-width:575.98px)' the whole @media rule was ignored at 5:141750.
+WARNING:weasyprint:Expected a media type, got '(max-width:575.98px)and/**/(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (max-width:575.98px) and (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:142072.
+WARNING:weasyprint:Expected a media type, got '(max-width:575.98px)'
+WARNING:weasyprint:Invalid media type ' (max-width:575.98px)' the whole @media rule was ignored at 5:142167.
+WARNING:weasyprint:Expected a media type, got '(min-width:576px)'
+WARNING:weasyprint:Invalid media type ' (min-width:576px)' the whole @media rule was ignored at 5:143138.
+WARNING:weasyprint:Expected a media type, got '(max-width:767.98px)'
+WARNING:weasyprint:Invalid media type ' (max-width:767.98px)' the whole @media rule was ignored at 5:143442.
+WARNING:weasyprint:Expected a media type, got '(max-width:767.98px)and/**/(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (max-width:767.98px) and (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:143764.
+WARNING:weasyprint:Expected a media type, got '(max-width:767.98px)'
+WARNING:weasyprint:Invalid media type ' (max-width:767.98px)' the whole @media rule was ignored at 5:143859.
+WARNING:weasyprint:Expected a media type, got '(min-width:768px)'
+WARNING:weasyprint:Invalid media type ' (min-width:768px)' the whole @media rule was ignored at 5:144830.
+WARNING:weasyprint:Expected a media type, got '(max-width:991.98px)'
+WARNING:weasyprint:Invalid media type ' (max-width:991.98px)' the whole @media rule was ignored at 5:145134.
+WARNING:weasyprint:Expected a media type, got '(max-width:991.98px)and/**/(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (max-width:991.98px) and (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:145456.
+WARNING:weasyprint:Expected a media type, got '(max-width:991.98px)'
+WARNING:weasyprint:Invalid media type ' (max-width:991.98px)' the whole @media rule was ignored at 5:145551.
+WARNING:weasyprint:Expected a media type, got '(min-width:992px)'
+WARNING:weasyprint:Invalid media type ' (min-width:992px)' the whole @media rule was ignored at 5:146522.
+WARNING:weasyprint:Expected a media type, got '(max-width:1199.98px)'
+WARNING:weasyprint:Invalid media type ' (max-width:1199.98px)' the whole @media rule was ignored at 5:146826.
+WARNING:weasyprint:Expected a media type, got '(max-width:1199.98px)and/**/(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (max-width:1199.98px) and (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:147149.
+WARNING:weasyprint:Expected a media type, got '(max-width:1199.98px)'
+WARNING:weasyprint:Invalid media type ' (max-width:1199.98px)' the whole @media rule was ignored at 5:147245.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:148217.
+WARNING:weasyprint:Expected a media type, got '(max-width:1399.98px)'
+WARNING:weasyprint:Invalid media type ' (max-width:1399.98px)' the whole @media rule was ignored at 5:148522.
+WARNING:weasyprint:Expected a media type, got '(max-width:1399.98px)and/**/(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (max-width:1399.98px) and (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:148846.
+WARNING:weasyprint:Expected a media type, got '(max-width:1399.98px)'
+WARNING:weasyprint:Invalid media type ' (max-width:1399.98px)' the whole @media rule was ignored at 5:148943.
+WARNING:weasyprint:Expected a media type, got '(min-width:1400px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1400px)' the whole @media rule was ignored at 5:149924.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:150522.
+WARNING:weasyprint:Ignored `width:100vw` at 5:151565, invalid value.
+WARNING:weasyprint:Ignored `height:100vh` at 5:151577, invalid value.
+WARNING:weasyprint:Ignored `overflow-y:auto` at 5:152293, unknown property.
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 5:152669
+WARNING:weasyprint:Ignored `mask-image:linear-gradient(130deg,#000 55%,rgba(0,0,0,0.8) 75%,#000 95%)` at 5:152812, unknown property.
+WARNING:weasyprint:Ignored `mask-size:200% 100%` at 5:152913, unknown property.
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 5:152979
+WARNING:weasyprint:Ignored `box-shadow:var(--bs-focus-ring-x,0) var(--bs-focus-ring-y,0) var(--bs-focus-ring-blur,0) var(--bs-focus-ring-width) var(--bs-focus-ring-color)` at 5:159017, unknown property.
+WARNING:weasyprint:Ignored `backface-visibility:hidden` at 5:159454, unknown property.
+WARNING:weasyprint:Ignored `fill:currentcolor` at 5:159531, unknown property.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 5:159586.
+WARNING:weasyprint:Ignored `position:-webkit-sticky` at 5:160243, invalid value.
+WARNING:weasyprint:Ignored `position:sticky` at 5:160267, invalid value.
+WARNING:weasyprint:Ignored `position:-webkit-sticky` at 5:160317, invalid value.
+WARNING:weasyprint:Ignored `position:sticky` at 5:160341, invalid value.
+WARNING:weasyprint:Expected a media type, got '(min-width:576px)'
+WARNING:weasyprint:Invalid media type ' (min-width:576px)' the whole @media rule was ignored at 5:160379.
+WARNING:weasyprint:Expected a media type, got '(min-width:768px)'
+WARNING:weasyprint:Invalid media type ' (min-width:768px)' the whole @media rule was ignored at 5:160559.
+WARNING:weasyprint:Expected a media type, got '(min-width:992px)'
+WARNING:weasyprint:Invalid media type ' (min-width:992px)' the whole @media rule was ignored at 5:160739.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:160919.
+WARNING:weasyprint:Expected a media type, got '(min-width:1400px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1400px)' the whole @media rule was ignored at 5:161100.
+WARNING:weasyprint:Ignored `overflow-x:auto` at 5:163228, unknown property.
+WARNING:weasyprint:Ignored `overflow-x:hidden` at 5:163273, unknown property.
+WARNING:weasyprint:Ignored `overflow-x:visible` at 5:163321, unknown property.
+WARNING:weasyprint:Ignored `overflow-x:scroll` at 5:163369, unknown property.
+WARNING:weasyprint:Ignored `overflow-y:auto` at 5:163414, unknown property.
+WARNING:weasyprint:Ignored `overflow-y:hidden` at 5:163459, unknown property.
+WARNING:weasyprint:Ignored `overflow-y:visible` at 5:163507, unknown property.
+WARNING:weasyprint:Ignored `overflow-y:scroll` at 5:163555, unknown property.
+WARNING:weasyprint:Ignored `box-shadow:0 .5rem 1rem rgba(0,0,0,.15)` at 5:164006, unknown property.
+WARNING:weasyprint:Ignored `box-shadow:0 .125rem .25rem rgba(0,0,0,.075)` at 5:164067, unknown property.
+WARNING:weasyprint:Ignored `box-shadow:0 1rem 3rem rgba(0,0,0,.175)` at 5:164133, unknown property.
+WARNING:weasyprint:Ignored `box-shadow:none` at 5:164196, unknown property.
+WARNING:weasyprint:Ignored `position:-webkit-sticky` at 5:165203, invalid value.
+WARNING:weasyprint:Ignored `position:sticky` at 5:165237, invalid value.
+WARNING:weasyprint:Ignored `width:100vw` at 5:168783, invalid value.
+WARNING:weasyprint:Ignored `min-width:100vw` at 5:168817, invalid value.
+WARNING:weasyprint:Ignored `height:100vh` at 5:169025, invalid value.
+WARNING:weasyprint:Ignored `min-height:100vh` at 5:169060, invalid value.
+WARNING:weasyprint:Ignored `font-size:calc(1.375rem + 1.5vw)` at 5:175716, invalid value.
+WARNING:weasyprint:Ignored `font-size:calc(1.325rem + .9vw)` at 5:175765, invalid value.
+WARNING:weasyprint:Ignored `font-size:calc(1.3rem + .6vw)` at 5:175813, invalid value.
+WARNING:weasyprint:Ignored `font-size:calc(1.275rem + .3vw)` at 5:175859, invalid value.
+WARNING:weasyprint:Ignored `word-break:break-word` at 5:177023, invalid value.
+WARNING:weasyprint:Ignored `user-select:all` at 5:185516, unknown property.
+WARNING:weasyprint:Ignored `user-select:auto` at 5:185627, unknown property.
+WARNING:weasyprint:Ignored `user-select:none` at 5:185739, unknown property.
+WARNING:weasyprint:Expected a media type, got '(min-width:576px)'
+WARNING:weasyprint:Invalid media type ' (min-width:576px)' the whole @media rule was ignored at 5:191226.
+WARNING:weasyprint:Expected a media type, got '(min-width:768px)'
+WARNING:weasyprint:Invalid media type ' (min-width:768px)' the whole @media rule was ignored at 5:199350.
+WARNING:weasyprint:Expected a media type, got '(min-width:992px)'
+WARNING:weasyprint:Invalid media type ' (min-width:992px)' the whole @media rule was ignored at 5:207474.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:215598.
+WARNING:weasyprint:Expected a media type, got '(min-width:1400px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1400px)' the whole @media rule was ignored at 5:223723.
+WARNING:weasyprint:Expected a media type, got '(min-width:1200px)'
+WARNING:weasyprint:Invalid media type ' (min-width:1200px)' the whole @media rule was ignored at 5:232022.
+WARNING:weasyprint:Ignored `text-rendering:auto` at 6:328, unknown property.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion:reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion:reduce)' the whole @media rule was ignored at 6:6679.
+WARNING:weasyprint:Unknown rule <AtRule @-webkit-keyframes … { … }> at 6:7085
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 6:7264
+WARNING:weasyprint:Unknown rule <AtRule @-webkit-keyframes … { … }> at 6:7435
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 6:8525
+WARNING:weasyprint:Unknown rule <AtRule @-webkit-keyframes … { … }> at 6:9607
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 6:9673
+WARNING:weasyprint:Unknown rule <AtRule @-webkit-keyframes … { … }> at 6:9731
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 6:9975
+WARNING:weasyprint:Unknown rule <AtRule @-webkit-keyframes … { … }> at 6:10211
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 6:10463
+WARNING:weasyprint:Unknown rule <AtRule @-webkit-keyframes … { … }> at 6:10707
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 6:11290
+WARNING:weasyprint:Unknown rule <AtRule @-webkit-keyframes … { … }> at 6:11865
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 6:12009
+WARNING:weasyprint:Invalid or unsupported selector, ':host,:root'
+INFO:fontTools.ttLib.woff2:Processing <_io.BytesIO object at 0x7ff33876ff60> => <_io.BytesIO object at 0x7ff33876ff10>
+WARNING:weasyprint:Invalid or unsupported selector, ':host,:root'
+INFO:fontTools.ttLib.woff2:Processing <_io.BytesIO object at 0x7ff338243e70> => <_io.BytesIO object at 0x7ff338243c40>
+WARNING:weasyprint:Invalid or unsupported selector, ':host,:root'
+INFO:fontTools.ttLib.woff2:Processing <_io.BytesIO object at 0x7ff338243bf0> => <_io.BytesIO object at 0x7ff338243ba0>
+INFO:fontTools.ttLib.woff2:Processing <_io.BytesIO object at 0x7ff338243c40> => <_io.BytesIO object at 0x7ff338243e70>
+INFO:fontTools.ttLib.woff2:Processing <_io.BytesIO object at 0x7ff338243f60> => <_io.BytesIO object at 0x7ff338243ba0>
+INFO:fontTools.ttLib.woff2:Processing <_io.BytesIO object at 0x7ff338243f10> => <_io.BytesIO object at 0x7ff338243c90>
+INFO:fontTools.ttLib.woff2:Processing <_io.BytesIO object at 0x7ff338270bd0> => <_io.BytesIO object at 0x7ff338243b50>
+INFO:fontTools.ttLib.woff2:Processing <_io.BytesIO object at 0x7ff3382702c0> => <_io.BytesIO object at 0x7ff338243e70>
+INFO:fontTools.ttLib.woff2:Processing <_io.BytesIO object at 0x7ff339ef7650> => <_io.BytesIO object at 0x7ff339dae890>
+INFO:fontTools.ttLib.woff2:Processing <_io.BytesIO object at 0x7ff339d9cb30> => <_io.BytesIO object at 0x7ff339d9cc70>
+ERROR:weasyprint:Relative URI reference without a base URI: <link href="/static/css/custom.css">
+ERROR:weasyprint:Relative URI reference without a base URI: <link href="/static/css/medical_styles.css">
+ERROR:weasyprint:Relative URI reference without a base URI: <link href="/static/css/medical_terminology_ui.css">
+ERROR:weasyprint:Relative URI reference without a base URI: <link href="/static/css/loading-states.css">
+WARNING:weasyprint:Ignored `box-shadow: none ` at 4:48, unknown property.
+WARNING:weasyprint:Ignored `text-align: ` at 5:5663, no value.
+WARNING:weasyprint:Ignored `padding-left: calc(1.5rem * .5)` at 5:11698, invalid value.
+WARNING:weasyprint:Ignored `padding-right: calc(1.5rem * .5)` at 5:11655, invalid value.
+WARNING:weasyprint:Ignored `height: ` at 5:87728, no value.
+WARNING:weasyprint:Ignored `padding-left: calc(1.5rem * .5)` at 5:12700, invalid value.
+WARNING:weasyprint:Ignored `padding-right: calc(1.5rem * .5)` at 5:12657, invalid value.
+WARNING:weasyprint:Ignored `margin-left: calc(-.5 * 1.5rem)` at 5:12565, invalid value.
+WARNING:weasyprint:Ignored `margin-right: calc(-.5 * 1.5rem)` at 5:12522, invalid value.
+WARNING:weasyprint:Ignored `margin-top: calc(-1 * 0)` at 5:12479, invalid value.
+WARNING:weasyprint:Ignored `color: ` at 5:88571, no value.
+INFO:services.epic_writeback:Generated PDF (17518 bytes) for patient FHR996932KQG582
+ERROR:emr.fhir_client:Error creating DocumentReference: 400 Client Error: Bad Request for url: https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/DocumentReference
+10.81.4.82 - - [12/Jan/2026:06:54:54 +0000] "POST /prep-sheet/generate-to-epic/50 HTTP/1.1" 500 92 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/screening/list" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"

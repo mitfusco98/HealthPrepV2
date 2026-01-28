@@ -1,0 +1,54 @@
+2025-12-13 15:35:11.35
+INFO:services.comprehensive_emr_sync:Syncing documents for patient e0w0LEDCYtfckT6N.CkJKCw3
+2025-12-13 15:35:11.56
+INFO:services.comprehensive_emr_sync:Epic returned 5 documents for patient e0w0LEDCYtfckT6N.CkJKCw3
+2025-12-13 15:35:11.75
+INFO:ocr.document_processor:Processing document: Progress Notes
+2025-12-13 15:35:11.75
+ERROR:trafilatura.core:empty HTML tree: None
+2025-12-13 15:35:11.75
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+2025-12-13 15:35:11.75
+WARNING:trafilatura.core:discarding data: None
+2025-12-13 15:35:12.05
+INFO:ocr.document_processor:Processing document: Progress Notes
+2025-12-13 15:35:12.05
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+2025-12-13 15:35:12.05
+ERROR:trafilatura.core:empty HTML tree: None
+2025-12-13 15:35:12.05
+WARNING:trafilatura.core:discarding data: None
+2025-12-13 15:35:12.05
+INFO:ocr.document_processor:Extracted text using fallback HTML parser
+2025-12-13 15:35:12.07
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+2025-12-13 15:35:12.33
+WARNING:trafilatura.core:discarding data: None
+2025-12-13 15:35:12.33
+ERROR:trafilatura.utils:parsed tree length: 1, wrong data type or not valid HTML
+2025-12-13 15:35:12.36
+INFO:ocr.document_processor:Successfully processed document with 0.90 confidence
+2025-12-13 15:35:12.62
+WARNING:trafilatura.core:discarding data: None
+2025-12-13 15:35:12.62
+ERROR:trafilatura.core:empty HTML tree: None
+2025-12-13 15:35:12.73
+INFO:services.comprehensive_emr_sync:Syncing encounters for patient e0w0LEDCYtfckT6N.CkJKCw3
+2025-12-13 15:35:13.47
+INFO:services.comprehensive_emr_sync:Updated screening status for e0w0LEDCYtfckT6N.CkJKCw3: Lipid Panel - due (0 manual + 0 FHIR docs matched)
+2025-12-13 15:35:14.38
+INFO:services.comprehensive_emr_sync:Updated screening status for e0w0LEDCYtfckT6N.CkJKCw3: Colorectal Cancer Screening - due (0 manual + 0 FHIR docs matched)
+2025-12-13 15:35:14.63
+INFO:services.comprehensive_emr_sync:Updated screening status for e0w0LEDCYtfckT6N.CkJKCw3: Immunization Review - due (0 manual + 0 FHIR docs matched)
+2025-12-13 15:35:14.63
+INFO:services.comprehensive_emr_sync:Updated 5 screening statuses
+2025-12-13 15:35:14.79
+34.133.18.86 - - [13/Dec/2025:20:35:14 +0000] "POST /api/refresh-screenings HTTP/1.1" 200 271 "https://health-prep-v-201-mitchfusillo.replit.app/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15"
+2025-12-13 15:35:15.37
+34.133.18.86 - - [13/Dec/2025:20:35:15 +0000] "GET / HTTP/1.1" 200 17332 "https://health-prep-v-201-mitchfusillo.replit.app/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15"
+2025-12-13 15:35:15.74
+34.133.18.86 - - [13/Dec/2025:20:35:15 +0000] "GET /static/js/medical_terminology.js HTTP/1.1" 304 0 "https://health-prep-v-201-mitchfusillo.replit.app/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15"
+2025-12-13 15:35:15.74
+34.133.18.86 - - [13/Dec/2025:20:35:15 +0000] "GET /static/js/medical_terminology.js HTTP/1.1" 304 0 "https://health-prep-v-201-mitchfusillo.replit.app/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15"
+2025-12-13 15:35:15.74
+34.133.18.86 - - [13/Dec/2025:20:35:15 +0000] "GET /static/js/medical_terminology.js HTTP/1.1" 304 0 "https://health-prep-v-201-mitchfusillo.replit.app/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15"

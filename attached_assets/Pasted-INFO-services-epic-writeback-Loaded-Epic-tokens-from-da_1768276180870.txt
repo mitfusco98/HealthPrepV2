@@ -1,0 +1,65 @@
+INFO:services.epic_writeback:Loaded Epic tokens from database for organization 32 (valid for 3588s)
+WARNING:weasyprint:Ignored `box-shadow: var(--hp-shadow)` at 66:3, unknown property.
+WARNING:weasyprint:Ignored `box-shadow: var(--hp-shadow-sm)` at 101:3, unknown property.
+WARNING:weasyprint:Ignored `box-shadow: var(--hp-shadow)` at 124:3, unknown property.
+WARNING:weasyprint:Ignored `box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25)` at 270:3, unknown property.
+WARNING:weasyprint:Ignored `box-shadow: var(--hp-shadow-sm)` at 326:3, unknown property.
+WARNING:weasyprint:Ignored `box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.5)` at 330:3, unknown property.
+WARNING:weasyprint:Ignored `filter: invert(1) grayscale(100%) brightness(200%)` at 402:3, unknown property.
+WARNING:weasyprint:Ignored `box-shadow: var(--hp-shadow)` at 472:3, unknown property.
+WARNING:weasyprint:Ignored `box-shadow: var(--hp-shadow) ` at 520:3, unknown property.
+WARNING:weasyprint:Expected a media type, got '(max-width: 768px)'
+WARNING:weasyprint:Invalid media type ' (max-width: 768px) ' the whole @media rule was ignored at 537:1.
+WARNING:weasyprint:Expected a media type, got '(max-width: 576px)'
+WARNING:weasyprint:Invalid media type ' (max-width: 576px) ' the whole @media rule was ignored at 569:1.
+WARNING:weasyprint:Ignored `box-shadow: none ` at 596:5, unknown property.
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 615:1
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 624:1
+WARNING:weasyprint:Expected a media type, got '(prefers-contrast: high)'
+WARNING:weasyprint:Invalid media type ' (prefers-contrast: high) ' the whole @media rule was ignored at 655:1.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion: reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion: reduce) ' the whole @media rule was ignored at 666:1.
+WARNING:weasyprint:Ignored `box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075)` at 49:5, unknown property.
+WARNING:weasyprint:Ignored `box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15)` at 54:5, unknown property.
+WARNING:weasyprint:Ignored `box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1)` at 114:5, unknown property.
+WARNING:weasyprint:Ignored `box-shadow: 0 0.25rem 0.5rem rgba(0, 86, 179, 0.3)` at 257:5, unknown property.
+WARNING:weasyprint:Ignored `box-shadow: 0 0.25rem 0.5rem rgba(40, 167, 69, 0.3)` at 269:5, unknown property.
+WARNING:weasyprint:Expected a media type, got '(max-width: 768px)'
+WARNING:weasyprint:Invalid media type ' (max-width: 768px) ' the whole @media rule was ignored at 395:1.
+WARNING:weasyprint:Ignored `box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.2)` at 419:5, unknown property.
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 443:1
+WARNING:weasyprint:Expected a media type, got '(prefers-contrast: high)'
+WARNING:weasyprint:Invalid media type ' (prefers-contrast: high) ' the whole @media rule was ignored at 467:1.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion: reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion: reduce) ' the whole @media rule was ignored at 482:1.
+WARNING:weasyprint:Ignored `box-shadow: none` at 498:9, unknown property.
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 111:1
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 268:1
+WARNING:weasyprint:Ignored `box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.4)` at 308:3, unknown property.
+WARNING:weasyprint:Ignored `overflow-y: auto` at 329:3, unknown property.
+WARNING:weasyprint:Expected a media type, got '(max-width: 768px)'
+WARNING:weasyprint:Invalid media type ' (max-width: 768px) ' the whole @media rule was ignored at 460:1.
+WARNING:weasyprint:Expected a media type, got '(max-width: 576px)'
+WARNING:weasyprint:Invalid media type ' (max-width: 576px) ' the whole @media rule was ignored at 488:1.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion: reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion: reduce) ' the whole @media rule was ignored at 509:1.
+WARNING:weasyprint:Expected a media type, got '(prefers-contrast: high)'
+WARNING:weasyprint:Invalid media type ' (prefers-contrast: high) ' the whole @media rule was ignored at 516:1.
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 7:1
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 12:1
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 17:1
+WARNING:weasyprint:Unknown rule <AtRule @keyframes … { … }> at 22:1
+WARNING:weasyprint:Ignored `backdrop-filter: blur(2px)` at 81:3, unknown property.
+WARNING:weasyprint:Expected a media type, got '(max-width: 768px)'
+WARNING:weasyprint:Invalid media type ' (max-width: 768px) ' the whole @media rule was ignored at 383:1.
+WARNING:weasyprint:Expected a media type, got '(max-width: 576px)'
+WARNING:weasyprint:Invalid media type ' (max-width: 576px) ' the whole @media rule was ignored at 407:1.
+WARNING:weasyprint:Expected a media type, got '(prefers-reduced-motion: reduce)'
+WARNING:weasyprint:Invalid media type ' (prefers-reduced-motion: reduce) ' the whole @media rule was ignored at 426:1.
+WARNING:weasyprint:Expected a media type, got '(prefers-contrast: high)'
+WARNING:weasyprint:Invalid media type ' (prefers-contrast: high) ' the whole @media rule was ignored at 458:1.
+WARNING:weasyprint:Ignored `box-shadow: none ` at 4:48, unknown property.
+INFO:services.epic_writeback:Generated PDF (15789 bytes) for patient FHR996932KQG582
+ERROR:emr.fhir_client:Error creating DocumentReference: 400 Client Error: Bad Request for url: https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/DocumentReference. OperationOutcome: {'status_code': None, 'message': 'Unknown error', 'issues': [], 'raw_response': None}
+ERROR:services.epic_writeback:Epic DocumentReference creation failed: Unknown error
+10.81.6.192 - - [13/Jan/2026:03:49:21 +0000] "POST /prep-sheet/generate-to-epic/50 HTTP/1.1" 500 67 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/screening/list" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"

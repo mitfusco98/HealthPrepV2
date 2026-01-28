@@ -1,0 +1,15 @@
+INFO:emr.fhir_client:Generated Epic authorization URL: https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize?response_type=code&client_id=e57377e2-dfd5-4675-9659-58c33aa67b3f&redirect_uri=https%3A%2F%2Fhealth-prep-v-201-mitchfusillo.replit.app%2Foauth%2Fepic-callback&scope=openid+fhirUser+patient%2FPatient.read+patient%2FCondition.read+patient%2FObservation.read+patient%2FDocumentReference.read+patient%2FEncounter.read+patient%2FAppointment.read+user%2FPatient.read+user%2FCondition.read+user%2FObservation.read+user%2FDocumentReference.read+user%2FEncounter.read&aud=https%3A%2F%2Ffhir.epic.com%2Finterconnect-fhir-oauth%2Fapi%2FFHIR%2FR4%2F&state=BOrtaZrCZ1p6svMNpoa6saEZTRVFQO8Cl8Lcv3WfCXU
+2025-12-02 20:58:02.11
+INFO:emr.fhir_client: state: BOrtaZrCZ1p6svMNpoa6saEZTRVFQO8Cl8Lcv3WfCXU
+2025-12-02 20:58:02.11
+INFO:emr.fhir_client: aud: https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/
+2025-12-02 20:58:02.11
+INFO:routes.oauth_routes:Starting Epic OAuth flow for organization 8
+2025-12-02 20:58:02.11
+INFO:emr.fhir_client: client_id: e57377e2-dfd5-4675-9659-58c33aa67b3f
+2025-12-02 20:58:02.13
+104.154.217.247 - - [03/Dec/2025:01:58:02 +0000] "GET /oauth/epic-authorize HTTP/1.1" 302 1527 "https://health-prep-v-201-mitchfusillo.replit.app/admin/epic/registration" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15"
+2025-12-02 20:58:05.96
+34.57.68.123 - - [03/Dec/2025:01:58:05 +0000] "GET /oauth/epic-status HTTP/1.1" 200 83 "https://health-prep-v-201-mitchfusillo.replit.app/admin/epic/registration" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15"
+2025-12-02 20:58:06.25
+34.57.68.123 - - [03/Dec/2025:01:58:06 +0000] "GET /oauth/epic-status HTTP/1.1" 200 83 "https://health-prep-v-201-mitchfusillo.replit.app/admin/epic/registration" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Safari/605.1.15"

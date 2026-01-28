@@ -1,0 +1,52 @@
+INFO:prep_sheet.generator:Applied prep sheet data cutoffs: labs=12m, imaging=12m, consults=12m, hospital=12m
+
+================================================================================
+PREP SHEET GENERATION - VERBOSE OUTPUT
+================================================================================
+Patient MRN: ****QQM7
+Generated at: 2026-01-21 02:31:21 UTC
+--------------------------------------------------------------------------------
+
+[MEDICAL DATA SECTIONS]
+
+  LABS (cutoff: 2025-01-21):
+    No lab documents found within cutoff
+
+  IMAGING (cutoff: 2025-01-21):
+    No imaging documents found within cutoff
+
+  CONSULTS (cutoff: 2025-01-21):
+    - [2026-01-14] Consultation Note (type: Consultation Note)
+
+  HOSPITAL RECORDS (cutoff: 2025-01-21):
+    No hospital documents found within cutoff
+
+[SCREENING QUALITY CHECKLIST]
+  Total: 4 | Due: 4 | Due Soon: 0 | Complete: 0
+
+  Lipid Panel [DUE]
+    Frequency: Every year | Last: Never
+    Matched Documents: 0
+
+  Colonoscopy [DUE]
+    Frequency: Every 5 years | Last: Never
+    Matched Documents: 0
+
+  Immunization Review [DUE]
+    Frequency: Every year | Last: Never
+    Matched Documents: 0
+
+  A1C Test [DUE]
+    Frequency: Every year | Last: Never
+    Matched Documents: 0
+
+================================================================================
+END PREP SHEET OUTPUT
+================================================================================
+
+INFO:prep_sheet.generator:Generated prep sheet for patient FHR4B2C2869QQM7
+INFO:emr.fhir_client:Epic FHIR tokens set successfully
+INFO:services.epic_writeback:Loaded Epic tokens from database for organization 33 (valid for 3443s)
+ERROR:emr.fhir_client:Error retrieving encounters for patient eq081-VQEgP8drUUqCWzHfw3: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+WARNING:services.epic_writeback:No encounters found for patient eq081-VQEgP8drUUqCWzHfw3
+10.81.16.122 - - [21/Jan/2026:02:31:22 +0000] "POST /prep-sheet/generate-to-epic/61 HTTP/1.1" 500 235 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/screening/list" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"

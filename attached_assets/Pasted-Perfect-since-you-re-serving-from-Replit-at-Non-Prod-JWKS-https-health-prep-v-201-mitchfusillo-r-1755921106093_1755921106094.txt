@@ -1,0 +1,104 @@
+Perfect—since you’re serving from Replit at:
+Non-Prod JWKS: https://health-prep-v-201-mitchfusillo.replit.app/nonprod/.well-known/jwks.json
+Prod JWKS: https://health-prep-v-201-mitchfusillo.replit.app/.well-known/jwks.json
+…here’s a drop-in FastAPI setup that (a) derives public JWKs from private RSA keys you keep in Replit Secrets, (b) exposes the two endpoints Epic asks for, and (c) supports key rotation with kids.
+1) Add this FastAPI module (e.g., jwks_service.py)
+# jwks_service.py
+from fastapi import APIRouter, Response
+from typing import Dict, List
+import os, json, base64
+from cryptography.hazmat.primitives import serialization
+
+router = APIRouter()
+
+def b64u(b: bytes) -> str:
+    return base64.urlsafe_b64encode(b).decode().rstrip("=")
+
+def jwk_from_pem(pem: bytes, kid: str) -> Dict:
+    key = serialization.load_pem_private_key(pem, password=None)
+    pub_numbers = key.public_key().public_numbers()
+    n = pub_numbers.n.to_bytes((pub_numbers.n.bit_length() + 7)//8, "big")
+    e = pub_numbers.e.to_bytes((pub_numbers.e.bit_length() + 7)//8, "big")
+    return {"kty": "RSA", "alg": "RS256", "use": "sig", "kid": kid, "n": b64u(n), "e": b64u(e)}
+
+def collect_keys(prefix: str) -> List[Dict]:
+    """
+    Load 1+ keys from env vars so rotation is easy.
+    Example secrets you set in Replit:
+      NP_KEY_2025_08_A  -> contents of PEM (-----BEGIN RSA PRIVATE KEY----- ...)
+      NP_KEY_2025_09_A  -> next key during rotation (optional)
+      P_KEY_2025_08_A   -> prod key
+    """
+    keys: List[Dict] = []
+    for name, val in os.environ.items():
+        if name.startswith(prefix) and val.strip():
+            kid = name.replace(prefix, "").lstrip("_") or name
+            keys.append(jwk_from_pem(val.encode(), kid=kid))
+    # Stable order helps caches
+    keys.sort(key=lambda k: k["kid"])
+    return keys
+
+@router.get("/nonprod/.well-known/jwks.json")
+def jwks_nonprod():
+    body = {"keys": collect_keys("NP_KEY")}
+    return Response(json.dumps(body), media_type="application/json",
+                    headers={"Cache-Control": "public, max-age=3600"})
+
+@router.get("/.well-known/jwks.json")
+def jwks_prod():
+    body = {"keys": collect_keys("P_KEY")}
+    return Response(json.dumps(body), media_type="application/json",
+                    headers={"Cache-Control": "public, max-age=104400"})  # ~29h
+2) Mount it in your app (e.g., main.py)
+# main.py
+from fastapi import FastAPI
+from jwks_service import router as jwks_router
+
+app = FastAPI()
+app.include_router(jwks_router)
+
+@app.get("/")
+def root():
+    return {"ok": True}
+3) Put your private keys into Replit Secrets
+In the Replit sidebar → Secrets, add entries with the full PEM contents:
+NP_KEY_2025_08_A → your non-prod RSA private key (PEM)
+(optional during rotation) NP_KEY_2025_09_A → your upcoming non-prod key
+P_KEY_2025_08_A → your prod RSA private key (PEM)
+Tip: generate 2048-bit RSA keys locally, never commit PEMs to git.
+openssl genrsa -out np-2025-08-a.key 2048
+openssl genrsa -out p-2025-08-a.key  2048
+# paste each file's *entire* contents into the corresponding Secret
+4) Test the endpoints
+After you run the Repl, verify:
+curl -s https://health-prep-v-201-mitchfusillo.replit.app/nonprod/.well-known/jwks.json | jq
+curl -s https://health-prep-v-201-mitchfusillo.replit.app/.well-known/jwks.json | jq
+You should see {"keys":[{kty:"RSA", alg:"RS256", kid:"2025_08_A", n:"...", e:"AQAB"}]} etc.
+5) Use matching kid when you sign JWTs
+Wherever you create client assertions (for private_key_jwt) or sign SMART ID tokens, set the header’s kid to match the env var suffix:
+# example with PyJWT
+import jwt, os
+private_pem = os.environ["NP_KEY_2025_08_A"].encode()
+client_assertion = jwt.encode(
+    {"iss": "<client_id>", "sub": "<client_id>", "aud": "<epic_token_url>", "jti": "uuid", "exp":  int(__import__("time").time()) + 300},
+    private_pem,
+    algorithm="RS256",
+    headers={"kid": "2025_08_A"},
+)
+Epic will fetch the appropriate JWKS URL (non-prod vs prod) and verify the signature using the public JWK with that kid.
+6) Rotation procedure (no downtime)
+Generate a new keypair.
+Add the new PEM as another Secret (e.g., NP_KEY_2025_09_A).
+Redeploy (Replit restarts), which exposes both old+new JWKs.
+Switch your signer to use the new key (kid="2025_09_A").
+After all in-flight tokens have expired (≥5–15 minutes is typical for client assertions), remove the old Secret and redeploy.
+If you need faster propagation during testing, lower max-age on the non-prod endpoint.
+7) Register in Epic
+In your app record:
+Non-Production JWK Set URL → https://health-prep-v-201-mitchfusillo.replit.app/nonprod/.well-known/jwks.json
+Production JWK Set URL → https://health-prep-v-201-mitchfusillo.replit.app/.well-known/jwks.json
+Common gotchas on Replit
+Ensure the app is actually running (Replit can “sleep” on inactivity if your plan/project type does that). If you see intermittent timeouts, hit the URL in a browser right before testing in Epic.
+Return HTTP 200, application/json, and exactly {"keys":[ ... ]}—no HTML, no auth.
+Keep non-prod and prod keys separate. Never reuse the same keypair across environments.
+If you share which framework your Replit app is currently using (FastAPI vs Flask) and your repo layout, I’ll adapt this to your files and paths so you can paste it in with minimal surgery.

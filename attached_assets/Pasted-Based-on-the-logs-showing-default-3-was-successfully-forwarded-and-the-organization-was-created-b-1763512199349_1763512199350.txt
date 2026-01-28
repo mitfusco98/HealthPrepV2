@@ -1,0 +1,52 @@
+Based on the logs showing "default 3" was successfully forwarded and the organization was created, but it's not appearing in your rootadmin dashboard and Stripe checkout is failing, here are targeted prompts to use with your main Health Prep app:
+
+Database Investigation Prompts:
+Check if the organization exists in the database:
+
+Check the database for organization "default 3" - does it exist? What is its status, admin_email, and all Epic credential fields (epic_client_id, epic_fhir_url, epic_environment)?
+
+Search by email address:
+
+Search the database for the admin email "[the email you used]" - what organizations, users, or records are associated with this email? Show all related data.
+
+Check for orphaned records:
+
+Are there any organizations with status "pending_approval" or "incomplete"? Show me all organizations created in the last 24 hours with their statuses.
+
+Stripe Integration Prompts:
+Investigate Stripe checkout session:
+
+When a signup completes and returns a checkout URL, what happens to that session ID? How does the app track which organization it belongs to? Check for any orphaned Stripe sessions.
+
+Check Stripe webhook handling:
+
+Show me the Stripe webhook endpoint code - what happens when a user completes payment? How does it match the checkout session back to an organization? Are there any error logs from Stripe webhooks?
+
+Verify "invalid sign up session" error:
+
+Where in the code does the error message "invalid sign up session" come from? What conditions trigger this error? Check the Stripe success/cancel redirect handler.
+
+Signup Flow Prompts:
+Trace the full signup flow:
+
+Walk through the /api/signup endpoint code - what happens after an organization is created? What fields are required? What could cause an organization to be created but not visible in rootadmin?
+
+Check rootadmin dashboard filters:
+
+Does the rootadmin dashboard have any filters or query conditions that might hide certain organizations? Show me the query used to fetch organizations for the dashboard.
+
+Email notification investigation:
+
+Is there code in the Health Prep app that sends admin onboarding emails? If so, when should these be sent and why might they not be sending?
+
+Critical Flow Check:
+End-to-end validation:
+After an organization is created via /api/signup and redirected to Stripe checkout, what are ALL the steps that should happen? List each step with the code responsible and where errors might occur.
+
+The marketing website is working correctly - it's successfully forwarding signups to your Health Prep app. The issue is somewhere in how the main app handles:
+
+Organization creation and status management
+Stripe checkout session tracking
+Post-payment webhook processing
+Dashboard display logic
+Use these prompts to investigate the main app and find where the flow is breaking!

@@ -1,0 +1,104 @@
+Managing multi-tenancy and onboarding with role-based access control (RBAC) is central to scaling HealthPrepV2 securely across clinics, physician groups, and hospital systems. Based on your app's design intent and the Epic integration context, here's a structured plan tailored to you as the app owner:
+🧭 GOALS
+You need the ability to:
+Onboard new tenants (clinics/hospitals/groups).
+Create/manage user accounts within each tenant.
+Assign roles and permissions (e.g., admin, nurse, MA).
+Enforce data isolation (no cross-tenant access).
+Integrate each tenant’s Epic credentials for FHIR access.
+Enable admin-level configuration of screening presets, prep settings, and EMR sync behaviors.
+🧱 SYSTEM STRUCTURE: KEY COMPONENTS
+Component	Purpose
+Organization model	Represents a tenant (clinic, group, hospital, etc.)
+User model	Represents an individual user (linked to an org)
+Role enum/field	Indicates user clearance (e.g., admin, nurse, MA)
+EpicCredentials	Stores FHIR client credentials per organization
+FHIRTokenStore	Manages per-user or per-org access/refresh tokens
+🧩 MULTI-TENANCY MODEL DESIGN
+1. Database Schema
+Organization Table
+id, name, address, contact_email
+epic_client_id, epic_client_secret, epic_fhir_url
+setup_status (e.g. incomplete, live, trial)
+Flags for custom_presets_enabled, auto_sync_enabled, etc.
+User Table
+id, email, hashed_password, role, org_id (FK)
+last_login, 2FA_enabled, epic_user_id (optional if mapping to Epic users)
+EpicCredentialStore (optional)
+Stores per-org or per-user FHIR access/refresh tokens
+Encrypt using AES-256 at rest
+Include token expiry and scope
+Linkage
+Every user belongs to one organization
+Every org has its own Epic FHIR configuration
+2. Data Isolation
+Use org_id as a row-level filter in all queries
+Never allow cross-org data to leak in views or APIs
+Add security checks at:
+Query layer (filters)
+Template rendering (e.g., user cannot view other orgs)
+API endpoints (organization scope enforced on every request)
+🛂 ROLE-BASED ACCESS CONTROL (RBAC)
+Role	Permissions
+Admin	Create users, edit screening types, sync Epic, view audit logs, upload presets
+Nurse	View prep sheets, trigger sync, edit patient tags, view screening list
+MA	View prep sheets only, basic filtering, no editing
+Use a decorator or middleware to gate specific views/routes:
+@require_role("admin")
+def upload_screening_preset(request):
+    ...
+Optional: Use Django’s built-in permissions framework or implement your own role logic via middleware.
+⚙️ ONBOARDING FLOW (TENANTS)
+You (the app owner) should have a root admin dashboard with the ability to:
+Create New Organizations
+Fill out form: org name, primary contact, Epic FHIR URL
+Auto-generate admin invite link
+Send Admin Invite
+Email with a secure one-time link to register as the first admin
+Admin completes org setup (credentials, settings, staff accounts)
+Store Org-Specific Epic Credentials
+Admin provides: Client ID, redirect URI, scopes, etc.
+Option to use shared app credentials (less secure, but simpler)
+Configure Screening Presets
+Option to upload/import from base templates
+Admin can adjust variants, frequencies, and keywords
+Activate Sync
+Once credentials and roles are set, Epic SMART flow is activated
+Initial patient pull begins (e.g. for scheduled visits in next 2 weeks)
+🧾 USER MANAGEMENT FLOW (WITHIN A TENANT)
+Admin logs in → accesses /admin/dashboard
+Creates Users (MAs, nurses, additional admins)
+Chooses:
+Role
+Optional Epic user mapping (if needed for audit)
+Sends invitation link to user to set up their password and login
+Bonus: Integrate 2FA via email/SMS or OTP
+🔐 SECURITY ENFORCEMENT
+Session Expiry: Log out users after 15–30 min inactivity
+Role Enforcement: Admin-only views hidden in UI and gated in code
+Audit Logging: Store every access to:
+Patient data
+Screening list
+Prep sheet generation
+EMR syncing
+Immutable Logs: Store audit logs per organization, retain 6+ years
+Breach Plan: Mark activity logs with IP, timestamp, user ID, and patient ID
+🔄 SCALING
+Tenants are isolated but reuse shared screening logic (via presets)
+Epic access is sandbox-based initially → store each org's FHIR URL and app client credentials to support different production Epic systems
+Background task queue (e.g., Celery) handles:
+Token refresh
+Async data fetches
+Batch prep generation
+✍️ CODE CHANGES YOU NEED
+Add:
+Organization model
+User role field
+EpicCredentialStore model (encrypted)
+Wrap all queries in filters: where user.org_id == current_user.org_id
+Create org admin dashboard at /org/{org_id}/admin
+Protect routes with role-checking decorators
+Modify Epic auth flow:
+Tie token to both org and user
+Add epic_fhir_url to org settings
+Support per-org SMART launch

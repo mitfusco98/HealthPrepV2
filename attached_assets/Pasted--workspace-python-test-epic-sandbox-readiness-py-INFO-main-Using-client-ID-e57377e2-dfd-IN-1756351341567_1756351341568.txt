@@ -1,0 +1,68 @@
+~/workspace$ python test_epic_sandbox_readiness.py
+INFO:__main__:Using client ID: e57377e2-dfd...
+INFO:__main__:Using JWKS URL: https://epic-sandbox-link-mitchfusillo.replit.app/nonprod/.well-known/jwks.json
+INFO:__main__:🚀 Epic Sandbox Readiness Validation
+INFO:__main__:============================================================
+INFO:__main__:
+🔍 Step 1: SMART Discovery Validation
+INFO:__main__:==================================================
+INFO:__main__:Fetching SMART config from: https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/.well-known/smart-configuration
+INFO:__main__:✅ PASS: SMART Discovery - Successfully retrieved endpoints
+INFO:__main__:    authorization_endpoint: https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize
+INFO:__main__:    token_endpoint: https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token
+INFO:__main__:Using client ID: e57377e2-dfd5-4675-9659-58c33aa67b3f
+INFO:__main__:Using key ID: 2025_08_A
+INFO:__main__:
+🔑 Step 2: Building Client Assertion
+INFO:__main__:==================================================
+INFO:__main__:JWT Construction Details:
+INFO:__main__:  Header:  {"alg":"RS256","typ":"JWT","kid":"2025_08_A"}
+INFO:__main__:  Payload: {"iss":"e57377e2-dfd5-4675-9659-58c33aa67b3f","sub":"e57377e2-dfd5-4675-9659-58c33aa67b3f","aud":"https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token","jti":"a784971b-c7dc-4321-866c-654bfbe5994e","iat":1756351325,"exp":1756351625}
+INFO:__main__:  Client ID (iss/sub): e57377e2-dfd5-4675-9659-58c33aa67b3f
+INFO:__main__:  Token URL (aud): https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token
+INFO:__main__:  Key ID: 2025_08_A
+INFO:__main__:  Expires in: 5.0 minutes
+INFO:__main__:✅ PASS: JWT Client Assertion - Built successfully
+INFO:__main__:    iss equals client_id: True
+INFO:__main__:    sub equals client_id: True
+INFO:__main__:    aud equals token_url: True
+INFO:__main__:    kid matches expected: True
+INFO:__main__:    exp within 5 min: True
+INFO:__main__:    iat not in future: True
+INFO:__main__:    jwt_length: 720
+INFO:__main__:
+🔗 JWKS Consistency Check
+INFO:__main__:==================================================
+INFO:__main__:Checking JWKS at: https://epic-sandbox-link-mitchfusillo.replit.app/nonprod/.well-known/jwks.json
+INFO:__main__:✅ PASS: JWKS Consistency - Kid 2025_08_A found
+INFO:__main__:    target_kid: 2025_08_A
+INFO:__main__:    available_kids: ['2025_08_A']
+INFO:__main__:    jwks_url: https://epic-sandbox-link-mitchfusillo.replit.app/nonprod/.well-known/jwks.json
+INFO:__main__:
+🔒 Step 3a: Client Credentials Flow
+INFO:__main__:==================================================
+INFO:__main__:Token endpoint: https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token
+INFO:__main__:Sending client_credentials request...
+INFO:__main__:Response status: 400
+INFO:__main__:Response headers: {'Cache-Control': 'private,no-store', 'Content-Type': 'application/json; charset=utf-8', 'Set-Cookie': 'ASP.NET_SessionId=akqir2pipeb0fqgjfvl5mse1; path=/Interconnect-fhir-oauth; secure; HttpOnly; SameSite=Lax, EpicPersistenceCookie=!/2RmJtbAGCF0Kt9c5iqg712Vrh0WW64R+xPLqAlxk9K3yupn/hJ6qtrT7QTVKmcGFO/Yuqv5X1pXV1U=; path=/; Httponly; Secure', 'ServerMetrics': '{"BlockReads":12,"BlockWrites":5,"BlocksAllocated":2,"DBTime":167,"DatabaseCPUTime":8,"ECFNetworkTime":1,"ECFRequestCount":0,"ECFRequestTime":168,"GREF":686,"JournalEntries":0,"LockWait":0.038,"LocksFailed":0,"LocksGranted":0,"MCommands":10556,"MemoryDifference":0,"NetworkCacheMisses":0,"NetworkUpdates":0,"WorkflowEventBlockReads":12,"WorkflowEventDBTime":167,"WorkflowEventECFNetworkTime":0,"WorkflowEventECFRequestCount":0,"WorkflowEventGREF":686}', 'Strict-Transport-Security': 'max-age=31536000; includeSubDomains', 'X-Frame-Options': 'sameorigin', 'Access-Control-Allow-Headers': 'origin, authorization, accept, content-type, x-requested-with, prefer, Epic-User-ID, Epic-User-IDType, Epic-Client-ID, soapaction, Epic-MyChartUser-ID, Epic-MyChartUser-IDType', 'Access-Control-Allow-Methods': 'GET, HEAD, POST, PUT, DELETE, TRACE, OPTIONS', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Credentials': 'true', 'Date': 'Thu, 28 Aug 2025 03:22:05 GMT', 'Content-Length': '63'}
+ERROR:__main__:Token request failed: {
+  "error": "invalid_client",
+  "error_description": null
+}
+INFO:__main__:❌ FAIL: Client Credentials Flow - HTTP 400
+INFO:__main__:    error_response: {
+  "error": "invalid_client",
+  "error_description": null
+}
+INFO:__main__:    analysis: HTTP 400 - Check Epic documentation for details
+INFO:__main__:
+============================================================
+INFO:__main__:❌ NOT READY (3/4 checks passed)
+INFO:__main__:❌ Fix issues before Epic Sandbox testing
+INFO:__main__:
+📋 Troubleshooting Checklist:
+INFO:__main__:   1. Verify EPIC_NONPROD_CLIENT_ID is set correctly
+INFO:__main__:   2. Check Epic app status at https://fhir.epic.com
+INFO:__main__:   3. Ensure app is 'Ready for Sandbox'
+INFO:__main__:   4. Wait 60+ minutes for Epic sync after status change
+INFO:__main__:   5. Verify Epic has your JWKS URL: https://epic-sandbox-link-mitchfusillo.replit.app/nonprod/.well-known/jwks.json

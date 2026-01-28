@@ -1,0 +1,62 @@
+~/workspace$ python test_jwt_setup.py
+HealthPrep JWT Setup Test
+==================================================
+
+Current Key Configuration...
+==================================================
+✅ Non-production keys found: NP_KEY_2025_08_A
+✅ Production keys found: P_KEY_2025_08_A
+Testing JWKS Endpoints...
+==================================================
+✅ Non-prod JWKS: 1 keys found
+   Key ID: nonprod-fallback, Algorithm: RS256
+✅ Production JWKS: 1 keys found
+   Key ID: prod-fallback, Algorithm: RS256
+
+Testing Client Assertion Generation...
+==================================================
+❌ Client assertion error: Could not parse the provided public key.
+
+
+
+    JWT SETUP INSTRUCTIONS
+    =====================
+    
+    To set up proper JWT keys for Epic integration:
+    
+    1. Generate RSA private keys (2048-bit) locally:
+       openssl genrsa -out np-2025-08-a.key 2048
+       openssl genrsa -out p-2025-08-a.key 2048
+    
+    2. Add these keys to Replit Secrets (in sidebar → Secrets):
+       
+       For Non-Production:
+       Key: NP_KEY_2025_08_A
+       Value: [paste entire contents of np-2025-08-a.key file]
+       
+       For Production:
+       Key: P_KEY_2025_08_A  
+       Value: [paste entire contents of p-2025-08-a.key file]
+    
+    3. Key rotation (optional - for when you need to rotate keys):
+       Add additional keys with different suffixes:
+       NP_KEY_2025_09_A (new non-prod key)
+       P_KEY_2025_09_A (new prod key)
+    
+    4. Your JWKS URLs for Epic registration:
+       Non-Production: https://your-repl-url/nonprod/.well-known/jwks.json
+       Production: https://your-repl-url/.well-known/jwks.json
+    
+    5. When creating client assertions, the system will automatically:
+       - Use the first available key from environment variables
+       - Generate a fallback key if no environment keys are found
+       - Set the correct 'kid' (key ID) in the JWT header
+    
+    Key Naming Convention:
+    - Non-prod keys: NP_KEY_[time_period]_[identifier]
+    - Prod keys: P_KEY_[time_period]_[identifier] 
+    - Example: NP_KEY_2025_08_A, P_KEY_2025_08_A
+    
+    The 'kid' value in JWTs will be the suffix after removing the prefix:
+    - NP_KEY_2025_08_A → kid: "2025_08_A"
+    - P_KEY_2025_08_A → kid: "2025_08_A

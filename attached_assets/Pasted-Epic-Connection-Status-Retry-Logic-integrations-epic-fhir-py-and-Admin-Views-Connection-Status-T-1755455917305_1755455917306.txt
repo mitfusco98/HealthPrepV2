@@ -1,0 +1,18 @@
+Epic Connection Status & Retry Logic (integrations/epic_fhir.py and Admin Views)
+Connection Status Tracking: In the Organization model or a related place, we maintain fields for the connection health. Use Organization.token_expiry to know if the current access token is expired. Additionally, maintain a boolean or status message:
+is_connected (bool) – set to True when an access token is obtained successfully. Set to False if the last attempt failed or tokens are invalid.
+last_sync (datetime) – timestamp of last successful data fetch from Epic.
+last_error (text) – store the last error message encountered (e.g., “Invalid client credentials” or “Token expired, refresh failed”). This helps in diagnosing integration issues.
+Displaying Status: In the admin interface for an org (both root and org admin views), display a status indicator. For example:
+If is_connected is True and token_expiry is in the future, show “✅ Connected to Epic” (and possibly when it will expire or last sync time).
+If False or expired, show a warning “❌ Not connected. Action required.” If last_error exists, display that to the admin for context.
+These indicators guide the admin to take action, such as re-authenticating.
+Automatic Retry/Refresh: Implement logic in epic_fhir.py to automatically retry token refresh when needed:
+Before any API call, if the current time is past token_expiry - some_margin, attempt a refresh token flow. Use the stored refresh_token to get a new access token via Epic’s token endpoint (grant_type=refresh_token). On success, update the tokens and expiry in DB
+fhir.epic.com
+. If refresh fails (e.g., refresh token expired or revoked), mark is_connected=False and require a full reauthorization (the admin will need to click “Connect” again).
+Wrap API calls with a try-except. If a network error or non-OK response occurs, log it and set last_error. For transient errors, you can simply log and surface to UI; for auth errors, handle as above.
+Manual Retry: Provide a manual “Retry Connection” or “Re-authenticate” button for admins. This essentially triggers the OAuth flow from scratch (in case refresh token is lost or credentials changed). This button could just link to the /connect_epic/<org_id> route to start over. Make sure to clear any outdated tokens in DB when starting a new auth attempt.
+Notification of Expiry: If feasible, implement a background check or warning for expiring tokens. For example, if tokens last 12 hours, when an org admin logs in, if the token is near expiry or expired, you could flash a message “Epic connection has expired, please re-connect.” This is user-friendly, ensuring they proactively re-auth. You might schedule a periodic job (via Celery or a simple APScheduler in Flask) to check all orgs every X hours for token validity and send notifications. This might be beyond the initial integration scope, but it’s a nice enhancement for reliability.
+Testing Sandbox Quirks: Note that in the Epic sandbox, tokens might have long expiry or no refresh (depending on scopes). Adjust the logic to the actual behavior observed. Always follow Epic’s guidelines for token use and refresh. If the sandbox requires periodic re-auth (some sandboxes tokens expire quickly), ensure the app can handle that smoothly (perhaps by always using the refresh token if available).
+Logging: Add logging around OAuth and API calls. In a secure manner, log events like “Requested new access token for Org X” or “Epic API call failed with 401, attempting refresh”. Do not log sensitive data (client secrets or actual tokens) in plaintext. These logs will help during integration testing and debugging connection issues without exposing secret information.

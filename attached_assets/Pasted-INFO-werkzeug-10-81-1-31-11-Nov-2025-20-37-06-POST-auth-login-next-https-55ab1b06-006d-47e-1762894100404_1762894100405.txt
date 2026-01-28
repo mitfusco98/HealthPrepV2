@@ -1,0 +1,22 @@
+INFO:werkzeug:10.81.1.31 - - [11/Nov/2025 20:37:06] "POST /auth/login?next=https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/dashboard HTTP/1.1" 302 -
+INFO:werkzeug:10.81.1.31 - - [11/Nov/2025 20:37:06] "GET /dashboard HTTP/1.1" 302 -
+INFO:werkzeug:10.81.1.31 - - [11/Nov/2025 20:37:07] "GET /admin/dashboard HTTP/1.1" 302 -
+INFO:werkzeug:10.81.1.31 - - [11/Nov/2025 20:37:08] "GET /admin/dashboard/logs HTTP/1.1" 200 -
+INFO:werkzeug:10.81.4.9 - - [11/Nov/2025 20:37:08] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.2.132 - - [11/Nov/2025 20:37:08] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.1.31 - - [11/Nov/2025 20:37:15] "GET /admin/billing-portal HTTP/1.1" 302 -
+INFO:stripe:message='Request to Stripe api' method=post url=https://api.stripe.com/v1/customers
+INFO:stripe:message='Stripe API response' path=https://api.stripe.com/v1/customers response_code=200
+INFO:services.stripe_service:Created Stripe customer cus_TPCiePGeJOSTyj for organization 1
+INFO:stripe:message='Request to Stripe api' method=post url=https://api.stripe.com/v1/checkout/sessions
+INFO:stripe:message='Stripe API response' path=https://api.stripe.com/v1/checkout/sessions response_code=200
+INFO:services.stripe_service:Created checkout session cs_test_a1l4oPhNVADBCIyQcvncptoUVKyCqxXCC7BAVjPzIHm4YkYgRgR1YGEJhR for organization 1
+INFO:werkzeug:10.81.1.31 - - [11/Nov/2025 20:37:17] "GET /admin/payment-setup HTTP/1.1" 302 -
+INFO:werkzeug:10.81.1.31 - - [11/Nov/2025 20:40:58] "GET /admin/payment-success HTTP/1.1" 302 -
+INFO:werkzeug:10.81.1.31 - - [11/Nov/2025 20:40:58] "GET /admin/dashboard HTTP/1.1" 302 -
+INFO:werkzeug:10.81.1.31 - - [11/Nov/2025 20:41:00] "GET /admin/dashboard/logs HTTP/1.1" 200 -
+INFO:werkzeug:10.81.2.132 - - [11/Nov/2025 20:41:00] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.4.9 - - [11/Nov/2025 20:41:00] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.1.31 - - [11/Nov/2025 20:41:09] "GET /admin/dashboard/logs HTTP/1.1" 200 -
+INFO:werkzeug:10.81.4.9 - - [11/Nov/2025 20:41:09] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.2.132 - - [11/Nov/2025 20:41:09] "GET /static/css/loading-states.css HTTP/1.1" 304 -

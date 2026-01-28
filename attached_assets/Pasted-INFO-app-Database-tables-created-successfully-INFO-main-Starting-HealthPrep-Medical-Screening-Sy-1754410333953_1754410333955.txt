@@ -1,0 +1,145 @@
+INFO:app:Database tables created successfully
+INFO:__main__:Starting HealthPrep Medical Screening System
+ * Serving Flask app 'app'
+ * Debug mode: on
+INFO:werkzeug:WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://172.31.75.194:5000
+INFO:werkzeug:Press CTRL+C to quit
+INFO:werkzeug: * Restarting with stat
+INFO:app:Database tables created successfully
+INFO:__main__:Starting HealthPrep Medical Screening System
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 141-013-486
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:08] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:08] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:08] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:08] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:08] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:17] "GET /screening/types HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:17] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:17] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:17] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:17] "GET /static/css/keyword_modal.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:17] "GET /static/js/condition_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:17] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:17] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:21] "GET /screening/type/4/edit HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:21] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:21] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:21] "GET /static/css/keyword_modal.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:21] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:21] "GET /static/js/inline_conditions.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:21] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:21] "GET /static/js/screening_name_autocomplete.js HTTP/1.1" 304 -
+ERROR:admin.logs:Failed to log admin action: 'user_agent' is an invalid keyword argument for AdminLog
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:26] "POST /screening/type/4/edit HTTP/1.1" 302 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:26] "GET /screening/types HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:26] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:26] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:26] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:26] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:26] "GET /static/js/condition_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:26] "GET /static/css/keyword_modal.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:26] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:30] "GET /screening/type/1/edit HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:30] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:30] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:30] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:30] "GET /static/css/keyword_modal.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:30] "GET /static/js/screening_name_autocomplete.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:30] "GET /static/js/inline_conditions.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:30] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+ERROR:admin.logs:Failed to log admin action: 'user_agent' is an invalid keyword argument for AdminLog
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:33] "POST /screening/type/1/edit HTTP/1.1" 302 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:33] "GET /screening/types HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:33] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:33] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:33] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:33] "GET /static/css/keyword_modal.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:33] "GET /static/js/condition_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:33] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:33] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:37] "GET /screening/type/3/edit HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:37] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:37] "GET /static/css/keyword_modal.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:37] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:37] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:37] "GET /static/js/screening_name_autocomplete.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:37] "GET /static/js/inline_conditions.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:37] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+ERROR:admin.logs:Failed to log admin action: 'user_agent' is an invalid keyword argument for AdminLog
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:40] "POST /screening/type/3/edit HTTP/1.1" 302 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:40] "GET /screening/types HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:40] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:40] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:40] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:40] "GET /static/css/keyword_modal.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:40] "GET /static/js/condition_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:40] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:40] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:42] "GET /screening/type/2/edit HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:42] "GET /static/css/keyword_modal.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:43] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:43] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:43] "GET /static/js/screening_name_autocomplete.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:43] "GET /static/js/inline_conditions.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:43] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:43] "GET /static/css/custom.css HTTP/1.1" 304 -
+ERROR:admin.logs:Failed to log admin action: 'user_agent' is an invalid keyword argument for AdminLog
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:47] "POST /screening/type/2/edit HTTP/1.1" 302 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:47] "GET /screening/types HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:47] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:47] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:47] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:47] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:47] "GET /static/js/condition_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:47] "GET /static/css/keyword_modal.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:47] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:52] "GET /screening/list HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:52] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:52] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:52] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:52] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:52] "GET /static/js/screening_performance.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:52] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:54] "GET /dashboard HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:54] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:54] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:54] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:54] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:56] "GET /screening/list HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:56] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:56] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:56] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:56] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:56] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:56] "GET /static/js/screening_performance.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:58] "GET /screening/types HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:58] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:58] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:58] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:58] "GET /static/js/condition_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:58] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:58] "GET /static/css/keyword_modal.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:08:58] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:09:00] "GET /screening/settings HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:09:00] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:09:00] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:09:00] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:09:00] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:09:03] "GET /screening/types HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:09:03] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:09:03] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:09:03] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:09:03] "GET /static/css/keyword_modal.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:09:03] "GET /static/js/condition_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:09:03] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:09:03] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:09:07] "GET /api/screening-keywords/2 HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:09:16] "GET /api/keyword-suggestions?q=lower HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:09:17] "GET /api/keyword-suggestions?q=lower%20en HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:09:17] "GET /api/keyword-suggestions?q=lower%20end HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:09:18] "GET /api/keyword-suggestions?q=lower%20endosc HTTP/1.1" 200 -
+INFO:werkzeug:172.31.75.194 - - [05/Aug/2025 16:09:19] "GET /api/keyword-suggestions?q=lower%20endoscopy HTTP/1.1" 200 -

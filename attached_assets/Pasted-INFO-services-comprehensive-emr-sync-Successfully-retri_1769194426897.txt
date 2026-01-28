@@ -1,0 +1,161 @@
+INFO:services.comprehensive_emr_sync:Successfully retrieved patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.comprehensive_emr_sync:Retrieved 7 Epic sandbox patients
+INFO:services.comprehensive_emr_sync:Discovered 7 patients from Epic
+INFO:services.comprehensive_emr_sync:Updated existing patient: Camila Maria Lopez
+INFO:services.comprehensive_emr_sync:Updated existing patient: Derrick Lin
+INFO:services.comprehensive_emr_sync:Updated existing patient: Desiree Caroline Powell
+INFO:services.comprehensive_emr_sync:Updated existing patient: Elijah John Davis
+INFO:services.comprehensive_emr_sync:Updated existing patient: Linda Jane Ross
+INFO:services.comprehensive_emr_sync:Updated existing patient: Olivia Anne Roberts
+INFO:services.comprehensive_emr_sync:Updated existing patient: Warren James McGinnis
+INFO:services.comprehensive_emr_sync:Appointment-Based Screening Prioritization is ENABLED
+INFO:services.appointment_prioritization:Initialized AppointmentBasedPrioritization for organization 33
+INFO:services.appointment_prioritization:Getting priority patients with appointments between 2026-01-23 and 2026-02-06
+INFO:services.appointment_prioritization:Found 6 priority patients (0 from appointments, 6 from today's manually processed screenings)
+INFO:services.comprehensive_emr_sync:Processing 6 priority patients with upcoming appointments
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient erXuFYUfucBZaryVksYEcMg3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for erXuFYUfucBZaryVksYEcMg3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.epic_fhir_service:Successfully synced patient erXuFYUfucBZaryVksYEcMg3 from Epic for org 33
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Camila Maria Lopez
+INFO:services.comprehensive_emr_sync:No changes detected for erXuFYUfucBZaryVksYEcMg3 since last evaluation (evaluated: 2026-01-23 18:42:03.061317), skipping reprocessing
+INFO:services.comprehensive_emr_sync:Skipped reprocessing for erXuFYUfucBZaryVksYEcMg3 - no changes detected
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient eq081-VQEgP8drUUqCWzHfw3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for eq081-VQEgP8drUUqCWzHfw3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.epic_fhir_service:Successfully synced patient eq081-VQEgP8drUUqCWzHfw3 from Epic for org 33
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Derrick Lin
+INFO:services.comprehensive_emr_sync:No changes detected for eq081-VQEgP8drUUqCWzHfw3 since last evaluation (evaluated: 2026-01-23 18:42:10.231555), skipping reprocessing
+INFO:services.comprehensive_emr_sync:Skipped reprocessing for eq081-VQEgP8drUUqCWzHfw3 - no changes detected
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for egqBHVfQlt4Bw3XGXoxVxHg3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.epic_fhir_service:Successfully synced patient egqBHVfQlt4Bw3XGXoxVxHg3 from Epic for org 33
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Elijah John Davis
+INFO:services.comprehensive_emr_sync:No changes detected for egqBHVfQlt4Bw3XGXoxVxHg3 since last evaluation (evaluated: 2026-01-23 18:42:15.418490), skipping reprocessing
+INFO:services.comprehensive_emr_sync:Skipped reprocessing for egqBHVfQlt4Bw3XGXoxVxHg3 - no changes detected
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient eIXesllypH3M9tAA5WdJftQ3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for eIXesllypH3M9tAA5WdJftQ3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.epic_fhir_service:Successfully synced patient eIXesllypH3M9tAA5WdJftQ3 from Epic for org 33
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Linda Jane Ross
+INFO:services.comprehensive_emr_sync:No changes detected for eIXesllypH3M9tAA5WdJftQ3 since last evaluation (evaluated: 2026-01-23 18:42:19.700388), skipping reprocessing
+INFO:services.comprehensive_emr_sync:Skipped reprocessing for eIXesllypH3M9tAA5WdJftQ3 - no changes detected
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for eh2xYHuzl9nkSFVvV3osUHg3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.epic_fhir_service:Successfully synced patient eh2xYHuzl9nkSFVvV3osUHg3 from Epic for org 33
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Olivia Anne Roberts
+INFO:services.comprehensive_emr_sync:No changes detected for eh2xYHuzl9nkSFVvV3osUHg3 since last evaluation (evaluated: 2026-01-23 18:42:22.498540), skipping reprocessing
+INFO:services.comprehensive_emr_sync:Skipped reprocessing for eh2xYHuzl9nkSFVvV3osUHg3 - no changes detected
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for e0w0LEDCYtfckT6N.CkJKCw3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.epic_fhir_service:Successfully synced patient e0w0LEDCYtfckT6N.CkJKCw3 from Epic for org 33
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Warren James McGinnis
+INFO:services.comprehensive_emr_sync:No changes detected for e0w0LEDCYtfckT6N.CkJKCw3 since last evaluation (evaluated: 2026-01-23 18:42:26.344051), skipping reprocessing
+INFO:services.comprehensive_emr_sync:Skipped reprocessing for e0w0LEDCYtfckT6N.CkJKCw3 - no changes detected
+INFO:services.comprehensive_emr_sync:Processing non-scheduled patients (process_non_scheduled_patients is enabled)
+INFO:services.comprehensive_emr_sync:Starting comprehensive sync for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.comprehensive_emr_sync:Syncing patient demographics for eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.epic_fhir_service:Authentication verified for org 33
+INFO:services.epic_fhir_service:Successfully synced patient eAB3mDIBBcyUKviyzrxsnAw3 from Epic for org 33
+INFO:services.comprehensive_emr_sync:Successfully synced patient demographics: Desiree Caroline Powell
+INFO:services.comprehensive_emr_sync:Syncing conditions for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Syncing observations (labs) for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Processed 0 screening-relevant observations (labs)
+INFO:services.comprehensive_emr_sync:Syncing imaging studies (DiagnosticReport) for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Processed 0 imaging studies (DiagnosticReports)
+INFO:services.comprehensive_emr_sync:Syncing documents for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Epic returned 1 documents for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Document has no date from Epic FHIR, using current date as fallback for sandbox testing
+INFO:services.comprehensive_emr_sync:Epic document IDs: 
+INFO:services.comprehensive_emr_sync:Document sync summary - Total: 1, New: 0, Skipped: 0
+INFO:services.comprehensive_emr_sync:Syncing encounters for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Processed 0 encounters
+INFO:services.comprehensive_emr_sync:Syncing appointments for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Updated appointment: epzVtRMYDrKx9yS1RmteOKnXnpmE1sqNcQf7OtVrXgkM3
+INFO:services.comprehensive_emr_sync:Updated appointment: ekc45lwqCaVidNYBWdNpVyzkXpawYUNsuX0vzYwPF91I3
+INFO:services.comprehensive_emr_sync:Processed 0 appointments
+INFO:services.comprehensive_emr_sync:Processing screening eligibility for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Updated 0 screening statuses
+INFO:services.comprehensive_emr_sync:Successfully completed comprehensive sync for patient eAB3mDIBBcyUKviyzrxsnAw3
+INFO:services.comprehensive_emr_sync:Discovery and sync completed: 7 patients synced, 0 screenings updated
+10.81.4.71 - - [23/Jan/2026:18:44:51 +0000] "POST /api/refresh-screenings HTTP/1.1" 200 269 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.4.71 - - [23/Jan/2026:18:44:52 +0000] "GET / HTTP/1.1" 200 26245 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.6.73 - - [23/Jan/2026:18:44:52 +0000] "GET /static/css/custom.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.0.22 - - [23/Jan/2026:18:44:52 +0000] "GET /static/css/medical_styles.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.16.60 - - [23/Jan/2026:18:44:52 +0000] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.0.22 - - [23/Jan/2026:18:44:52 +0000] "GET /static/css/loading-states.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.4.71 - - [23/Jan/2026:18:44:52 +0000] "GET /static/js/medical_terminology.js HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.4.71 - - [23/Jan/2026:18:45:06 +0000] "GET /patients HTTP/1.1" 302 217 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+INFO:services.appointment_prioritization:Initialized AppointmentBasedPrioritization for organization 33
+INFO:services.appointment_prioritization:Getting priority patients with appointments between 2026-01-23 and 2026-02-06
+INFO:services.appointment_prioritization:Found 6 priority patients (0 from appointments, 6 from today's manually processed screenings)
+INFO:routes.screening_routes:Refreshed priority patients cache: 6 patients
+10.81.4.71 - - [23/Jan/2026:18:45:08 +0000] "GET /screening/list HTTP/1.1" 200 145661 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.0.22 - - [23/Jan/2026:18:45:08 +0000] "GET /static/css/custom.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/screening/list" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.16.60 - - [23/Jan/2026:18:45:08 +0000] "GET /static/css/medical_styles.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/screening/list" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.0.22 - - [23/Jan/2026:18:45:08 +0000] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/screening/list" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.6.73 - - [23/Jan/2026:18:45:08 +0000] "GET /static/css/loading-states.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/screening/list" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.4.71 - - [23/Jan/2026:18:45:08 +0000] "GET /static/js/medical_terminology.js HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/screening/list" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.0.22 - - [23/Jan/2026:18:45:08 +0000] "GET /static/js/screening_modals.js HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/screening/list" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.6.73 - - [23/Jan/2026:18:45:08 +0000] "GET /static/js/screening_performance.js HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/screening/list" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+INFO:prep_sheet.generator:Applied prep sheet data cutoffs: labs=12m, imaging=12m, consults=12m, hospital=12m
+
+================================================================================
+PREP SHEET GENERATION - VERBOSE OUTPUT
+================================================================================
+Patient MRN: ****7MFL
+Generated at: 2026-01-23 18:45:45 UTC
+--------------------------------------------------------------------------------
+
+[MEDICAL DATA SECTIONS]
+
+  LABS (cutoff: 2025-01-23):
+    No lab documents found within cutoff
+
+  IMAGING (cutoff: 2025-01-23):
+    No imaging documents found within cutoff
+
+  CONSULTS (cutoff: 2025-01-23):
+    - [2026-01-19] Consultation Note (type: Consultation Note)
+    - [2026-01-19] Consultation Note (type: Consultation Note)
+    - [2026-01-14] Consultation Note (type: Consultation Note)
+    - [2026-01-14] Consultation Note (type: Consultation Note)
+    - [2026-01-13] Consultation Note (type: Consultation Note)
+
+  HOSPITAL RECORDS (cutoff: 2025-01-23):
+    No hospital documents found within cutoff
+
+[SCREENING QUALITY CHECKLIST]
+  Total: 2 | Due: 2 | Due Soon: 0 | Complete: 0
+
+  Lipid Panel [DUE]
+    Frequency: Every year | Last: Never
+    Matched Documents: 0
+
+  Cervical Cancer Screening - high risk [DUE]
+    Frequency: Every year | Last: Never
+    Matched Documents: 31
+      - [2026-01-21] HealthPrep Prep Sheet - PrepSheet_FHR996932KQG582_20260121_010010.txt
+      - [2026-01-21] HealthPrep Prep Sheet - PrepSheet_FHR996932KQG582_20260121_035855.txt
+      - [2026-01-22] Progress Note
+      - [2026-01-22] Progress Note
+      - [2026-01-22] Progress Note
+      ... and 26 more
+
+================================================================================
+END PREP SHEET OUTPUT
+================================================================================
+
+INFO:prep_sheet.generator:Generated prep sheet for patient FHRRXHT2CC77MFL
+ERROR:routes.prep_sheet_routes:Error writing prep sheet to Epic: 'models.FHIRDocument object' has no attribute 'filename'
+10.81.6.73 - - [23/Jan/2026:18:45:45 +0000] "POST /prep-sheet/generate-to-epic/60 HTTP/1.1" 500 85 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/screening/list" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"

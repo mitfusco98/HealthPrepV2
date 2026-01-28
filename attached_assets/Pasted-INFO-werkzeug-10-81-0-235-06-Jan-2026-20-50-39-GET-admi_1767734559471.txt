@@ -1,0 +1,206 @@
+INFO:werkzeug:10.81.0.235 - - [06/Jan/2026 20:50:39] "GET /admin/dashboard HTTP/1.1" 302 -
+ERROR:routes.admin_routes:Error in dashboard logs: (psycopg2.errors.UndefinedColumn) column document.content_hash does not exist
+LINE 2: ...nt.file_disposed_at AS document_file_disposed_at, document.c...
+                                                             ^
+
+[SQL: SELECT count(*) AS count_1 
+FROM (SELECT document.id AS document_id, document.patient_id AS document_patient_id, document.org_id AS document_org_id, document.filename AS document_filename, document.file_path AS document_file_path, document.document_type AS document_document_type, document.content AS document_content, document.ocr_text AS document_ocr_text, document.ocr_confidence AS document_ocr_confidence, document.phi_filtered AS document_phi_filtered, document.processed_at AS document_processed_at, document.created_at AS document_created_at, document.updated_at AS document_updated_at, document.external_system AS document_external_system, document.external_id AS document_external_id, document.external_hash AS document_external_hash, document.ingested_at AS document_ingested_at, document.binary_fetched_at AS document_binary_fetched_at, document.processing_version AS document_processing_version, document.document_date AS document_document_date, document.file_disposed AS document_file_disposed, document.file_disposed_at AS document_file_disposed_at, document.content_hash AS document_content_hash, document.last_processed_at AS document_last_processed_at 
+FROM document 
+WHERE document.processed_at >= %(processed_at_1)s AND document.ocr_text IS NOT NULL) AS anon_1]
+[parameters: {'processed_at_1': datetime.datetime(2025, 12, 7, 20, 50, 39, 368738)}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+INFO:werkzeug:10.81.0.235 - - [06/Jan/2026 20:50:39] "GET /admin/dashboard/logs HTTP/1.1" 500 -
+Traceback (most recent call last):
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1961, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 944, in do_execute
+    cursor.execute(statement, parameters)
+psycopg2.errors.UndefinedColumn: column document.content_hash does not exist
+LINE 2: ...nt.file_disposed_at AS document_file_disposed_at, document.c...
+                                                             ^
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/runner/workspace/routes/admin_routes.py", line 691, in dashboard_logs
+    data = get_dashboard_data()
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/routes/admin_routes.py", line 580, in get_dashboard_data
+    dashboard_stats = analytics.get_roi_metrics()
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/admin/analytics.py", line 105, in get_roi_metrics
+    time_saved = self.calculate_time_savings(days)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/admin/analytics.py", line 38, in calculate_time_savings
+    ).count()
+      ^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/query.py", line 3146, in count
+    self._legacy_from_self(col).enable_eagerloads(False).scalar()
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/query.py", line 2835, in scalar
+    ret = self.one()
+          ^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/query.py", line 2808, in one
+    return self._iter().one()  # type: ignore
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/query.py", line 2857, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+                                                  ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1413, in execute
+    return meth(
+           ^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1635, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1840, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1980, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2349, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1961, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 944, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.ProgrammingError: (psycopg2.errors.UndefinedColumn) column document.content_hash does not exist
+LINE 2: ...nt.file_disposed_at AS document_file_disposed_at, document.c...
+                                                             ^
+
+[SQL: SELECT count(*) AS count_1 
+FROM (SELECT document.id AS document_id, document.patient_id AS document_patient_id, document.org_id AS document_org_id, document.filename AS document_filename, document.file_path AS document_file_path, document.document_type AS document_document_type, document.content AS document_content, document.ocr_text AS document_ocr_text, document.ocr_confidence AS document_ocr_confidence, document.phi_filtered AS document_phi_filtered, document.processed_at AS document_processed_at, document.created_at AS document_created_at, document.updated_at AS document_updated_at, document.external_system AS document_external_system, document.external_id AS document_external_id, document.external_hash AS document_external_hash, document.ingested_at AS document_ingested_at, document.binary_fetched_at AS document_binary_fetched_at, document.processing_version AS document_processing_version, document.document_date AS document_document_date, document.file_disposed AS document_file_disposed, document.file_disposed_at AS document_file_disposed_at, document.content_hash AS document_content_hash, document.last_processed_at AS document_last_processed_at 
+FROM document 
+WHERE document.processed_at >= %(processed_at_1)s AND document.ocr_text IS NOT NULL) AS anon_1]
+[parameters: {'processed_at_1': datetime.datetime(2025, 12, 7, 20, 50, 39, 368738)}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1961, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 944, in do_execute
+    cursor.execute(statement, parameters)
+psycopg2.errors.InFailedSqlTransaction: current transaction is aborted, commands ignored until end of transaction block
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/werkzeug/middleware/proxy_fix.py", line 183, in __call__
+    return self.app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1514, in wsgi_app
+    response = self.handle_exception(e)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask_cors/extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask_cors/extension.py", line 176, in wrapped_function
+    return cors_after_request(app.make_response(f(*args, **kwargs)))
+                                                ^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask_login/utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/routes/admin_routes.py", line 469, in decorated_function
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/routes/admin_routes.py", line 697, in dashboard_logs
+    return render_template('error/500.html'), 500
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/templating.py", line 150, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/templating.py", line 127, in _render
+    app.update_template_context(context)
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 530, in update_template_context
+    context.update(self.ensure_sync(func)())
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/app.py", line 402, in inject_subscription_status
+    return get_subscription_context()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/middleware/subscription_check.py", line 178, in get_subscription_context
+    org = current_user.organization
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/attributes.py", line 569, in __get__
+    return self.impl.get(state, dict_)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/attributes.py", line 1096, in get
+    value = self._fire_loader_callables(state, key, passive)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/attributes.py", line 1131, in _fire_loader_callables
+    return self.callable_(state, passive)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/strategies.py", line 978, in _load_for_state
+    return self._emit_lazyload(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/strategies.py", line 1079, in _emit_lazyload
+    return loading.load_on_pk_identity(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/loading.py", line 694, in load_on_pk_identity
+    session.execute(
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1413, in execute
+    return meth(
+           ^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1635, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1840, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1980, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2349, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1961, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 944, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.InternalError: (psycopg2.errors.InFailedSqlTransaction) current transaction is aborted, commands ignored until end of transaction block
+
+[SQL: SELECT organizations.id AS organizations_id, organizations.name AS organizations_name, organizations.display_name AS organizations_display_name, organizations.address AS organizations_address, organizations.contact_email AS organizations_contact_email, organizations.phone AS organizations_phone, organizations.epic_client_id AS organizations_epic_client_id, organizations.epic_client_secret AS organizations_epic_client_secret, organizations.epic_fhir_url AS organizations_epic_fhir_url, organizations.epic_environment AS organizations_epic_environment, organizations.epic_production_base_url AS organizations_epic_production_base_url, organizations.epic_endpoint_id AS organizations_epic_endpoint_id, organizations.epic_organization_id AS organizations_epic_organization_id, organizations.epic_oauth_url AS organizations_epic_oauth_url, organizations.epic_token_url AS organizations_epic_token_url, organizations.fhir_rate_limit_per_hour AS organizations_fhir_rate_limit_per_hour, organizations.max_batch_size AS organizations_max_batch_size, organizations.async_processing_enabled AS organizations_async_processing_enabled, organizations.audit_retention_days AS organizations_audit_retention_days, organizations.phi_logging_level AS organizations_phi_logging_level, organizations.is_epic_connected AS organizations_is_epic_connected, organizations.last_epic_sync AS organizations_last_epic_sync, organizations.last_epic_error AS organizations_last_epic_error, organizations.epic_token_expiry AS organizations_epic_token_expiry, organizations.connection_retry_count AS organizations_connection_retry_count, organizations.next_token_check AS organizations_next_token_check, organizations.epic_app_name AS organizations_epic_app_name, organizations.epic_app_description AS organizations_epic_app_description, organizations.epic_registration_status AS organizations_epic_registration_status, organizations.epic_registration_date AS organizations_epic_registration_date, organizations.setup_status AS organizations_setup_status, organizations.custom_presets_enabled AS organizations_custom_presets_enabled, organizations.auto_sync_enabled AS organizations_auto_sync_enabled, organizations.max_users AS organizations_max_users, organizations.appointment_based_prioritization AS organizations_appointment_based_prioritization, organizations.prioritization_window_days AS organizations_prioritization_window_days, organizations.process_non_scheduled_patients AS organizations_process_non_scheduled_patients, organizations.last_appointment_sync AS organizations_last_appointment_sync, organizations.site AS organizations_site, organizations.specialty AS organizations_specialty, organizations.stripe_customer_id AS organizations_stripe_customer_id, organizations.stripe_subscription_id AS organizations_stripe_subscription_id, organizations.subscription_status AS organizations_subscription_status, organizations.trial_start_date AS organizations_trial_start_date, organizations.billing_email AS organizations_billing_email, organizations.owner_email AS organizations_owner_email, organizations.creation_method AS organizations_creation_method, organizations.onboarding_status AS organizations_onboarding_status, organizations.signup_completion_token AS organizations_signup_completion_token, organizations.signup_completion_token_expires AS organizations_signup_completion_token_expires, organizations.approved_at AS organizations_approved_at, organizations.approved_by AS organizations_approved_by, organizations.created_at AS organizations_created_at, organizations.updated_at AS organizations_updated_at, organizations.trial_expires AS organizations_trial_expires 
+FROM organizations 
+WHERE organizations.id = %(pk_1)s]
+[parameters: {'pk_1': 31}]
+(Background on this error at: https://sqlalche.me/e/20/2j85)
+INFO:werkzeug:172.31.76.2 - - [06/Jan/2026 20:50:39] "GET /admin/dashboard/logs?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1" 200 -
+INFO:werkzeug:172.31.76.2 - - [06/Jan/2026 20:50:39] "GET /admin/dashboard/logs?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1" 200 -
