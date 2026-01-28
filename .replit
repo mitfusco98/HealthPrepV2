@@ -123,3 +123,6 @@ PREP_SHEET_CONSOLE_OUTPUT = "true"
 
 [userenv.production]
 CORS_ALLOWED_ORIGINS = "https://www.fuscodigital.com"
+
+[objectStorage]
+defaultBucketID = "replit-objstore-0ead32c7-69d3-4e2a-bda1-f84e944cbdeb"

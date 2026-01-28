@@ -686,27 +686,43 @@ def get_dashboard_data():
         documents_processed = 0
         phi_filtered_docs = 0
         
-    # PHI breakdown - estimated distribution based on filtered documents
-    # These are approximate ratios based on typical medical documents
-    phi_breakdown = {
-        'ssn_count': int(phi_filtered_docs * 0.8),  # ~80% of docs contain SSN
-        'phone_count': int(phi_filtered_docs * 1.5),  # ~1.5 phone numbers per doc
-        'email_count': int(phi_filtered_docs * 0.6),  # ~60% contain email
-        'mrn_count': int(phi_filtered_docs * 1.2),  # ~1.2 MRNs per doc
-        'name_count': int(phi_filtered_docs * 2.0),  # ~2 names per doc
-        'address_count': int(phi_filtered_docs * 0.9)  # ~90% contain address
-    }
-    
-    # Calculate total PHI items from breakdown (ensures consistency)
-    estimated_phi_items = sum(phi_breakdown.values())
+    # Get actual redaction statistics from admin_logs
+    try:
+        from sqlalchemy import Text
         
-    # Ensure all PHI stats are proper numeric types
+        # Count document processing events with PHI filtering
+        log_phi_count = AdminLog.query.filter(
+            AdminLog.org_id == current_user.org_id,
+            AdminLog.event_type.in_(['document_processing_complete', 'phi_filtered'])
+        ).count()
+        
+        # Count successful document processing events (where PHI was filtered)
+        # Query JSON data field using text cast for compatibility
+        successful_processing = db.session.query(AdminLog).filter(
+            AdminLog.org_id == current_user.org_id,
+            AdminLog.event_type == 'document_processing_complete',
+            AdminLog.data.cast(Text).contains('"phi_filtered": true')
+        ).count()
+    except Exception as e:
+        logger.warning(f"Could not query log-based PHI stats: {str(e)}")
+        log_phi_count = 0
+        successful_processing = 0
+    
+    # Document processing statistics (actual counts from logs and documents)
     phi_stats = {
         'documents_processed': int(documents_processed) if documents_processed else 0,
-        'phi_items_redacted': estimated_phi_items,
         'phi_filtered_docs': phi_filtered_docs,
-        'detection_accuracy': 97.3,  # Maintained from PHI filter testing
-        'avg_processing_time': 1.2   # Average OCR + PHI filtering time
+        'processing_rate': round((phi_filtered_docs / documents_processed * 100), 1) if documents_processed > 0 else 0,
+        'log_events_count': log_phi_count,
+        'successful_phi_filter_count': successful_processing,
+    }
+    
+    # PHI processing summary - based on actual data (no estimated breakdowns)
+    phi_breakdown = {
+        'total_protected': phi_filtered_docs,
+        'ocr_processed': documents_processed,
+        'pending': max(0, documents_processed - phi_filtered_docs),
+        'log_events': log_phi_count,
     }
     
     # Get user statistics and list
@@ -894,12 +910,49 @@ def logs():
             users = User.query.all()
         event_types = db.session.query(AdminLog.event_type).distinct().all()
         event_types = [event.event_type for event in event_types if event.event_type]
+        
+        # Event type display name mapping - consolidates legacy names
+        event_type_display = {
+            # Document Processing (consolidated from PHI filtering)
+            'document_processing_complete': 'Document Processing',
+            'document_processing_started': 'Document Processing',
+            'document_processed': 'Document Processing',
+            'document_processing_failed': 'Document Processing Failed',
+            'phi_filtered': 'Document Processing',
+            'phi_redacted': 'Document Processing',
+            'phi_filter_failed': 'PHI Redaction Failed',
+            'ocr_completed': 'OCR Processing',
+            'file_secure_deleted': 'Secure File Deletion',
+            # User Management
+            'login': 'User Login',
+            'logout': 'User Logout',
+            'login_failed': 'Login Failed',
+            'create_user': 'User Created',
+            'edit_user': 'User Modified',
+            'delete_user': 'User Deleted',
+            'password_change': 'Password Changed',
+            # Security Events
+            'account_lockout': 'Account Lockout',
+            'brute_force_detected': 'Brute Force Detected',
+            'security_lockout': 'Security Lockout',
+            'password_spray_detected': 'Password Spray Detected',
+            'concurrent_session': 'Concurrent Session',
+            'unusual_login_hours': 'Unusual Login Hours',
+            'document_integrity_violation': 'Integrity Violation',
+            # Admin Actions
+            'admin_action': 'Admin Action',
+            'settings_updated': 'Settings Updated',
+            'epic_connection': 'Epic Connection',
+            'epic_sync': 'Epic Sync',
+            'prep_sheet_generated': 'Prep Sheet Generated',
+        }
 
         return render_template('admin/logs.html',
                              logs=logs_with_local_time,
                              pagination=logs_pagination,
                              users=users,
                              event_types=event_types,
+                             event_type_display=event_type_display,
                              filters=filters,
                              org_timezone=org_timezone)
 

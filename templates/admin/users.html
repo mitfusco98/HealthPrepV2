@@ -269,11 +269,11 @@
 
                     <div class="mb-3">
                         <label for="editRole" class="form-label">Role</label>
-                        <select class="form-select" id="editRole" name="role" required onchange="toggleAdminTypeField('edit')">
-                            <option value="nurse">Nurse</option>
-                            <option value="MA">Medical Assistant</option>
-                            <option value="admin">Administrator</option>
-                        </select>
+                        <!-- Hidden field to ensure role is submitted -->
+                        <input type="hidden" id="editRoleHidden" name="role" value="" required>
+                        <!-- Read-only display field for role (roles cannot be changed after creation) -->
+                        <input type="text" class="form-control" id="editRoleDisplay" readonly disabled>
+                        <div class="form-text">Role cannot be changed after account creation</div>
                     </div>
 
                     <div class="mb-3" id="editAdminTypeField" style="display: none;">
@@ -340,10 +340,19 @@ let editingUserId = null;
 let deletingUserId = null;
 
 function toggleAdminTypeField(prefix) {
-    const roleSelect = document.getElementById(prefix + 'Role');
     const adminTypeField = document.getElementById(prefix + 'AdminTypeField');
     
-    if (roleSelect.value === 'admin') {
+    // For add form, use the select element; for edit form, use the hidden field
+    let roleValue;
+    if (prefix === 'edit') {
+        const roleHidden = document.getElementById('editRoleHidden');
+        roleValue = roleHidden ? roleHidden.value : '';
+    } else {
+        const roleSelect = document.getElementById(prefix + 'Role');
+        roleValue = roleSelect ? roleSelect.value : '';
+    }
+    
+    if (roleValue === 'admin') {
         adminTypeField.style.display = 'block';
     } else {
         adminTypeField.style.display = 'none';
@@ -381,6 +390,8 @@ function toggleRoleFields(prefix) {
 // Initialize role fields on page load
 document.addEventListener('DOMContentLoaded', function() {
     toggleRoleFields('add');
+    
+    // Edit form - role is now read-only so no sync needed
 });
 
 function editUser(userId, username, email, role, adminType) {
@@ -390,23 +401,18 @@ function editUser(userId, username, email, role, adminType) {
     document.getElementById('editUsername').value = username;
     document.getElementById('editEmail').value = email;
     
-    const roleSelect = document.getElementById('editRole');
-    roleSelect.value = role;
+    // Set hidden role field for form submission
+    const roleHidden = document.getElementById('editRoleHidden');
+    roleHidden.value = role;
     
-    // Role escalation prevention: nurses/MAs cannot change roles
-    // Admins can only switch admin_type (provider <-> business_admin)
-    if (role === 'nurse' || role === 'MA') {
-        // Disable role dropdown for nurses/MAs - they cannot be promoted
-        roleSelect.disabled = true;
-        roleSelect.title = 'Nurses and Medical Assistants cannot change roles. User must be deleted and re-registered.';
-    } else if (role === 'admin') {
-        // Admins can only stay as admin - disable other options
-        roleSelect.disabled = true;
-        roleSelect.title = 'Administrators cannot be demoted. User must be deleted and re-registered.';
-    } else {
-        roleSelect.disabled = false;
-        roleSelect.title = '';
-    }
+    // Set display text for role (read-only)
+    const roleDisplay = document.getElementById('editRoleDisplay');
+    const roleLabels = {
+        'nurse': 'Nurse',
+        'MA': 'Medical Assistant',
+        'admin': 'Administrator'
+    };
+    roleDisplay.value = roleLabels[role] || role;
     
     // Set admin type if provided
     if (adminType) {

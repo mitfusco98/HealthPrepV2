@@ -734,7 +734,7 @@ class StripeService:
                         org_name=org.name,
                         days_remaining=days_remaining
                     )
-                    logger.info(f"Sent trial ending reminder to {org.billing_email}")
+                    logger.info(f"Sent trial ending reminder for organization {org.id}")
                 except Exception as e:
                     logger.error(f"Failed to send trial ending email: {str(e)}")
         

@@ -433,7 +433,7 @@ class UserViews:
                                  prep_sheet=prep_sheet)
 
         except Exception as e:
-            logger.error(f"Error generating prep sheet for patient {patient_id}: {str(e)}")
+            logger.error("Error generating prep sheet: %s", str(e))
             flash('Error generating preparation sheet', 'error')
             abort(404)
 

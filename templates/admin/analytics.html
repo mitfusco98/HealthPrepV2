@@ -26,78 +26,69 @@
                 </h5>
             </div>
             <div class="card-body">
-                <p class="text-muted mb-3">Total PHI items redacted across all documents</p>
+                <p class="text-muted mb-3">Actual PHI protection statistics based on audit logs</p>
                 
                 <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
                             <tr>
-                                <th>PHI Type</th>
+                                <th>Metric</th>
                                 <th class="text-end">Count</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
                                 <td>
-                                    <i class="fas fa-id-card text-danger me-2"></i>
-                                    Social Security Numbers
+                                    <i class="fas fa-shield-alt text-success me-2"></i>
+                                    Documents Protected
                                 </td>
                                 <td class="text-end">
-                                    <span class="badge bg-danger">{{ phi_breakdown.ssn_count if phi_breakdown else 0 }}</span>
+                                    <span class="badge bg-success">{{ phi_breakdown.total_protected if phi_breakdown else 0 }}</span>
                                 </td>
                             </tr>
                             <tr>
                                 <td>
-                                    <i class="fas fa-phone text-info me-2"></i>
-                                    Phone Numbers
+                                    <i class="fas fa-eye text-primary me-2"></i>
+                                    OCR Processed
                                 </td>
                                 <td class="text-end">
-                                    <span class="badge bg-info">{{ phi_breakdown.phone_count if phi_breakdown else 0 }}</span>
+                                    <span class="badge bg-primary">{{ phi_breakdown.ocr_processed if phi_breakdown else 0 }}</span>
                                 </td>
                             </tr>
                             <tr>
                                 <td>
-                                    <i class="fas fa-envelope text-warning me-2"></i>
-                                    Email Addresses
+                                    <i class="fas fa-clipboard-list text-secondary me-2"></i>
+                                    Audit Log Events
                                 </td>
                                 <td class="text-end">
-                                    <span class="badge bg-warning">{{ phi_breakdown.email_count if phi_breakdown else 0 }}</span>
+                                    <span class="badge bg-secondary">{{ phi_breakdown.log_events if phi_breakdown else 0 }}</span>
                                 </td>
                             </tr>
                             <tr>
                                 <td>
-                                    <i class="fas fa-hospital text-primary me-2"></i>
-                                    Medical Record Numbers
+                                    <i class="fas fa-check-double text-info me-2"></i>
+                                    Successful PHI Redactions
                                 </td>
                                 <td class="text-end">
-                                    <span class="badge bg-primary">{{ phi_breakdown.mrn_count if phi_breakdown else 0 }}</span>
+                                    <span class="badge bg-info">{{ phi_stats.successful_phi_filter_count if phi_stats else 0 }}</span>
                                 </td>
                             </tr>
                             <tr>
                                 <td>
-                                    <i class="fas fa-user text-success me-2"></i>
-                                    Patient Names
+                                    <i class="fas fa-percentage text-warning me-2"></i>
+                                    Protection Rate
                                 </td>
                                 <td class="text-end">
-                                    <span class="badge bg-success">{{ phi_breakdown.name_count if phi_breakdown else 0 }}</span>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <i class="fas fa-map-marker-alt text-secondary me-2"></i>
-                                    Addresses
-                                </td>
-                                <td class="text-end">
-                                    <span class="badge bg-secondary">{{ phi_breakdown.address_count if phi_breakdown else 0 }}</span>
+                                    <span class="badge bg-warning text-dark">{{ phi_stats.processing_rate if phi_stats else 0 }}%</span>
                                 </td>
                             </tr>
                         </tbody>
                         <tfoot class="table-light">
                             <tr>
-                                <th>Total PHI Items Redacted</th>
+                                <th>PHI Protection Status</th>
                                 <th class="text-end">
                                     <span class="badge bg-dark fs-6">
-                                        {{ (phi_breakdown.ssn_count|default(0) + phi_breakdown.phone_count|default(0) + phi_breakdown.email_count|default(0) + phi_breakdown.mrn_count|default(0) + phi_breakdown.name_count|default(0) + phi_breakdown.address_count|default(0)) }}
+                                        <i class="fas fa-check-circle me-1"></i>Active
                                     </span>
                                 </th>
                             </tr>
