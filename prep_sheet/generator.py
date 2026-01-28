@@ -464,16 +464,20 @@ class PrepSheetGenerator:
         return extracted_values
     
     def _get_screening_documents(self, screening):
-        """Get documents that match a screening within frequency period"""
-        # Use filters to get relevant documents based on keywords and frequency from last completed date
-        relevant_docs = self.filters.get_relevant_documents(
-            screening.patient_id, 
-            screening.screening_type.name,
-            screening.last_completed
-        )
+        """Get documents that match a screening from the screening_fhir_documents table
+        
+        This sources matched documents from the same table used by /screening/list,
+        ensuring consistency between the screening list and prep sheet checklist.
+        Keyword-based matching is only used for medical data subsections (labs, imaging, etc.)
+        """
+        # Get FHIR documents linked to this screening via the screening_fhir_documents table
+        # This is the same data source used by the /screening/list page
+        matched_docs = list(screening.fhir_documents)
+        
+        self.logger.debug(f"Found {len(matched_docs)} matched documents for screening {screening.id} ({screening.screening_type.name})")
         
         # Return document objects directly for template compatibility
-        return relevant_docs
+        return matched_docs
     
     def _get_enhanced_lab_data(self, patient_id, cutoff_months):
         """Get enhanced lab data with filtering based on prep sheet settings"""
@@ -574,12 +578,22 @@ class PrepSheetGenerator:
         
         if months == 0:
             # "To Last Encounter" mode - find most recent completed encounter before today
+            # IMPORTANT: Excludes encounters on today's date since we're prepping for that visit
             if patient_id:
                 patient = Patient.query.get(patient_id)
                 if patient and patient.last_completed_encounter_at:
                     encounter_date = patient.last_completed_encounter_at
+                    encounter_date_only = encounter_date.date() if hasattr(encounter_date, 'date') else encounter_date
+                    
+                    # Skip encounters on today's date - we want data from before today's visit
+                    if encounter_date_only >= date.today():
+                        self.logger.info(f"Last encounter ({encounter_date_only}) is today or future, using 6-month fallback for patient {patient_id}")
+                        is_fallback = True
+                        cutoff = date.today() - relativedelta(months=6)
+                        return (cutoff, is_fallback) if return_fallback_info else cutoff
+                    
                     self.logger.info(f"Using last_completed_encounter_at ({encounter_date}) for patient {patient_id}")
-                    cutoff = encounter_date.date() if hasattr(encounter_date, 'date') else encounter_date
+                    cutoff = encounter_date_only
                     return (cutoff, False) if return_fallback_info else cutoff
             
             # Fallback to 6 months if no encounters found
