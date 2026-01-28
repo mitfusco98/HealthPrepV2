@@ -43,18 +43,30 @@ All documents use template variables (denoted by `{{VARIABLE_NAME}}`) that shoul
 | `{{ORGANIZATION_NAME}}` | Legal name of organization | Capital Region Health System |
 | `{{COVERED_ENTITY_NAME}}` | HIPAA covered entity name | Albany Medical Center |
 
-### Payment Variables (Adjustable)
+### Payment Variables (Defined in Order Form)
+
+All payment terms are centralized in the Order Form. Both provider agreements reference the Order Form for commercial terms.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `{{SUBSCRIPTION_FEE_MONTHLY}}` | Monthly per-provider fee | $300.00 |
-| `{{SUBSCRIPTION_FEE_PER_PROVIDER}}` | Same as above (multi-provider) | $300.00 |
-| `{{BILLING_FREQUENCY}}` | Invoice frequency | Monthly |
+| `{{MONTHLY_RATE_PER_PROVIDER}}` | Monthly per-provider fee | $300.00 |
+| `{{PROVIDER_COUNT}}` | Number of covered providers | 1 |
 | `{{PAYMENT_DUE_DAYS}}` | Days until payment due | 30 |
 | `{{LATE_PAYMENT_RATE}}` | Weekly late fee rate | 1% |
 | `{{SUSPENSION_GRACE_DAYS}}` | Days before suspension | 15 |
-| `{{VOLUME_DISCOUNT_THRESHOLD}}` | Providers needed for discount | 10 |
-| `{{VOLUME_DISCOUNT_RATE}}` | Discount percentage | 10% |
+
+### Payment Frequency Options
+
+The Order Form supports flexible payment periods within the 12-month commitment:
+
+| Frequency | Installments | Use Case |
+|-----------|--------------|----------|
+| Monthly | 12 | Standard billing |
+| Quarterly | 4 | Reduced invoice processing |
+| Semi-Annual | 2 | Mid-sized organizations |
+| Annual | 1 | Prepayment preference |
+
+The Order Form includes a **Payment Timeline** section with specific invoice dates and due dates for each payment period.
 
 ---
 

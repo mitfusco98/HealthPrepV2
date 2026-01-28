@@ -24,23 +24,17 @@ This Standalone Provider Service Agreement (the "Agreement") is entered into bet
 
 ## 2. Payment Terms
 
-> **Note:** Specific fees and billing schedules are defined in the attached Order Form. The following are general payment terms.
+**All payment terms, fees, billing schedules, and payment timelines are set forth in the attached Order Form, which is incorporated into this Agreement by reference.** The Order Form specifies:
 
-**Fees and Billing:** The Provider agrees to pay the subscription fees for the entire 12-month Term as per the rate and schedule set forth in the Order Form or invoice. Subscription fees are typically billed in advance on a periodic schedule (e.g. monthly or quarterly) even though the commitment is annual. All payments shall be made in U.S. dollars via the payment method designated (e.g. credit card or ACH).
+- Subscription fees and pricing
+- Payment frequency (monthly, quarterly, semi-annual, or annual)
+- Payment schedule with specific due dates
+- Late payment interest rates and calculation
+- Service suspension terms for non-payment
 
-### Payment Schedule Variables
+**Non-Refundable Commitment:** This 12-month subscription is a commitment for the full term. **Fees are non-cancellable and non-refundable once paid**, except as otherwise explicitly stated in this Agreement. The Provider is liable for all scheduled payments under the Order Form regardless of actual usage, subject to any early termination provisions herein.
 
-| Variable | Description | Default Value |
-|----------|-------------|---------------|
-| `{{SUBSCRIPTION_FEE_MONTHLY}}` | Monthly subscription fee per provider | See Order Form |
-| `{{BILLING_FREQUENCY}}` | How often invoices are issued | Monthly |
-| `{{PAYMENT_DUE_DAYS}}` | Days after invoice until payment is due | 30 days |
-| `{{LATE_PAYMENT_RATE}}` | Interest rate on late payments (per week) | 1% |
-| `{{SUSPENSION_GRACE_DAYS}}` | Days past due before account suspension | 15 days |
-
-**Non-Refundable Commitment:** This 12-month subscription is a commitment for the full term. **Fees are non-cancellable and non-refundable once paid**, except as otherwise explicitly stated in this Agreement. The Provider is liable for the entire year's fees regardless of actual usage, subject to any early termination provisions herein.
-
-**Late Payment and Interest:** If the Provider fails to pay any invoice or installment by its due date, the unpaid amount will accrue late interest at the rate of **{{LATE_PAYMENT_RATE}} per week** (or the maximum rate permitted by law, if lower) from the due date until paid. Interest is charged to compensate for the delay in payment and encourage timely remittance. The Provider shall also be responsible for any costs of collection on overdue amounts, including reasonable attorneys' fees and court costs, if applicable.
+**Late Payment and Interest:** If the Provider fails to pay any invoice or installment by its due date as specified in the Order Form, the unpaid amount will accrue late interest at the rate specified in the Order Form (compounding weekly, or the maximum rate permitted by law, if lower) from the due date until paid. Interest is charged to compensate for the delay in payment and encourage timely remittance. The Provider shall also be responsible for any costs of collection on overdue amounts, including reasonable attorneys' fees and court costs, if applicable.
 
 **Taxes:** All fees are exclusive of applicable taxes. The Provider is responsible for all taxes, levies, or duties imposed by taxing authorities on the services (excluding taxes on the Company's income). If the Company is required to collect or pay taxes on the Provider's behalf, the Provider will be billed for such amounts unless the Provider provides valid proof of tax exemption.
 
@@ -48,7 +42,7 @@ This Standalone Provider Service Agreement (the "Agreement") is entered into bet
 
 ## 3. Suspension of Services for Non-Payment
 
-The Company reserves the explicit right to suspend (freeze) the Provider's account and access to the software if any payment is failed or excessively delayed. If any fee is past due and outstanding for more than **{{SUSPENSION_GRACE_DAYS}}** beyond its due date, the Company may suspend the Provider's access to the software and all associated services until all overdue amounts (including any accrued interest) are paid in full. Suspension means the Provider will not be able to log in or use the services during the suspension period.
+The Company reserves the explicit right to suspend (freeze) the Provider's account and access to the software if any payment is failed or excessively delayed. If any fee is past due and outstanding for more than the grace period specified in the Order Form beyond its due date, the Company may suspend the Provider's access to the software and all associated services until all overdue amounts (including any accrued interest as calculated per the Order Form) are paid in full. Suspension means the Provider will not be able to log in or use the services during the suspension period.
 
 During the suspension, the Provider remains responsible for any accrued charges and the obligation to pay fees continues during the suspension period. The Company's right to suspend services is a remedial measure and does not waive the Provider's obligation to pay fees for the full Term. If the Provider remedies the payment default (by paying all amounts due), the Company will promptly restore access. However, if the Provider fails to cure the payment default within a reasonable time (for example, 30 days after suspension), the Company may treat it as a material breach and terminate the Agreement for cause (see Section 6). The Provider acknowledges that this suspension remedy is critical for the Company to protect itself from non-payment situations and is standard for SaaS agreements.
 

@@ -24,26 +24,18 @@ The Company will provide the Organization and its designated Providers with acce
 
 ## 3. Fees and Payment
 
-### Pricing Variables
+**All payment terms, fees, billing schedules, and payment timelines are set forth in the attached Order Form, which is incorporated into this Agreement by reference.** The Order Form specifies:
 
-| Variable | Description | Default Value |
-|----------|-------------|---------------|
-| `{{SUBSCRIPTION_FEE_PER_PROVIDER}}` | Monthly subscription fee per provider | $300.00 |
-| `{{BILLING_FREQUENCY}}` | How often invoices are issued | Monthly |
-| `{{PAYMENT_DUE_DAYS}}` | Days after invoice until payment is due | 30 days |
-| `{{LATE_PAYMENT_RATE}}` | Interest rate on late payments (per week) | 1% |
-| `{{VOLUME_DISCOUNT_THRESHOLD}}` | Number of providers for volume discount eligibility | 10 |
-| `{{VOLUME_DISCOUNT_RATE}}` | Discount percentage for volume pricing | 10% |
+- Subscription fees and per-provider pricing
+- Total number of covered Providers and aggregate fees
+- Payment frequency (monthly, quarterly, semi-annual, or annual)
+- Payment schedule with specific due dates
+- Late payment interest rates and calculation
+- Service suspension terms for non-payment
 
-- The Organization shall pay a subscription fee of **{{SUBSCRIPTION_FEE_PER_PROVIDER}}** per Provider per month for access to the Software (the "Subscription Fee"). The Company will issue invoices to the Organization (not to individual Providers) on a **{{BILLING_FREQUENCY}}** basis for the total number of active Providers covered.
+The Organization shall pay the subscription fees as specified in the Order Form. The Company will issue invoices to the Organization (not to individual Providers) according to the payment schedule in the Order Form.
 
-- Payment is due within **{{PAYMENT_DUE_DAYS}}** of each invoice date. Late payments shall incur a late fee of **{{LATE_PAYMENT_RATE}}** on the past due balance (or the maximum permitted by applicable law, if lower), compounding weekly.
-
-- All fees are quoted in U.S. dollars and are **non-refundable**.
-
-### Volume Pricing (Optional)
-
-For organizations with **{{VOLUME_DISCOUNT_THRESHOLD}}** or more Providers, a volume discount of **{{VOLUME_DISCOUNT_RATE}}** may be applied to the Subscription Fee. Contact the Company for enterprise pricing.
+All fees are quoted in U.S. dollars and are **non-refundable**.
 
 ---
 
@@ -98,7 +90,7 @@ Each Provider shall comply with all applicable laws, regulations, and profession
 
 ## 9. Suspension and Termination for Non-Payment
 
-The Company may freeze (suspend) the Organization's and Providers' access to the Software if any payment is not received within **{{PAYMENT_DUE_DAYS}}** after the due date. Suspension or termination of service for non-payment does not relieve the Organization of its obligation to pay all outstanding fees, including any accrued late charges and collection costs.
+The Company may freeze (suspend) the Organization's and Providers' access to the Software if any payment is not received within the grace period specified in the Order Form after its due date. During suspension, late payment interest continues to accrue as specified in the Order Form. Suspension or termination of service for non-payment does not relieve the Organization of its obligation to pay all outstanding fees under the Order Form, including any accrued late charges and collection costs.
 
 ---
 
