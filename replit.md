@@ -37,6 +37,7 @@ Key technical aspects include:
 - **User Onboarding:** Supports self-service via Stripe and manual creation by root admins. A JSON API facilitates external marketing website integration.
 - **Key Management:** A documented policy covers rotation schedules, migration mapping to AWS Secrets Manager, dual-key rotation for PHI re-encryption, and container secret injection patterns.
 - **Timezone-Aware Dormancy Rollover:** `Organization` model includes IANA timezone for local midnight cutoff for appointment-based prioritization.
+- **HITRUST i1 Compliance:** Complete documentation suite covering all 19 domains with gap analysis, training policy, hardening standards, vulnerability management, and vendor risk assessments.
 
 ## External Dependencies
 - **FHIR-based EMRs:** e.g., Epic
