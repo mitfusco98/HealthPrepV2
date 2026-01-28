@@ -186,7 +186,7 @@
             </h5>
             <div>
                 <span class="badge bg-secondary me-2">Last 50 events</span>
-                <a href="{{ url_for('admin.logs', event_type='document_processing_complete') }}" class="btn btn-sm btn-outline-light">
+                <a href="{{ url_for('admin.logs') }}" class="btn btn-sm btn-outline-light">
                     <i class="fas fa-external-link-alt me-1"></i>View Full Logs
                 </a>
             </div>
@@ -212,19 +212,26 @@
                                 <small>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</small>
                             </td>
                             <td>
-                                {% if log.event_type == 'document_processing_complete' %}
+                                {% if log.event_type in ['document_processing_complete', 'phi_filtered', 'phi_redacted', 'document_processed'] %}
                                 <span class="badge bg-primary">Document Processed</span>
-                                {% elif log.event_type == 'phi_filtered' %}
-                                <span class="badge bg-warning text-dark">PHI Filtered</span>
+                                {% elif log.event_type == 'document_processing_failed' %}
+                                <span class="badge bg-danger">Processing Failed</span>
+                                {% elif log.event_type == 'ocr_completed' %}
+                                <span class="badge bg-info">OCR Complete</span>
                                 {% else %}
                                 <span class="badge bg-secondary">{{ log.event_type | replace('_', ' ') | title }}</span>
                                 {% endif %}
                             </td>
                             <td>
                                 {% if log.data %}
-                                    {% if log.event_type == 'document_processing_complete' %}
+                                    {% if log.event_type in ['document_processing_complete', 'phi_filtered', 'phi_redacted', 'document_processed'] %}
                                         {% if log.data.get('status') == 'success' %}
                                         <span class="badge bg-success"><i class="fas fa-check me-1"></i>Success</span>
+                                        {% if log.data.get('phi_redacted', False) %}
+                                        <span class="badge bg-info ms-1" title="PHI automatically redacted">
+                                            <i class="fas fa-shield-alt"></i> PHI Redacted
+                                        </span>
+                                        {% endif %}
                                         {% else %}
                                         {% set error_type = log.data.get('error_type', 'unknown') %}
                                         <span class="badge bg-danger"><i class="fas fa-times me-1"></i>Failed</span>
@@ -262,8 +269,8 @@
                                         </span>
                                         {% endif %}
                                         {% endif %}
-                                    {% elif log.event_type == 'phi_filtered' %}
-                                        <span class="badge bg-success"><i class="fas fa-shield-alt me-1"></i>Applied</span>
+                                    {% elif log.event_type == 'ocr_completed' %}
+                                        <span class="badge bg-success"><i class="fas fa-eye me-1"></i>Complete</span>
                                     {% endif %}
                                 {% endif %}
                             </td>

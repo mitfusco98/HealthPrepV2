@@ -36,7 +36,7 @@
                 <select class="form-select" id="event_type" name="event_type">
                     <option value="">All Events</option>
                     {% for event_type in event_types %}
-                    <option value="{{ event_type }}" {{ 'selected' if filters.event_type == event_type }}>{{ event_type.replace('_', ' ').title() }}</option>
+                    <option value="{{ event_type }}" {{ 'selected' if filters.event_type == event_type }}>{{ event_type_display.get(event_type, event_type.replace('_', ' ').title()) }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -114,21 +114,21 @@
                                 {% if log.event_type == 'document_integrity_violation' %}
                                     <span class="badge bg-danger">
                                         <i class="fas fa-exclamation-triangle me-1"></i>
-                                        {{ log.event_type.replace('_', ' ').title() }}
+                                        {{ event_type_display.get(log.event_type, log.event_type.replace('_', ' ').title()) }}
                                     </span>
                                     <span class="badge bg-dark ms-1" title="Data Breach Protocol Activated">
                                         <i class="fas fa-shield-virus"></i> CRITICAL
                                     </span>
-                                {% elif log.event_type in ['account_lockout', 'brute_force_detected', 'phi_filter_failed'] %}
+                                {% elif log.event_type in ['account_lockout', 'brute_force_detected', 'phi_filter_failed', 'security_lockout', 'password_spray_detected'] %}
                                     <span class="badge bg-danger">
                                         <i class="fas fa-exclamation-circle me-1"></i>
-                                        {{ log.event_type.replace('_', ' ').title() }}
+                                        {{ event_type_display.get(log.event_type, log.event_type.replace('_', ' ').title()) }}
                                     </span>
-                                {% elif log.event_type == 'document_processing_complete' and log.data %}
+                                {% elif log.event_type in ['document_processing_complete', 'phi_filtered', 'phi_redacted', 'document_processed'] and log.data %}
                                     {% set status = log.data.get('status', 'unknown') %}
                                     {% set error_type = log.data.get('error_type', '') %}
                                     <span class="badge {% if status == 'success' %}bg-success{% else %}bg-danger{% endif %}">
-                                        {{ log.event_type.replace('_', ' ').title() }}
+                                        {{ event_type_display.get(log.event_type, 'Document Processing') }}
                                     </span>
                                     {% if status == 'failed' and error_type == 'token_expired' %}
                                     <span class="badge bg-warning text-dark ms-1" title="Access token expired">
@@ -153,7 +153,7 @@
                                     {% endif %}
                                 {% else %}
                                     <span class="badge bg-primary">
-                                        {{ log.event_type.replace('_', ' ').title() if log.event_type else 'Unknown' }}
+                                        {{ event_type_display.get(log.event_type, log.event_type.replace('_', ' ').title()) if log.event_type else 'Unknown' }}
                                     </span>
                                 {% endif %}
                             </td>
