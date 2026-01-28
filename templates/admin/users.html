@@ -269,7 +269,9 @@
 
                     <div class="mb-3">
                         <label for="editRole" class="form-label">Role</label>
-                        <select class="form-select" id="editRole" name="role" required onchange="toggleAdminTypeField('edit')">
+                        <!-- Hidden field to ensure role is submitted even when select is disabled -->
+                        <input type="hidden" id="editRoleHidden" name="role" value="" required>
+                        <select class="form-select" id="editRole" required onchange="updateRoleHidden(); toggleAdminTypeField('edit')">
                             <option value="nurse">Nurse</option>
                             <option value="MA">Medical Assistant</option>
                             <option value="admin">Administrator</option>
@@ -350,6 +352,12 @@ function toggleAdminTypeField(prefix) {
     }
 }
 
+function updateRoleHidden() {
+    const roleSelect = document.getElementById('editRole');
+    const roleHidden = document.getElementById('editRoleHidden');
+    roleHidden.value = roleSelect.value;
+}
+
 function toggleRoleFields(prefix) {
     const roleSelect = document.getElementById(prefix + 'Role');
     const adminTypeField = document.getElementById(prefix + 'AdminTypeField');
@@ -381,6 +389,15 @@ function toggleRoleFields(prefix) {
 // Initialize role fields on page load
 document.addEventListener('DOMContentLoaded', function() {
     toggleRoleFields('add');
+    
+    // Ensure hidden role field is synced before form submission
+    const editForm = document.getElementById('editUserForm');
+    if (editForm) {
+        editForm.addEventListener('submit', function(e) {
+            // Sync hidden role field with select value before submit
+            updateRoleHidden();
+        });
+    }
 });
 
 function editUser(userId, username, email, role, adminType) {
@@ -391,7 +408,9 @@ function editUser(userId, username, email, role, adminType) {
     document.getElementById('editEmail').value = email;
     
     const roleSelect = document.getElementById('editRole');
+    const roleHidden = document.getElementById('editRoleHidden');
     roleSelect.value = role;
+    roleHidden.value = role;  // Always set hidden field to ensure form submission works
     
     // Role escalation prevention: nurses/MAs cannot change roles
     // Admins can only switch admin_type (provider <-> business_admin)
