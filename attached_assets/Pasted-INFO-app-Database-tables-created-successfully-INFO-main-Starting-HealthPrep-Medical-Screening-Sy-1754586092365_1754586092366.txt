@@ -1,0 +1,70 @@
+INFO:app:Database tables created successfully
+INFO:__main__:Starting HealthPrep Medical Screening System
+ * Serving Flask app 'app'
+ * Debug mode: on
+INFO:werkzeug:WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://172.31.105.34:5000
+INFO:werkzeug:Press CTRL+C to quit
+INFO:werkzeug: * Restarting with stat
+INFO:app:Database tables created successfully
+INFO:__main__:Starting HealthPrep Medical Screening System
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 138-309-376
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:52:48] "GET / HTTP/1.1" 302 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:52:48] "GET /admin/dashboard HTTP/1.1" 200 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:52:48] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:52:48] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+ERROR:routes.admin_routes:Error loading users: 'hasattr' is undefined
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:53:13] "GET /admin/users HTTP/1.1" 500 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:53:13] "POST /admin/log-error HTTP/1.1" 404 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:53:15] "GET /admin/dashboard HTTP/1.1" 200 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:53:15] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:53:15] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:54:05] "GET /dashboard HTTP/1.1" 302 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:54:06] "GET /admin/dashboard HTTP/1.1" 200 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:54:06] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:54:06] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+ERROR:routes.admin_routes:Error in admin logs: Could not build url for endpoint 'admin_dashboard'. Did you mean 'admin.dashboard' instead?
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:54:26] "GET /admin/logs HTTP/1.1" 500 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:54:26] "POST /admin/log-error HTTP/1.1" 404 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:54:27] "GET /admin/dashboard HTTP/1.1" 200 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:54:27] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:54:27] "GET /static/css/custom.css HTTP/1.1" 304 -
+ERROR:routes.admin_routes:Error in PHI settings: 'PHIFilter' object has no attribute 'get_processing_statistics'
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:55:15] "GET /admin/phi-settings HTTP/1.1" 500 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:55:15] "POST /admin/log-error HTTP/1.1" 404 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:55:16] "GET /admin/dashboard HTTP/1.1" 200 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:55:16] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:55:16] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+ERROR:routes.admin_routes:Error in admin logs: Could not build url for endpoint 'admin_dashboard'. Did you mean 'admin.dashboard' instead?
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:58:28] "GET /admin/logs HTTP/1.1" 500 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:58:29] "POST /admin/log-error HTTP/1.1" 404 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:58:30] "GET /admin/dashboard HTTP/1.1" 200 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:58:30] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:58:30] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+ERROR:routes.admin_routes:Error in PHI settings: 'PHIFilter' object has no attribute 'get_processing_statistics'
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:59:08] "GET /admin/phi-settings HTTP/1.1" 500 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:59:08] "POST /admin/log-error HTTP/1.1" 404 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:59:10] "GET /admin/dashboard HTTP/1.1" 200 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:59:10] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 16:59:10] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+ERROR:routes.admin_routes:Error in admin analytics: admin/analytics.html
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:00:03] "GET /admin/analytics HTTP/1.1" 500 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:00:03] "POST /admin/log-error HTTP/1.1" 404 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:00:05] "GET /admin/dashboard HTTP/1.1" 200 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:00:05] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:00:05] "GET /static/css/custom.css HTTP/1.1" 304 -
+ERROR:routes.admin_routes:Error in admin logs: Could not build url for endpoint 'admin_dashboard'. Did you mean 'admin.dashboard' instead?
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:00:25] "GET /admin/logs HTTP/1.1" 500 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:00:25] "POST /admin/log-error HTTP/1.1" 404 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:00:28] "GET /admin/dashboard HTTP/1.1" 200 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:00:28] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:00:28] "GET /static/css/custom.css HTTP/1.1" 304 -
+ERROR:routes.admin_routes:Error loading users: 'hasattr' is undefined
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:00:31] "GET /admin/users HTTP/1.1" 500 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:00:31] "POST /admin/log-error HTTP/1.1" 404 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:00:33] "GET /admin/dashboard HTTP/1.1" 200 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:00:33] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.105.34 - - [07/Aug/2025 17:00:33] "GET /static/css/loading-states.css HTTP/1.1" 304 -

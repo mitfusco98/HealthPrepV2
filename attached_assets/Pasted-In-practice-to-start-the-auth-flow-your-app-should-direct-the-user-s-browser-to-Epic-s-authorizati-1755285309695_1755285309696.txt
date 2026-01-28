@@ -1,0 +1,26 @@
+In practice, to start the auth flow, your app should direct the user’s browser to Epic’s authorization endpoint, for example:
+
+GET https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize?
+    response_type=code
+    &client_id=YOUR_CLIENT_ID
+    &redirect_uri=YOUR_REDIRECT_URI
+    &scope=openid%20fhirUser%20patient/Patient.read%20...%20patient/DocumentReference.write
+    &aud=https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4/
+    &state=XYZ 
+(All on one line; line breaks added for readability.) Here, aud is the base FHIR endpoint (Epic may require the audience parameter to ensure the token is for the correct server). The scopes are space-separated. The state is a random string your app generates to correlate the response. The user will be taken to Epic’s login screen. In the Epic sandbox, you can use one of the provided test user accounts (for example, Omar ClinDoc or Anna Cadence – Epic provides credentials for these test users in the sandbox data page). After login, Epic will ask the user to authorize your app and then redirect back to your specified redirect_uri with a code (authorization code) and the state.
+Handle the OAuth Callback and Token Exchange: Your app’s redirect URI endpoint (e.g., /epic_oauth_callback) will receive the authorization code. The app must then exchange this code for an access token by making a server-to-server POST to Epic’s token endpoint. For the Epic sandbox, the token endpoint is: https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token The app will POST form data including:
+* grant_type=authorization_code
+* code=<the authorization code>
+* redirect_uri=<your redirect URI (must match exactly)>
+* client_id=<your Client ID>
+* client_secret=<secret> (if it’s a confidential app; if public, no secret is used)
+* code_verifier=<verifier> (if using PKCE, which is recommended for public apps)
+If all is well, Epic will return a JSON payload containing an access_token (and possibly a refresh_token if offline_access was requested) along with the token’s scope and expiration. The access_token is typically valid for a short period (e.g., 5-10 minutes or as configured). Your app should securely store the token (e.g. in the user’s session or a secure database table) along with the refresh token (if provided).
+Authorized API Calls: With the access token in hand, the app can now make the FHIR API calls described in the previous section to read and write data. The token represents the user and has the scopes/permissions granted. In practice, the token is included in the HTTP Authorization header for each API request. For example:
+
+GET [base]/Condition?patient=12345  
+Authorization: Bearer <access_token>
+The Epic sandbox will validate the token and return data. As noted, if the token expires, the app can use the refresh_token with a similar POST to the token endpoint (grant_type=refresh_token&refresh_token=...) to get a new access token without user re-login.
+ 
+After these steps, HealthPrepV2 is authenticated and authorized to access Epic data. The user is logged in via Epic (which satisfies the requirement of using Epic’s credentials for secure onboarding), and the app holds a token to act on the user’s behalf. This flow aligns with standard SMART on FHIR practice, and Epic’s sandbox closely mirrors production OAuth behavior.
+Security note: The SMART on FHIR approach ensures that no credentials are handled by HealthPrepV2 directly – the user logs into Epic’s trusted portal, and Epic issues tokens to the app. This helps with HIPAA compliance because authentication and session management are handled by Epic, and the app never sees the user’s password. The app should nonetheless protect the tokens it receives (treat them like passwords) by using secure server-side storage. Also, Epic’s OAuth server will log these accesses, and because the user context is known, any data access via the token can be attributed to a user in Epic’s audit logs (supporting the auditing requirement).

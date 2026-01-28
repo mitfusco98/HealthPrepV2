@@ -1,0 +1,38 @@
+INFO:models:Deleted 9 existing screening types and all associated screenings for complete replacement
+INFO:models:Committed deletion of existing screening types
+INFO:models:Processing screening type: 'Annual Physical Exam' for org 1
+INFO:models:Creating new screening type: 'Annual Physical Exam' for org 1
+ERROR:models:Error processing screening type Annual Physical Exam: property 'frequency_years' of 'ScreeningType' object has no setter
+INFO:models:Processing screening type: 'Mammogram' for org 1
+INFO:models:Creating new screening type: 'Mammogram' for org 1
+ERROR:models:Error processing screening type Mammogram: property 'frequency_years' of 'ScreeningType' object has no setter
+INFO:models:Processing screening type: 'Colonoscopy' for org 1
+INFO:models:Creating new screening type: 'Colonoscopy' for org 1
+ERROR:models:Error processing screening type Colonoscopy: property 'frequency_years' of 'ScreeningType' object has no setter
+INFO:models:Processing screening type: 'Pap Smear' for org 1
+INFO:models:Creating new screening type: 'Pap Smear' for org 1
+ERROR:models:Error processing screening type Pap Smear: property 'frequency_years' of 'ScreeningType' object has no setter
+INFO:models:Processing screening type: 'A1C Test' for org 1
+INFO:models:Creating new screening type: 'A1C Test' for org 1
+ERROR:models:Error processing screening type A1C Test: property 'frequency_years' of 'ScreeningType' object has no setter
+INFO:models:Processing screening type: 'A1C Test (Non-Diabetic)' for org 1
+INFO:models:Creating new screening type: 'A1C Test (Non-Diabetic)' for org 1
+ERROR:models:Error processing screening type A1C Test (Non-Diabetic): property 'frequency_years' of 'ScreeningType' object has no setter
+INFO:models:Processing screening type: 'Lipid Panel' for org 1
+INFO:models:Creating new screening type: 'Lipid Panel' for org 1
+ERROR:models:Error processing screening type Lipid Panel: property 'frequency_years' of 'ScreeningType' object has no setter
+INFO:models:Processing screening type: 'Bone Density Scan' for org 1
+INFO:models:Creating new screening type: 'Bone Density Scan' for org 1
+ERROR:models:Error processing screening type Bone Density Scan: property 'frequency_years' of 'ScreeningType' object has no setter
+INFO:models:Processing screening type: 'Blood Pressure Check' for org 1
+INFO:models:Creating new screening type: 'Blood Pressure Check' for org 1
+ERROR:models:Error processing screening type Blood Pressure Check: property 'frequency_years' of 'ScreeningType' object has no setter
+INFO:models:Processing screening type: 'Blood Pressure Check (Hypertensive)' for org 1
+INFO:models:Creating new screening type: 'Blood Pressure Check (Hypertensive)' for org 1
+ERROR:models:Error processing screening type Blood Pressure Check (Hypertensive): property 'frequency_years' of 'ScreeningType' object has no setter
+INFO:models:Processing screening type: 'Eye Exam' for org 1
+INFO:models:Creating new screening type: 'Eye Exam' for org 1
+ERROR:models:Error processing screening type Eye Exam: property 'frequency_years' of 'ScreeningType' object has no setter
+INFO:models:Processing screening type: 'Diabetic Eye Exam' for org 1
+INFO:models:Creating new screening type: 'Diabetic Eye Exam' for org 1
+ERROR:models:Error processing screening type Diabetic Eye Exam: property 'frequency_years' of 'ScreeningType' object has no setter

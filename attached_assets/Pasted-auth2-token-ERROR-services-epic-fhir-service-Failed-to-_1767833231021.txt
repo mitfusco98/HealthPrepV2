@@ -1,0 +1,48 @@
+auth2/token
+ERROR:services.epic_fhir_service:Failed to refresh access token for org 31
+INFO:services.epic_fhir_service:Attempting to reload tokens from database after refresh failure
+INFO:services.epic_fhir_service:Successfully loaded tokens from database for org 31
+INFO:services.epic_fhir_service:Token expires at: 2026-01-02 21:25:55.995242
+INFO:services.epic_fhir_service:Reloaded tokens from database, retrying authentication
+INFO:services.epic_fhir_service:Access token expired for org 31, attempting refresh
+INFO:emr.fhir_client:Attempting token refresh for organization Default 1
+ERROR:emr.fhir_client:HTTP 400 error during token refresh: 400 Client Error: Bad Request for url: https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token
+ERROR:services.epic_fhir_service:Failed to refresh access token for org 31
+INFO:services.epic_fhir_service:Attempting to reload tokens from database after refresh failure
+INFO:services.epic_fhir_service:Successfully loaded tokens from database for org 31
+INFO:services.epic_fhir_service:Token expires at: 2026-01-02 21:25:55.995242
+INFO:services.epic_fhir_service:Reloaded tokens from database, retrying authentication
+INFO:services.epic_fhir_service:Access token expired for org 31, attempting refresh
+INFO:emr.fhir_client:Attempting token refresh for organization Default 1
+ERROR:emr.fhir_client:HTTP 400 error during token refresh: 400 Client Error: Bad Request for url: https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token
+ERROR:services.epic_fhir_service:Failed to refresh access token for org 31
+INFO:services.epic_fhir_service:Attempting to reload tokens from database after refresh failure
+INFO:services.epic_fhir_service:Successfully loaded tokens from database for org 31
+INFO:services.epic_fhir_service:Token expires at: 2026-01-02 21:25:55.995242
+INFO:services.epic_fhir_service:Reloaded tokens from database, retrying authentication
+INFO:services.epic_fhir_service:Access token expired for org 31, attempting refresh
+INFO:emr.fhir_client:Attempting token refresh for organization Default 1
+ERROR:emr.fhir_client:HTTP 400 error during token refresh: 400 Client Error: Bad Request for url: https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token
+ERROR:services.epic_fhir_service:Failed to refresh access token for org 31
+INFO:services.epic_fhir_service:Attempting to reload tokens from database after refresh failure
+INFO:services.epic_fhir_service:Successfully loaded tokens from database for org 31
+INFO:services.epic_fhir_service:Token expires at: 2026-01-02 21:25:55.995242
+INFO:services.epic_fhir_service:Reloaded tokens from database, retrying authentication
+INFO:services.epic_fhir_service:Access token expired for org 31, attempting refresh
+INFO:emr.fhir_client:Attempting token refresh for organization Default 1
+ERROR:emr.fhir_client:HTTP 400 error during token refresh: 400 Client Error: Bad Request for url: https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token
+ERROR:services.epic_fhir_service:Failed to refresh access token for org 31
+INFO:services.epic_fhir_service:Attempting to reload tokens from database after refresh failure
+INFO:services.epic_fhir_service:Successfully loaded tokens from database for org 31
+INFO:services.epic_fhir_service:Token expires at: 2026-01-02 21:25:55.995242
+INFO:services.epic_fhir_service:Reloaded tokens from database, retrying authentication
+INFO:services.epic_fhir_service:Access token expired for org 31, attempting refresh
+INFO:emr.fhir_client:Attempting token refresh for organization Default 1
+ERROR:emr.fhir_client:HTTP 400 error during token refresh: 400 Client Error: Bad Request for url: https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token
+ERROR:services.epic_fhir_service:Failed to refresh access token for org 31
+INFO:services.epic_fhir_service:Attempting to reload tokens from database after refresh failure
+INFO:services.epic_fhir_service:Successfully loaded tokens from database for org 31
+INFO:services.epic_fhir_service:Token expires at: 2026-01-02 21:25:55.995242
+INFO:services.epic_fhir_service:Reloaded tokens from database, retrying authentication
+INFO:services.epic_fhir_service:Access token expired for org 31, attempting refresh
+INFO:emr.fhir_client:A

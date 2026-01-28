@@ -1,0 +1,52 @@
+├── core/                      # Core engine logic
+│   ├── engine.py              # Screening engine orchestration
+│   ├── matcher.py             # Fuzzy keyword + document matching
+│   ├── criteria.py            # Screening eligibility and frequency logic
+│   └── variants.py            # Handles screening type variants
+│
+├── emr/                       # FHIR data ingestion and normalization
+│   ├── fhir_client.py         # SMART on FHIR API client
+│   ├── parser.py              # Converts FHIR bundles to internal model
+│   └── models.py              # Internal representations of EMR data
+│
+├── ocr/                       # OCR + document processing
+│   ├── processor.py           # Tesseract integration and text cleanup
+│   ├── monitor.py             # Quality/confidence scoring
+│   └── phi_filter.py          # Regex-based PHI redaction
+│
+├── presets/                   # Screening type presets and specialty logic
+│   ├── loader.py              # Import/export logic
+│   └── examples/              # JSON or YAML files for preset templates
+│
+├── prep_sheet/               # Prep sheet generation and rendering
+│   ├── generator.py           # Assembles content into prep sheet format
+│   ├── filters.py             # Frequency and cutoff filtering logic
+│   └── templates/             # HTML/JSON templates
+│       └── prep_sheet.html
+│
+├── ui/                        # Frontend or API interface (if not full-stack separate)
+│   ├── views.py               # Admin dashboard, prep sheet viewer
+│   ├── routes.py              # Flask/FastAPI/Starlette routing
+│   └── static/                # JS, CSS (if any)
+│
+├── admin/                     # Admin dashboard tools
+│   ├── logs.py                # Admin log management
+│   ├── analytics.py           # Hours saved, compliance gaps closed
+│   └── config.py              # Admin configurations and presets
+│
+├── tests/                     # Automated and sanity tests
+│   ├── test_engine.py         # Screening engine tests
+│   ├── test_prep_sheet.py     # Output logic and filtering
+│   └── test_fhir_ingest.py    # FHIR parsing tests
+│
+├── config/                    # App-wide configs
+│   ├── settings.py            # Global constants and settings
+│   └── security.py            # RBAC, encryption config
+│
+├── docs/                      # Project documentation
+│   ├── README.md              # High-level intro
+│   └── TDD.md                 # Full system design (already created)
+│
+├── app.py                     # Entry point (e.g., for FastAPI or Flask)
+├── requirements.txt           # Python dependencies
+└── .env                       # Local secrets (never commit)

@@ -1,0 +1,39 @@
+INFO:routes.screening_routes:Screening type Immunization Review criteria changed - triggering selective refresh
+INFO:services.screening_refresh_service:ScreeningRefreshService initialized for organization 1 - LOCAL PROCESSING ONLY
+INFO:services.screening_refresh_service:Starting screening refresh for EXISTING data only - NO Epic calls
+INFO:services.screening_refresh_service:Found 3 modified screening types (active: 3, inactive: 0)
+INFO:services.screening_refresh_service:Force refresh requested
+INFO:services.screening_refresh_service:No screening updates needed - early termination
+INFO:werkzeug:10.81.4.85 - - [07/Oct/2025 16:03:13] "POST /screening/type/95/edit HTTP/1.1" 302 -
+INFO:werkzeug:10.81.4.85 - - [07/Oct/2025 16:03:14] "GET /screening/types HTTP/1.1" 200 -
+INFO:werkzeug:10.81.1.75 - - [07/Oct/2025 16:03:14] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.1.75 - - [07/Oct/2025 16:03:14] "GET /static/css/medical_styles.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.4.85 - - [07/Oct/2025 16:03:14] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.1.75 - - [07/Oct/2025 16:03:14] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.4.85 - - [07/Oct/2025 16:03:14] "GET /static/css/keyword_modal.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.1.75 - - [07/Oct/2025 16:03:14] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.4.85 - - [07/Oct/2025 16:03:14] "GET /static/js/condition_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.1.75 - - [07/Oct/2025 16:03:14] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.1.75 - - [07/Oct/2025 16:03:23] "GET /screening/list HTTP/1.1" 200 -
+INFO:werkzeug:10.81.4.85 - - [07/Oct/2025 16:03:23] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.1.75 - - [07/Oct/2025 16:03:23] "GET /static/css/medical_styles.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.4.85 - - [07/Oct/2025 16:03:23] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.1.75 - - [07/Oct/2025 16:03:23] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.1.75 - - [07/Oct/2025 16:03:23] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.1.75 - - [07/Oct/2025 16:03:23] "GET /static/js/screening_performance.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.4.85 - - [07/Oct/2025 16:03:23] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+INFO:services.screening_refresh_service:ScreeningRefreshService initialized for organization 1 - LOCAL PROCESSING ONLY
+INFO:services.screening_refresh_service:Starting screening refresh for EXISTING data only - NO Epic calls
+INFO:services.screening_refresh_service:Found 3 modified screening types (active: 3, inactive: 0)
+INFO:services.screening_refresh_service:Force refresh requested
+INFO:services.screening_refresh_service:No screening updates needed - early termination
+INFO:werkzeug:10.81.4.85 - - [07/Oct/2025 16:03:37] "POST /screening/refresh HTTP/1.1" 302 -
+INFO:werkzeug:10.81.4.85 - - [07/Oct/2025 16:03:40] "GET /screening/list HTTP/1.1" 200 -
+INFO:werkzeug:10.81.1.75 - - [07/Oct/2025 16:03:43] "GET /screening/list HTTP/1.1" 200 -
+INFO:werkzeug:10.81.4.85 - - [07/Oct/2025 16:03:43] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.1.75 - - [07/Oct/2025 16:03:43] "GET /static/css/medical_styles.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.1.75 - - [07/Oct/2025 16:03:43] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.4.85 - - [07/Oct/2025 16:03:43] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:10.81.4.85 - - [07/Oct/2025 16:03:43] "GET /static/js/screening_performance.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.1.75 - - [07/Oct/2025 16:03:43] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:10.81.1.75 - - [07/Oct/2025 16:03:43] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -

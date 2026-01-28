@@ -1,0 +1,69 @@
+1-25 16:19:51 +0000] [1407] [INFO] Booting worker with pid: 1407
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+INFO:utils.secrets_validator:Secrets validation passed for development environment
+INFO:app:Using PostgreSQL database: ep-raspy-heart-aep9yhc2.c-2.us-east-2.aws.neon.tech
+INFO:utils.security_headers:Security headers middleware enabled (SANDBOX mode - relaxed CSP)
+INFO:utils.security_headers:Security middleware configured (force_https=False)
+INFO:app:CORS: Development mode - allowing all origins (NOT for production use)
+INFO:app:CORS configured with origins: ['*']
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+[2026-01-25 16:19:51 +0000] [1397] [INFO] Handling signal: winch
+INFO:app:Database tables created successfully
+INFO:app:System Organization (org_id=0) verified
+INFO:app:Root admin 'rootadmin' configuration verified (org_id=0)
+INFO:utils.seed_global_presets:Global presets verified - no changes needed
+INFO:app:Startup document processing disabled for faster boot times (set STARTUP_PROCESS_DOCS=true to enable)
+10.81.9.19 - - [25/Jan/2026:16:19:54 +0000] "GET / HTTP/1.1" 302 219 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.9.19 - - [25/Jan/2026:16:19:54 +0000] "GET /admin/dashboard HTTP/1.1" 302 229 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.9.19 - - [25/Jan/2026:16:19:54 +0000] "GET /root-admin/dashboard HTTP/1.1" 200 23990 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.16.163 - - [25/Jan/2026:16:19:55 +0000] "GET /static/css/custom.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/root-admin/dashboard" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+127.0.0.1 - - [25/Jan/2026:16:20:03 +0000] "GET /root-admin/users HTTP/1.1" 302 297 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.0.0 Safari/537.36"
+127.0.0.1 - - [25/Jan/2026:16:20:03 +0000] "GET /auth/login?next=http://127.0.0.1:5000/root-admin/users HTTP/1.1" 200 11068 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.0.0 Safari/537.36"
+127.0.0.1 - - [25/Jan/2026:16:20:03 +0000] "GET /static/css/custom.css HTTP/1.1" 304 0 "http://127.0.0.1:5000/auth/login?next=http://127.0.0.1:5000/root-admin/users" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.0.0 Safari/537.36"
+127.0.0.1 - - [25/Jan/2026:16:20:03 +0000] "GET /static/css/medical_styles.css HTTP/1.1" 304 0 "http://127.0.0.1:5000/auth/login?next=http://127.0.0.1:5000/root-admin/users" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.0.0 Safari/537.36"
+127.0.0.1 - - [25/Jan/2026:16:20:03 +0000] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 0 "http://127.0.0.1:5000/auth/login?next=http://127.0.0.1:5000/root-admin/users" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.0.0 Safari/537.36"
+127.0.0.1 - - [25/Jan/2026:16:20:03 +0000] "GET /static/css/loading-states.css HTTP/1.1" 304 0 "http://127.0.0.1:5000/auth/login?next=http://127.0.0.1:5000/root-admin/users" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.0.0 Safari/537.36"
+127.0.0.1 - - [25/Jan/2026:16:20:03 +0000] "GET /static/js/medical_terminology.js HTTP/1.1" 304 0 "http://127.0.0.1:5000/auth/login?next=http://127.0.0.1:5000/root-admin/users" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.0.0 Safari/537.36"
+10.81.16.163 - - [25/Jan/2026:16:20:03 +0000] "GET /root-admin/users HTTP/1.1" 200 25755 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.9.19 - - [25/Jan/2026:16:20:03 +0000] "GET /static/css/custom.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/root-admin/users" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.9.19 - - [25/Jan/2026:16:21:18 +0000] "GET /root-admin/users/41/lockout-details HTTP/1.1" 200 1404 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/root-admin/users" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+INFO:routes.root_admin_routes:Root admin rootadmin unlocked security-locked account for user mitchfuse98
+10.81.9.19 - - [25/Jan/2026:16:21:27 +0000] "POST /root-admin/users/41/unlock HTTP/1.1" 200 90 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/root-admin/users" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.9.19 - - [25/Jan/2026:16:21:30 +0000] "GET /root-admin/users HTTP/1.1" 200 25217 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/root-admin/users" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"
+10.81.16.163 - - [25/Jan/2026:16:21:30 +0000] "GET /static/css/custom.css HTTP/1.1" 304 0 "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev/root-admin/users" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Replit/1.0.14 Chrome/124.0.6367.119 Electron/30.0.3 Safari/537.36"

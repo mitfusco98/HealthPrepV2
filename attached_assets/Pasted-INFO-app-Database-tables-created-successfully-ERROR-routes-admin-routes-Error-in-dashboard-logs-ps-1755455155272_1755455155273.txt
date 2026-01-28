@@ -1,0 +1,45 @@
+INFO:app:Database tables created successfully
+ERROR:routes.admin_routes:Error in dashboard logs: (psycopg2.errors.UndefinedColumn) column patient.fhir_patient_resource does not exist
+LINE 2: ...tient.epic_patient_id AS patient_epic_patient_id, patient.fh...
+                                                             ^
+
+[SQL: SELECT count(*) AS count_1 
+FROM (SELECT patient.id AS patient_id, patient.mrn AS patient_mrn, patient.name AS patient_name, patient.date_of_birth AS patient_date_of_birth, patient.gender AS patient_gender, patient.phone AS patient_phone, patient.email AS patient_email, patient.address AS patient_address, patient.org_id AS patient_org_id, patient.epic_patient_id AS patient_epic_patient_id, patient.fhir_patient_resource AS patient_fhir_patient_resource, patient.last_fhir_sync AS patient_last_fhir_sync, patient.fhir_version_id AS patient_fhir_version_id, patient.created_at AS patient_created_at, patient.updated_at AS patient_updated_at 
+FROM patient 
+WHERE patient.created_at >= %(created_at_1)s) AS anon_1]
+[parameters: {'created_at_1': datetime.datetime(2025, 7, 18, 18, 24, 15, 122295)}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+INFO:flask_wtf.csrf:The CSRF token is missing.
+ERROR:routes.admin_routes:Error in dashboard logs: (psycopg2.errors.UndefinedColumn) column patient.fhir_patient_resource does not exist
+LINE 2: ...tient.epic_patient_id AS patient_epic_patient_id, patient.fh...
+                                                             ^
+
+[SQL: SELECT count(*) AS count_1 
+FROM (SELECT patient.id AS patient_id, patient.mrn AS patient_mrn, patient.name AS patient_name, patient.date_of_birth AS patient_date_of_birth, patient.gender AS patient_gender, patient.phone AS patient_phone, patient.email AS patient_email, patient.address AS patient_address, patient.org_id AS patient_org_id, patient.epic_patient_id AS patient_epic_patient_id, patient.fhir_patient_resource AS patient_fhir_patient_resource, patient.last_fhir_sync AS patient_last_fhir_sync, patient.fhir_version_id AS patient_fhir_version_id, patient.created_at AS patient_created_at, patient.updated_at AS patient_updated_at 
+FROM patient 
+WHERE patient.created_at >= %(created_at_1)s) AS anon_1]
+[parameters: {'created_at_1': datetime.datetime(2025, 7, 18, 18, 24, 25, 925238)}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+INFO:flask_wtf.csrf:The CSRF token is missing.
+ERROR:routes.admin_routes:Error in dashboard logs: (psycopg2.errors.UndefinedColumn) column patient.fhir_patient_resource does not exist
+LINE 2: ...tient.epic_patient_id AS patient_epic_patient_id, patient.fh...
+                                                             ^
+
+[SQL: SELECT count(*) AS count_1 
+FROM (SELECT patient.id AS patient_id, patient.mrn AS patient_mrn, patient.name AS patient_name, patient.date_of_birth AS patient_date_of_birth, patient.gender AS patient_gender, patient.phone AS patient_phone, patient.email AS patient_email, patient.address AS patient_address, patient.org_id AS patient_org_id, patient.epic_patient_id AS patient_epic_patient_id, patient.fhir_patient_resource AS patient_fhir_patient_resource, patient.last_fhir_sync AS patient_last_fhir_sync, patient.fhir_version_id AS patient_fhir_version_id, patient.created_at AS patient_created_at, patient.updated_at AS patient_updated_at 
+FROM patient 
+WHERE patient.created_at >= %(created_at_1)s) AS anon_1]
+[parameters: {'created_at_1': datetime.datetime(2025, 7, 18, 18, 24, 36, 607554)}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+INFO:flask_wtf.csrf:The CSRF token is missing.
+ERROR:routes.admin_routes:Error in dashboard logs: (psycopg2.errors.UndefinedColumn) column patient.fhir_patient_resource does not exist
+LINE 2: ...tient.epic_patient_id AS patient_epic_patient_id, patient.fh...
+                                                             ^
+
+[SQL: SELECT count(*) AS count_1 
+FROM (SELECT patient.id AS patient_id, patient.mrn AS patient_mrn, patient.name AS patient_name, patient.date_of_birth AS patient_date_of_birth, patient.gender AS patient_gender, patient.phone AS patient_phone, patient.email AS patient_email, patient.address AS patient_address, patient.org_id AS patient_org_id, patient.epic_patient_id AS patient_epic_patient_id, patient.fhir_patient_resource AS patient_fhir_patient_resource, patient.last_fhir_sync AS patient_last_fhir_sync, patient.fhir_version_id AS patient_fhir_version_id, patient.created_at AS patient_created_at, patient.updated_at AS patient_updated_at 
+FROM patient 
+WHERE patient.created_at >= %(created_at_1)s) AS anon_1]
+[parameters: {'created_at_1': datetime.datetime(2025, 7, 18, 18, 24, 47, 267312)}]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+INFO:flask_wtf.csrf:The CSRF token is missing.

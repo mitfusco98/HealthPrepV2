@@ -1,0 +1,48 @@
+3) Build a clean client assertion (non-prod)
+(Replace envs; print header+payload to eyeball iss/sub/aud/exp/kid.)
+CLIENT_ID="<your_nonprod_client_id>"
+TOKEN_URL="<token_endpoint_from_discovery>"
+KID="np-2025-08-a"
+PRIVATE_PEM_PATH="./secrets/nonprod-current.key"
+
+header='{"alg":"RS256","typ":"JWT","kid":"'"$KID"'"}'
+now=$(date +%s)
+payload='{"iss":"'"$CLIENT_ID"'","sub":"'"$CLIENT_ID"'","aud":"'"$TOKEN_URL"'","jti":"'"$(uuidgen)"'","iat":'"$now"',"exp":'"$((now+300))"'}'
+
+echo "Header:   $header"
+echo "Payload:  $payload"
+
+# Create the JWT using openssl (no Python dependency)
+b64u() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+h=$(printf '%s' "$header"  | b64u)
+p=$(printf '%s' "$payload" | b64u)
+sig=$(printf '%s.%s' "$h" "$p" | \
+      openssl dgst -sha256 -sign "$PRIVATE_PEM_PATH" -binary | b64u)
+ASSERTION="$h.$p.$sig"
+If you prefer PyJWT, keep doing that—just print the decoded header/payload to confirm values before sending.
+4) Token request formatting (common failure point)
+Content-Type must be application/x-www-form-urlencoded and use parameter names exactly as below:
+curl -i "$TOKEN_URL" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "grant_type=client_credentials" \
+  --data-urlencode "client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer" \
+  --data-urlencode "client_assertion=$ASSERTION"
+If you see invalid_client: it’s almost always client_id mismatch (iss/sub), aud mismatch (wrong token URL), kid not in non-prod JWKS, exp/iat window, or Sandbox not yet synced.
+Try again after a full 60 minutes from your most recent app save/“Ready for Sandbox.”
+If your app is doing authorization_code from an EHR launch instead of client_credentials, the /token POST must be:
+grant_type=authorization_code
+code=<auth_code>
+redirect_uri=<exact_uri_in_epic>
+client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer
+client_assertion=<assertion_as_above>
+5) EHR Launch parameters (if you’re testing full SMART launch)
+When you construct the authorize redirect:
+Include aud=<iss> (required for EHR launch).
+If Epic passed you launch, include &launch=<value>.
+Scope should be minimal and valid (e.g., openid profile launch patient/*.read).
+Sanity print:
+echo "$AUTH_URL" | sed 's/&/\n&/g'
+Verify aud, redirect_uri, and scopes are exactly what you intend.
+6) PEM & env hygiene (surprisingly common)
+PEM newlines: when stored in env, ensure the parser receives the original newlines. If using a single-line env var, replace \n with real newlines before loading.
+No Windows CRLF: run file on the PEM; if CRLF, convert with dos2unix.

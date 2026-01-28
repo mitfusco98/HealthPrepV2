@@ -1,0 +1,151 @@
+INFO:app:Database tables created successfully
+INFO:__main__:Starting HealthPrep Medical Screening System
+ * Serving Flask app 'app'
+ * Debug mode: on
+INFO:werkzeug:WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://172.31.111.130:5000
+INFO:werkzeug:Press CTRL+C to quit
+INFO:werkzeug: * Restarting with stat
+INFO:app:Database tables created successfully
+INFO:__main__:Starting HealthPrep Medical Screening System
+WARNING:werkzeug: * Debugger is active!
+INFO:werkzeug: * Debugger PIN: 539-963-681
+INFO:werkzeug:172.31.111.130 - - [05/Aug/2025 00:01:52] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:172.31.111.130 - - [05/Aug/2025 00:01:53] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [05/Aug/2025 00:01:53] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [05/Aug/2025 00:01:53] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [05/Aug/2025 00:01:53] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+ERROR:routes.screening_routes:Screening list error: (psycopg2.errors.UndefinedColumn) column screening_type.gender does not exist
+LINE 1: ...reening_type.keywords AS screening_type_keywords, screening_...
+                                                             ^
+
+[SQL: SELECT screening_type.id AS screening_type_id, screening_type.name AS screening_type_name, screening_type.keywords AS screening_type_keywords, screening_type.gender AS screening_type_gender, screening_type.min_age AS screening_type_min_age, screening_type.max_age AS screening_type_max_age, screening_type.frequency_number AS screening_type_frequency_number, screening_type.frequency_unit AS screening_type_frequency_unit, screening_type.trigger_conditions AS screening_type_trigger_conditions, screening_type.is_active AS screening_type_is_active, screening_type.created_at AS screening_type_created_at, screening_type.updated_at AS screening_type_updated_at 
+FROM screening_type 
+WHERE screening_type.is_active = true ORDER BY screening_type.name]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+INFO:werkzeug:172.31.111.130 - - [05/Aug/2025 00:02:14] "GET /screening/list HTTP/1.1" 200 -
+INFO:werkzeug:172.31.111.130 - - [05/Aug/2025 00:02:14] "GET /static/css/custom.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [05/Aug/2025 00:02:14] "GET /static/css/medical_terminology_ui.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [05/Aug/2025 00:02:14] "GET /static/css/loading-states.css HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [05/Aug/2025 00:02:14] "GET /static/js/screening_modals.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [05/Aug/2025 00:02:14] "GET /static/js/screening_performance.js HTTP/1.1" 304 -
+INFO:werkzeug:172.31.111.130 - - [05/Aug/2025 00:02:14] "GET /static/js/medical_terminology.js HTTP/1.1" 304 -
+ERROR:routes.screening_routes:Error loading screening types: (psycopg2.errors.UndefinedColumn) column screening_type.gender does not exist
+LINE 1: ...reening_type.keywords AS screening_type_keywords, screening_...
+                                                             ^
+
+[SQL: SELECT screening_type.id AS screening_type_id, screening_type.name AS screening_type_name, screening_type.keywords AS screening_type_keywords, screening_type.gender AS screening_type_gender, screening_type.min_age AS screening_type_min_age, screening_type.max_age AS screening_type_max_age, screening_type.frequency_number AS screening_type_frequency_number, screening_type.frequency_unit AS screening_type_frequency_unit, screening_type.trigger_conditions AS screening_type_trigger_conditions, screening_type.is_active AS screening_type_is_active, screening_type.created_at AS screening_type_created_at, screening_type.updated_at AS screening_type_updated_at 
+FROM screening_type ORDER BY screening_type.name]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+INFO:werkzeug:172.31.111.130 - - [05/Aug/2025 00:02:16] "GET /screening/types HTTP/1.1" 500 -
+Traceback (most recent call last):
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1961, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 944, in do_execute
+    cursor.execute(statement, parameters)
+psycopg2.errors.UndefinedColumn: column screening_type.gender does not exist
+LINE 1: ...reening_type.keywords AS screening_type_keywords, screening_...
+                                                             ^
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/runner/workspace/routes/screening_routes.py", line 80, in screening_types
+    screening_types = ScreeningType.query.order_by(ScreeningType.name).all()
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/query.py", line 2704, in all
+    return self._iter().all()  # type: ignore
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/query.py", line 2857, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+                                                  ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2365, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1413, in execute
+    return meth(
+           ^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1635, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1840, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1980, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 2349, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/base.py", line 1961, in _exec_single_context
+    self.dialect.do_execute(
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/sqlalchemy/engine/default.py", line 944, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.ProgrammingError: (psycopg2.errors.UndefinedColumn) column screening_type.gender does not exist
+LINE 1: ...reening_type.keywords AS screening_type_keywords, screening_...
+                                                             ^
+
+[SQL: SELECT screening_type.id AS screening_type_id, screening_type.name AS screening_type_name, screening_type.keywords AS screening_type_keywords, screening_type.gender AS screening_type_gender, screening_type.min_age AS screening_type_min_age, screening_type.max_age AS screening_type_max_age, screening_type.frequency_number AS screening_type_frequency_number, screening_type.frequency_unit AS screening_type_frequency_unit, screening_type.trigger_conditions AS screening_type_trigger_conditions, screening_type.is_active AS screening_type_is_active, screening_type.created_at AS screening_type_created_at, screening_type.updated_at AS screening_type_updated_at 
+FROM screening_type ORDER BY screening_type.name]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1536, in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1514, in wsgi_app
+    response = self.handle_exception(e)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask_login/utils.py", line 290, in decorated_view
+    return current_app.ensure_sync(func)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/routes/screening_routes.py", line 88, in screening_types
+    return render_template('error/500.html'), 500
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/templating.py", line 150, in render_template
+    return _render(app, template, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/templating.py", line 131, in _render
+    rv = template.render(context)
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/jinja2/environment.py", line 1295, in render
+    self.environment.handle_exception()
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/jinja2/environment.py", line 942, in handle_exception
+    raise rewrite_traceback_stack(source=source)
+  File "/home/runner/workspace/templates/error/500.html", line 237, in top-level template code
+    window.location.href = "{{ url_for('main.index') }}";
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1121, in url_for
+    return self.handle_url_build_error(error, endpoint, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/flask/app.py", line 1110, in url_for
+    rv = url_adapter.build(  # type: ignore[union-attr]
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/workspace/.pythonlibs/lib/python3.11/site-packages/werkzeug/routing/map.py", line 924, in build
+    raise BuildError(endpoint, values, method, self)
+werkzeug.routing.exceptions.BuildError: Could not build url for endpoint 'main.index'. Did you mean 'index' instead?
+INFO:werkzeug:172.31.111.130 - - [05/Aug/2025 00:02:16] "GET /screening/types?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1" 200 -
+INFO:werkzeug:172.31.111.130 - - [05/Aug/2025 00:02:16] "GET /screening/types?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1" 200 -
