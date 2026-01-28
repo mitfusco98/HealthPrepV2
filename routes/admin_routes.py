@@ -686,18 +686,43 @@ def get_dashboard_data():
         documents_processed = 0
         phi_filtered_docs = 0
         
-    # Document processing statistics (actual counts, not estimates)
+    # Get actual redaction statistics from admin_logs
+    try:
+        from sqlalchemy import Text
+        
+        # Count document processing events with PHI filtering
+        log_phi_count = AdminLog.query.filter(
+            AdminLog.org_id == current_user.org_id,
+            AdminLog.event_type.in_(['document_processing_complete', 'phi_filtered'])
+        ).count()
+        
+        # Count successful document processing events (where PHI was filtered)
+        # Query JSON data field using text cast for compatibility
+        successful_processing = db.session.query(AdminLog).filter(
+            AdminLog.org_id == current_user.org_id,
+            AdminLog.event_type == 'document_processing_complete',
+            AdminLog.data.cast(Text).contains('"phi_filtered": true')
+        ).count()
+    except Exception as e:
+        logger.warning(f"Could not query log-based PHI stats: {str(e)}")
+        log_phi_count = 0
+        successful_processing = 0
+    
+    # Document processing statistics (actual counts from logs and documents)
     phi_stats = {
         'documents_processed': int(documents_processed) if documents_processed else 0,
         'phi_filtered_docs': phi_filtered_docs,
         'processing_rate': round((phi_filtered_docs / documents_processed * 100), 1) if documents_processed > 0 else 0,
+        'log_events_count': log_phi_count,
+        'successful_phi_filter_count': successful_processing,
     }
     
-    # PHI processing summary - simplified for accuracy (no estimated breakdowns)
+    # PHI processing summary - based on actual data (no estimated breakdowns)
     phi_breakdown = {
         'total_protected': phi_filtered_docs,
         'ocr_processed': documents_processed,
-        'pending': max(0, documents_processed - phi_filtered_docs)
+        'pending': max(0, documents_processed - phi_filtered_docs),
+        'log_events': log_phi_count,
     }
     
     # Get user statistics and list
