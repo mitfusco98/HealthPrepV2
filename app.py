@@ -9,7 +9,7 @@ from flask_cors import CORS
 from datetime import datetime
 import os
 import logging
-from flask import Flask, redirect, url_for
+from flask import Flask, redirect, url_for, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -225,6 +225,22 @@ def create_app():
     def static_files(filename):
         """Serve static files including JWKS fallbacks"""
         return send_from_directory('static', filename)
+
+    # Root-level health check for ALB target group
+    @app.route('/health', methods=['GET', 'HEAD'])
+    def health_check():
+        """
+        Health check endpoint for AWS ALB target groups.
+        Fast, lightweight response for container health verification.
+        """
+        from datetime import datetime
+        if request.method == 'HEAD':
+            return '', 200
+        return jsonify({
+            'status': 'healthy',
+            'service': 'HealthPrep',
+            'timestamp': datetime.utcnow().isoformat()
+        }), 200
 
     # Register error handlers
     register_error_handlers(app)

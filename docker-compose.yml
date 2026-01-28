@@ -1,0 +1,113 @@
+# HealthPrep - Local Development Docker Compose
+# Use this for local testing before deploying to AWS ECS
+
+version: '3.8'
+
+services:
+  # Main HealthPrep application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: healthprep-app
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=development
+      - DATABASE_URL=postgresql://healthprep:healthprep@postgres:5432/healthprep
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production-min-32-chars}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-your-fernet-key-here}
+      - REDIS_URL=redis://redis:6379/0
+      - WAIT_FOR_DB=true
+      - RUN_MIGRATIONS=true
+      # AWS S3 Configuration (optional for local dev)
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_S3_BUCKET=${AWS_S3_BUCKET:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      # Document storage mode: 'local' or 's3'
+      - DOCUMENT_STORAGE_MODE=${DOCUMENT_STORAGE_MODE:-local}
+    volumes:
+      # Mount uploads for local development (not used in S3 mode)
+      - ./uploads:/app/uploads
+      # Mount logs for development debugging
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - healthprep-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: healthprep-postgres
+    environment:
+      - POSTGRES_USER=healthprep
+      - POSTGRES_PASSWORD=healthprep
+      - POSTGRES_DB=healthprep
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - healthprep-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U healthprep -d healthprep"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for background jobs (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: healthprep-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - healthprep-network
+    restart: unless-stopped
+
+  # Background worker for async tasks (optional)
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: healthprep-worker
+    command: ["rq", "worker", "--url", "redis://redis:6379/0", "default"]
+    environment:
+      - FLASK_ENV=development
+      - DATABASE_URL=postgresql://healthprep:healthprep@postgres:5432/healthprep
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production-min-32-chars}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-your-fernet-key-here}
+      - REDIS_URL=redis://redis:6379/0
+      - DOCUMENT_STORAGE_MODE=${DOCUMENT_STORAGE_MODE:-local}
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - healthprep-network
+    restart: unless-stopped
+    profiles:
+      - worker
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  healthprep-network:
+    driver: bridge

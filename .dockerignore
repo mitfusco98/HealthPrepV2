@@ -1,0 +1,85 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.eggs
+*.egg-info
+.installed.cfg
+*.egg
+.pytest_cache
+.mypy_cache
+.ruff_cache
+htmlcov
+.coverage
+
+# Virtual environments
+.venv
+venv
+ENV
+env
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Development files
+*.log
+*.logs
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Replit specific
+.replit
+replit.nix
+.upm
+.cache
+.config
+.pythonlibs
+
+# Test and sample data
+tests/
+archive/
+scripts/
+attached_assets/
+ralph_*.py
+ralph_*.json
+ralph_*.log
+
+# Documentation (optional - keep if needed)
+docs/
+
+# Local database
+*.db
+*.sqlite
+*.sqlite3
+instance/
+
+# Uploads (mounted as volume in production)
+uploads/
+
+# Build artifacts
+dist/
+build/
+*.whl
+
+# Temporary files
+tmp/
+temp/
