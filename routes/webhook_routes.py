@@ -105,7 +105,7 @@ def _send_webhook_notifications(event: dict):
                 amount=amount,
                 invoice_url=invoice_url
             )
-            logger.info("Sent payment success email to organization's billing contact")
+            logger.info(f"Sent payment success email to {org.billing_email}")
         
         elif event_type == 'invoice.payment_failed':
             # Payment failed notification
@@ -115,7 +115,7 @@ def _send_webhook_notifications(event: dict):
                 org_name=org.name,
                 amount=amount
             )
-            logger.warning("Sent payment failed email to organization's billing contact")
+            logger.warning(f"Sent payment failed email to {org.billing_email}")
             
     except Exception as e:
         logger.error(f"Failed to send webhook notification: {str(e)}")
