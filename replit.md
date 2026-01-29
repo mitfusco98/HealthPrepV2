@@ -41,7 +41,7 @@ Key technical aspects include:
 ## External Dependencies
 - **FHIR-based EMRs:** e.g., Epic
 - **FHIR R4:** For EMR compatibility and interoperability.
-- **PostgreSQL:** Primary database.
+- **PostgreSQL:** Primary database (Neon in development, RDS in AWS production).
 - **Tesseract OCR:** For document processing.
 - **Flask:** Python web framework.
 - **Flask-Login:** For user authentication.
@@ -49,3 +49,51 @@ Key technical aspects include:
 - **Bootstrap:** For responsive UI design.
 - **Stripe:** Payment processing.
 - **Resend:** Transactional email service.
+
+## AWS Deployment (ECS)
+The application is containerized for deployment to AWS ECS Fargate via GitHub Actions.
+
+### Deployment Files
+- `Dockerfile` - Multi-stage production build with Python 3.11, Tesseract OCR, and hardened configuration
+- `.dockerignore` - Excludes development files from container image
+- `.github/workflows/deploy-ecs.yml` - CI/CD pipeline for ECR push and ECS deployment
+
+### Required GitHub Secrets
+- `AWS_ACCESS_KEY_ID` - AWS IAM credentials
+- `AWS_SECRET_ACCESS_KEY` - AWS IAM credentials
+- `AWS_REGION` - e.g., `us-east-2`
+- `ECR_REPOSITORY` - ECR repository name
+- `ECS_CLUSTER` - ECS cluster name
+- `ECS_SERVICE` - ECS service name
+- `ECS_TASK_DEFINITION` - ECS task definition name
+
+### Deployment Triggers
+- Automatic: Push to `main` branch
+- Manual: GitHub Actions workflow_dispatch
+
+### AWS Infrastructure Required
+- ECS Fargate cluster with ALB
+- RDS PostgreSQL with encryption at rest
+- S3 bucket for document storage
+- Secrets Manager for environment variables
+- VPC with public/private subnets and NAT Gateway
+- AWS BAA signed for HIPAA compliance
+
+### Removed Development Files (Jan 2026)
+The following files were removed during AWS migration preparation:
+- `scripts/benchmark_processing.py`, `create_test_patients.py`, `seed_org_sample_data.py`, `seed_test_appointments.py`, `stress_test_api.py` - Test/sample data scripts
+- `enhance_baseline_screening_coverage.py`, `enhance_specialty_presets.py`, `quick_matching_analysis.py`, `backfill_global_presets.py`, `load_specialty_presets.py`, `init_system_org.py`, `keep_alive.py`, `smart_start.py`, `ralph_loop.py` - One-time migration and dev helper scripts
+- `archive/tests/` - Archived test files
+- `jwks-static/nonprod/` - Non-production JWKS keys (folder cleared, `.gitkeep` retained)
+- `attached_assets/Pasted-*.txt` - Debug log pastes
+
+### JWKS Configuration
+In AWS, JWKS URLs will be served from the production domain. Configure `JWKS_URL` environment variable to point to the deployed endpoint.
+
+### Dependency Management
+Dependencies are managed via `pyproject.toml` and `uv.lock`. For Docker/CI builds:
+```bash
+# Regenerate requirements.txt after modifying pyproject.toml
+uv pip compile pyproject.toml -o requirements.txt
+```
+Always commit `requirements.txt` when `pyproject.toml` or `uv.lock` changes to ensure reproducible builds.

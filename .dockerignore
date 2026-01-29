@@ -1,0 +1,73 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Replit-specific
+.replit
+replit.nix
+.upm
+.cache
+.config
+.local
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache
+.coverage
+htmlcov/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Development assets
+attached_assets/
+archive/
+docs/
+
+# Test files
+tests/
+*_test.py
+test_*.py
+
+# Logs and temp files
+*.log
+/tmp/
+logs/
+
+# Local development
+.env.local
+.env.development
+*.sqlite
+*.db
+
+# Build artifacts
+dist/
+build/
+
+# Keep requirements.txt for Docker builds
+!requirements.txt
+
+# Documentation (not needed in container)
+*.md
+!README.md
+
+# Security - never include these
+*.pem
+*.key
+secrets/
