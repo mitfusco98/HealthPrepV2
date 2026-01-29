@@ -711,9 +711,7 @@ def extract_fhir_user_practitioner_id(id_token_or_token_data):
     
     if 'Practitioner/' in fhir_user:
         practitioner_id = fhir_user.split('Practitioner/')[-1].split('?')[0].split('/')[0]
-        # Avoid logging full Practitioner ID to protect sensitive identifiers
-        redacted_id = f"{practitioner_id[:3]}***" if practitioner_id and len(practitioner_id) > 3 else "***"
-        logger.info(f"Extracted Practitioner ID from fhirUser: {redacted_id}")
+        logger.info(f"Extracted Practitioner ID from fhirUser: {practitioner_id}")
         return practitioner_id
     
     logger.warning(f"fhirUser claim does not contain Practitioner reference: {fhir_user}")
@@ -870,10 +868,9 @@ def epic_callback():
         redirect_uri = url_for('oauth.epic_callback', _external=True)
         fhir_client = FHIRClient(epic_config, redirect_uri)
 
-        # Debug logging for callback token exchange (avoid logging sensitive values)
-        logger.info("Token exchange - starting callback token exchange")
+        # Debug logging for callback token exchange
         logger.info(f"Token exchange - redirect URI: {redirect_uri}")
-        logger.info("Token exchange - client ID: [REDACTED]")
+        logger.info(f"Token exchange - client ID: {org.epic_client_id}")
         logger.info(f"Token exchange - token URL: {fhir_client.token_url}")
 
         # Exchange code for tokens
@@ -910,8 +907,7 @@ def epic_callback():
             
             if practitioner_id:
                 provider.epic_practitioner_id = practitioner_id
-                # Avoid logging full Practitioner ID; log only that it was stored
-                logger.info(f"Stored Epic Practitioner ID for provider {provider.name}")
+                logger.info(f"Stored Epic Practitioner ID {practitioner_id} for provider {provider.name}")
             else:
                 logger.warning(f"No Practitioner ID extracted from fhirUser for provider {provider.name}")
             

@@ -928,14 +928,7 @@ def delete_organization(org_id):
         # 18. Epic credentials
         EpicCredentials.query.filter_by(org_id=org_id).delete()
         
-        # 19. Delete user sessions BEFORE deleting users (NOT NULL constraint on user_id)
-        from models import UserSession
-        org_user_ids = [u.id for u in org_users]
-        if org_user_ids:
-            UserSession.query.filter(UserSession.user_id.in_(org_user_ids)).delete(synchronize_session=False)
-            logger.info(f"Deleted user sessions for {len(org_user_ids)} users in org {org_id}")
-        
-        # 20. Delete all users in this organization
+        # 19. Delete all users in this organization
         for user in org_users:
             db.session.delete(user)
         
