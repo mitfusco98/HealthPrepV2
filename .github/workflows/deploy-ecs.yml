@@ -83,7 +83,13 @@ jobs:
         run: |
           aws ecs describe-task-definition \
             --task-definition ${{ env.ECS_TASK_DEFINITION }} \
-            --query taskDefinition > task-definition.json
+            --query taskDefinition > task-definition-raw.json
+
+      - name: Clean task definition for compatibility
+        run: |
+          # Remove keys that the GitHub Action doesn't support
+          jq 'del(.enableFaultInjection, .taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+            task-definition-raw.json > task-definition.json
 
       - name: Fill in the new image ID in the Amazon ECS task definition
         id: task-def
