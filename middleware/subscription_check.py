@@ -123,7 +123,7 @@ def oauth_access_required(f):
         
         billing = org.billing_state
         
-        logger.debug(f"OAuth access check for org {org.id}")
+        logger.debug(f"OAuth access check for org {org.id}: state={billing['state']}, can_access_oauth={billing['can_access_oauth']}")
         
         if billing['can_access_oauth']:
             return f(*args, **kwargs)

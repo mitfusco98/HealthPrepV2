@@ -26,12 +26,10 @@ class PHIFilter:
     """
     
     # Class-level compiled patterns (shared across instances)
-    # IMPORTANT: Set to None when patterns are modified to force recompilation
     _compiled_patterns = None
     _compiled_redacted = None
     _compiled_medical = None
     _compiled_json_phi = None
-    _pattern_version = 2  # Increment when patterns change to force recompile
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
@@ -133,10 +131,9 @@ class PHIFilter:
                 r'\b\d{5}(?:-\d{4})?\b'  # ZIP codes
             ],
             'names': [
-                r'\bPatient:\s*[A-Z][a-z]{2,}(?:\s+[A-Z]\.?)?\s+[A-Z][a-z]{2,}',
-                r'\bName:\s*[A-Z][a-z]{2,}(?:\s+[A-Z]\.?)?\s+[A-Z][a-z]{2,}',
-                r'\bClient:\s*[A-Z][a-z]{2,}(?:\s+[A-Z]\.?)?\s+[A-Z][a-z]{2,}',
-                r'\bResident:\s*[A-Z][a-z]{2,}(?:\s+[A-Z]\.?)?\s+[A-Z][a-z]{2,}',
+                r'\b[A-Z][a-z]+,\s+[A-Z][a-z]+\b',  # Last, First
+                r'\bPatient:\s*[A-Z][a-z]+\s+[A-Z][a-z]+',
+                r'\bName:\s*[A-Z][a-z]+\s+[A-Z][a-z]+'
             ],
             'dates': [
                 r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b',  # MM/DD/YYYY or MM-DD-YYYY
@@ -236,62 +233,6 @@ class PHIFilter:
             # Medical terms often misidentified as names
             r'\btype\s*[12]\b', r'\bstage\s*[1234IViv]+\b',
             r'\bgrade\s*[1234IViv]+\b', r'\bclass\s*[1234IViv]+\b',
-            # Clinical symptoms and findings (prevent false positive name detection)
-            r'\breaction\b', r'\bresponse\b', r'\bresult\b', r'\bresults\b',
-            r'\bpain\b', r'\bdistress\b', r'\bfatigue\b', r'\bnausea\b',
-            r'\bvomiting\b', r'\bdiarrhea\b', r'\bconstipation\b',
-            r'\bheadache\b', r'\bdizziness\b', r'\bweakness\b',
-            r'\bswelling\b', r'\bedema\b', r'\binflammation\b',
-            r'\berythema\b', r'\brash\b', r'\bitching\b', r'\bpruritus\b',
-            r'\bbleeding\b', r'\bbruising\b', r'\becchymosis\b',
-            r'\bfever\b', r'\bchills\b', r'\bsweating\b', r'\bdiaphoresis\b',
-            r'\bcough\b', r'\bdyspnea\b', r'\bwheezing\b', r'\bcongestion\b',
-            r'\bappetite\b', r'\bweight\b', r'\bloss\b', r'\bgain\b',
-            r'\binsomnia\b', r'\bsomnolence\b', r'\blethargy\b',
-            r'\btremor\b', r'\bnumbness\b', r'\btingling\b', r'\bparesthesia\b',
-            r'\bulceration\b', r'\berosion\b', r'\blesion\b', r'\bmass\b',
-            # Physical exam terms
-            r'\bsoft\b', r'\btender\b', r'\bnontender\b', r'\bnon-tender\b',
-            r'\bdistended\b', r'\brigid\b', r'\bsupple\b', r'\bmobile\b',
-            r'\bfirm\b', r'\bfluctuant\b', r'\binduration\b', r'\bindurated\b',
-            r'\bpalpable\b', r'\bimpalpable\b', r'\bnonpalpable\b',
-            r'\bhepatosplenomegaly\b', r'\bsplenomegaly\b', r'\bhepatomegaly\b',
-            r'\blymphadenopathy\b', r'\bguarding\b', r'\brebound\b',
-            r'\bpalmar\b', r'\bplantar\b', r'\bdorsal\b', r'\bventral\b',
-            r'\bilateral\b', r'\bunilateral\b', r'\bproximal\b', r'\bdistal\b',
-            # Oncology-specific terms (commonly seen in cancer notes)
-            r'\bpositive\b', r'\bnegative\b', r'\bindeterminate\b',
-            r'\bprogression\b', r'\bremission\b', r'\brecurrence\b',
-            r'\badenoma\b', r'\badenocarcinoma\b', r'\bsarcoma\b',
-            r'\bneoplasm\b', r'\bneoplastic\b', r'\bdysplasia\b',
-            r'\bmargin\b', r'\bmargins\b', r'\bresection\b', r'\bresectable\b',
-            r'\binvasion\b', r'\binvasive\b', r'\bnoninvasive\b', r'\bnon-invasive\b',
-            r'\bmetastasis\b', r'\bmetastases\b', r'\bdisseminated\b',
-            r'\bdifferentiated\b', r'\bundifferentiated\b', r'\bmoderately\b',
-            r'\bwell-differentiated\b', r'\bpoorly-differentiated\b',
-            r'\bhistology\b', r'\bhistologic\b', r'\bhistological\b',
-            r'\bpathology\b', r'\bpathologic\b', r'\bpathological\b',
-            # Procedure and treatment terms
-            r'\bexcision\b', r'\bincision\b', r'\bdissection\b',
-            r'\banastomosis\b', r'\bcolectomy\b', r'\bgastrectomy\b',
-            r'\bmastectomy\b', r'\bprostatectomy\b', r'\bnephrectomy\b',
-            r'\blobectomy\b', r'\bpneumonectomy\b', r'\bthyroidectomy\b',
-            r'\bcholecystectomy\b', r'\bappendectomy\b', r'\bherniorrhaphy\b',
-            r'\bchemotherapy\b', r'\bradiation\b', r'\bradiotherapy\b',
-            r'\bimmunotherapy\b', r'\btargeted\s+therapy\b', r'\bhormonal\s+therapy\b',
-            r'\bneoadjuvant\b', r'\badjuvant\b', r'\bpalliative\b', r'\bcurative\b',
-            r'\binfusion\b', r'\bbolus\b', r'\bcycle\b', r'\bcycles\b',
-            # Common clinical abbreviations that look like names
-            r'\bCIPNT?\b', r'\bHFSR\b', r'\bPRN\b', r'\bBID\b', r'\bTID\b', r'\bQID\b',
-            r'\bQD\b', r'\bQHS\b', r'\bPO\b', r'\bIV\b', r'\bIM\b', r'\bSQ\b',
-            r'\bECOG\b', r'\bKPS\b', r'\bAJCC\b', r'\bTNM\b', r'\bRECIST\b',
-            r'\bCBC\b', r'\bCMP\b', r'\bBMP\b', r'\bLFT\b', r'\bPT\b', r'\bINR\b',
-            r'\bCT\b', r'\bPET\b', r'\bCAP\b', r'\bCXR\b', r'\bEKG\b', r'\bECG\b',
-            # Status descriptors
-            r'\bintact\b', r'\bgrossly\b', r'\bapproximately\b', r'\bresidual\b',
-            r'\bbaseline\b', r'\bstable\b', r'\bunchanged\b', r'\binterval\b',
-            r'\bimproved\b', r'\bworsened\b', r'\bpersistent\b', r'\bintermittent\b',
-            r'\bmanageable\b', r'\btolerable\b', r'\brefractory\b', r'\bresponsive\b',
         ]
         
         # Pre-compile patterns on first instantiation (class-level caching)

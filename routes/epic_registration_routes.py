@@ -174,16 +174,7 @@ def test_epic_connection():
             # In a real implementation, this would test the authorization URL generation
             auth_url, state = epic_service.fhir_client.get_authorization_url()
             
-            if auth_url:
-                from urllib.parse import urlparse
-                parsed = urlparse(auth_url)
-                host = parsed.hostname or ''
-                # Accept Epic hosts like epic.com or subdomains such as *.epic.com
-                is_epic_host = host == 'epic.com' or host.endswith('.epic.com')
-            else:
-                is_epic_host = False
-
-            if is_epic_host:
+            if auth_url and 'epic.com' in auth_url:
                 logger.info(f"Epic connection test successful for organization {organization.name}")
                 return jsonify({
                     'success': True,
