@@ -87,8 +87,21 @@ The following files were removed during AWS migration preparation:
 - `jwks-static/nonprod/` - Non-production JWKS keys (folder cleared, `.gitkeep` retained)
 - `attached_assets/Pasted-*.txt` - Debug log pastes
 
-### JWKS Configuration
-In AWS, JWKS URLs will be served from the production domain. Configure `JWKS_URL` environment variable to point to the deployed endpoint.
+### JWKS and Epic OAuth Configuration
+After AWS migration, configure these environment variables in ECS task definition:
+
+| Variable | Value |
+|----------|-------|
+| `JWKS_BASE_URL` | `https://healthprep-v-201.com` |
+| `REDIRECT_URI` | `https://healthprep-v-201.com/oauth/epic-callback` |
+| `NP_KEY_2025_08_A` | Non-production RSA private key (from Secrets Manager) |
+| `P_KEY_2025_08_A` | Production RSA private key (from Secrets Manager) |
+
+**JWKS URLs for Epic App Orchard:**
+- Production: `https://healthprep-v-201.com/.well-known/jwks.json`
+- Non-Production: `https://healthprep-v-201.com/nonprod/.well-known/jwks.json`
+
+If JWKS returns emergency placeholders, verify `P_KEY_*` / `NP_KEY_*` env vars are set.
 
 ### Dependency Management
 Dependencies are managed via `pyproject.toml` and `uv.lock`. For Docker/CI builds:

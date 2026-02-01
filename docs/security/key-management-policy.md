@@ -532,15 +532,113 @@ Rotation audit logs must be retained for:
 
 ---
 
-## 11. Revision History
+## 11. AWS Migration - JWKS URL Configuration
+
+### 11.1 Environment Variables for Epic Integration
+
+After migrating to AWS, the following environment variables must be configured in ECS task definitions:
+
+| Variable | Description | Example Value |
+|----------|-------------|---------------|
+| `JWKS_BASE_URL` | Base URL for JWKS endpoints | `https://healthprep-v-201.com` |
+| `REDIRECT_URI` | OAuth callback URL for Epic | `https://healthprep-v-201.com/oauth/epic-callback` |
+| `NP_KEY_2025_08_A` | Non-production RSA private key (PEM format) | `-----BEGIN RSA PRIVATE KEY-----...` |
+| `P_KEY_2025_08_A` | Production RSA private key (PEM format) | `-----BEGIN RSA PRIVATE KEY-----...` |
+
+### 11.2 JWKS Endpoints
+
+Production JWKS URLs for Epic App Orchard registration:
+
+- **Production:** `https://healthprep-v-201.com/.well-known/jwks.json`
+- **Non-Production:** `https://healthprep-v-201.com/nonprod/.well-known/jwks.json`
+
+### 11.3 Key Availability Verification
+
+If JWKS endpoints return emergency placeholder keys (kid contains "emergency"), the private key environment variables are not properly configured. Verify:
+
+1. `P_KEY_*` environment variables exist for production
+2. `NP_KEY_*` environment variables exist for non-production
+3. Keys are valid PEM-formatted RSA private keys
+4. ECS task was redeployed after adding secrets
+
+### 11.4 AWS Secrets Manager Paths for Epic Keys
+
+```
+AWS Secrets Manager
+├── /healthprep/prod/epic/
+│   ├── prod-key           (P_KEY_2025_08_A)
+│   ├── client-id          (Epic production client ID)
+│   └── redirect-uri       (https://healthprep-v-201.com/oauth/epic-callback)
+└── /healthprep/dev/epic/
+    ├── nonprod-key        (NP_KEY_2025_08_A)
+    └── client-id          (Epic sandbox client ID)
+```
+
+### 11.5 ECS Task Definition Secret Injection
+
+Add the following to your ECS task definition to inject Epic keys from Secrets Manager:
+
+```json
+{
+  "containerDefinitions": [{
+    "name": "healthprep",
+    "secrets": [
+      {
+        "name": "P_KEY_2025_08_A",
+        "valueFrom": "arn:aws:secretsmanager:us-east-2:ACCOUNT_ID:secret:/healthprep/prod/epic/prod-key"
+      },
+      {
+        "name": "NP_KEY_2025_08_A",
+        "valueFrom": "arn:aws:secretsmanager:us-east-2:ACCOUNT_ID:secret:/healthprep/dev/epic/nonprod-key"
+      }
+    ],
+    "environment": [
+      {
+        "name": "JWKS_BASE_URL",
+        "value": "https://healthprep-v-201.com"
+      },
+      {
+        "name": "REDIRECT_URI",
+        "value": "https://healthprep-v-201.com/oauth/epic-callback"
+      }
+    ]
+  }]
+}
+```
+
+### 11.6 Verifying Key Injection in AWS
+
+After deploying to ECS, verify that keys are properly injected (not fallback/emergency):
+
+```bash
+# Check production JWKS - kid should NOT contain "fallback" or "emergency"
+curl -s https://healthprep-v-201.com/.well-known/jwks.json | jq '.keys[].kid'
+
+# Expected output: "2025_08_A" (or similar date-based kid)
+# Bad output: "prod-emergency" or "prod-fallback"
+
+# Check non-production JWKS
+curl -s https://healthprep-v-201.com/nonprod/.well-known/jwks.json | jq '.keys[].kid'
+```
+
+If JWKS returns emergency/fallback kids:
+1. Verify Secrets Manager secrets exist at the specified ARNs
+2. Verify ECS task IAM role has `secretsmanager:GetSecretValue` permission
+3. Force new ECS deployment: `aws ecs update-service --cluster healthprep-cluster --service healthprep-service --force-new-deployment`
+4. Check ECS task logs for key loading errors
+
+---
+
+## 12. Revision History
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | January 2026 | HealthPrep Security | Initial policy |
+| 1.1 | February 2026 | HealthPrep Security | Added AWS migration JWKS configuration (Section 11) |
 
 ---
 
-## 12. Approval
+## 13. Approval
 
 | Role | Name | Date |
 |------|------|------|

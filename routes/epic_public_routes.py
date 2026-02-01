@@ -394,6 +394,8 @@ def epic_app_info():
     Epic App Information Endpoint
     Provides app metadata for Epic App Orchard
     """
+    jwks_base_url = os.environ.get('JWKS_BASE_URL', 'https://healthprep-v-201.com')
+    
     app_info = {
         "name": "HealthPrep Medical Screening System",
         "description": "AI-powered medical screening and preparation system with Epic FHIR integration",
@@ -418,8 +420,8 @@ def epic_app_info():
             "offline_access"
         ],
         "jwks_uri": {
-            "production": "https://your-repl-url/.well-known/jwks.json",
-            "nonprod": "https://your-repl-url/nonprod/.well-known/jwks.json"
+            "production": f"{jwks_base_url}/.well-known/jwks.json",
+            "nonprod": f"{jwks_base_url}/nonprod/.well-known/jwks.json"
         },
         "contact": {
             "name": "HealthPrep Support",

@@ -13,7 +13,11 @@ import sys
 class EpicComplianceValidator:
     """Validates Epic SMART on FHIR compliance requirements"""
     
-    def __init__(self, base_url: str):
+    def __init__(self, base_url: str = None):
+        # Use environment variable or parameter, with production domain as default
+        import os
+        if base_url is None:
+            base_url = os.environ.get('JWKS_BASE_URL', 'https://healthprep-v-201.com')
         self.base_url = base_url.rstrip('/')
         self.results = []
     
@@ -240,11 +244,13 @@ class EpicComplianceValidator:
 
 def main():
     """Main validation entry point"""
+    import os
+    
     if len(sys.argv) > 1:
         base_url = sys.argv[1]
     else:
-        # Default to current Replit domain
-        base_url = "https://55ab1b06-006d-47ec-9b73-b827f4e0f641-00-1fje9legmrd1y.riker.replit.dev"
+        # Use environment variable or default to production domain
+        base_url = os.environ.get('JWKS_BASE_URL', 'https://healthprep-v-201.com')
     
     validator = EpicComplianceValidator(base_url)
     success = validator.run_full_validation()
