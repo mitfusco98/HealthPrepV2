@@ -206,3 +206,4 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 | NIST 800-30 Risk Register | `/docs/NIST_800_30_RISK_REGISTER.md` | Threat analysis and mitigations |
 | Key Management Policy | `/docs/security/key-management-policy.md` | Encryption key lifecycle |
 | Security Checklist | `/docs/SECURITY_CHECKLIST.md` | Pre-deployment verification |
+| HITRUST Shared Responsibility Matrix | `/docs/security/hitrust-shared-responsibility-matrix.md` | AWS vs HealthPrep vs Customer controls |
