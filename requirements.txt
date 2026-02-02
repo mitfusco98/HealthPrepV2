@@ -107,7 +107,7 @@ markupsafe==3.0.3
     #   mako
     #   werkzeug
     #   wtforms
-numpy==2.4.1
+numpy==2.4.2
     # via opencv-python
 oauthlib==3.3.1
     # via
