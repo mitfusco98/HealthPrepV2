@@ -136,7 +136,7 @@ pycparser==3.0
     # via cffi
 pydyf==0.12.1
     # via weasyprint
-pyjwt==2.10.1
+pyjwt==2.11.0
     # via repl-nix-workspace (pyproject.toml)
 pymupdf==1.26.7
     # via repl-nix-workspace (pyproject.toml)
