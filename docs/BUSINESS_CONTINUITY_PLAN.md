@@ -189,10 +189,12 @@ resource "aws_db_instance" "healthprep" {
 
 | Test Type | Frequency | Last Performed | Next Due |
 |-----------|-----------|----------------|----------|
-| Backup verification | Monthly | [TBD] | [TBD] |
-| Database restore drill | Quarterly | [TBD] | [TBD] |
-| Application failover | Semi-annually | [TBD] | [TBD] |
-| Full DR simulation | Annually | [TBD] | [TBD] |
+| Backup verification | Monthly | Not yet performed | February 2026 |
+| Database restore drill | Quarterly | Not yet performed | Q1 2026 (March) |
+| Application failover | Semi-annually | Not yet performed | Q2 2026 (June) |
+| Full DR simulation | Annually | Not yet performed | Q4 2026 |
+
+**Note:** Test results are recorded in `/docs/security/dr-drill-log.md`
 
 ### 6.2 Test Procedures
 
@@ -292,10 +294,23 @@ This plan must be reviewed when:
 ### Key AWS Resources
 | Resource | ARN/ID | Region |
 |----------|--------|--------|
-| Production RDS | [TBD] | [TBD] |
-| Production ECS Cluster | [TBD] | [TBD] |
-| DR RDS Replica | [TBD] | [TBD] |
-| S3 Document Bucket | [TBD] | [TBD] |
+| Production RDS | `arn:aws:rds:us-east-2:179678238031:db:healthprep-db` | us-east-2 |
+| Production ECS Cluster | `arn:aws:ecs:us-east-2:179678238031:cluster/healthprep-service` | us-east-2 |
+| DR RDS Replica | Not configured (recommended for production) | - |
+| S3 Document Bucket | `health-prep-document-1771` | us-east-2 |
+
+### Secrets Manager Resources
+| Secret | ARN |
+|--------|-----|
+| DATABASE_URL | `arn:aws:secretsmanager:us-east-2:179678238031:secret:healthprep/DATABASE_URL-sy5E8L` |
+| SESSION_SECRET | `arn:aws:secretsmanager:us-east-2:179678238031:secret:healthprep/SESSION_SECRET-RDk8Fq` |
+| ENCRYPTION_KEY | `arn:aws:secretsmanager:us-east-2:179678238031:secret:healthprep/ENCRYPTION_KEY-l0r48U` |
+| SECRET_KEY | `arn:aws:secretsmanager:us-east-2:179678238031:secret:healthprep/SECRET_KEY-c3bm7T` |
+| FROM_EMAIL | `arn:aws:secretsmanager:us-east-2:179678238031:secret:healthprep/FROM_EMAIL-5liQCf` |
+| STRIPE_SECRET_KEY | `arn:aws:secretsmanager:us-east-2:179678238031:secret:healthprep/STRIPE_SECRET_KEY-nQlPex` |
+| RESEND_API_KEY | `arn:aws:secretsmanager:us-east-2:179678238031:secret:healthprep/RESEND_API_KEY-yp5Uf6` |
+| P_KEY_2025_08_A | `arn:aws:secretsmanager:us-east-2:179678238031:secret:healthprep/P_KEY_2025_08_A-eQ5zxs` |
+| NP_KEY_2025_08_A | `arn:aws:secretsmanager:us-east-2:179678238031:secret:healthprep/NP_KEY_2025_08_A-GevpZ3` |
 
 ### Recovery Runbook Links
 - [Database Recovery Runbook]

@@ -207,3 +207,5 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 | Key Management Policy | `/docs/security/key-management-policy.md` | Encryption key lifecycle |
 | Security Checklist | `/docs/SECURITY_CHECKLIST.md` | Pre-deployment verification |
 | HITRUST Shared Responsibility Matrix | `/docs/security/hitrust-shared-responsibility-matrix.md` | AWS vs HealthPrep vs Customer controls |
+| DR Drill Log | `/docs/security/dr-drill-log.md` | BCP/DR test execution records |
+| Vendor Risk Assessments | `/docs/security/vendor-risk-assessments.md` | Third-party vendor risk analysis |

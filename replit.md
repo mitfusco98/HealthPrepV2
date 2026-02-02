@@ -54,6 +54,28 @@ Key technical aspects include:
 ## AWS Deployment (ECS)
 The application is containerized for deployment to AWS ECS Fargate via GitHub Actions.
 
+### Deployment Pipeline Flow
+
+```
+┌─────────────┐     ┌──────────────┐     ┌─────────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Replit    │────▶│    GitHub    │────▶│ GitHub Actions  │────▶│   AWS ECR   │────▶│   AWS ECS   │
+│ Development │     │  Repository  │     │   CI/CD Build   │     │   Registry  │     │   Fargate   │
+└─────────────┘     └──────────────┘     └─────────────────┘     └─────────────┘     └─────────────┘
+      │                    │                     │                      │                   │
+      │  git push          │  on: push main      │  docker build/push   │  pull image       │
+      │                    │  workflow_dispatch  │                      │                   │
+      ▼                    ▼                     ▼                      ▼                   ▼
+  Code changes        Version control      Run tests, build        Store container     Deploy & serve
+  in Replit IDE       with branches        Docker image            images with tags    production traffic
+```
+
+**Development Workflow:**
+1. **Replit IDE** - Code development, testing, and local debugging
+2. **GitHub** - Version control, code review, branch management
+3. **GitHub Actions** - Automated CI/CD pipeline (`.github/workflows/deploy-ecs.yml`)
+4. **AWS ECR** - Docker image registry with immutable tags
+5. **AWS ECS Fargate** - Serverless container orchestration
+
 ### Deployment Files
 - `Dockerfile` - Multi-stage production build with Python 3.11, Tesseract OCR, and hardened configuration
 - `.dockerignore` - Excludes development files from container image
