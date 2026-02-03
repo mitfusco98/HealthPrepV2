@@ -217,10 +217,10 @@ resource "aws_db_instance" "healthprep" {
 
 | Role | Responsibility | Contact |
 |------|----------------|---------|
-| **Operations Lead** | Execute recovery procedures | [TBD] |
-| **Database Administrator** | Database backup/restore | [TBD] |
-| **Security Lead** | Incident coordination, compliance | [TBD] |
-| **Communications Lead** | Customer and stakeholder updates | [TBD] |
+| **Operations Lead** | Execute recovery procedures | Mitchell Fusillo (mitch@fuscodigital.com, 716-909-8567) |
+| **Database Administrator** | Database backup/restore | Mitchell Fusillo (mitch@fuscodigital.com, 716-909-8567) |
+| **Security Lead** | Incident coordination, compliance | Mitchell Fusillo (mitch@fuscodigital.com, 716-909-8567) |
+| **Communications Lead** | Customer and stakeholder updates | Mitchell Fusillo (mitch@fuscodigital.com, 716-909-8567) |
 
 ---
 
@@ -259,8 +259,8 @@ Incident Detected → Operations Lead → Security Lead → Executive Team
 
 | Vendor | Support Level | Contact |
 |--------|---------------|---------|
-| AWS | Enterprise Support | [TBD] |
-| Epic | App Orchard Support | [TBD] |
+| AWS | Standard Support | via AWS Console |
+| Epic | App Orchard Support | appmarket@epic.com |
 
 ---
 
@@ -278,7 +278,8 @@ This plan must be reviewed when:
 
 | Version | Date | Changes | Approved By |
 |---------|------|---------|-------------|
-| 1.0 | January 2026 | Initial release | [TBD] |
+| 1.0 | January 2026 | Initial release | Mitchell Fusillo |
+| 1.1 | February 2026 | Added AWS resource ARNs, contact information, test schedule dates | Mitchell Fusillo |
 
 ---
 
@@ -287,8 +288,8 @@ This plan must be reviewed when:
 ### Emergency Contacts
 | Role | Name | Phone | Email |
 |------|------|-------|-------|
-| Operations Lead | [TBD] | [TBD] | [TBD] |
-| Security Lead | [TBD] | [TBD] | [TBD] |
+| Operations Lead | Mitchell Fusillo | 716-909-8567 | mitch@fuscodigital.com |
+| Security Lead | Mitchell Fusillo | 716-909-8567 | mitch@fuscodigital.com |
 | AWS Support | - | - | via Console |
 
 ### Key AWS Resources
