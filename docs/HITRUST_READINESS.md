@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document maps HealthPrep security controls to HITRUST CSF domains for Coalfire assessment preparation. Last updated: January 2026.
+This document maps HealthPrep security controls to HITRUST CSF domains for Coalfire assessment preparation. Last updated: February 2026.
 
 ## Authentication Context: Epic MFA Justification
 
@@ -39,7 +39,7 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 | Requirement | HealthPrep Implementation | Evidence Location | Status |
 |-------------|---------------------------|-------------------|--------|
 | Risk assessment | NIST 800-30 based | `/docs/NIST_800_30_RISK_REGISTER.md` | Implemented |
-| Vulnerability management | Dependency updates | `requirements.txt` versioning | In Progress |
+| Vulnerability management | AWS Inspector ECR scanning + Dockerfile patches | `/docs/security/vulnerability-remediation-log.md` | Implemented |
 | Penetration testing | Recommended pre-launch | DEPLOYMENT_READINESS.md | Planned |
 
 ### 05.0 Endpoint Protection
@@ -76,8 +76,9 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 
 | Requirement | HealthPrep Implementation | Evidence Location | Status |
 |-------------|---------------------------|-------------------|--------|
-| Backup strategy | AWS RDS PITR | SECURITY_WHITEPAPER.md | Designed |
-| Recovery procedures | Deterministic recovery | SECURITY_WHITEPAPER.md | Documented |
+| Backup strategy | AWS RDS automated daily snapshots | `/docs/BUSINESS_CONTINUITY_PLAN.md` | Implemented |
+| Recovery procedures | Documented RTO/RPO with runbooks | `/docs/BUSINESS_CONTINUITY_PLAN.md` | Implemented |
+| DR testing | Monthly backup verification, quarterly restore drills | `/docs/security/dr-drill-log.md` | Implemented |
 | Data retention | Configurable per org | Organization model | Implemented |
 
 ### 10.g Cryptographic Key Management
@@ -111,16 +112,16 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 - [x] Access control matrix - *Implemented in code: User.role (root/admin/user), org_id scoping*
 - [x] Audit log samples (anonymized) - *Available via `/admin/logs` export*
 - [ ] Penetration test results - *Pending third-party engagement*
-- [ ] Vulnerability scan reports - *Pending third-party engagement*
+- [x] Vulnerability scan reports - *AWS Inspector enabled, `/docs/security/vulnerability-remediation-log.md`*
 
 ### Administrative Evidence
 
 - [x] Information Security Policy (`/docs/SECURITY_WHITEPAPER.md`)
 - [x] Access Control Policy - *Documented in User.role implementation, multi-tenancy isolation*
 - [x] Incident Response Plan (`/docs/INCIDENT_RESPONSE_PLAN.md`)
-- [ ] Business Continuity Plan - *Pending AWS architecture finalization*
+- [x] Business Continuity Plan (`/docs/BUSINESS_CONTINUITY_PLAN.md`) - *Includes AWS resource ARNs, DR procedures*
 - [ ] Workforce Training Records - *Organizational responsibility*
-- [ ] Vendor Risk Assessment (Epic, AWS) - *Pending formal documentation*
+- [x] Vendor Risk Assessment (`/docs/security/vendor-risk-assessments.md`) - *AWS, Epic, Stripe, Resend assessed*
 - [ ] BAA with AWS - *Required before production deployment*
 
 ### Audit Trail Evidence
@@ -153,47 +154,56 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 | Audit logging | Implemented via AdminLog + DocumentAuditLogger | January 2026 |
 | Security alerting | Implemented via Resend integration | January 2026 |
 | CSP hardening | Nonce-based CSP with FHIR URL auto-detection in `utils/security_headers.py` | January 2026 |
+| HITRUST shared responsibility matrix | Created `/docs/security/hitrust-shared-responsibility-matrix.md` | February 2026 |
+| Business Continuity Plan | Created `/docs/BUSINESS_CONTINUITY_PLAN.md` with AWS resource ARNs | February 2026 |
+| DR drill log and procedures | Created `/docs/security/dr-drill-log.md` | February 2026 |
+| Vendor risk assessments | Created `/docs/security/vendor-risk-assessments.md` (AWS, Epic, Stripe, Resend) | February 2026 |
+| Vulnerability scanning | AWS Inspector enabled for ECR container scanning | February 2026 |
+| Vulnerability remediation log | Created `/docs/security/vulnerability-remediation-log.md` | February 2026 |
+| First backup verification drill | Completed and logged in DR drill log | February 2026 |
 
 ### Remaining Gaps
 
 | Gap | Priority | Owner | Remediation Plan | Target Date |
 |-----|----------|-------|------------------|-------------|
-| Formal incident response testing | Medium | Security Officer | Conduct tabletop exercise per IRP procedures | Pre-launch |
+| Formal incident response testing | Medium | Mitchell Fusillo | Conduct tabletop exercise per IRP procedures | Pre-launch |
 | TOTP 2FA implementation | Low | Dev Team | Optional enhancement (justified by Epic MFA context) | Future |
-| Network architecture diagram | Medium | DevOps | Document AWS VPC, security groups, subnets | AWS migration |
+| Network architecture diagram | Medium | Mitchell Fusillo | Document AWS VPC, security groups, subnets | AWS migration |
 | Data flow diagram | Medium | Dev Team | Generate PHI flow documentation from codebase | Pre-launch |
-| Penetration test | High | Security Officer | Engage third-party security firm | Pre-launch |
-| Vulnerability scan | High | Security Officer | Engage third-party or use automated tooling | Pre-launch |
-| Business Continuity Plan | Medium | Security Officer | Formal BCP document based on AWS architecture | AWS migration |
+| Penetration test | High | Mitchell Fusillo | Engage third-party security firm | Pre-launch |
 | Workforce training records | Low | HR/Org Admin | Document HIPAA/HITRUST training completion | Pre-launch |
-| Vendor risk assessment | Medium | Security Officer | Formal assessment for Epic and AWS | Pre-launch |
-| AWS BAA | Critical | Legal/Admin | Execute Business Associate Agreement with AWS | AWS migration |
+| AWS BAA | Critical | Mitchell Fusillo | Execute Business Associate Agreement with AWS | AWS migration |
+| Expat CVE remediation | Low | Mitchell Fusillo | Monitor Debian for patch release | Ongoing |
 
 ### Remediation Timeline
 
 **Phase 1: Pre-Launch (Current → Production)**
 - [x] CSP hardening (nonce-based, FHIR URL auto-detection)
+- [x] Vulnerability scanning (AWS Inspector enabled February 2026)
+- [x] Vendor risk assessment documentation (AWS, Epic, Stripe, Resend)
 - [ ] Incident response tabletop exercise
 - [ ] Data flow diagram
 - [ ] Penetration test engagement
-- [ ] Vulnerability scan
-- [ ] Vendor risk assessment documentation
 
 **Phase 2: AWS Migration**
+- [x] Business Continuity Plan (`/docs/BUSINESS_CONTINUITY_PLAN.md`)
+- [x] DR drill procedures and logging (`/docs/security/dr-drill-log.md`)
 - [ ] Network architecture diagram
-- [ ] Business Continuity Plan
 - [ ] AWS BAA execution
 - [ ] Secret migration to AWS Secrets Manager
 
 **Phase 3: Ongoing**
+- [x] Monthly backup verification drills (first drill completed February 2026)
+- [ ] Quarterly database restore drills
 - [ ] Annual key rotation (per Key Management Policy)
 - [ ] Workforce training records maintenance
+- [ ] Vulnerability remediation monitoring (`/docs/security/vulnerability-remediation-log.md`)
 - [ ] TOTP 2FA enhancement (optional)
 
 ## Assessor Contact Points
 
-- **Security Officer**: [To be designated]
-- **Technical Lead**: Development team
+- **Security Officer**: Mitchell Fusillo (mitch@fuscodigital.com, 716-909-8567)
+- **Technical Lead**: Mitchell Fusillo (mitch@fuscodigital.com, 716-909-8567)
 - **Evidence Repository**: This documentation + code repository
 - **Audit Log Access**: `/admin/documents` and `/admin/logs`
 
@@ -206,3 +216,8 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 | NIST 800-30 Risk Register | `/docs/NIST_800_30_RISK_REGISTER.md` | Threat analysis and mitigations |
 | Key Management Policy | `/docs/security/key-management-policy.md` | Encryption key lifecycle |
 | Security Checklist | `/docs/SECURITY_CHECKLIST.md` | Pre-deployment verification |
+| Business Continuity Plan | `/docs/BUSINESS_CONTINUITY_PLAN.md` | DR procedures, RTO/RPO, AWS resources |
+| HITRUST Shared Responsibility Matrix | `/docs/security/hitrust-shared-responsibility-matrix.md` | AWS vs HealthPrep vs Customer controls |
+| DR Drill Log | `/docs/security/dr-drill-log.md` | BCP/DR test execution records |
+| Vendor Risk Assessments | `/docs/security/vendor-risk-assessments.md` | Third-party vendor risk analysis |
+| Vulnerability Remediation Log | `/docs/security/vulnerability-remediation-log.md` | CVE tracking and remediation evidence |

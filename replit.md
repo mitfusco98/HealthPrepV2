@@ -36,6 +36,7 @@ Key technical aspects include:
 - **Performance & Reliability:** Features selective refresh optimizations using `criteria_signature` and content hashing to reduce redundant processing. Deterministic eligibility calculations and match explanation audit trails ensure reliability.
 - **User Onboarding:** Supports self-service via Stripe and manual creation by root admins. A JSON API facilitates external marketing website integration.
 - **Key Management:** A documented policy covers rotation schedules, migration mapping to AWS Secrets Manager, dual-key rotation for PHI re-encryption, and container secret injection patterns.
+- **HITRUST Compliance:** Comprehensive HITRUST CSF Shared Responsibility Matrix (`docs/security/hitrust-shared-responsibility-matrix.md`) maps AWS inherited controls, HealthPrep application controls, and customer organizational responsibilities across all 12 HITRUST domains.
 - **Timezone-Aware Dormancy Rollover:** `Organization` model includes IANA timezone for local midnight cutoff for appointment-based prioritization.
 
 ## External Dependencies
@@ -52,6 +53,28 @@ Key technical aspects include:
 
 ## AWS Deployment (ECS)
 The application is containerized for deployment to AWS ECS Fargate via GitHub Actions.
+
+### Deployment Pipeline Flow
+
+```
+┌─────────────┐     ┌──────────────┐     ┌─────────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Replit    │────▶│    GitHub    │────▶│ GitHub Actions  │────▶│   AWS ECR   │────▶│   AWS ECS   │
+│ Development │     │  Repository  │     │   CI/CD Build   │     │   Registry  │     │   Fargate   │
+└─────────────┘     └──────────────┘     └─────────────────┘     └─────────────┘     └─────────────┘
+      │                    │                     │                      │                   │
+      │  git push          │  on: push main      │  docker build/push   │  pull image       │
+      │                    │  workflow_dispatch  │                      │                   │
+      ▼                    ▼                     ▼                      ▼                   ▼
+  Code changes        Version control      Run tests, build        Store container     Deploy & serve
+  in Replit IDE       with branches        Docker image            images with tags    production traffic
+```
+
+**Development Workflow:**
+1. **Replit IDE** - Code development, testing, and local debugging
+2. **GitHub** - Version control, code review, branch management
+3. **GitHub Actions** - Automated CI/CD pipeline (`.github/workflows/deploy-ecs.yml`)
+4. **AWS ECR** - Docker image registry with immutable tags
+5. **AWS ECS Fargate** - Serverless container orchestration
 
 ### Deployment Files
 - `Dockerfile` - Multi-stage production build with Python 3.11, Tesseract OCR, and hardened configuration

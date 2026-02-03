@@ -189,10 +189,12 @@ resource "aws_db_instance" "healthprep" {
 
 | Test Type | Frequency | Last Performed | Next Due |
 |-----------|-----------|----------------|----------|
-| Backup verification | Monthly | [TBD] | [TBD] |
-| Database restore drill | Quarterly | [TBD] | [TBD] |
-| Application failover | Semi-annually | [TBD] | [TBD] |
-| Full DR simulation | Annually | [TBD] | [TBD] |
+| Backup verification | Monthly | Not yet performed | February 2026 |
+| Database restore drill | Quarterly | Not yet performed | Q1 2026 (March) |
+| Application failover | Semi-annually | Not yet performed | Q2 2026 (June) |
+| Full DR simulation | Annually | Not yet performed | Q4 2026 |
+
+**Note:** Test results are recorded in `/docs/security/dr-drill-log.md`
 
 ### 6.2 Test Procedures
 
@@ -215,10 +217,10 @@ resource "aws_db_instance" "healthprep" {
 
 | Role | Responsibility | Contact |
 |------|----------------|---------|
-| **Operations Lead** | Execute recovery procedures | [TBD] |
-| **Database Administrator** | Database backup/restore | [TBD] |
-| **Security Lead** | Incident coordination, compliance | [TBD] |
-| **Communications Lead** | Customer and stakeholder updates | [TBD] |
+| **Operations Lead** | Execute recovery procedures | Mitchell Fusillo (mitch@fuscodigital.com, 716-909-8567) |
+| **Database Administrator** | Database backup/restore | Mitchell Fusillo (mitch@fuscodigital.com, 716-909-8567) |
+| **Security Lead** | Incident coordination, compliance | Mitchell Fusillo (mitch@fuscodigital.com, 716-909-8567) |
+| **Communications Lead** | Customer and stakeholder updates | Mitchell Fusillo (mitch@fuscodigital.com, 716-909-8567) |
 
 ---
 
@@ -257,8 +259,8 @@ Incident Detected → Operations Lead → Security Lead → Executive Team
 
 | Vendor | Support Level | Contact |
 |--------|---------------|---------|
-| AWS | Enterprise Support | [TBD] |
-| Epic | App Orchard Support | [TBD] |
+| AWS | Standard Support | via AWS Console |
+| Epic | App Orchard Support | appmarket@epic.com |
 
 ---
 
@@ -276,7 +278,8 @@ This plan must be reviewed when:
 
 | Version | Date | Changes | Approved By |
 |---------|------|---------|-------------|
-| 1.0 | January 2026 | Initial release | [TBD] |
+| 1.0 | January 2026 | Initial release | Mitchell Fusillo |
+| 1.1 | February 2026 | Added AWS resource ARNs, contact information, test schedule dates | Mitchell Fusillo |
 
 ---
 
@@ -285,17 +288,30 @@ This plan must be reviewed when:
 ### Emergency Contacts
 | Role | Name | Phone | Email |
 |------|------|-------|-------|
-| Operations Lead | [TBD] | [TBD] | [TBD] |
-| Security Lead | [TBD] | [TBD] | [TBD] |
+| Operations Lead | Mitchell Fusillo | 716-909-8567 | mitch@fuscodigital.com |
+| Security Lead | Mitchell Fusillo | 716-909-8567 | mitch@fuscodigital.com |
 | AWS Support | - | - | via Console |
 
 ### Key AWS Resources
 | Resource | ARN/ID | Region |
 |----------|--------|--------|
-| Production RDS | [TBD] | [TBD] |
-| Production ECS Cluster | [TBD] | [TBD] |
-| DR RDS Replica | [TBD] | [TBD] |
-| S3 Document Bucket | [TBD] | [TBD] |
+| Production RDS | `arn:aws:rds:us-east-2:179678238031:db:healthprep-db` | us-east-2 |
+| Production ECS Cluster | `arn:aws:ecs:us-east-2:179678238031:cluster/healthprep-service` | us-east-2 |
+| DR RDS Replica | Not configured (recommended for production) | - |
+| S3 Document Bucket | `health-prep-document-1771` | us-east-2 |
+
+### Secrets Manager Resources
+| Secret | ARN |
+|--------|-----|
+| DATABASE_URL | `arn:aws:secretsmanager:us-east-2:179678238031:secret:healthprep/DATABASE_URL-sy5E8L` |
+| SESSION_SECRET | `arn:aws:secretsmanager:us-east-2:179678238031:secret:healthprep/SESSION_SECRET-RDk8Fq` |
+| ENCRYPTION_KEY | `arn:aws:secretsmanager:us-east-2:179678238031:secret:healthprep/ENCRYPTION_KEY-l0r48U` |
+| SECRET_KEY | `arn:aws:secretsmanager:us-east-2:179678238031:secret:healthprep/SECRET_KEY-c3bm7T` |
+| FROM_EMAIL | `arn:aws:secretsmanager:us-east-2:179678238031:secret:healthprep/FROM_EMAIL-5liQCf` |
+| STRIPE_SECRET_KEY | `arn:aws:secretsmanager:us-east-2:179678238031:secret:healthprep/STRIPE_SECRET_KEY-nQlPex` |
+| RESEND_API_KEY | `arn:aws:secretsmanager:us-east-2:179678238031:secret:healthprep/RESEND_API_KEY-yp5Uf6` |
+| P_KEY_2025_08_A | `arn:aws:secretsmanager:us-east-2:179678238031:secret:healthprep/P_KEY_2025_08_A-eQ5zxs` |
+| NP_KEY_2025_08_A | `arn:aws:secretsmanager:us-east-2:179678238031:secret:healthprep/NP_KEY_2025_08_A-GevpZ3` |
 
 ### Recovery Runbook Links
 - [Database Recovery Runbook]
