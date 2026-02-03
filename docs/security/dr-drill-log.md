@@ -12,13 +12,25 @@
 
 | Date | Performed By | Result | Notes | Issues Found |
 |------|--------------|--------|-------|--------------|
-| | | | | |
+| 2026-02-03 | Mitchell Fusillo | PASS | 7 daily snapshots verified (Jan 29 - Feb 3), all status "available" | None |
+
+**February 2026 Drill Details:**
+- **Snapshots Verified:**
+  - rds:healthprep-db-2026-01-29-01-17 (available)
+  - rds:healthprep-db-2026-01-29-08-23 (available)
+  - rds:healthprep-db-2026-01-30-08-23 (available)
+  - rds:healthprep-db-2026-01-31-08-23 (available)
+  - rds:healthprep-db-2026-02-01-08-23 (available)
+  - rds:healthprep-db-2026-02-02-08-23 (available)
+  - rds:healthprep-db-2026-02-03-08-23 (available)
+- **Backup Schedule:** Daily at ~08:23 UTC
+- **Retention:** 7 days confirmed
 
 **Verification Checklist:**
-- [ ] Confirmed automated RDS snapshots are completing
+- [x] Confirmed automated RDS snapshots are completing
 - [ ] Verified snapshot integrity via test restore to non-production
 - [ ] Checked backup metrics in CloudWatch
-- [ ] Reviewed backup failure alerts (none expected)
+- [x] Reviewed backup failure alerts (none expected)
 - [ ] Documented restore time
 
 ---
@@ -112,10 +124,11 @@ aws ecs update-service \
 
 | Drill Type | Scheduled Date | Responsible Party | Status |
 |------------|----------------|-------------------|--------|
-| Monthly Backup Verification | February 2026 | Operations | Pending |
-| Quarterly Database Restore | March 2026 (Q1) | Operations | Pending |
-| Semi-Annual Failover | June 2026 (Q2) | Operations | Pending |
-| Annual Full DR Simulation | Q4 2026 | Operations + Security | Pending |
+| Monthly Backup Verification | February 2026 | Mitchell Fusillo | Complete |
+| Monthly Backup Verification | March 2026 | Mitchell Fusillo | Pending |
+| Quarterly Database Restore | March 2026 (Q1) | Mitchell Fusillo | Pending |
+| Semi-Annual Failover | June 2026 (Q2) | Mitchell Fusillo | Pending |
+| Annual Full DR Simulation | Q4 2026 | Mitchell Fusillo | Pending |
 
 ---
 
@@ -124,3 +137,4 @@ aws ecs update-service \
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | February 2026 | HealthPrep Operations | Initial template |
+| 1.1 | 2026-02-03 | Mitchell Fusillo | Recorded first monthly backup verification drill |
