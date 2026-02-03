@@ -45,7 +45,7 @@
 | HITRUST CSF | Certified (v11.5.1, 177 services) | AWS Artifact |
 | SOC 2 Type II | Current | AWS Artifact |
 | ISO 27001 | Certified | AWS Artifact |
-| HIPAA | BAA Available | AWS Artifact (signed) |
+| HIPAA | BAA Available | AWS Artifact (pending execution) |
 | FedRAMP | Authorized | AWS Artifact |
 
 #### Risk Assessment
@@ -60,7 +60,7 @@
 **Overall Risk:** Low (mitigated by compliance certifications)
 
 #### Mitigations in Place
-- [x] Business Associate Agreement (BAA) signed via AWS Artifact
+- [ ] Business Associate Agreement (BAA) pending execution via AWS Artifact
 - [x] Encryption at rest enabled (RDS, S3)
 - [x] Encryption in transit (TLS 1.2+)
 - [x] VPC isolation with security groups
