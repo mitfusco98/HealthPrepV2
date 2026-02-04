@@ -1,0 +1,19 @@
+~ $ aws inspector2 list-coverage --region us-east-2 \
+>   --filter-criteria '{"resourceType": [{"comparison": "EQUALS", "value": "AWS_ECR_CONTAINER_IMAGE"}]}' \
+>   --query 'coveredResources[].{Resource:resourceId,LastScanned:lastScannedAt}' \
+>   --output table
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|                                                                              ListCoverage                                                                              |
++----------------------------------+-------------------------------------------------------------------------------------------------------------------------------------+
+|            LastScanned           |                                                              Resource                                                               |
++----------------------------------+-------------------------------------------------------------------------------------------------------------------------------------+
+|  2026-02-04T02:15:12.881000+00:00|  arn:aws:ecr:us-east-2:179678238031:repository/healthprep/sha256:0491bf541cae96d88ff0e75e1e545854c1a2907914b90c8abd0d6c78e2e824f9   |
+|  2026-02-03T21:09:50.327000+00:00|  arn:aws:ecr:us-east-2:179678238031:repository/healthprep/sha256:0495ca286ab5fb574ed108d8e6c7f1e748e14e2ecc5ecde76cb668bdbf159cd4   |
+|  2026-02-04T02:16:05.140000+00:00|  arn:aws:ecr:us-east-2:179678238031:repository/healthprep/sha256:0d8d37562259f3dd97ee714a7ce3e6311d702141cef84f7e4bc7b0f01f01afb4   |
+|  2026-02-04T02:05:00.373000+00:00|  arn:aws:ecr:us-east-2:179678238031:repository/healthprep/sha256:258af7f20b2178382d2d31e42d36493f963adff6e0d3a20255e66654592932b8   |
+|  2026-02-04T02:06:46.795000+00:00|  arn:aws:ecr:us-east-2:179678238031:repository/healthprep/sha256:2b659e6ee17a60ecff038e37ecacb0dd445c4e14f036168b4a0a28d87733d94e   |
+|  2026-02-03T22:46:56.147000+00:00|  arn:aws:ecr:us-east-2:179678238031:repository/healthprep/sha256:4a5beab30357b53cff849fb19930a5f015e2703d42cd29b5bc962e6afa70c54b   |
+|  2026-02-04T02:03:19.574000+00:00|  arn:aws:ecr:us-east-2:179678238031:repository/healthprep/sha256:934d0bc507a45dcb0328cb635a79635ac8b8727e72e7d223a7b6fff31794a5da   |
+|  2026-02-04T02:03:57.959000+00:00|  arn:aws:ecr:us-east-2:179678238031:repository/healthprep/sha256:b7aa636d237b221a77dee36b081c2f5f8070df965fd8f1f6cf998dcebe53c12b   |
+|  2026-02-04T01:59:56.365000+00:00|  arn:aws:ecr:us-east-2:179678238031:repository/healthprep/sha256:bd1b349ec0c343124536dc1b7cc36c49a1b3755063761d4fb460f1a639d68fe4   |
+|  2026-02-04T02:06:54.046000+00:00|  arn:aws:ecr:us-east-2:179678238031:repository/healthprep/sha256:e7796d23e69328847fca133c56a6c842c424154cf1e9a4f5c9e540894a783e7b   |
