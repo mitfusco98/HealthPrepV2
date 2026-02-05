@@ -1,0 +1,88 @@
+{
+  "findingArn": "arn:aws:inspector2:us-east-2:179678238031:finding/764b48f83aa4bdc693496b415628ecaf",
+  "awsAccountId": "179678238031",
+  "type": "PACKAGE_VULNERABILITY",
+  "description": "In libexpat before 2.7.4, the doContent function does not properly determine the buffer size bufSize because there is no integer overflow check for tag buffer reallocation.",
+  "title": "CVE-2026-25210 - expat",
+  "remediation": {
+    "recommendation": {
+      "text": "None Provided"
+    }
+  },
+  "severity": "MEDIUM",
+  "firstObservedAt": "2026-02-03T22:54:50.359Z",
+  "lastObservedAt": "2026-02-03T22:54:50.359Z",
+  "updatedAt": "2026-02-03T22:54:50.359Z",
+  "status": "ACTIVE",
+  "resources": [
+    {
+      "type": "AWS_ECR_CONTAINER_IMAGE",
+      "id": "arn:aws:ecr:us-east-2:179678238031:repository/healthprep/sha256:e7f3f69f299078853186a2a84c4af6f94e7899bb21ede5ced0519658c4e72d04",
+      "partition": "aws",
+      "region": "us-east-2",
+      "tags": {},
+      "details": {
+        "awsEcrContainerImage": {
+          "repositoryName": "healthprep",
+          "imageTags": [
+            "3dd1245f3f2ad5d38599ce3afc074b002d60d312",
+            "latest"
+          ],
+          "pushedAt": "2026-02-03T22:54:28.563Z",
+          "architecture": "amd64",
+          "imageHash": "sha256:e7f3f69f299078853186a2a84c4af6f94e7899bb21ede5ced0519658c4e72d04",
+          "registry": "179678238031",
+          "platform": "DEBIAN_13"
+        }
+      }
+    }
+  ],
+  "inspectorScore": 6.9,
+  "inspectorScoreDetails": {
+    "adjustedCvss": {
+      "scoreSource": "NVD",
+      "cvssSource": "NVD",
+      "version": "3.1",
+      "score": 6.9,
+      "scoringVector": "CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:L",
+      "adjustments": []
+    }
+  },
+  "packageVulnerabilityDetails": {
+    "vulnerabilityId": "CVE-2026-25210",
+    "vulnerablePackages": [
+      {
+        "name": "expat",
+        "version": "2.7.1",
+        "sourceLayerHash": "sha256:be7ace63a583701dff24ca214ab49ea56e0cba8782a74de9bb8c61501b69de7d",
+        "epoch": 0,
+        "release": "2",
+        "arch": "AMD64",
+        "packageManager": "OS",
+        "fixedInVersion": "NotAvailable",
+        "remediation": "NotAvailable"
+      }
+    ],
+    "source": "DEBIAN_CVE",
+    "cvss": [
+      {
+        "baseScore": 6.9,
+        "scoringVector": "CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:L",
+        "version": "3.1",
+        "source": "NVD"
+      }
+    ],
+    "relatedVulnerabilities": [],
+    "sourceUrl": "https://security-tracker.debian.org/tracker/CVE-2026-25210",
+    "vendorSeverity": "not yet assigned",
+    "referenceUrls": [
+      "https://security-tracker.debian.org/tracker/CVE-2026-25210",
+      "https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1126697"
+    ]
+  },
+  "fixAvailable": "NO",
+  "exploitAvailable": "NO",
+  "epss": {
+    "score": 0.00005
+  }
+}
