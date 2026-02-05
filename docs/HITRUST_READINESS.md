@@ -106,8 +106,8 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 
 ### Technical Evidence
 
-- [ ] Network architecture diagram (AWS VPC design) - *Pending AWS migration*
-- [ ] Data flow diagram showing PHI paths - *Can be generated from codebase*
+- [x] Network architecture diagram (`/docs/security/aws-network-architecture.md`) - *VPC, subnets, security groups, traffic flow*
+- [x] Data flow diagram showing PHI paths (`/docs/security/aws-network-architecture.md`) - *Included in network architecture*
 - [x] Encryption key management documentation (`/docs/security/key-management-policy.md`)
 - [x] Access control matrix - *Implemented in code: User.role (root/admin/user), org_id scoping*
 - [x] Audit log samples (anonymized) - *Available via `/admin/logs` export*
@@ -136,7 +136,7 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 ## Pre-Assessment Actions
 
 1. ~~**Complete NIST 800-30 Risk Register**~~ - ✅ Complete (`/docs/NIST_800_30_RISK_REGISTER.md`)
-2. **Finalize AWS Architecture** - Complete VPC design and security group documentation
+2. ~~**Finalize AWS Architecture**~~ - ✅ Complete (`/docs/security/aws-network-architecture.md`)
 3. **Conduct Penetration Test** - Engage third-party for security assessment
 4. ~~**Review All Policies**~~ - ✅ Policies match technical implementations
 5. **Train Staff** - Document HIPAA/HITRUST awareness training completion
@@ -166,6 +166,7 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 | ECR image cleanup | Removed vulnerable images, only patched image remains | February 2026 |
 | 100% CVE accountability | 2 active findings (0 Critical, 0 High), all documented | February 2026 |
 | Inspector findings summary | Created `/docs/security/inspector-findings-summary.md` for HITRUST evidence | February 2026 |
+| Network architecture diagram | Created `/docs/security/aws-network-architecture.md` with VPC, subnets, security groups, PHI data flow | February 2026 |
 
 ### Remaining Gaps
 
@@ -173,8 +174,6 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 |-----|----------|-------|------------------|-------------|
 | Formal incident response testing | Medium | Mitchell Fusillo | Conduct tabletop exercise per IRP procedures | Pre-launch |
 | TOTP 2FA implementation | Low | Dev Team | Optional enhancement (justified by Epic MFA context) | Future |
-| Network architecture diagram | Medium | Mitchell Fusillo | Document AWS VPC, security groups, subnets | AWS migration |
-| Data flow diagram | Medium | Dev Team | Generate PHI flow documentation from codebase | Pre-launch |
 | Penetration test | High | Mitchell Fusillo | Engage third-party security firm | Pre-launch |
 | Workforce training records | Low | HR/Org Admin | Document HIPAA/HITRUST training completion | Pre-launch |
 | AWS BAA | Critical | Mitchell Fusillo | Execute Business Associate Agreement with AWS | AWS migration |
@@ -186,14 +185,14 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 - [x] CSP hardening (nonce-based, FHIR URL auto-detection)
 - [x] Vulnerability scanning (AWS Inspector enabled February 2026)
 - [x] Vendor risk assessment documentation (AWS, Epic, Stripe, Resend)
+- [x] Data flow diagram (included in `/docs/security/aws-network-architecture.md`)
 - [ ] Incident response tabletop exercise
-- [ ] Data flow diagram
 - [ ] Penetration test engagement
 
 **Phase 2: AWS Migration**
 - [x] Business Continuity Plan (`/docs/BUSINESS_CONTINUITY_PLAN.md`)
 - [x] DR drill procedures and logging (`/docs/security/dr-drill-log.md`)
-- [ ] Network architecture diagram
+- [x] Network architecture diagram (`/docs/security/aws-network-architecture.md`)
 - [ ] AWS BAA execution
 - [ ] Secret migration to AWS Secrets Manager
 
@@ -227,3 +226,4 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 | Vendor Risk Assessments | `/docs/security/vendor-risk-assessments.md` | Third-party vendor risk analysis |
 | Vulnerability Remediation Log | `/docs/security/vulnerability-remediation-log.md` | CVE tracking and remediation evidence |
 | Inspector Findings Summary | `/docs/security/inspector-findings-summary.md` | Point-in-time AWS Inspector evidence |
+| AWS Network Architecture | `/docs/security/aws-network-architecture.md` | VPC design, security groups, PHI data flow |
