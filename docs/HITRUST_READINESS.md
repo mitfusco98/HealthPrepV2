@@ -112,7 +112,9 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 - [x] Access control matrix - *Implemented in code: User.role (root/admin/user), org_id scoping*
 - [x] Audit log samples (anonymized) - *Available via `/admin/logs` export*
 - [ ] Penetration test results - *Pending third-party engagement*
-- [x] Vulnerability scan reports - *AWS Inspector enabled, `/docs/security/vulnerability-remediation-log.md`*
+- [x] Vulnerability scan reports - *AWS Inspector enabled, 100% CVE accountability achieved*
+  - `/docs/security/vulnerability-remediation-log.md` - Detailed CVE tracking
+  - `/docs/security/inspector-findings-summary.md` - Point-in-time Inspector evidence
 
 ### Administrative Evidence
 
@@ -161,6 +163,9 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 | Vulnerability scanning | AWS Inspector enabled for ECR container scanning | February 2026 |
 | Vulnerability remediation log | Created `/docs/security/vulnerability-remediation-log.md` | February 2026 |
 | First backup verification drill | Completed and logged in DR drill log | February 2026 |
+| ECR image cleanup | Removed vulnerable images, only patched image remains | February 2026 |
+| 100% CVE accountability | 2 active findings (0 Critical, 0 High), all documented | February 2026 |
+| Inspector findings summary | Created `/docs/security/inspector-findings-summary.md` for HITRUST evidence | February 2026 |
 
 ### Remaining Gaps
 
@@ -173,7 +178,7 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 | Penetration test | High | Mitchell Fusillo | Engage third-party security firm | Pre-launch |
 | Workforce training records | Low | HR/Org Admin | Document HIPAA/HITRUST training completion | Pre-launch |
 | AWS BAA | Critical | Mitchell Fusillo | Execute Business Associate Agreement with AWS | AWS migration |
-| Expat CVE remediation | Low | Mitchell Fusillo | Monitor Debian for patch release | Ongoing |
+| Expat/sqlite3 CVE remediation | Low | Mitchell Fusillo | Monitor Debian for patch releases (2 active findings) | Ongoing |
 
 ### Remediation Timeline
 
@@ -221,3 +226,4 @@ This document maps HealthPrep security controls to HITRUST CSF domains for Coalf
 | DR Drill Log | `/docs/security/dr-drill-log.md` | BCP/DR test execution records |
 | Vendor Risk Assessments | `/docs/security/vendor-risk-assessments.md` | Third-party vendor risk analysis |
 | Vulnerability Remediation Log | `/docs/security/vulnerability-remediation-log.md` | CVE tracking and remediation evidence |
+| Inspector Findings Summary | `/docs/security/inspector-findings-summary.md` | Point-in-time AWS Inspector evidence |
