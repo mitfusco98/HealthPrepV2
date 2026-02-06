@@ -506,13 +506,34 @@ def _ensure_system_organization(db, Organization, User):
         root_admins = User.query.filter_by(is_root_admin=True).all()
         
         if not root_admins:
-            # Commit System Org creation if pending, then warn about missing root admin
-            if changes_pending:
-                db.session.commit()
-                logger.info("System Organization created (no root admins to configure)")
-            else:
-                logger.warning("No root admin user found - manual creation required")
-            return
+            root_admin_password = os.environ.get('ROOT_ADMIN_PASSWORD')
+            root_admin_username = os.environ.get('ROOT_ADMIN_USERNAME', 'rootadmin')
+            root_admin_email_val = os.environ.get('ROOT_ADMIN_EMAIL', 'admin@healthprep.com')
+            
+            if not root_admin_password:
+                if changes_pending:
+                    db.session.commit()
+                    logger.info("System Organization created (no root admins to configure)")
+                logger.warning("No root admin user found and ROOT_ADMIN_PASSWORD not set - cannot create root admin")
+                return
+            
+            from werkzeug.security import generate_password_hash
+            new_root_admin = User(
+                username=root_admin_username,
+                email=root_admin_email_val,
+                password_hash=generate_password_hash(root_admin_password),
+                role='root_admin',
+                is_admin=True,
+                is_root_admin=True,
+                org_id=0,
+                is_temp_password=True,
+                is_active_user=True,
+                email_verified=True,
+            )
+            db.session.add(new_root_admin)
+            changes_pending = True
+            root_admins = [new_root_admin]
+            logger.info(f"Root admin user '{root_admin_username}' created with temporary password (will require change on first login)")
         
         # Get configured email for primary root admin (if set)
         root_admin_email = os.environ.get('ROOT_ADMIN_EMAIL')
